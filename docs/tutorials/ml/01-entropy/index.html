@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Information Entropy | ML Fundamentals</title>
+    <meta name="description" content="Understanding Shannon entropy from first principles. Derive the formula, explore Huffman coding, and see why entropy measures surprise.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-trigger">
+                            Tutorials <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="../../ml/index.html" class="active">Machine Learning</a>
+                            <a href="../../linear-algebra/index.html">Linear Algebra</a>
+                            <a href="../../calculus/index.html">Calculus</a>
+                            <a href="../../physics/index.html">Physics</a>
+                        </div>
+                    </div>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/your-username/opus-tutorials" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Entropy</span>
+            </nav>
+            
+            <h1>01. Information Entropy</h1>
+            <p class="lead">
+                Why does entropy have the form $H(X) = -\sum p(x) \log p(x)$? 
+                Let's derive it from first principles and discover why entropy measures "surprise."
+            </p>
+            
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="tutorial-article">
+        <div class="container">
+            <article class="article-content" id="theory">
+                
+                <!-- Section 1 -->
+                <h2 id="intuition">The Intuition: Measuring Surprise</h2>
+                
+                <p>
+                    Imagine you're watching a coin flip. If it's a fair coin, you're equally uncertain about 
+                    heads or tails—maximum uncertainty. But if the coin has a 99% chance of heads, you're 
+                    barely uncertain at all. <strong>Entropy quantifies this uncertainty.</strong>
+                </p>
+                
+                <div class="definition-box">
+                    <div class="box-title">Core Intuition</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Entropy = Expected Surprise</strong>. Events that rarely happen are very surprising 
+                        when they do. Entropy averages this surprise over all possible outcomes, weighted by 
+                        their probabilities.
+                    </p>
+                </div>
+                
+                <p>
+                    Before we derive the formula, let's ask: what properties should a "surprise" function have?
+                </p>
+                
+                <ul>
+                    <li><strong>Rare events are more surprising:</strong> If $p(x)$ is small, surprise should be large.</li>
+                    <li><strong>Certain events have zero surprise:</strong> If $p(x) = 1$, no surprise.</li>
+                    <li><strong>Independent events combine additively:</strong> Surprise of seeing A and B should be the sum of individual surprises.</li>
+                </ul>
+                
+                <!-- Section 2: Derivation -->
+                <h2 id="derivation">Deriving the Entropy Formula</h2>
+                
+                <h3>Step 1: The Surprise Function</h3>
+                
+                <p>
+                    Let's call the surprise of an event with probability $p$ the function $I(p)$. 
+                    From our requirements:
+                </p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Requirements for Surprise</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            $I(p)$ should be <em>decreasing</em> in $p$ (rare events are more surprising)
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            $I(1) = 0$ (certain events have zero surprise)
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            $I(p_1 \cdot p_2) = I(p_1) + I(p_2)$ (surprises of independent events add)
+                        </div>
+                    </div>
+                </div>
+                
+                <p>
+                    The third requirement is crucial. What function satisfies $f(xy) = f(x) + f(y)$? 
+                    The <strong>logarithm</strong>!
+                </p>
+                
+                <div class="math-block">
+                    $$I(p) = -\log_2(p) = \log_2\left(\frac{1}{p}\right)$$
+                </div>
+                
+                <p>
+                    The negative sign ensures that $I(p)$ is positive (since $\log$ of a number less than 1 
+                    is negative). We use base 2 to measure information in <em>bits</em>.
+                </p>
+                
+                <div class="note-box">
+                    <div class="box-title">Why Logarithm?</div>
+                    <p style="margin-bottom: 0;">
+                        The logarithm is the <em>only</em> function (up to a constant) that converts multiplication 
+                        to addition: $\log(ab) = \log(a) + \log(b)$. This is why information content must be 
+                        logarithmic—it's a mathematical necessity, not an arbitrary choice.
+                    </p>
+                </div>
+                
+                <h3>Step 2: From Surprise to Entropy</h3>
+                
+                <p>
+                    Now we have the surprise for a single event. But we want to measure the uncertainty 
+                    of an entire random variable $X$. The natural approach: take the <em>expected</em> surprise.
+                </p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Deriving Shannon Entropy</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Start with expected value of surprise: $H(X) = \mathbb{E}[I(X)]$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Expand the expectation: $H(X) = \sum_{x} p(x) \cdot I(p(x))$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Substitute $I(p) = -\log_2(p)$: 
+                            $$H(X) = \sum_{x} p(x) \cdot (-\log_2 p(x))$$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Shannon Entropy:</strong>
+                            $$\boxed{H(X) = -\sum_{x \in \mathcal{X}} p(x) \log_2 p(x)}$$
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 3: Examples -->
+                <h2 id="examples">Concrete Examples</h2>
+                
+                <h3>Example 1: Fair Coin</h3>
+                
+                <p>A fair coin has $p(\text{heads}) = p(\text{tails}) = 0.5$.</p>
+                
+                <div class="math-block">
+                    $$H = -\left(0.5 \log_2(0.5) + 0.5 \log_2(0.5)\right) = -2 \times 0.5 \times (-1) = 1 \text{ bit}$$
+                </div>
+                
+                <p>
+                    One bit of entropy means we need one binary question to determine the outcome. 
+                    Makes sense: "Is it heads?" fully resolves the uncertainty.
+                </p>
+                
+                <h3>Example 2: Biased Coin</h3>
+                
+                <p>Consider a coin with $p(\text{heads}) = 0.99$, $p(\text{tails}) = 0.01$.</p>
+                
+                <div class="math-block">
+                    $$H = -(0.99 \log_2(0.99) + 0.01 \log_2(0.01)) \approx 0.08 \text{ bits}$$
+                </div>
+                
+                <p>
+                    Only 0.08 bits! There's almost no uncertainty—you can predict heads with 99% accuracy.
+                </p>
+                
+                <h3>Example 3: Eight-Sided Die</h3>
+                
+                <p>A fair 8-sided die has $p(i) = 1/8$ for each face.</p>
+                
+                <div class="math-block">
+                    $$H = -\sum_{i=1}^{8} \frac{1}{8} \log_2\left(\frac{1}{8}\right) = -8 \times \frac{1}{8} \times (-3) = 3 \text{ bits}$$
+                </div>
+                
+                <p>
+                    Three bits! This matches our intuition: we need 3 binary questions to identify one of 8 equally likely outcomes 
+                    (think binary search).
+                </p>
+                
+                <!-- Section 4: Connection to Coding -->
+                <h2 id="coding">Entropy and Optimal Coding</h2>
+                
+                <p>
+                    Here's where entropy becomes practical. Shannon proved that entropy equals the minimum 
+                    average number of bits needed to encode messages from a source.
+                </p>
+                
+                <div class="definition-box">
+                    <div class="box-title">Shannon's Source Coding Theorem</div>
+                    <p style="margin-bottom: 0;">
+                        For any prefix-free code, the average code length $\bar{L}$ satisfies 
+                        $\bar{L} \geq H(X)$. Huffman coding achieves $\bar{L} < H(X) + 1$.
+                    </p>
+                </div>
+                
+                <p>
+                    This is why entropy matters for machine learning: <strong>learning is compression</strong>. 
+                    A model that predicts well can encode data efficiently, and vice versa.
+                </p>
+                
+                <!-- Section 5: ML Connection -->
+                <h2 id="ml-connection">Entropy in Machine Learning</h2>
+                
+                <h3>Cross-Entropy Loss</h3>
+                
+                <p>
+                    When training classifiers, we minimize <em>cross-entropy</em> between the true 
+                    distribution $p$ and our model's predictions $q$:
+                </p>
+                
+                <div class="math-block">
+                    $$H(p, q) = -\sum_{x} p(x) \log q(x)$$
+                </div>
+                
+                <p>
+                    In classification, $p$ is one-hot (true label) and $q$ is the softmax output. 
+                    Cross-entropy simplifies to $-\log q(\text{correct class})$.
+                </p>
+                
+                <div class="warning-box">
+                    <div class="box-title">Key Insight</div>
+                    <p style="margin-bottom: 0;">
+                        Minimizing cross-entropy is equivalent to maximizing log-likelihood. 
+                        The model learns to assign high probability to the correct answers, 
+                        which minimizes the "surprise" when seeing training data.
+                    </p>
+                </div>
+                
+                <h3>Maximum Entropy Principle</h3>
+                
+                <p>
+                    When you don't know which distribution to use, choose the one with maximum entropy 
+                    subject to your constraints. This is the <em>least biased</em> choice.
+                </p>
+                
+                <ul>
+                    <li>Constrained only to sum to 1? → Uniform distribution</li>
+                    <li>Constrained to have specific mean and variance? → Gaussian distribution</li>
+                </ul>
+                
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../00-probability/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Probability Concepts</span>
+                    </a>
+                    <a href="../02-kl-divergence/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">KL Divergence →</span>
+                    </a>
+                </div>
+                
+            </article>
+        </div>
+    </main>
+
+    <!-- Table of Contents (floating) -->
+    <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#intuition" class="toc-link">The Intuition</a>
+            <a href="#derivation" class="toc-link">Deriving the Formula</a>
+            <a href="#examples" class="toc-link">Concrete Examples</a>
+            <a href="#coding" class="toc-link">Entropy and Coding</a>
+            <a href="#ml-connection" class="toc-link">Entropy in ML</a>
+        </nav>
+    </aside>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/your-username/opus-tutorials" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>
