@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variational Autoencoders | ML Fundamentals</title>
+    <meta name="description" content="Understand VAEs from first principles: the ELBO, reparameterization trick, and how to learn latent representations.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-trigger">
+                            Tutorials <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="../../ml/index.html" class="active">Machine Learning</a>
+                            <a href="../../linear-algebra/index.html">Linear Algebra</a>
+                            <a href="../../calculus/index.html">Calculus</a>
+                            <a href="../../physics/index.html">Physics</a>
+                        </div>
+                    </div>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/your-username/opus-tutorials" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>VAEs</span>
+            </nav>
+            
+            <h1>12. Variational Autoencoders</h1>
+            <p class="lead">
+                VAEs combine deep learning with Bayesian inference. They learn to compress data 
+                into meaningful latent representations while enabling generation of new samples.
+            </p>
+            
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="tutorial-article">
+        <div class="container">
+            <article class="article-content" id="theory">
+                
+                <!-- Section 1 -->
+                <h2 id="generative-model">The Generative Model</h2>
+                
+                <p>
+                    A VAE defines a generative process:
+                </p>
+                
+                <div class="math-block">
+                    $$\mathbf{z} \sim p(\mathbf{z}) = \mathcal{N}(\mathbf{0}, \mathbf{I})$$
+                    $$\mathbf{x} \sim p_\theta(\mathbf{x}|\mathbf{z})$$
+                </div>
+                
+                <p>
+                    Sample a latent code $\mathbf{z}$ from a simple prior, then decode it into 
+                    an observation $\mathbf{x}$ using a neural network.
+                </p>
+                
+                <div class="definition-box">
+                    <div class="box-title">The Goal</div>
+                    <p style="margin-bottom: 0;">
+                        Learn parameters $\theta$ that maximize the likelihood of the data:
+                        $$\log p_\theta(\mathbf{x}) = \log \int p_\theta(\mathbf{x}|\mathbf{z}) p(\mathbf{z}) d\mathbf{z}$$
+                        This integral is intractable—we can't compute it directly.
+                    </p>
+                </div>
+                
+                <!-- Section 2 -->
+                <h2 id="elbo">The Evidence Lower Bound (ELBO)</h2>
+                
+                <p>
+                    We can't maximize $\log p_\theta(\mathbf{x})$ directly, but we can maximize 
+                    a lower bound. Introduce an approximate posterior $q_\phi(\mathbf{z}|\mathbf{x})$:
+                </p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Deriving the ELBO</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Start with: $\log p_\theta(\mathbf{x}) = \log \int p_\theta(\mathbf{x}, \mathbf{z}) d\mathbf{z}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Multiply by 1: $= \log \int \frac{q_\phi(\mathbf{z}|\mathbf{x})}{q_\phi(\mathbf{z}|\mathbf{x})} p_\theta(\mathbf{x}, \mathbf{z}) d\mathbf{z}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Jensen's inequality: $\geq \int q_\phi(\mathbf{z}|\mathbf{x}) \log \frac{p_\theta(\mathbf{x}, \mathbf{z})}{q_\phi(\mathbf{z}|\mathbf{x})} d\mathbf{z}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            Rearrange to get the <strong>ELBO</strong>:
+                            $$\mathcal{L}(\theta, \phi; \mathbf{x}) = \mathbb{E}_{q_\phi(\mathbf{z}|\mathbf{x})}[\log p_\theta(\mathbf{x}|\mathbf{z})] - D_{KL}(q_\phi(\mathbf{z}|\mathbf{x}) \| p(\mathbf{z}))$$
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="note-box">
+                    <div class="box-title">Interpretation</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>First term:</strong> Reconstruction quality—can the decoder reconstruct $\mathbf{x}$ from $\mathbf{z}$?<br>
+                        <strong>Second term:</strong> Regularization—keep the posterior close to the prior.
+                    </p>
+                </div>
+                
+                <!-- Section 3 -->
+                <h2 id="reparameterization">The Reparameterization Trick</h2>
+                
+                <p>
+                    We need gradients through $\mathbb{E}_{q_\phi}[\cdot]$, but sampling breaks 
+                    backpropagation. The solution: reparameterize the sampling.
+                </p>
+                
+                <p>
+                    Let $q_\phi(\mathbf{z}|\mathbf{x}) = \mathcal{N}(\boldsymbol{\mu}_\phi(\mathbf{x}), \text{diag}(\boldsymbol{\sigma}_\phi^2(\mathbf{x})))$. Then:
+                </p>
+                
+                <div class="math-block">
+                    $$\mathbf{z} = \boldsymbol{\mu}_\phi(\mathbf{x}) + \boldsymbol{\sigma}_\phi(\mathbf{x}) \odot \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$$
+                </div>
+                
+                <p>
+                    Now $\mathbf{z}$ is a deterministic function of $\phi$ and $\boldsymbol{\epsilon}$. 
+                    Gradients flow through $\boldsymbol{\mu}$ and $\boldsymbol{\sigma}$!
+                </p>
+                
+                <!-- Section 4 -->
+                <h2 id="architecture">VAE Architecture</h2>
+                
+                <p>
+                    The VAE has two networks:
+                </p>
+                
+                <ul>
+                    <li><strong>Encoder</strong> $q_\phi(\mathbf{z}|\mathbf{x})$: Maps input to latent distribution parameters $(\boldsymbol{\mu}, \boldsymbol{\sigma})$</li>
+                    <li><strong>Decoder</strong> $p_\theta(\mathbf{x}|\mathbf{z})$: Maps latent code to reconstruction</li>
+                </ul>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Training Algorithm</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Encode: $\boldsymbol{\mu}, \boldsymbol{\sigma} = \text{Encoder}_\phi(\mathbf{x})$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Sample: $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$, $\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\epsilon}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Decode: $\hat{\mathbf{x}} = \text{Decoder}_\theta(\mathbf{z})$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            Loss: $\mathcal{L} = \|\mathbf{x} - \hat{\mathbf{x}}\|^2 + D_{KL}(q_\phi \| p)$
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 5 -->
+                <h2 id="kl-closed-form">KL Divergence Closed Form</h2>
+                
+                <p>
+                    For Gaussian encoder and standard normal prior, the KL term has a closed form:
+                </p>
+                
+                <div class="math-block">
+                    $$D_{KL}(\mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\sigma}^2) \| \mathcal{N}(\mathbf{0}, \mathbf{I})) = \frac{1}{2}\sum_{j=1}^{J}\left(\sigma_j^2 + \mu_j^2 - 1 - \log\sigma_j^2\right)$$
+                </div>
+                
+                <div class="warning-box">
+                    <div class="box-title">Posterior Collapse</div>
+                    <p style="margin-bottom: 0;">
+                        Sometimes the encoder learns to ignore the input and output the prior 
+                        ($\boldsymbol{\mu} = \mathbf{0}$, $\boldsymbol{\sigma} = \mathbf{1}$). 
+                        The decoder then ignores $\mathbf{z}$ entirely. Solutions: KL annealing, 
+                        free bits, or stronger decoders.
+                    </p>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../11-rnn/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← RNNs</span>
+                    </a>
+                    <a href="../13-variational-inference/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Variational Inference →</span>
+                    </a>
+                </div>
+                
+            </article>
+        </div>
+    </main>
+
+    <!-- Table of Contents (floating) -->
+    <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#generative-model" class="toc-link">Generative Model</a>
+            <a href="#elbo" class="toc-link">The ELBO</a>
+            <a href="#reparameterization" class="toc-link">Reparameterization</a>
+            <a href="#architecture" class="toc-link">Architecture</a>
+            <a href="#kl-closed-form" class="toc-link">KL Closed Form</a>
+        </nav>
+    </aside>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/your-username/opus-tutorials" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variational Inference | ML Fundamentals</title>
+    <meta name="description" content="Master variational inference: approximate Bayesian inference by optimization. Understand mean-field, ELBO, and modern VI methods.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-trigger">
+                            Tutorials <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="../../ml/index.html" class="active">Machine Learning</a>
+                            <a href="../../linear-algebra/index.html">Linear Algebra</a>
+                            <a href="../../calculus/index.html">Calculus</a>
+                            <a href="../../physics/index.html">Physics</a>
+                        </div>
+                    </div>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/your-username/opus-tutorials" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Variational Inference</span>
+            </nav>
+            
+            <h1>13. Variational Inference</h1>
+            <p class="lead">
+                When exact Bayesian inference is intractable, variational inference turns it 
+                into optimization. Learn the general framework that powers VAEs, Bayesian neural 
+                networks, and modern probabilistic models.
+            </p>
+            
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="tutorial-article">
+        <div class="container">
+            <article class="article-content" id="theory">
+                
+                <!-- Section 1 -->
+                <h2 id="problem">The Inference Problem</h2>
+                
+                <p>
+                    In Bayesian inference, we want the posterior $p(\mathbf{z}|\mathbf{x})$ over 
+                    latent variables $\mathbf{z}$ given observations $\mathbf{x}$. By Bayes' theorem:
+                </p>
+                
+                <div class="math-block">
+                    $$p(\mathbf{z}|\mathbf{x}) = \frac{p(\mathbf{x}|\mathbf{z})p(\mathbf{z})}{p(\mathbf{x})} = \frac{p(\mathbf{x}|\mathbf{z})p(\mathbf{z})}{\int p(\mathbf{x}|\mathbf{z})p(\mathbf{z})d\mathbf{z}}$$
+                </div>
+                
+                <div class="definition-box">
+                    <div class="box-title">The Problem</div>
+                    <p style="margin-bottom: 0;">
+                        The denominator $p(\mathbf{x}) = \int p(\mathbf{x}|\mathbf{z})p(\mathbf{z})d\mathbf{z}$ 
+                        is often <strong>intractable</strong>—we cannot compute this integral analytically 
+                        or efficiently.
+                    </p>
+                </div>
+                
+                <!-- Section 2 -->
+                <h2 id="vi-idea">The Variational Inference Idea</h2>
+                
+                <p>
+                    Instead of computing $p(\mathbf{z}|\mathbf{x})$ exactly, <strong>approximate</strong> it 
+                    with a simpler distribution $q(\mathbf{z})$ from a tractable family $\mathcal{Q}$:
+                </p>
+                
+                <div class="math-block">
+                    $$q^*(\mathbf{z}) = \arg\min_{q \in \mathcal{Q}} D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}|\mathbf{x}))$$
+                </div>
+                
+                <p>
+                    Find the member of $\mathcal{Q}$ closest to the true posterior in KL divergence.
+                </p>
+                
+                <div class="note-box">
+                    <div class="box-title">Key Insight</div>
+                    <p style="margin-bottom: 0;">
+                        We've turned an <em>integration</em> problem into an <em>optimization</em> problem. 
+                        This is the core idea of variational inference.
+                    </p>
+                </div>
+                
+                <!-- Section 3 -->
+                <h2 id="elbo-derivation">Deriving the ELBO</h2>
+                
+                <p>
+                    We can't directly minimize $D_{KL}(q \| p)$ because it requires $p(\mathbf{x})$. 
+                    Let's decompose the log-evidence:
+                </p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">ELBO Derivation</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Start with: $\log p(\mathbf{x}) = \log p(\mathbf{x}) \int q(\mathbf{z}) d\mathbf{z} = \int q(\mathbf{z}) \log p(\mathbf{x}) d\mathbf{z}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Use $p(\mathbf{x}) = \frac{p(\mathbf{x},\mathbf{z})}{p(\mathbf{z}|\mathbf{x})}$:
+                            $= \int q(\mathbf{z}) \log \frac{p(\mathbf{x},\mathbf{z})}{p(\mathbf{z}|\mathbf{x})} d\mathbf{z}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Multiply by $\frac{q(\mathbf{z})}{q(\mathbf{z})}$:
+                            $= \int q(\mathbf{z}) \log \frac{p(\mathbf{x},\mathbf{z})}{q(\mathbf{z})} d\mathbf{z} + \int q(\mathbf{z}) \log \frac{q(\mathbf{z})}{p(\mathbf{z}|\mathbf{x})} d\mathbf{z}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            This gives us:
+                            $$\log p(\mathbf{x}) = \underbrace{\mathbb{E}_q[\log p(\mathbf{x},\mathbf{z}) - \log q(\mathbf{z})]}_{\text{ELBO } \mathcal{L}(q)} + \underbrace{D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}|\mathbf{x}))}_{\geq 0}$$
+                        </div>
+                    </div>
+                </div>
+                
+                <p>
+                    Since KL divergence is non-negative: $\log p(\mathbf{x}) \geq \mathcal{L}(q)$. 
+                    The ELBO is a <strong>lower bound</strong> on the log-evidence.
+                </p>
+                
+                <!-- Section 4 -->
+                <h2 id="mean-field">Mean-Field Variational Inference</h2>
+                
+                <p>
+                    A common choice: assume $q$ factorizes over latent variables:
+                </p>
+                
+                <div class="math-block">
+                    $$q(\mathbf{z}) = \prod_{j=1}^{m} q_j(z_j)$$
+                </div>
+                
+                <p>This is the <strong>mean-field</strong> assumption—it ignores correlations between latent variables.</p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Coordinate Ascent Updates</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Hold all $q_j$ fixed except $q_k$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Optimal $q_k^*$ satisfies:
+                            $$\log q_k^*(z_k) = \mathbb{E}_{-k}[\log p(\mathbf{x}, \mathbf{z})] + \text{const}$$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Where $\mathbb{E}_{-k}$ means expectation over all $q_j$ except $j = k$
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 5 -->
+                <h2 id="stochastic-vi">Stochastic Variational Inference</h2>
+                
+                <p>
+                    For large datasets, use stochastic gradients of the ELBO. Combined with the 
+                    reparameterization trick (from VAEs), this enables scalable variational inference.
+                </p>
+                
+                <div class="math-block">
+                    $$\nabla_\phi \mathcal{L} = \nabla_\phi \mathbb{E}_{q_\phi}[\log p(\mathbf{x},\mathbf{z}) - \log q_\phi(\mathbf{z})]$$
+                </div>
+                
+                <p>
+                    Use Monte Carlo samples to estimate this gradient. With reparameterization:
+                </p>
+                
+                <div class="math-block">
+                    $$\nabla_\phi \mathcal{L} \approx \frac{1}{L}\sum_{l=1}^{L} \nabla_\phi [\log p(\mathbf{x}, g_\phi(\boldsymbol{\epsilon}^{(l)})) - \log q_\phi(g_\phi(\boldsymbol{\epsilon}^{(l)}))]$$
+                </div>
+                
+                <div class="warning-box">
+                    <div class="box-title">Modern VI Methods</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Black-box VI:</strong> Works with any model using score function gradients<br>
+                        <strong>Normalizing flows:</strong> Rich posterior families beyond mean-field<br>
+                        <strong>Amortized inference:</strong> Neural networks predict variational parameters (like VAE encoders)
+                    </p>
+                </div>
+                
+                <!-- Section 6 -->
+                <h2 id="comparison">VI vs MCMC</h2>
+                
+                <p>
+                    Two main approaches to approximate inference:
+                </p>
+                
+                <ul>
+                    <li><strong>Variational Inference:</strong> Fast, deterministic, gives lower bound on evidence, but biased (restricted family)</li>
+                    <li><strong>MCMC:</strong> Asymptotically exact, but slow, hard to diagnose convergence</li>
+                </ul>
+                
+                <p>
+                    VI is preferred when speed matters (large data, real-time). MCMC is preferred 
+                    when accuracy matters and compute is available.
+                </p>
+                
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../12-vae/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← VAEs</span>
+                    </a>
+                    <div class="tutorial-nav-link next disabled">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">End of Series →</span>
+                    </div>
+                </div>
+                
+            </article>
+        </div>
+    </main>
+
+    <!-- Table of Contents (floating) -->
+    <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#problem" class="toc-link">The Problem</a>
+            <a href="#vi-idea" class="toc-link">VI Idea</a>
+            <a href="#elbo-derivation" class="toc-link">ELBO Derivation</a>
+            <a href="#mean-field" class="toc-link">Mean-Field VI</a>
+            <a href="#stochastic-vi" class="toc-link">Stochastic VI</a>
+            <a href="#comparison" class="toc-link">VI vs MCMC</a>
+        </nav>
+    </aside>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/your-username/opus-tutorials" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regularization | ML Fundamentals</title>
+    <meta name="description" content="Understand regularization from a Bayesian perspective. L1, L2, dropout, and why constraining models improves generalization.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-trigger">
+                            Tutorials <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="../../ml/index.html" class="active">Machine Learning</a>
+                            <a href="../../linear-algebra/index.html">Linear Algebra</a>
+                            <a href="../../calculus/index.html">Calculus</a>
+                            <a href="../../physics/index.html">Physics</a>
+                        </div>
+                    </div>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/your-username/opus-tutorials" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Regularization</span>
+            </nav>
+            
+            <h1>07. Regularization</h1>
+            <p class="lead">
+                Regularization prevents overfitting by adding constraints to learning. 
+                From a Bayesian view, it's just incorporating prior beliefs about good solutions.
+            </p>
+            
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="tutorial-article">
+        <div class="container">
+            <article class="article-content" id="theory">
+                
+                <!-- Section 1 -->
+                <h2 id="overfitting">The Overfitting Problem</h2>
+                
+                <p>
+                    A model that's too flexible can <strong>memorize</strong> training data rather than 
+                    <strong>learn</strong> underlying patterns. It achieves low training error but 
+                    high test error.
+                </p>
+                
+                <div class="definition-box">
+                    <div class="box-title">Bias-Variance Tradeoff</div>
+                    <p style="margin-bottom: 0;">
+                        $$\text{Expected Error} = \text{Bias}^2 + \text{Variance} + \text{Noise}$$
+                        Simple models have high bias (underfitting). Complex models have high variance (overfitting).
+                        Regularization reduces variance at the cost of some bias.
+                    </p>
+                </div>
+                
+                <!-- Section 2 -->
+                <h2 id="l2-regularization">L2 Regularization (Ridge/Weight Decay)</h2>
+                
+                <p>
+                    Add a penalty proportional to the squared magnitude of weights:
+                </p>
+                
+                <div class="math-block">
+                    $$L_{\text{reg}} = L_{\text{data}} + \frac{\lambda}{2} \|\mathbf{w}\|_2^2 = L_{\text{data}} + \frac{\lambda}{2} \sum_i w_i^2$$
+                </div>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Bayesian Interpretation</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Assume Gaussian prior: $p(\mathbf{w}) = \mathcal{N}(\mathbf{0}, \sigma_w^2 \mathbf{I})$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            MAP estimation: $\hat{\mathbf{w}} = \arg\max_{\mathbf{w}} p(\mathbf{w}|\mathcal{D}) \propto p(\mathcal{D}|\mathbf{w}) p(\mathbf{w})$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Take negative log: $-\log p(\mathbf{w}|\mathcal{D}) = -\log p(\mathcal{D}|\mathbf{w}) + \frac{1}{2\sigma_w^2}\|\mathbf{w}\|^2 + \text{const}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            This is exactly L2 regularization with $\lambda = 1/\sigma_w^2$!
+                        </div>
+                    </div>
+                </div>
+                
+                <p>
+                    <strong>Effect:</strong> L2 shrinks weights toward zero but rarely makes them exactly zero. 
+                    It prefers many small weights over few large weights.
+                </p>
+                
+                <!-- Section 3 -->
+                <h2 id="l1-regularization">L1 Regularization (Lasso)</h2>
+                
+                <div class="math-block">
+                    $$L_{\text{reg}} = L_{\text{data}} + \lambda \|\mathbf{w}\|_1 = L_{\text{data}} + \lambda \sum_i |w_i|$$
+                </div>
+                
+                <p>
+                    <strong>Bayesian view:</strong> L1 corresponds to a <em>Laplace prior</em> on weights:
+                </p>
+                
+                <div class="math-block">
+                    $$p(w) = \frac{\lambda}{2} e^{-\lambda|w|}$$
+                </div>
+                
+                <div class="note-box">
+                    <div class="box-title">Sparsity</div>
+                    <p style="margin-bottom: 0;">
+                        L1 regularization drives many weights to <em>exactly</em> zero, producing sparse solutions. 
+                        This is useful for feature selection—zero weights mean the corresponding features are ignored.
+                    </p>
+                </div>
+                
+                <!-- Section 4 -->
+                <h2 id="dropout">Dropout</h2>
+                
+                <p>
+                    During training, randomly set each neuron's output to zero with probability $p$:
+                </p>
+                
+                <div class="math-block">
+                    $$\tilde{h}_i = \begin{cases} 0 & \text{with probability } p \\ h_i / (1-p) & \text{with probability } 1-p \end{cases}$$
+                </div>
+                
+                <p>The division by $(1-p)$ keeps expected values unchanged.</p>
+                
+                <div class="warning-box">
+                    <div class="box-title">Interpretations of Dropout</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Ensemble view:</strong> Training exponentially many sub-networks<br>
+                        <strong>Noise injection:</strong> Makes model robust to missing features<br>
+                        <strong>Bayesian view:</strong> Approximate variational inference over network weights
+                    </p>
+                </div>
+                
+                <!-- Section 5 -->
+                <h2 id="other-techniques">Other Regularization Techniques</h2>
+                
+                <h3>Early Stopping</h3>
+                
+                <p>
+                    Stop training when validation error starts increasing. Simple and effective— 
+                    implicitly regularizes by limiting optimization steps.
+                </p>
+                
+                <h3>Data Augmentation</h3>
+                
+                <p>
+                    Create more training data through transformations (rotations, crops, noise). 
+                    Forces the model to learn invariances.
+                </p>
+                
+                <h3>Batch Normalization</h3>
+                
+                <p>
+                    Has regularizing effects due to noise from mini-batch statistics. 
+                    Often allows reducing dropout.
+                </p>
+                
+                <h3>Label Smoothing</h3>
+                
+                <p>
+                    Instead of hard labels (0 or 1), use soft labels (0.1 or 0.9). 
+                    Prevents overconfidence and improves calibration.
+                </p>
+                
+                <div class="math-block">
+                    $$y_{\text{smooth}} = (1 - \epsilon) y_{\text{hard}} + \frac{\epsilon}{K}$$
+                </div>
+                
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../06-backpropagation/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Backpropagation</span>
+                    </a>
+                    <a href="../08-batch-normalization/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Batch Normalization →</span>
+                    </a>
+                </div>
+                
+            </article>
+        </div>
+    </main>
+
+    <!-- Table of Contents (floating) -->
+    <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#overfitting" class="toc-link">Overfitting Problem</a>
+            <a href="#l2-regularization" class="toc-link">L2 Regularization</a>
+            <a href="#l1-regularization" class="toc-link">L1 Regularization</a>
+            <a href="#dropout" class="toc-link">Dropout</a>
+            <a href="#other-techniques" class="toc-link">Other Techniques</a>
+        </nav>
+    </aside>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/your-username/opus-tutorials" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

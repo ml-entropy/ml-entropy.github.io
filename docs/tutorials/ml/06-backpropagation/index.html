@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backpropagation | ML Fundamentals</title>
+    <meta name="description" content="Understand backpropagation from first principles. Derive the algorithm using the chain rule and see why it makes deep learning possible.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-trigger">
+                            Tutorials <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="../../ml/index.html" class="active">Machine Learning</a>
+                            <a href="../../linear-algebra/index.html">Linear Algebra</a>
+                            <a href="../../calculus/index.html">Calculus</a>
+                            <a href="../../physics/index.html">Physics</a>
+                        </div>
+                    </div>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/your-username/opus-tutorials" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Backpropagation</span>
+            </nav>
+            
+            <h1>06. Backpropagation</h1>
+            <p class="lead">
+                Backpropagation is just the chain rule applied systematically. Understanding it 
+                deeply reveals why certain architectures train better and how gradients flow 
+                through networks.
+            </p>
+            
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="tutorial-article">
+        <div class="container">
+            <article class="article-content" id="theory">
+                
+                <!-- Section 1 -->
+                <h2 id="chain-rule">The Chain Rule</h2>
+                
+                <p>
+                    If $y = f(u)$ and $u = g(x)$, then:
+                </p>
+                
+                <div class="math-block">
+                    $$\frac{dy}{dx} = \frac{dy}{du} \cdot \frac{du}{dx}$$
+                </div>
+                
+                <p>
+                    This simple rule, applied recursively, is the entire basis of backpropagation.
+                </p>
+                
+                <div class="definition-box">
+                    <div class="box-title">Multivariate Chain Rule</div>
+                    <p style="margin-bottom: 0;">
+                        If $y$ depends on $u_1, \ldots, u_n$ and each $u_i$ depends on $x$:
+                        $$\frac{\partial y}{\partial x} = \sum_{i=1}^{n} \frac{\partial y}{\partial u_i} \cdot \frac{\partial u_i}{\partial x}$$
+                    </p>
+                </div>
+                
+                <!-- Section 2 -->
+                <h2 id="computational-graph">Computational Graphs</h2>
+                
+                <p>
+                    A neural network is a <strong>computational graph</strong>—a directed acyclic graph 
+                    where nodes are operations and edges carry values.
+                </p>
+                
+                <p>
+                    <strong>Forward pass:</strong> Compute outputs from inputs, left to right.<br>
+                    <strong>Backward pass:</strong> Compute gradients from outputs to inputs, right to left.
+                </p>
+                
+                <div class="note-box">
+                    <div class="box-title">Key Insight</div>
+                    <p style="margin-bottom: 0;">
+                        Each node only needs to know its <em>local gradient</em>—how its output changes 
+                        with respect to its inputs. The chain rule combines these local gradients into 
+                        global gradients.
+                    </p>
+                </div>
+                
+                <!-- Section 3 -->
+                <h2 id="forward-backward">Forward and Backward Pass</h2>
+                
+                <p>Consider a simple network: $L = (wx + b - y)^2$</p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Forward Pass</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            $z_1 = wx$ (multiplication)
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            $z_2 = z_1 + b$ (addition)
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            $z_3 = z_2 - y$ (subtraction)
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            $L = z_3^2$ (square)
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Backward Pass</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            $\frac{\partial L}{\partial z_3} = 2z_3$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            $\frac{\partial L}{\partial z_2} = \frac{\partial L}{\partial z_3} \cdot 1 = 2z_3$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            $\frac{\partial L}{\partial b} = \frac{\partial L}{\partial z_2} \cdot 1 = 2z_3$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            $\frac{\partial L}{\partial w} = \frac{\partial L}{\partial z_2} \cdot \frac{\partial z_1}{\partial w} = 2z_3 \cdot x = 2(wx + b - y) \cdot x$
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 4 -->
+                <h2 id="layer-gradients">Gradients Through Layers</h2>
+                
+                <p>For a layer $\mathbf{y} = \sigma(\mathbf{W}\mathbf{x} + \mathbf{b})$:</p>
+                
+                <div class="math-block">
+                    $$\frac{\partial L}{\partial \mathbf{W}} = \frac{\partial L}{\partial \mathbf{y}} \odot \sigma'(\mathbf{z}) \cdot \mathbf{x}^T$$
+                </div>
+                
+                <div class="math-block">
+                    $$\frac{\partial L}{\partial \mathbf{x}} = \mathbf{W}^T \left(\frac{\partial L}{\partial \mathbf{y}} \odot \sigma'(\mathbf{z})\right)$$
+                </div>
+                
+                <p>
+                    where $\odot$ is element-wise multiplication and $\sigma'$ is the activation derivative.
+                </p>
+                
+                <!-- Section 5 -->
+                <h2 id="vanishing-exploding">Vanishing and Exploding Gradients</h2>
+                
+                <p>
+                    In deep networks, gradients get multiplied through many layers:
+                </p>
+                
+                <div class="math-block">
+                    $$\frac{\partial L}{\partial \mathbf{W}_1} = \frac{\partial L}{\partial \mathbf{y}_n} \cdot \prod_{i=2}^{n} \mathbf{W}_i \cdot \sigma'(\mathbf{z}_i) \cdot \ldots$$
+                </div>
+                
+                <div class="warning-box">
+                    <div class="box-title">The Problem</div>
+                    <p style="margin-bottom: 0;">
+                        If $|\sigma'| < 1$ consistently (like sigmoid), gradients <em>vanish</em> exponentially.<br>
+                        If $\|\mathbf{W}_i\| > 1$ consistently, gradients <em>explode</em> exponentially.<br>
+                        Either way, early layers don't learn properly.
+                    </p>
+                </div>
+                
+                <h3>Solutions</h3>
+                
+                <ul>
+                    <li><strong>ReLU:</strong> $\sigma'(z) = 1$ for $z > 0$ — no vanishing!</li>
+                    <li><strong>Residual connections:</strong> Gradients can flow directly through skip connections</li>
+                    <li><strong>Batch normalization:</strong> Keeps activations in good range</li>
+                    <li><strong>Careful initialization:</strong> Xavier/He initialization maintains variance</li>
+                    <li><strong>Gradient clipping:</strong> Caps gradient magnitude to prevent explosion</li>
+                </ul>
+                
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../05-combinatorics/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Combinatorics</span>
+                    </a>
+                    <a href="../07-regularization/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Regularization →</span>
+                    </a>
+                </div>
+                
+            </article>
+        </div>
+    </main>
+
+    <!-- Table of Contents (floating) -->
+    <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#chain-rule" class="toc-link">The Chain Rule</a>
+            <a href="#computational-graph" class="toc-link">Computational Graphs</a>
+            <a href="#forward-backward" class="toc-link">Forward & Backward</a>
+            <a href="#layer-gradients" class="toc-link">Layer Gradients</a>
+            <a href="#vanishing-exploding" class="toc-link">Vanishing/Exploding</a>
+        </nav>
+    </aside>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/your-username/opus-tutorials" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

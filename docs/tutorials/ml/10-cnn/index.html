@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convolutional Neural Networks | ML Fundamentals</title>
+    <meta name="description" content="Understand CNNs from first principles: convolutions, pooling, receptive fields, and why they work so well for images.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-trigger">
+                            Tutorials <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="../../ml/index.html" class="active">Machine Learning</a>
+                            <a href="../../linear-algebra/index.html">Linear Algebra</a>
+                            <a href="../../calculus/index.html">Calculus</a>
+                            <a href="../../physics/index.html">Physics</a>
+                        </div>
+                    </div>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/your-username/opus-tutorials" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>CNNs</span>
+            </nav>
+            
+            <h1>10. Convolutional Neural Networks</h1>
+            <p class="lead">
+                CNNs exploit the spatial structure of images through local connectivity and 
+                weight sharing. Let's understand why convolutions are so effective and derive 
+                the math behind them.
+            </p>
+            
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="tutorial-article">
+        <div class="container">
+            <article class="article-content" id="theory">
+                
+                <!-- Section 1 -->
+                <h2 id="motivation">Why Convolutions?</h2>
+                
+                <p>
+                    Fully connected layers don't scale to images. A 256×256 RGB image has 196,608 
+                    pixels. Connecting each to 1000 hidden units requires 196 million parameters—per layer!
+                </p>
+                
+                <div class="definition-box">
+                    <div class="box-title">Key Insights for Images</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Local connectivity:</strong> Pixels are most related to nearby pixels<br>
+                        <strong>Translation invariance:</strong> A cat is a cat regardless of position<br>
+                        <strong>Compositionality:</strong> Complex features build from simple ones
+                    </p>
+                </div>
+                
+                <p>
+                    Convolutions encode these priors directly into the architecture.
+                </p>
+                
+                <!-- Section 2 -->
+                <h2 id="convolution-operation">The Convolution Operation</h2>
+                
+                <p>
+                    A convolution slides a small <strong>kernel</strong> (filter) across the input:
+                </p>
+                
+                <div class="math-block">
+                    $$(I * K)_{i,j} = \sum_{m} \sum_{n} I_{i+m, j+n} \cdot K_{m,n}$$
+                </div>
+                
+                <p>
+                    For an input with $C_{in}$ channels and output with $C_{out}$ channels:
+                </p>
+                
+                <div class="math-block">
+                    $$Y_{c_{out}, i, j} = \sum_{c_{in}=1}^{C_{in}} \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} X_{c_{in}, i+m, j+n} \cdot W_{c_{out}, c_{in}, m, n} + b_{c_{out}}$$
+                </div>
+                
+                <div class="note-box">
+                    <div class="box-title">Parameter Sharing</div>
+                    <p style="margin-bottom: 0;">
+                        The same kernel is applied at every position. This dramatically reduces parameters 
+                        and forces the network to learn translation-invariant features.
+                    </p>
+                </div>
+                
+                <!-- Section 3 -->
+                <h2 id="output-size">Output Size Calculation</h2>
+                
+                <p>
+                    For input size $W$, kernel size $K$, padding $P$, and stride $S$:
+                </p>
+                
+                <div class="math-block">
+                    $$W_{out} = \left\lfloor \frac{W - K + 2P}{S} \right\rfloor + 1$$
+                </div>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Common Configurations</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Same padding:</strong> $P = (K-1)/2$, $S = 1$ → output same size as input
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Valid padding:</strong> $P = 0$ → output shrinks by $K-1$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Stride 2:</strong> Halves the spatial dimensions (downsampling)
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 4 -->
+                <h2 id="pooling">Pooling Layers</h2>
+                
+                <p>
+                    Pooling reduces spatial dimensions while maintaining important features:
+                </p>
+                
+                <h3>Max Pooling</h3>
+                
+                <div class="math-block">
+                    $$Y_{i,j} = \max_{m,n \in \text{window}} X_{i \cdot s + m, j \cdot s + n}$$
+                </div>
+                
+                <h3>Average Pooling</h3>
+                
+                <div class="math-block">
+                    $$Y_{i,j} = \frac{1}{k^2} \sum_{m,n \in \text{window}} X_{i \cdot s + m, j \cdot s + n}$$
+                </div>
+                
+                <p>
+                    Max pooling is more common—it selects the strongest activation, providing 
+                    some translation invariance within the pooling window.
+                </p>
+                
+                <!-- Section 5 -->
+                <h2 id="receptive-field">Receptive Field</h2>
+                
+                <p>
+                    The <strong>receptive field</strong> is the region of input that affects a given output neuron.
+                </p>
+                
+                <div class="math-block">
+                    $$R_l = R_{l-1} + (k_l - 1) \prod_{i=1}^{l-1} s_i$$
+                </div>
+                
+                <p>
+                    Where $R_l$ is the receptive field at layer $l$, $k_l$ is kernel size, and $s_i$ is stride.
+                </p>
+                
+                <div class="warning-box">
+                    <div class="box-title">Design Principle</div>
+                    <p style="margin-bottom: 0;">
+                        Stack small kernels (3×3) rather than using large ones. Two 3×3 layers have 
+                        the same receptive field as one 5×5 layer but fewer parameters and more 
+                        non-linearity.
+                    </p>
+                </div>
+                
+                <!-- Section 6 -->
+                <h2 id="backprop-conv">Backpropagation Through Convolutions</h2>
+                
+                <p>
+                    The backward pass of a convolution is also a convolution—with the kernel flipped!
+                </p>
+                
+                <div class="math-block">
+                    $$\frac{\partial L}{\partial X} = \frac{\partial L}{\partial Y} * \text{flip}(W)$$
+                </div>
+                
+                <p>
+                    The gradient with respect to the kernel:
+                </p>
+                
+                <div class="math-block">
+                    $$\frac{\partial L}{\partial W} = X * \frac{\partial L}{\partial Y}$$
+                </div>
+                
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../09-learning-rate/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Learning Rate</span>
+                    </a>
+                    <a href="../11-rnn/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">RNNs →</span>
+                    </a>
+                </div>
+                
+            </article>
+        </div>
+    </main>
+
+    <!-- Table of Contents (floating) -->
+    <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#motivation" class="toc-link">Why Convolutions?</a>
+            <a href="#convolution-operation" class="toc-link">Convolution Operation</a>
+            <a href="#output-size" class="toc-link">Output Size</a>
+            <a href="#pooling" class="toc-link">Pooling</a>
+            <a href="#receptive-field" class="toc-link">Receptive Field</a>
+            <a href="#backprop-conv" class="toc-link">Backprop Through Conv</a>
+        </nav>
+    </aside>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/your-username/opus-tutorials" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

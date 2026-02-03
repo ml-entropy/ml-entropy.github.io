@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Normalization | ML Fundamentals</title>
+    <meta name="description" content="Understand batch normalization: why it works, its forward and backward passes, and its role in training deep networks.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-trigger">
+                            Tutorials <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="../../ml/index.html" class="active">Machine Learning</a>
+                            <a href="../../linear-algebra/index.html">Linear Algebra</a>
+                            <a href="../../calculus/index.html">Calculus</a>
+                            <a href="../../physics/index.html">Physics</a>
+                        </div>
+                    </div>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/your-username/opus-tutorials" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Batch Normalization</span>
+            </nav>
+            
+            <h1>08. Batch Normalization</h1>
+            <p class="lead">
+                Batch normalization revolutionized deep learning by enabling much deeper networks 
+                to train. Let's understand exactly what it does and why it works.
+            </p>
+            
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="tutorial-article">
+        <div class="container">
+            <article class="article-content" id="theory">
+                
+                <!-- Section 1 -->
+                <h2 id="problem">The Internal Covariate Shift Problem</h2>
+                
+                <p>
+                    As training progresses, the distribution of each layer's inputs changes because 
+                    the parameters of preceding layers change. This makes training difficult—each 
+                    layer must continuously adapt to new input distributions.
+                </p>
+                
+                <div class="definition-box">
+                    <div class="box-title">Internal Covariate Shift</div>
+                    <p style="margin-bottom: 0;">
+                        The change in the distribution of network activations due to the change in 
+                        network parameters during training. Batch normalization reduces this by 
+                        normalizing layer inputs.
+                    </p>
+                </div>
+                
+                <!-- Section 2 -->
+                <h2 id="algorithm">The BatchNorm Algorithm</h2>
+                
+                <p>
+                    For a mini-batch $\mathcal{B} = \{x_1, \ldots, x_m\}$ of size $m$:
+                </p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Batch Normalization Transform</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Compute batch mean: $\mu_\mathcal{B} = \frac{1}{m}\sum_{i=1}^{m} x_i$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Compute batch variance: $\sigma_\mathcal{B}^2 = \frac{1}{m}\sum_{i=1}^{m} (x_i - \mu_\mathcal{B})^2$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Normalize: $\hat{x}_i = \frac{x_i - \mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2 + \epsilon}}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            Scale and shift: $y_i = \gamma \hat{x}_i + \beta$
+                        </div>
+                    </div>
+                </div>
+                
+                <p>
+                    The parameters $\gamma$ (scale) and $\beta$ (shift) are learnable. They allow 
+                    the network to undo the normalization if that's optimal.
+                </p>
+                
+                <div class="note-box">
+                    <div class="box-title">Why $\gamma$ and $\beta$?</div>
+                    <p style="margin-bottom: 0;">
+                        Without them, the representation power would be limited. With $\gamma = \sigma$ 
+                        and $\beta = \mu$, we recover the original activations. The network learns 
+                        the optimal normalization.
+                    </p>
+                </div>
+                
+                <!-- Section 3 -->
+                <h2 id="training-vs-inference">Training vs Inference</h2>
+                
+                <p>
+                    During training, we use mini-batch statistics. But at inference time, we might 
+                    have a single example. Solution: maintain running averages.
+                </p>
+                
+                <div class="math-block">
+                    $$\mu_{\text{running}} = \alpha \mu_{\text{running}} + (1-\alpha) \mu_\mathcal{B}$$
+                    $$\sigma^2_{\text{running}} = \alpha \sigma^2_{\text{running}} + (1-\alpha) \sigma^2_\mathcal{B}$$
+                </div>
+                
+                <p>
+                    At inference, use $\mu_{\text{running}}$ and $\sigma^2_{\text{running}}$ instead 
+                    of batch statistics.
+                </p>
+                
+                <!-- Section 4 -->
+                <h2 id="backprop">Backpropagation Through BatchNorm</h2>
+                
+                <p>
+                    The backward pass is more complex because each $\hat{x}_i$ depends on the 
+                    entire batch through $\mu$ and $\sigma^2$.
+                </p>
+                
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Gradients</div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            $\frac{\partial L}{\partial \gamma} = \sum_i \frac{\partial L}{\partial y_i} \hat{x}_i$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            $\frac{\partial L}{\partial \beta} = \sum_i \frac{\partial L}{\partial y_i}$
+                        </div>
+                    </div>
+                    
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            $\frac{\partial L}{\partial x_i} = \frac{\gamma}{\sqrt{\sigma^2 + \epsilon}}\left(\frac{\partial L}{\partial y_i} - \frac{1}{m}\sum_j \frac{\partial L}{\partial y_j} - \frac{\hat{x}_i}{m}\sum_j \frac{\partial L}{\partial y_j}\hat{x}_j\right)$
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 5 -->
+                <h2 id="why-works">Why Does BatchNorm Work?</h2>
+                
+                <p>The original paper cited internal covariate shift, but the full story is more nuanced:</p>
+                
+                <ul>
+                    <li><strong>Smoother loss landscape:</strong> BatchNorm makes the optimization surface 
+                        more well-conditioned, allowing larger learning rates.</li>
+                    <li><strong>Regularization:</strong> The noise from batch statistics acts as regularization, 
+                        similar to dropout.</li>
+                    <li><strong>Gradient flow:</strong> Normalized activations help gradients flow better 
+                        through deep networks.</li>
+                </ul>
+                
+                <div class="warning-box">
+                    <div class="box-title">Variants</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Layer Norm:</strong> Normalize across features (used in transformers)<br>
+                        <strong>Instance Norm:</strong> Normalize each sample independently (used in style transfer)<br>
+                        <strong>Group Norm:</strong> Normalize across groups of channels (works with small batches)
+                    </p>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../07-regularization/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Regularization</span>
+                    </a>
+                    <a href="../09-learning-rate/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Learning Rate →</span>
+                    </a>
+                </div>
+                
+            </article>
+        </div>
+    </main>
+
+    <!-- Table of Contents (floating) -->
+    <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#problem" class="toc-link">The Problem</a>
+            <a href="#algorithm" class="toc-link">The Algorithm</a>
+            <a href="#training-vs-inference" class="toc-link">Training vs Inference</a>
+            <a href="#backprop" class="toc-link">Backpropagation</a>
+            <a href="#why-works" class="toc-link">Why It Works</a>
+        </nav>
+    </aside>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/your-username/opus-tutorials" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>
