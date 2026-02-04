@@ -4,22 +4,23 @@ import re
 TUTORIALS_ROOT = "docs/tutorials"
 CSS_LINK = '<link rel="stylesheet" href="../../../css/sidebar.css">'
 
+# Updated to match actual file system structure
 NAV_LINKS = {
     "ml": [
         ("00-probability", "00. Probability Foundations"),
         ("01-entropy", "01. Entropy Fundamentals"),
         ("02-kl-divergence", "02. KL Divergence"),
         ("03-distributions", "03. Normal Distributions"),
-        ("04-vae", "04. VAE & Variational Inference"),
-        ("05-logarithms", "05. Why Logarithms?"),
-        ("06-probability-concepts", "06. Probability Concepts"),
-        ("07-combinatorics", "07. Combinatorics"),
-        ("08-backpropagation", "08. Backpropagation"),
-        ("09-regularization", "09. Regularization"),
-        ("10-batch-normalization", "10. Batch Normalization"),
-        ("11-learning-rate", "11. Learning Rate"),
-        ("12-cnn", "12. CNNs"),
-        ("13-rnn", "13. RNNs"),
+        ("04-logarithms", "04. Why Logarithms?"),
+        ("05-combinatorics", "05. Combinatorics"),
+        ("06-backpropagation", "06. Backpropagation"),
+        ("07-regularization", "07. Regularization"),
+        ("08-batch-normalization", "08. Batch Normalization"),
+        ("09-learning-rate", "09. Learning Rate"),
+        ("10-cnn", "10. CNNs"),
+        ("11-rnn", "11. RNNs"),
+        ("12-vae", "12. VAE"),
+        ("13-variational-inference", "13. Variational Inference"),
     ],
     "linear-algebra": [
         ("01-vectors", "01. Vectors and Spaces"),
@@ -61,9 +62,7 @@ def generate_sidebar(category, current_folder):
     '''
     
     for folder, title in nav_items:
-        active_class = ' active' if folder in current_folder else ''
-        # We assume we are in docs/tutorials/category/folder/index.html
-        # So link to ../folder/index.html
+        active_class = ' active' if folder == current_folder else ''
         link = f'../{folder}/index.html'
         html += f'                    <a href="{link}" class="sidebar-link{active_class}">{title}</a>\n'
     
@@ -107,16 +106,31 @@ def update_file(filepath):
         return
 
     # Check if already updated (look for tutorial-wrapper)
+    # Even if updated, we MUST regenerate the sidebar to fix the broken links!
+    # So we extract the sidebar part and replace it.
+    
+    wrapper_pattern = re.compile(r'<div class="tutorial-wrapper">.*?<aside class="tutorial-sidebar">(.*?)</aside>.*?<main class="tutorial-main">', re.DOTALL)
+    
+    sidebar_html = generate_sidebar(category, current_folder)
+    # Extract the inner part of sidebar_html (remove the outer aside tags because the pattern matches inner)
+    # Wait, the generate_sidebar returns the whole aside block.
+    
+    # New strategy: If wrapper exists, find the sidebar block and replace it.
     if "tutorial-wrapper" in content:
-        print(f"Already updated: {filepath}")
-        if "01-entropy/index.html" in filepath:
-             # Strip inline style
-             content = re.sub(r'<style>.*?</style>', '', content, flags=re.DOTALL)
-             if CSS_LINK not in content:
-                 content = content.replace('</head>', f'{CSS_LINK}\n</head>')
-             with open(filepath, 'w') as f:
-                 f.write(content)
-             print("Updated 01-entropy to use external CSS")
+        # Regex to find the sidebar aside
+        sidebar_pattern = re.compile(r'<aside class="tutorial-sidebar">.*?</aside>', re.DOTALL)
+        if sidebar_pattern.search(content):
+            content = sidebar_pattern.sub(sidebar_html.strip(), content)
+            print(f"  Refreshed sidebar in {filepath}")
+        else:
+             print(f"  Warning: wrapper found but sidebar not found in {filepath}")
+        
+        # Also ensure CSS link is present
+        if CSS_LINK not in content:
+             content = content.replace('</head>', f'{CSS_LINK}\n</head>')
+             
+        with open(filepath, 'w') as f:
+            f.write(content)
         return
 
     # 1. Inject CSS Link
@@ -124,9 +138,6 @@ def update_file(filepath):
         content = content.replace('</head>', f'{CSS_LINK}\n</head>')
 
     # 2. Extract Main Content and TOC
-    # Pattern: <main class="tutorial-article"> ... </main> ... <aside class="toc-container"> ... </aside>
-    # Note: whitespace might vary.
-    
     main_pattern = re.compile(r'<main class="tutorial-article">\s*<div class="container">(.*?)</div>\s*</main>', re.DOTALL)
     toc_pattern = re.compile(r'<aside class="toc-container">(.*?)</aside>', re.DOTALL)
     
@@ -137,15 +148,13 @@ def update_file(filepath):
         print(f"Could not find main content in {filepath}")
         return
 
-    article_content = main_match.group(1) # This contains <article class="article-content" ...
+    article_content = main_match.group(1)
     
     toc_html = ""
     if toc_match:
         toc_html = f'<aside class="toc-container">{toc_match.group(1)}</aside>'
     
     # 3. Build New Structure
-    sidebar_html = generate_sidebar(category, current_folder)
-    
     new_html = f'''
     <!-- Main Content -->
     <div class="tutorial-wrapper">
@@ -162,14 +171,8 @@ def update_file(filepath):
     '''
     
     # 4. Replace
-    # We remove the old main and old toc.
-    # Note: The TOC might be after main.
-    
-    # Remove TOC first if it exists
     if toc_match:
         content = content.replace(toc_match.group(0), "")
-        
-    # Replace Main with New Structure
     content = content.replace(main_match.group(0), new_html)
     
     with open(filepath, 'w') as f:
