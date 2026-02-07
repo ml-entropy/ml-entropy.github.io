@@ -356,3 +356,71 @@ Even at very low $T_C$:
 - Combined cycle gas turbines: ~60% efficiency
 
 These sacrifice some theoretical efficiency for practical power output.
+
+---
+
+## Part D: Entropy & Information Solutions
+
+### Solution D1 — The Information-Energy Link
+
+**a) Energy to erase 1 TB:**
+
+Given:
+- $N = 8 \times 10^{12}$ bits (1 Terabyte)
+- $T = 300 \text{ K}$
+- $k_B = 1.38 \times 10^{-23} \text{ J/K}$
+
+Using Landauer's limit per bit: $E_{bit} = k_B T \ln 2$
+
+$$ E_{bit} = (1.38 \times 10^{-23}) \times 300 \times 0.693 \approx 2.87 \times 10^{-21} \text{ J} $$
+
+Total energy:
+$$ E_{total} = N \times E_{bit} = (8 \times 10^{12}) \times (2.87 \times 10^{-21}) \approx \boxed{2.3 \times 10^{-8} \text{ J}} $$
+
+This seems extremely small! However, this is the *thermodynamic lower bound*. Real computers dissipate orders of magnitude more heat (Joules per second) due to electrical resistance, far above this limit.
+
+**b) Connection to Gas Compression:**
+
+In the Carnot cycle isothermal compression (Step 3→4), we compress the gas from $V_3$ to $V_4$ at constant temperature $T_C$.
+Work done ON the gas ($W > 0$):
+$$ W_{on} = - \int_{V_3}^{V_4} P dV = - nRT_C \ln\left(\frac{V_4}{V_3}\right) = nRT_C \ln\left(\frac{V_3}{V_4}\right) $$
+
+If we halve the volume (representing 1 bit of information reduction, knowing the particle is in the "Left" half vs "Anywhere"):
+$$ \frac{V_3}{V_4} = 2 $$
+
+Then:
+$$ W_{on} = n R T_C \ln 2 $$
+
+For a single molecule ($n = 1/N_A$, $R/N_A = k_B$):
+$$ W_{molecule} = k_B T_C \ln 2 $$
+
+**Conclusion**: The work required to compress the gas (reducing the uncertainty of particle positions) is identical to the energy cost of erasing information (reducing the uncertainty of bit states). This demonstrates the deep physical link between Shannon Entropy (Information) and Thermodynamic Entropy.
+
+### Solution D2 — Entropy Production in Irreversible Engines
+
+**Derivation:**
+
+1.  **Efficiency definition**:
+    $$ \eta = \frac{W}{Q_H} = \frac{Q_H - Q_C}{Q_H} = 1 - \frac{Q_C}{Q_H} $$
+
+2.  **Entropy balance**:
+    The total entropy change of the universe in one cycle must be non-negative (Second Law):
+    $$ \Delta S_{univ} = \Delta S_{system} + \Delta S_{surroundings} \ge 0 $$
+    
+    Since the engine operates in a cycle, $\Delta S_{system} = 0$.
+    The surroundings consist of the Hot Reservoir (loses $Q_H$) and Cold Reservoir (gains $Q_C$).
+    $$ \Delta S_{surroundings} = -\frac{Q_H}{T_H} + \frac{Q_C}{T_C} $$
+    
+    Let $\Delta S_{gen}$ be the generated entropy (irreversibility):
+    $$ -\frac{Q_H}{T_H} + \frac{Q_C}{T_C} = \Delta S_{gen} \quad (\text{where } \Delta S_{gen} \ge 0) $$
+
+3.  **Solve for $Q_C$**:
+    $$ \frac{Q_C}{T_C} = \frac{Q_H}{T_H} + \Delta S_{gen} $$
+    $$ Q_C = Q_H \frac{T_C}{T_H} + T_C \Delta S_{gen} $$
+
+4.  **Substitute back into Efficiency**:
+    $$ \eta_{irr} = 1 - \frac{Q_H \frac{T_C}{T_H} + T_C \Delta S_{gen}}{Q_H} $$
+    $$ \eta_{irr} = 1 - \frac{T_C}{T_H} - \frac{T_C \Delta S_{gen}}{Q_H} $$
+    $$ \eta_{irr} = \eta_{Carnot} - \frac{T_C \Delta S_{gen}}{Q_H} $$
+
+**Result**: We have proven that any entropy generation ($\Delta S_{gen} > 0$) strictly reduces the efficiency below the Carnot limit. This term $\frac{T_C \Delta S_{gen}}{Q_H}$ represents the "Exergy destruction" or lost work potential.
