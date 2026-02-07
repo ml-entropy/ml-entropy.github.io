@@ -114,6 +114,7 @@
                     <a href="../11-rnn/index.html" class="sidebar-link">11. RNNs</a>
                     <a href="../12-vae/index.html" class="sidebar-link">12. VAE</a>
                     <a href="../13-variational-inference/index.html" class="sidebar-link">13. Variational Inference</a>
+                    <a href="../14-entropy-connections/index.html" class="sidebar-link">14. Entropy, CE, KL</a>
                 </nav>
             </div>
             
@@ -154,9 +155,50 @@
                 </div>
                 
                 <p>
-                    Think of it as: "The penalty for using $Q$ when the truth is $P$."
+                    Think of it as: "The penalty for using model $Q$ when the truth is $P$."
                 </p>
-                
+
+                <div class="note-box">
+                    <div class="box-title">Relationship to Cross-Entropy</div>
+                    <p style="margin-bottom: 0;">
+                        KL Divergence is just the difference between the Cross-Entropy and the true Entropy:
+                        $$D_{KL}(P \| Q) = H(P, Q) - H(P)$$
+                        It measures the *avoidable* loss. Since $H(P)$ is a constant for a given dataset, minimizing Cross-Entropy is equivalent to minimizing KL Divergence.
+                    </p>
+                </div>
+
+                <!-- Section 2 -->
+                <h2 id="example">A Concrete Example: Biased Coin</h2>
+                <p>
+                    Let's make this tangible. Imagine a biased coin that we want to model.
+                </p>
+                <div class="example-box" style="background: var(--color-bg-alt); padding: 1.5rem; border-radius: 0.5rem; margin: 1.5rem 0;">
+                    <p><strong>True Distribution (P):</strong></p>
+                    <p>The coin is biased, landing Heads 70% of the time.</p>
+                    <ul>
+                        <li>$P(\text{Heads}) = 0.7$</li>
+                        <li>$P(\text{Tails}) = 0.3$</li>
+                    </ul>
+
+                    <p><strong>Our Model (Q):</strong></p>
+                    <p>We incorrectly believe the coin is fair.</p>
+                    <ul>
+                        <li>$Q(\text{Heads}) = 0.5$</li>
+                        <li>$Q(\text{Tails}) = 0.5$</li>
+                    </ul>
+
+                    <p><strong>Calculating KL Divergence $D_{KL}(P \| Q)$:</strong></p>
+                    <p>We sum over the two outcomes: Heads and Tails.</p>
+                    <div class="math-block">
+                        $$D_{KL}(P \| Q) = P(H)\log_2\frac{P(H)}{Q(H)} + P(T)\log_2\frac{P(T)}{Q(T)}$$
+                        $$= 0.7 \cdot \log_2\frac{0.7}{0.5} + 0.3 \cdot \log_2\frac{0.3}{0.5}$$
+                        $$= 0.7 \cdot \log_2(1.4) + 0.3 \cdot \log_2(0.6)$$
+                        $$= 0.7 \cdot (0.485) + 0.3 \cdot (-0.737)$$
+                        $$= 0.340 - 0.221 = \boxed{0.119 \text{ bits}}$$
+                    </div>
+                    <p><strong>Interpretation:</strong> By using the wrong model (fair coin), we will waste an average of <strong>0.119 extra bits</strong> for every coin flip we encode. This is the "cost" of our incorrect belief.</p>
+                </div>
+
                 <!-- Section 2 -->
                 <h2 id="derivation">Deriving KL Divergence</h2>
                 
@@ -245,10 +287,23 @@
                     <div class="box-title">KL Divergence is NOT a Distance</div>
                     <p style="margin-bottom: 0;">
                         $D_{KL}(P\|Q) \neq D_{KL}(Q\|P)$ in general. This asymmetry is important: 
-                        "cost of using $Q$ for $P$" differs from "cost of using $P$ for $Q$."
+                        "cost of using $Q$ for $P$" differs from "cost of using $P$ for $Q$." A true distance metric must be symmetric.
                     </p>
                 </div>
-                
+
+                <div class="example-box" style="background: var(--color-bg-alt); padding: 1.5rem; border-radius: 0.5rem; margin: 1.5rem 0;">
+                    <p><strong>Asymmetry Example (continued):</strong></p>
+                    <p>Let's calculate the reverse KL, $D_{KL}(Q \| P)$, for our coin example:</p>
+                    <div class="math-block">
+                        $$D_{KL}(Q \| P) = Q(H)\log_2\frac{Q(H)}{P(H)} + Q(T)\log_2\frac{Q(T)}{P(T)}$$
+                        $$= 0.5 \cdot \log_2\frac{0.5}{0.7} + 0.5 \cdot \log_2\frac{0.5}{0.3}$$
+                        $$= 0.5 \cdot \log_2(0.714) + 0.5 \cdot \log_2(1.667)$$
+                        $$= 0.5 \cdot (-0.485) + 0.5 \cdot (0.737)$$
+                        $$= -0.243 + 0.369 = \boxed{0.126 \text{ bits}}$$
+                    </div>
+                    <p>As we can see, $0.119 \neq 0.126$. The "penalty" is different in each direction.</p>
+                </div>
+
                 <!-- Section 4 -->
                 <h2 id="forward-vs-reverse">Forward vs Reverse KL</h2>
                 
@@ -269,7 +324,45 @@
                     Minimizing this makes $Q$ zero wherever $P$ is zero. The approximation $Q$ will 
                     <em>lock onto one mode</em> of $P$ rather than spread out. Common in variational inference.
                 </p>
-                
+
+                <div class="figure-container" style="text-align: center; margin: 2rem 0;">
+                    <svg width="100%" height="300" viewBox="0 0 800 300" style="background: var(--color-bg-alt); border-radius: 8px;">
+                        <defs>
+                            <path id="p-curve" d="M 100 250 C 150 50, 250 50, 300 250" fill="none" stroke="var(--color-primary)" stroke-width="4"/>
+                            <path id="q-curve-fwd" d="M 50 250 C 175 50, 225 50, 350 250" fill="none" stroke="var(--color-accent)" stroke-width="4" stroke-dasharray="8,8"/>
+                            <path id="q-curve-rev" d="M 225 250 C 250 50, 250 50, 300 250" fill="none" stroke="var(--color-accent)" stroke-width="4" stroke-dasharray="8,8"/>
+                        </defs>
+
+                        <!-- Forward KL -->
+                        <g>
+                            <text x="200" y="30" font-family="Inter, sans-serif" font-size="20" fill="currentColor" text-anchor="middle">Forward KL: $D_{KL}(P \| Q)$</text>
+                            <text x="200" y="55" font-family="Inter, sans-serif" font-size="16" fill="currentColor" text-anchor="middle" style="font-style: italic;">"Mean-seeking" / Mode-covering</text>
+                            <use href="#p-curve"/>
+                            <use href="#q-curve-fwd"/>
+                            <text x="175" y="150" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-primary)">P</text>
+                            <text x="100" y="100" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-accent)">Q</text>
+                            <text x="200" y="280" font-family="Inter, sans-serif" font-size="14" fill="currentColor" text-anchor="middle">Q must be non-zero where P is non-zero.</text>
+                        </g>
+
+                        <!-- Divider -->
+                        <line x1="400" y1="20" x2="400" y2="280" stroke="var(--color-border)" stroke-width="2"/>
+
+                        <!-- Reverse KL -->
+                        <g transform="translate(400, 0)">
+                            <text x="200" y="30" font-family="Inter, sans-serif" font-size="20" fill="currentColor" text-anchor="middle">Reverse KL: $D_{KL}(Q \| P)$</text>
+                            <text x="200" y="55" font-family="Inter, sans-serif" font-size="16" fill="currentColor" text-anchor="middle" style="font-style: italic;">"Mode-seeking"</text>
+                            <use href="#p-curve"/>
+                            <use href="#q-curve-rev"/>
+                            <text x="175" y="150" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-primary)">P</text>
+                            <text x="260" y="100" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-accent)">Q</text>
+                            <text x="200" y="280" font-family="Inter, sans-serif" font-size="14" fill="currentColor" text-anchor="middle">Q is encouraged to be zero where P is zero.</text>
+                        </g>
+                    </svg>
+                    <figcaption style="font-size: 0.9rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
+                        Visualizing the difference between Forward and Reverse KL Divergence when approximating a bimodal distribution P.
+                    </figcaption>
+                </div>
+
                 <div class="note-box">
                     <div class="box-title">Practical Implication</div>
                     <p style="margin-bottom: 0;">
