@@ -9,7 +9,7 @@ NAV_LINKS = {
         "ml": [
         ("00-probability", "00. Probability Foundations"),
         ("01-entropy", "01. Entropy Fundamentals"),
-        ("15-cross-entropy", "02. Cross-Entropy"),
+        ("02-cross-entropy", "02. Cross-Entropy"),
         ("02-kl-divergence", "03. KL Divergence"),
         ("03-distributions", "04. Normal Distributions"),
         ("04-logarithms", "05. Why Logarithms?"),
