@@ -6,21 +6,23 @@ CSS_LINK = '<link rel="stylesheet" href="../../../css/sidebar.css">'
 
 # Updated to match actual file system structure
 NAV_LINKS = {
-    "ml": [
+        "ml": [
         ("00-probability", "00. Probability Foundations"),
         ("01-entropy", "01. Entropy Fundamentals"),
-        ("02-kl-divergence", "02. KL Divergence"),
-        ("03-distributions", "03. Normal Distributions"),
-        ("04-logarithms", "04. Why Logarithms?"),
-        ("05-combinatorics", "05. Combinatorics"),
-        ("06-backpropagation", "06. Backpropagation"),
-        ("07-regularization", "07. Regularization"),
-        ("08-batch-normalization", "08. Batch Normalization"),
-        ("09-learning-rate", "09. Learning Rate"),
-        ("10-cnn", "10. CNNs"),
-        ("11-rnn", "11. RNNs"),
-        ("12-vae", "12. VAE"),
-        ("13-variational-inference", "13. Variational Inference"),
+        ("15-cross-entropy", "02. Cross-Entropy"),
+        ("02-kl-divergence", "03. KL Divergence"),
+        ("03-distributions", "04. Normal Distributions"),
+        ("04-logarithms", "05. Why Logarithms?"),
+        ("05-combinatorics", "06. Combinatorics"),
+        ("06-backpropagation", "07. Backpropagation"),
+        ("07-regularization", "08. Regularization"),
+        ("08-batch-normalization", "09. Batch Normalization"),
+        ("09-learning-rate", "10. Learning Rate"),
+        ("10-cnn", "11. CNNs"),
+        ("11-rnn", "12. RNNs"),
+        ("12-vae", "13. VAE"),
+        ("13-variational-inference", "14. Variational Inference"),
+        ("14-entropy-connections", "15. Entropy Connections"),
     ],
     "linear-algebra": [
         ("01-vectors", "01. Vectors and Spaces"),
