@@ -31,6 +31,13 @@ b) Write down the formula for Mean Squared Error (MSE) loss.
 c) Calculate the gradient of both the BCE and MSE loss with respect to the model's logit (the input to the sigmoid).
 d) Explain why the BCE gradient is generally better for training than the MSE gradient, especially when the model's prediction is confidently wrong (e.g., $p$ is close to 0).
 
+### Exercise A5 🟡 — Focal Loss Calculation
+Focal Loss is defined as $FL(p_t) = -(1 - p_t)^\gamma \log(p_t)$, where $p_t$ is the probability of the true class.
+a) Calculate the Cross-Entropy loss ($\gamma=0$) for an "easy" example where $p_t = 0.9$.
+b) Calculate the Cross-Entropy loss for a "hard" example where $p_t = 0.1$.
+c) Calculate the Focal Loss with $\gamma=2$ for the same "easy" and "hard" examples.
+d) By what factor did the loss decrease for the easy example compared to the hard example when switching from CE to FL?
+
 ---
 
 ## Part B: Coding
@@ -46,6 +53,14 @@ Create a plot to visualize the Cross-Entropy loss for a binary classification pr
 -   Plot the loss as the model's predicted probability for class 1 ranges from 0.01 to 0.99.
 -   On the same graph, plot the MSE loss.
 -   Label your axes and curves clearly. What does this visualization tell you about the behavior of the two loss functions?
+
+### Exercise B3 🔴 — Numerical Stability (LogSumExp)
+Implement a function `stable_softmax_cross_entropy(logits, target_index)` that:
+1.  Takes raw logits (not probabilities) as input.
+2.  Computes the Cross-Entropy loss using the **LogSumExp** trick to avoid overflow/underflow.
+    -   Formula: $\log(\sum e^{x_i}) = c + \log(\sum e^{x_i - c})$, where $c = \max(x)$.
+    -   Loss: $-x_{target} + \log(\sum e^{x_j})$.
+3.  Test it with `logits = [1000, 1001, 1002]` and `target_index = 1`. Verify that a naive implementation would fail (overflow).
 
 ---
 

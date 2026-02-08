@@ -54,6 +54,23 @@ d) **Why BCE is better**: Look at the gradients when the model is confidently wr
 -   **BCE Gradient**: As $p \to 0$, the gradient $\frac{\partial L_{BCE}}{\partial z} \to -1$. It's a strong, constant signal to update the weights.
 -   **MSE Gradient**: As $p \to 0$, the gradient $\frac{\partial L_{MSE}}{\partial z} \to 0$. The gradient vanishes! The model learns extremely slowly when it needs to learn the most. This is known as the "vanishing gradient" problem for MSE in classification.
 
+### Solution A5 — Focal Loss Calculation
+a) **Easy Example (p=0.9, CE)**:
+$L_{CE} = - \ln(0.9) \approx 0.105$
+
+b) **Hard Example (p=0.1, CE)**:
+$L_{CE} = - \ln(0.1) \approx 2.302$
+Ratio Hard/Easy $\approx 22$.
+
+c) **Focal Loss ($\gamma=2$)**:
+-   **Easy**: $L_{FL} = -(1 - 0.9)^2 \ln(0.9) = -(0.01) \cdot (-0.105) \approx 0.001$
+-   **Hard**: $L_{FL} = -(1 - 0.1)^2 \ln(0.1) = -(0.81) \cdot (-2.302) \approx 1.865$
+
+d) **Comparison**:
+-   For the easy example, the loss dropped from $0.105$ to $0.001$ (factor of ~100x).
+-   For the hard example, the loss dropped from $2.302$ to $1.865$ (factor of ~1.2x).
+-   Focal Loss heavily penalizes/suppresses the easy examples, keeping the focus on the hard ones.
+
 ---
 
 ## Part B: Coding Solutions
@@ -119,6 +136,40 @@ plt.grid(True, linestyle='--', alpha=0.6)
 plt.show()
 ```
 **Interpretation**: The visualization clearly shows that as the prediction `p` gets confidently wrong (approaches 0), the Cross-Entropy loss shoots up towards infinity, creating a powerful gradient. The MSE loss, in contrast, flattens out, leading to a vanishing gradient and slow learning.
+
+### Solution B3 — Numerical Stability (LogSumExp)
+```python
+import numpy as np
+
+def stable_softmax_cross_entropy(logits, target_index):
+    # 1. LogSumExp Trick
+    # c = max(x)
+    c = np.max(logits)
+    # log(sum(exp(x))) = c + log(sum(exp(x - c)))
+    log_sum_exp = c + np.log(np.sum(np.exp(logits - c)))
+    
+    # 2. Loss = -log(softmax(x_target))
+    #        = - (x_target - log(sum(exp(x))))
+    #        = -x_target + log_sum_exp
+    loss = -logits[target_index] + log_sum_exp
+    return loss
+
+# Test
+logits_large = np.array([1000.0, 1001.0, 1002.0])
+target = 1
+
+# Naive would fail: exp(1000) -> inf
+try:
+    naive_loss = -np.log(np.exp(logits_large[target]) / np.sum(np.exp(logits_large)))
+    print(f"Naive Loss: {naive_loss}")
+except:
+    print("Naive implementation failed (overflow)!")
+
+# Stable works
+stable_loss = stable_softmax_cross_entropy(logits_large, target)
+print(f"Stable Loss: {stable_loss:.4f}")
+# Expected: ~1.4076 (similar to [0, 1, 2])
+```
 
 ---
 
