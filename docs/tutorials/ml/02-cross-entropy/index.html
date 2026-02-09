@@ -374,13 +374,43 @@
                 <div class="warning-box">
                     <div class="box-title">The Vanishing Gradient Problem</div>
                     <p>
-                        If you use MSE with a Softmax/Sigmoid output, the gradients essentially die when the prediction is wrong but confident (e.g., predicting 0.0001 for the true class). 
+                        The issue lies in the <strong>gradients</strong> with respect to the raw model outputs (logits), denoted as $z$.
+                        Using the Chain Rule, we can derive the gradient for both loss functions.
                     </p>
-                    <p>
-                        Cross-Entropy cancels out the exponential term in the Softmax derivative, leaving a clean, linear gradient: 
-                        $$ \frac{\partial L}{\partial z} = \hat{y} - y $$
-                        This ensures the model learns quickly even when it is very wrong.
-                    </p>
+                    
+                    <div class="math-block">
+                        $$ \frac{\partial L}{\partial z} = \frac{\partial L}{\partial p} \cdot \frac{\partial p}{\partial z} $$
+                    </div>
+                    
+                    <p>Where $\frac{\partial p}{\partial z} = p(1-p)$ is the derivative of the Softmax/Sigmoid function.</p>
+
+                    <table class="data-table" style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #ddd; text-align: left;">
+                                <th style="padding: 10px;">Loss Function</th>
+                                <th style="padding: 10px;">Derivative w.r.t $p$</th>
+                                <th style="padding: 10px;">Resulting Gradient w.r.t $z$</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 10px;"><strong>MSE</strong></td>
+                                <td style="padding: 10px;">$(p - y)$</td>
+                                <td style="padding: 10px;">$(p - y) \cdot \underbrace{p(1-p)}_{\text{Vanishes at ends!}}$</td>
+                            </tr>
+                            <tr style="background-color: #f0fdf4;">
+                                <td style="padding: 10px;"><strong>Cross-Entropy</strong></td>
+                                <td style="padding: 10px;">$-\frac{y}{p}$</td>
+                                <td style="padding: 10px;">$(p - y)$ <br><small>(The $p$ terms cancel out!)</small></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>Concrete Impact:</strong> What happens when the model is "Confidently Wrong" (True label=1, but predicted $p \approx 0$)?</p>
+                    <ul>
+                        <li><strong>Cross-Entropy Gradient:</strong> $0 - 1 = \mathbf{-1}$. <span style="color: green;">(Strong signal to correct)</span></li>
+                        <li><strong>MSE Gradient:</strong> $(0 - 1) \cdot 0(1-0) = \mathbf{0}$. <span style="color: red;">(No learning occurs!)</span></li>
+                    </ul>
                 </div>
             </section>
         
