@@ -309,67 +309,91 @@
                 <h2 id="forward-vs-reverse">Forward vs Reverse KL</h2>
                 
                 <p>
-                    The two directions of KL divergence have very different behaviors:
+                    Because KL Divergence is asymmetric, minimizing $D_{KL}(P \| Q)$ yields a very different result than minimizing $D_{KL}(Q \| P)$. This distinction is critical in fields like Variational Inference and Reinforcement Learning.
                 </p>
                 
-                <h3>Forward KL: $D_{KL}(P \| Q)$ — Mean-Seeking</h3>
+                <h3>1. Forward KL: $D_{KL}(P \| Q)$ — "Mean-Seeking"</h3>
                 
                 <p>
-                    Minimizing this makes $Q$ cover everywhere $P$ has mass. If $P(x) > 0$, then 
-                    $Q(x)$ better not be zero (infinite penalty!). Results in <em>mode-covering</em> behavior.
+                    <strong>The Penalty Mechanism (Zero-Avoiding):</strong><br>
+                    Look at the term inside the expectation: $P(x) \log \frac{P(x)}{Q(x)}$.
+                    If $P(x) > 0$ (an event is real) but $Q(x) \to 0$ (our model says it's impossible), the ratio explodes to infinity.
+                </p>
+                <p>
+                    <strong>Result:</strong> To avoid this infinite penalty, our model $Q$ must "stretch" to cover <em>everywhere</em> that $P$ has probability mass. It cannot safely ignore any part of the true distribution. If $P$ is bimodal (has two peaks), $Q$ will try to bridge the gap between them, effectively averaging them out.
                 </p>
                 
-                <h3>Reverse KL: $D_{KL}(Q \| P)$ — Mode-Seeking</h3>
+                <h3>2. Reverse KL: $D_{KL}(Q \| P)$ — "Mode-Seeking"</h3>
                 
                 <p>
-                    Minimizing this makes $Q$ zero wherever $P$ is zero. The approximation $Q$ will 
-                    <em>lock onto one mode</em> of $P$ rather than spread out. Common in variational inference.
+                    <strong>The Penalty Mechanism (Zero-Forcing):</strong><br>
+                    Here, the term is $Q(x) \log \frac{Q(x)}{P(x)}$.
+                    If $P(x) \to 0$ (an event is impossible in reality), then $Q(x)$ <strong>must</strong> also be 0. If $Q(x)$ assigns any probability to an impossible event, the ratio $Q/P$ explodes.
+                </p>
+                <p>
+                    <strong>Result:</strong> The model $Q$ becomes "conservative." It will find a single peak (mode) of $P$ where it is safe and fit snugly inside it. It will happily ignore other peaks of $P$ because it pays no penalty for <em>missing</em> mass, only for placing mass in the wrong spot.
+                </p>
+
+                <h3>3. Visualizing the "Twin Peaks" Problem</h3>
+                
+                <p>
+                    The best way to see this difference is when the true distribution $P$ is <strong>bimodal</strong> (has two peaks, like a camel's back), but our model $Q$ is unimodal (single Gaussian).
                 </p>
 
                 <div class="figure-container" style="text-align: center; margin: 2rem 0;">
                     <svg width="100%" height="300" viewBox="0 0 800 300" style="background: var(--color-bg-alt); border-radius: 8px;">
                         <defs>
-                            <path id="p-curve" d="M 100 250 C 150 50, 250 50, 300 250" fill="none" stroke="var(--color-primary)" stroke-width="4"/>
-                            <path id="q-curve-fwd" d="M 50 250 C 175 50, 225 50, 350 250" fill="none" stroke="var(--color-accent)" stroke-width="4" stroke-dasharray="8,8"/>
-                            <path id="q-curve-rev" d="M 225 250 C 250 50, 250 50, 300 250" fill="none" stroke="var(--color-accent)" stroke-width="4" stroke-dasharray="8,8"/>
+                            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--color-border)" stroke-width="1" opacity="0.3"/>
+                            </pattern>
                         </defs>
+                        <rect width="800" height="300" fill="url(#grid)" />
 
-                        <!-- Forward KL -->
-                        <g>
-                            <text x="200" y="30" font-family="Inter, sans-serif" font-size="20" fill="currentColor" text-anchor="middle">Forward KL: $D_{KL}(P \| Q)$</text>
-                            <text x="200" y="55" font-family="Inter, sans-serif" font-size="16" fill="currentColor" text-anchor="middle" style="font-style: italic;">"Mean-seeking" / Mode-covering</text>
-                            <use href="#p-curve"/>
-                            <use href="#q-curve-fwd"/>
-                            <text x="175" y="150" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-primary)">P</text>
-                            <text x="100" y="100" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-accent)">Q</text>
-                            <text x="200" y="280" font-family="Inter, sans-serif" font-size="14" fill="currentColor" text-anchor="middle">Q must be non-zero where P is non-zero.</text>
-                        </g>
+                        <!-- P (Bimodal) -->
+                        <path d="M 50.0 249.9 L 57.1 249.9 L 64.1 249.8 L 71.2 249.6 L 78.3 249.3 L 85.4 248.8 L 92.4 248.0 L 99.5 246.7 L 106.6 244.9 L 113.6 242.2 L 120.7 238.3 L 127.8 233.1 L 134.8 226.0 L 141.9 217.0 L 149.0 205.7 L 156.1 192.2 L 163.1 176.4 L 170.2 158.6 L 177.3 139.6 L 184.3 120.0 L 191.4 100.9 L 198.5 83.4 L 205.6 68.7 L 212.6 57.7 L 219.7 51.3 L 226.8 50.0 L 233.8 53.9 L 240.9 62.6 L 248.0 75.6 L 255.1 91.9 L 262.1 110.3 L 269.2 129.8 L 276.3 149.2 L 283.3 167.7 L 290.4 184.5 L 297.5 199.2 L 304.5 211.7 L 311.6 221.8 L 318.7 229.8 L 325.8 235.9 L 332.8 240.4 L 339.9 243.6 L 347.0 245.9 L 354.0 247.4 L 361.1 248.4 L 368.2 249.1 L 375.3 249.4 L 382.3 249.7 L 389.4 249.8 L 396.5 249.9 L 403.5 249.9 L 410.6 249.8 L 417.7 249.7 L 424.7 249.4 L 431.8 249.1 L 438.9 248.4 L 446.0 247.4 L 453.0 245.9 L 460.1 243.6 L 467.2 240.4 L 474.2 235.9 L 481.3 229.8 L 488.4 221.8 L 495.5 211.7 L 502.5 199.2 L 509.6 184.5 L 516.7 167.7 L 523.7 149.2 L 530.8 129.8 L 537.9 110.3 L 544.9 91.9 L 552.0 75.6 L 559.1 62.6 L 566.2 53.9 L 573.2 50.0 L 580.3 51.3 L 587.4 57.7 L 594.4 68.7 L 601.5 83.4 L 608.6 100.9 L 615.7 120.0 L 622.7 139.6 L 629.8 158.6 L 636.9 176.4 L 643.9 192.2 L 651.0 205.7 L 658.1 217.0 L 665.2 226.0 L 672.2 233.1 L 679.3 238.3 L 686.4 242.2 L 693.4 244.9 L 700.5 246.7 L 707.6 248.0 L 714.6 248.8 L 721.7 249.3 L 728.8 249.6 L 735.9 249.8 L 742.9 249.9 L 750.0 249.9" fill="rgba(59, 130, 246, 0.1)" stroke="#3b82f6" stroke-width="3" />
 
-                        <!-- Divider -->
-                        <line x1="400" y1="20" x2="400" y2="280" stroke="var(--color-border)" stroke-width="2"/>
+                        <!-- Q Forward (Mean-Seeking) -->
+                        <path d="M 50.0 233.8 L 57.1 232.4 L 64.1 231.0 L 71.2 229.5 L 78.3 227.8 L 85.4 226.2 L 92.4 224.4 L 99.5 222.5 L 106.6 220.6 L 113.6 218.5 L 120.7 216.4 L 127.8 214.2 L 134.8 211.9 L 141.9 209.5 L 149.0 207.1 L 156.1 204.6 L 163.1 202.0 L 170.2 199.3 L 177.3 196.6 L 184.3 193.8 L 191.4 191.0 L 198.5 188.2 L 205.6 185.3 L 212.6 182.3 L 219.7 179.4 L 226.8 176.5 L 233.8 173.5 L 240.9 170.6 L 248.0 167.7 L 255.1 164.8 L 262.1 162.0 L 269.2 159.2 L 276.3 156.5 L 283.3 153.9 L 290.4 151.3 L 297.5 148.9 L 304.5 146.6 L 311.6 144.3 L 318.7 142.3 L 325.8 140.3 L 332.8 138.5 L 339.9 136.8 L 347.0 135.4 L 354.0 134.0 L 361.1 132.9 L 368.2 131.9 L 375.3 131.2 L 382.3 130.6 L 389.4 130.2 L 396.5 130.0 L 403.5 130.0 L 410.6 130.2 L 417.7 130.6 L 424.7 131.2 L 431.8 131.9 L 438.9 132.9 L 446.0 134.0 L 453.0 135.4 L 460.1 136.8 L 467.2 138.5 L 474.2 140.3 L 481.3 142.3 L 488.4 144.3 L 495.5 146.6 L 502.5 148.9 L 509.6 151.3 L 516.7 153.9 L 523.7 156.5 L 530.8 159.2 L 537.9 162.0 L 544.9 164.8 L 552.0 167.7 L 559.1 170.6 L 566.2 173.5 L 573.2 176.5 L 580.3 179.4 L 587.4 182.3 L 594.4 185.3 L 601.5 188.2 L 608.6 191.0 L 615.7 193.8 L 622.7 196.6 L 629.8 199.3 L 636.9 202.0 L 643.9 204.6 L 651.0 207.1 L 658.1 209.5 L 665.2 211.9 L 672.2 214.2 L 679.3 216.4 L 686.4 218.5 L 693.4 220.6 L 700.5 222.5 L 707.6 224.4 L 714.6 226.2 L 721.7 227.8 L 728.8 229.5 L 735.9 231.0 L 742.9 232.4 L 750.0 233.8" fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="8,8" />
 
-                        <!-- Reverse KL -->
-                        <g transform="translate(400, 0)">
-                            <text x="200" y="30" font-family="Inter, sans-serif" font-size="20" fill="currentColor" text-anchor="middle">Reverse KL: $D_{KL}(Q \| P)$</text>
-                            <text x="200" y="55" font-family="Inter, sans-serif" font-size="16" fill="currentColor" text-anchor="middle" style="font-style: italic;">"Mode-seeking"</text>
-                            <use href="#p-curve"/>
-                            <use href="#q-curve-rev"/>
-                            <text x="175" y="150" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-primary)">P</text>
-                            <text x="260" y="100" font-family="JetBrains Mono, monospace" font-size="18" fill="var(--color-accent)">Q</text>
-                            <text x="200" y="280" font-family="Inter, sans-serif" font-size="14" fill="currentColor" text-anchor="middle">Q is encouraged to be zero where P is zero.</text>
-                        </g>
+                        <!-- Q Reverse (Mode-Seeking) -->
+                        <path d="M 50.0 249.9 L 57.1 249.9 L 64.1 249.8 L 71.2 249.6 L 78.3 249.3 L 85.4 248.8 L 92.4 248.0 L 99.5 246.7 L 106.6 244.9 L 113.6 242.2 L 120.7 238.3 L 127.8 233.1 L 134.8 226.0 L 141.9 217.0 L 149.0 205.7 L 156.1 192.2 L 163.1 176.4 L 170.2 158.6 L 177.3 139.6 L 184.3 120.0 L 191.4 100.9 L 198.5 83.4 L 205.6 68.7 L 212.6 57.7 L 219.7 51.3 L 226.8 50.0 L 233.8 53.9 L 240.9 62.6 L 248.0 75.6 L 255.1 91.9 L 262.1 110.3 L 269.2 129.8 L 276.3 149.2 L 283.3 167.7 L 290.4 184.5 L 297.5 199.2 L 304.5 211.7 L 311.6 221.8 L 318.7 229.8 L 325.8 235.9 L 332.8 240.4 L 339.9 243.6 L 347.0 245.9 L 354.0 247.4 L 361.1 248.4 L 368.2 249.1 L 375.3 249.5 L 382.3 249.7 L 389.4 249.8 L 396.5 249.9 L 403.5 250.0 L 410.6 250.0 L 417.7 250.0 L 424.7 250.0 L 431.8 250.0 L 438.9 250.0 L 446.0 250.0 L 453.0 250.0 L 460.1 250.0 L 467.2 250.0 L 474.2 250.0 L 481.3 250.0 L 488.4 250.0 L 495.5 250.0 L 502.5 250.0 L 509.6 250.0 L 516.7 250.0 L 523.7 250.0 L 530.8 250.0 L 537.9 250.0 L 544.9 250.0 L 552.0 250.0 L 559.1 250.0 L 566.2 250.0 L 573.2 250.0 L 580.3 250.0 L 587.4 250.0 L 594.4 250.0 L 601.5 250.0 L 608.6 250.0 L 615.7 250.0 L 622.7 250.0 L 629.8 250.0 L 636.9 250.0 L 643.9 250.0 L 651.0 250.0 L 658.1 250.0 L 665.2 250.0 L 672.2 250.0 L 679.3 250.0 L 686.4 250.0 L 693.4 250.0 L 700.5 250.0 L 707.6 250.0 L 714.6 250.0 L 721.7 250.0 L 728.8 250.0 L 735.9 250.0 L 742.9 250.0 L 750.0 250.0" fill="none" stroke="#10b981" stroke-width="3" stroke-dasharray="4,4" />
+
+                        <!-- Legends -->
+                        <text x="50" y="30" font-family="JetBrains Mono, monospace" fill="#3b82f6" font-weight="bold">P (Truth)</text>
+                        <text x="250" y="30" font-family="JetBrains Mono, monospace" fill="#f59e0b" font-weight="bold">Q (Forward KL)</text>
+                        <text x="500" y="30" font-family="JetBrains Mono, monospace" fill="#10b981" font-weight="bold">Q (Reverse KL)</text>
                     </svg>
-                    <figcaption style="font-size: 0.9rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
-                        Visualizing the difference between Forward and Reverse KL Divergence when approximating a bimodal distribution P.
+                    <figcaption style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                        <strong>Blue Area (P):</strong> The true bimodal distribution. <br>
+                        <span style="color: #f59e0b;"><strong>Orange Dashed (Forward KL):</strong></span> Tries to cover both peaks, resulting in a wide, flat distribution in the middle. (Mean-Seeking)<br>
+                        <span style="color: #10b981;"><strong>Green Dashed (Reverse KL):</strong></span> Locks onto the left peak, completely ignoring the right one to avoid penalty. (Mode-Seeking)
                     </figcaption>
                 </div>
 
-                <div class="note-box">
-                    <div class="box-title">Practical Implication</div>
-                    <p style="margin-bottom: 0;">
-                        VAEs minimize reverse KL, which is why they sometimes produce blurry samples— 
-                        the model hedges its bets rather than committing to sharp modes.
-                    </p>
+                <div class="intuition-steps">
+                    <h3>Step-by-Step Minimization</h3>
+                    
+                    <div style="background: #fff8e1; padding: 1rem; border-left: 4px solid #f59e0b; margin-bottom: 1rem;">
+                        <strong>Scenario 1: Forward KL (P || Q)</strong>
+                        <ol style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                            <li><strong>Start:</strong> $Q$ is initialized somewhere in the middle.</li>
+                            <li><strong>Check:</strong> $P$ has mass on the far left and far right.</li>
+                            <li><strong>Penalty:</strong> "Hey $Q$, $P$ is non-zero here, but you are zero! Infinite penalty!"</li>
+                            <li><strong>Update:</strong> $Q$ widens its variance desperately to ensure it is non-zero everywhere $P$ is.</li>
+                            <li><strong>Result:</strong> $Q$ becomes a wide "blanket" that covers everything but captures no specific detail.</li>
+                        </ol>
+                    </div>
+
+                    <div style="background: #e0f2f1; padding: 1rem; border-left: 4px solid #10b981;">
+                        <strong>Scenario 2: Reverse KL (Q || P)</strong>
+                        <ol style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                            <li><strong>Start:</strong> $Q$ is initialized in the middle.</li>
+                            <li><strong>Check:</strong> $P$ is zero in the middle (the valley between peaks).</li>
+                            <li><strong>Penalty:</strong> "Hey $Q$, you have mass here, but $P$ says this is impossible! Infinite penalty!"</li>
+                            <li><strong>Update:</strong> $Q$ shrinks and moves to the nearest "safe" zone (one of the peaks).</li>
+                            <li><strong>Result:</strong> $Q$ sits perfectly on one peak and pretends the other doesn't exist.</li>
+                        </ol>
+                    </div>
                 </div>
                 
                 <!-- Section 5 -->
