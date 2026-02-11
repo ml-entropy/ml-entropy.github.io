@@ -301,6 +301,21 @@
                 <div class="math-block">
                     $$q^*(\mathbf{z}) = \arg\min_{q \in \mathcal{Q}} D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}|\mathbf{x}))$$
                 </div>
+
+                <div class="definition-box">
+                    <div class="box-title">Why is it called "Variational"?</div>
+                    <p>
+                        The name comes from the <strong>Calculus of Variations</strong>, a field of mathematics.
+                    </p>
+                    <p>
+                        In standard calculus, we vary a <em>variable</em> $x$ to minimize a function $f(x)$.
+                        <br>
+                        In calculus of variations, we vary a <strong>function</strong> $q(z)$ to minimize a <em>functional</em> $F[q]$.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Here, our "variable" is the entire probability distribution $q$. We are tweaking and reshaping this distribution function itself until it minimizes the KL divergence.
+                    </p>
+                </div>
                 
                 <p>
                     Find the member of $\mathcal{Q}$ closest to the true posterior in KL divergence.
@@ -318,49 +333,95 @@
                 <h2 id="elbo-derivation">Deriving the ELBO</h2>
                 
                 <p>
-                    We can't directly minimize $D_{KL}(q \| p)$ because it requires $p(\mathbf{x})$. 
-                    Let's decompose the log-evidence:
+                    We have a problem. We want to minimize $D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}|\mathbf{x}))$, but this expression contains the intractable posterior $p(\mathbf{z}|\mathbf{x})$.
+                    We need a workaround.
+                </p>
+
+                <h3>The Log-Evidence Decomposition</h3>
+                <p>
+                    Instead of attacking the KL directly, let's look at the quantity we <em>wish</em> we could compute: the log-evidence $\log p(\mathbf{x})$.
                 </p>
                 
                 <div class="math-derivation">
-                    <div class="math-derivation-title">ELBO Derivation</div>
+                    <div class="math-derivation-title">The Magic Trick</div>
                     
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
-                            Start with: $\log p(\mathbf{x}) = \log p(\mathbf{x}) \int q(\mathbf{z}) d\mathbf{z} = \int q(\mathbf{z}) \log p(\mathbf{x}) d\mathbf{z}$
+                            Start with the marginal likelihood:
+                            $$\log p(\mathbf{x}) = \int q(\mathbf{z}) \log p(\mathbf{x}) d\mathbf{z}$$
+                            (We can multiply by $\int q(z)dz = 1$ and move $\log p(x)$ inside because it doesn't depend on $z$)
                         </div>
                     </div>
                     
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            Use $p(\mathbf{x}) = \frac{p(\mathbf{x},\mathbf{z})}{p(\mathbf{z}|\mathbf{x})}$:
-                            $= \int q(\mathbf{z}) \log \frac{p(\mathbf{x},\mathbf{z})}{p(\mathbf{z}|\mathbf{x})} d\mathbf{z}$
+                            Use Bayes' Rule $p(\mathbf{x}) = \frac{p(\mathbf{x},\mathbf{z})}{p(\mathbf{z}|\mathbf{x})}$:
+                            $$= \int q(\mathbf{z}) \log \left( \frac{p(\mathbf{x},\mathbf{z})}{p(\mathbf{z}|\mathbf{x})} \right) d\mathbf{z}$$
                         </div>
                     </div>
                     
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            Multiply by $\frac{q(\mathbf{z})}{q(\mathbf{z})}$:
-                            $= \int q(\mathbf{z}) \log \frac{p(\mathbf{x},\mathbf{z})}{q(\mathbf{z})} d\mathbf{z} + \int q(\mathbf{z}) \log \frac{q(\mathbf{z})}{p(\mathbf{z}|\mathbf{x})} d\mathbf{z}$
+                            <strong>Multiply by 1:</strong> Introduce $\frac{q(\mathbf{z})}{q(\mathbf{z})}$ inside the log:
+                            $$= \int q(\mathbf{z}) \log \left( \frac{p(\mathbf{x},\mathbf{z})}{q(\mathbf{z})} \cdot \frac{q(\mathbf{z})}{p(\mathbf{z}|\mathbf{x})} \right) d\mathbf{z}$$
                         </div>
                     </div>
                     
                     <div class="math-step">
                         <div class="math-step-number">4</div>
                         <div class="math-step-content">
-                            This gives us:
-                            $$\log p(\mathbf{x}) = \underbrace{\mathbb{E}_q[\log p(\mathbf{x},\mathbf{z}) - \log q(\mathbf{z})]}_{\text{ELBO } \mathcal{L}(q)} + \underbrace{D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}|\mathbf{x}))}_{\geq 0}$$
+                            Split the log product $\log(a \cdot b) = \log a + \log b$:
+                            $$= \underbrace{\int q(\mathbf{z}) \log \left( \frac{p(\mathbf{x},\mathbf{z})}{q(\mathbf{z})} \right) d\mathbf{z}}_{\text{ELBO}} + \underbrace{\int q(\mathbf{z}) \log \left( \frac{q(\mathbf{z})}{p(\mathbf{z}|\mathbf{x})} \right) d\mathbf{z}}_{\text{KL Divergence}}$$
                         </div>
                     </div>
                 </div>
-                
+
+                <h3>The "Seesaw" Intuition</h3>
                 <p>
-                    Since KL divergence is non-negative: $\log p(\mathbf{x}) \geq \mathcal{L}(q)$. 
-                    The ELBO is a <strong>lower bound</strong> on the log-evidence.
+                    We have derived the fundamental identity of Variational Inference:
                 </p>
+
+                <div class="math-block">
+                    $$\log p(\mathbf{x}) = \mathcal{L}(q) + D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}|\mathbf{x}))$$
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Why this solves our problem</div>
+                    <p>
+                        1. <strong>The Left Side is Fixed:</strong> $\log p(\mathbf{x})$ is the true evidence of the data. It is a constant number (though unknown) that does not depend on our choice of $q$.
+                        <br>
+                        2. <strong>The KL is Non-Negative:</strong> $D_{KL} \geq 0$ always.
+                    </p>
+                    <p>
+                        This means $\mathcal{L}(q)$ is a <strong>Lower Bound</strong> on the evidence (Evidence Lower BOund).
+                    </p>
+                    <p>
+                        <strong>The Seesaw:</strong> Since the sum is constant, if we <strong>maximize</strong> the ELBO ($\mathcal{L}(q)$), we automatically <strong>minimize</strong> the KL divergence.
+                        We can optimize the ELBO because it only involves terms we can compute ($p(\mathbf{x}, \mathbf{z})$ and $q(\mathbf{z})$)!
+                    </p>
+                </div>
+
+                <h3>Interpreting the ELBO</h3>
+                <p>
+                    What does maximizing the ELBO actually do? Let's rearrange its terms:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}(q) = \mathbb{E}_{q}[\log p(\mathbf{x}|\mathbf{z})] - D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}))$$
+                </div>
+                
+                <ul style="list-style-type: none; padding-left: 0;">
+                    <li>
+                        <strong>Term 1: Reconstruction Quality ($\mathbb{E}_{q}[\log p(\mathbf{x}|\mathbf{z})]$)</strong>
+                        <br>Encourages $q$ to pick latent codes $\mathbf{z}$ that explain the data well. "Make the shadow look like the object."
+                    </li>
+                    <li style="margin-top: 1rem;">
+                        <strong>Term 2: Regularization ($-D_{KL}(q(\mathbf{z}) \| p(\mathbf{z}))$)</strong>
+                        <br>Encourages $q$ to stay close to the prior $p(\mathbf{z})$. "Don't hallucinate complex codes; keep it simple."
+                    </li>
+                </ul>
                 
                 <!-- Section 4 -->
                 <h2 id="mean-field">Mean-Field Variational Inference</h2>
