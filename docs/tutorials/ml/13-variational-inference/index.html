@@ -138,20 +138,81 @@
                 <h2 id="problem">The Inference Problem</h2>
                 
                 <p>
-                    In Bayesian inference, we want the posterior $p(\mathbf{z}|\mathbf{x})$ over 
-                    latent variables $\mathbf{z}$ given observations $\mathbf{x}$. By Bayes' theorem:
+                    To understand Variational Inference, we must first deeply understand the problem it tries to solve: 
+                    <strong>Bayesian Inference</strong> in the face of complexity.
+                </p>
+
+                <h3>The Setup: A Generative Story</h3>
+                <p>
+                    In probabilistic machine learning, we often tell a story about how our data came to be. 
+                    We assume there are some hidden, invisible factors—let's call them <strong>latent variables</strong> $\mathbf{z}$—that 
+                    generate the data we actually see, the <strong>observations</strong> $\mathbf{x}$.
+                </p>
+                <p>
+                    This is the <strong>Generative Process</strong>:
+                    <br>
+                    1. First, the universe picks a hidden state $\mathbf{z}$ from a <strong>Prior</strong> distribution $p(\mathbf{z})$.
+                    <br>
+                    2. Then, based on $\mathbf{z}$, the universe generates the data $\mathbf{x}$ using a <strong>Likelihood</strong> distribution $p(\mathbf{x}|\mathbf{z})$.
+                </p>
+
+                <h3>The Goal: Reverse Engineering</h3>
+                <p>
+                    As machine learning practitioners, we only get to see the data $\mathbf{x}$. Our job is to reverse-engineer the process. 
+                    We want to know: <em>"Given this data $\mathbf{x}$, what were the likely latent variables $\mathbf{z}$ that caused it?"</em>
+                </p>
+                <p>
+                    Mathematically, we are asking for the <strong>Posterior</strong> distribution $p(\mathbf{z}|\mathbf{x})$.
+                    Bayes' Theorem gives us the recipe to flip the probability:
                 </p>
                 
                 <div class="math-block">
-                    $$p(\mathbf{z}|\mathbf{x}) = \frac{p(\mathbf{x}|\mathbf{z})p(\mathbf{z})}{p(\mathbf{x})} = \frac{p(\mathbf{x}|\mathbf{z})p(\mathbf{z})}{\int p(\mathbf{x}|\mathbf{z})p(\mathbf{z})d\mathbf{z}}$$
+                    $$p(\mathbf{z}|\mathbf{x}) = \frac{p(\mathbf{x}|\mathbf{z})p(\mathbf{z})}{p(\mathbf{x})}$$
                 </div>
+
+                <p>Let's label these terms carefully:</p>
+                <ul style="list-style-type: none; padding-left: 0;">
+                    <li>$\color{blue} p(\mathbf{z}|\mathbf{x})$: <strong>The Posterior.</strong> What we believe about $\mathbf{z}$ after seeing $\mathbf{x}$. (The Goal)</li>
+                    <li>$\color{green} p(\mathbf{x}|\mathbf{z})$: <strong>The Likelihood.</strong> How probable the data is given specific latent variables. (We design this)</li>
+                    <li>$\color{orange} p(\mathbf{z})$: <strong>The Prior.</strong> What we believed about $\mathbf{z}$ before seeing any data. (We assume this)</li>
+                    <li>$\color{red} p(\mathbf{x})$: <strong>The Evidence.</strong> The total probability of seeing the data $\mathbf{x}$ under all possible $\mathbf{z}$.</li>
+                </ul>
                 
                 <div class="definition-box">
-                    <div class="box-title">The Problem</div>
+                    <div class="box-title">The Villain: The Marginal Likelihood</div>
+                    <p>
+                        The equation looks simple, but there is a trap. The denominator, $p(\mathbf{x})$, is called the <strong>Evidence</strong> 
+                        or <strong>Marginal Likelihood</strong>. To calculate it, we must sum up the probability of generating $\mathbf{x}$ 
+                        from <em>every possible configuration</em> of $\mathbf{z}$:
+                    </p>
+                    <div class="math-block" style="margin: 1rem 0;">
+                        $$p(\mathbf{x}) = \int p(\mathbf{x}|\mathbf{z})p(\mathbf{z}) d\mathbf{z}$$
+                    </div>
                     <p style="margin-bottom: 0;">
-                        The denominator $p(\mathbf{x}) = \int p(\mathbf{x}|\mathbf{z})p(\mathbf{z})d\mathbf{z}$ 
-                        is often <strong>intractable</strong>—we cannot compute this integral analytically 
-                        or efficiently.
+                        This integral is the root of the "Inference Problem."
+                    </p>
+                </div>
+
+                <h3>Why is the Integral Hard?</h3>
+                <p>
+                    You might ask, "Why not just compute the integral?" In simple 1D textbook problems, we can. 
+                    But in modern machine learning, $\mathbf{z}$ is often a high-dimensional vector (e.g., 100 dimensions).
+                </p>
+                
+                <div class="note-box">
+                    <div class="box-title">The Curse of Dimensionality</div>
+                    <p>
+                        Imagine $\mathbf{z}$ has just 100 dimensions, and we try to approximate the integral by checking a grid of points. 
+                        If we check just 2 points along each dimension, we would need to evaluate the likelihood $2^{100}$ times.
+                    </p>
+                    <p>
+                        $2^{100} \approx 10^{30}$. If we had a supercomputer checking a billion points per second, 
+                        it would take longer than the age of the universe to finish.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Because we cannot compute the denominator $p(\mathbf{x})$, we cannot compute the value of the posterior $p(\mathbf{z}|\mathbf{x})$. 
+                        We know the <em>shape</em> of the posterior (from the numerator), but we don't know the <em>scale</em> (the normalization constant). 
+                        Without normalization, it's not a valid probability distribution.
                     </p>
                 </div>
 
