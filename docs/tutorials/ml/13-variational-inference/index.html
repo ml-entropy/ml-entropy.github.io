@@ -427,29 +427,62 @@
                 <h2 id="mean-field">Mean-Field Variational Inference</h2>
                 
                 <p>
-                    A common choice: assume $q$ factorizes over latent variables:
+                    So far, we've defined the objective (ELBO). But how do we choose the family $\mathcal{Q}$?
+                    If $\mathcal{Q}$ is too complex, we can't compute the expectations in the ELBO. 
+                    If it's too simple, the approximation will be poor.
+                </p>
+
+                <h3>The Mean-Field Assumption</h3>
+                <p>
+                    The most common strategy is to assume that the variational distribution <strong>factorizes</strong> 
+                    over the latent variables. This is called the <strong>Mean-Field Assumption</strong>:
                 </p>
                 
                 <div class="math-block">
                     $$q(\mathbf{z}) = \prod_{j=1}^{m} q_j(z_j)$$
                 </div>
                 
-                <p>This is the <strong>mean-field</strong> assumption—it ignores correlations between latent variables.</p>
+                <p>
+                    This means we assume the latent variables are <strong>independent</strong> in our approximation, 
+                    even if they are correlated in the true posterior.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Why "Mean Field"?</div>
+                    <p>
+                        The term comes from statistical physics. Imagine a gas where every particle interacts with every other particle. 
+                        Solving this exactly is impossible ($N$-body problem).
+                    </p>
+                    <p>
+                        <strong>Approximation:</strong> Instead of modeling individual interactions, assume each particle interacts with the 
+                        <strong>"mean field"</strong> created by the average behavior of all other particles.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        In VI, we replace the complex dependency of $z_j$ on specific values of other variables with a dependency on their 
+                        <strong>average</strong> values (expectations).
+                    </p>
+                </div>
+
+                <h3>Coordinate Ascent Optimization</h3>
+                <p>
+                    Because of the factorization, we can optimize each factor $q_j(z_j)$ one at a time while holding the others fixed. 
+                    This is called <strong>Coordinate Ascent Variational Inference (CAVI)</strong>.
+                </p>
                 
                 <div class="math-derivation">
-                    <div class="math-derivation-title">Coordinate Ascent Updates</div>
+                    <div class="math-derivation-title">The Update Rule</div>
                     
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
-                            Hold all $q_j$ fixed except $q_k$
+                            <strong>Goal:</strong> Find the optimal distribution $q_k^*(z_k)$ for the $k$-th variable, assuming all other $q_{j \neq k}$ are fixed.
                         </div>
                     </div>
                     
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            Optimal $q_k^*$ satisfies:
+                            <strong>The Solution:</strong> It turns out (via calculus of variations) that the optimal form is:
                             $$\log q_k^*(z_k) = \mathbb{E}_{-k}[\log p(\mathbf{x}, \mathbf{z})] + \text{const}$$
                         </div>
                     </div>
@@ -457,9 +490,22 @@
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            Where $\mathbb{E}_{-k}$ means expectation over all $q_j$ except $j = k$
+                            <strong>Interpretation:</strong> Take the joint log-probability of everything ($\mathbf{x}$ and all $\mathbf{z}$). 
+                            Then, take the expected value over <em>every other variable</em> except $z_k$. 
+                            What remains is a function of only $z_k$, which becomes our new $q_k$.
                         </div>
                     </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">The Limitation</div>
+                    <p>
+                        By assuming independence, Mean-Field VI <strong>cannot model correlations</strong> in the posterior. 
+                        If $z_1$ and $z_2$ are highly correlated (e.g., "if tall, then heavy"), the mean-field approximation will simply ignore this relationship.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        This typically leads to <strong>underestimating the variance</strong> of the posterior. The approximation will be "too confident" and centered on the mode.
+                    </p>
                 </div>
 
                 <!-- Section 4.5: Examples -->
@@ -467,39 +513,125 @@
 
                 <h3>1. Discrete Example: Breaking Correlations</h3>
                 <p>
-                    Consider a simple joint distribution $p(z_1, z_2)$ where $z_1, z_2 \in \{0, 1\}$. 
-                    Suppose they are perfectly correlated: $p(0,0)=0.5, p(1,1)=0.5$, and 0 otherwise.
-                </p>
-                <p>
-                    We use a mean-field approximation $q(z_1, z_2) = q_1(z_1)q_2(z_2)$. 
-                    If we try to minimize $KL(q\|p)$, $q$ must assign probability mass only where $p$ is non-zero (to avoid infinite KL).
-                </p>
-                <p>
-                    However, $q$ is independent. If $q_1(0)=1$ and $q_2(0)=1$, then $q(0,0)=1$, but $q(1,1)=0$. 
-                    This is a local minimum! The mean-field approximation forces us to choose <em>one</em> mode and ignore the other, 
-                    or find a compromise that might not capture the correlation.
+                    Let's use a concrete analogy to see how the Mean-Field assumption breaks correlations.
                 </p>
 
-                <h3>2. Continuous Example: Mode Seeking</h3>
-                <p>
-                    Consider a target $p(z)$ that is a mixture of two Gaussians (bimodal). 
-                    Our variational family $q(z)$ is a single Gaussian.
-                </p>
-                
-                <div class="math-block">
-                    $$D_{KL}(q\|p) = \int q(z) \log \frac{q(z)}{p(z)} dz$$
+                <div class="note-box">
+                    <div class="box-title">The "Pizza or Sushi" Problem</div>
+                    <p>
+                        Imagine two friends, Alice ($z_1$) and Bob ($z_2$), trying to decide on dinner.
+                        <br>
+                        They are best friends and <strong>always</strong> eat the same thing.
+                    </p>
+                    <p>
+                        <strong>The True Distribution ($p$):</strong>
+                        <br>• Option A: Both eat Pizza (0, 0) $\rightarrow$ probability 0.5
+                        <br>• Option B: Both eat Sushi (1, 1) $\rightarrow$ probability 0.5
+                        <br>• Disagreement (0, 1) or (1, 0) $\rightarrow$ probability <strong>0.0</strong> (Impossible!)
+                    </p>
                 </div>
 
                 <p>
-                    To minimize this, $q(z)$ should be small whenever $p(z)$ is small (to avoid large positive log ratio). 
-                    As a result, $q(z)$ tends to fit <strong>one of the modes</strong> of $p(z)$ tightly, rather than spanning both.
+                    Now, let's try to approximate this using <strong>Mean-Field VI</strong>.
+                    <br>
+                    The assumption $q(z_1, z_2) = q_1(z_1)q_2(z_2)$ means Alice and Bob make their decisions <strong>independently</strong>.
                 </p>
-                
+
+                <p><strong>The Attempt:</strong> Suppose we try to capture the "50/50" uncertainty.
+                    <br>
+                    Alice sets her preference to 50% Pizza, 50% Sushi ($q_1(0)=0.5, q_1(1)=0.5$).
+                    <br>
+                    Bob does the same ($q_2(0)=0.5, q_2(1)=0.5$).
+                </p>
+
+                <p><strong>The Failure:</strong> Because they are independent, the joint probability of them disagreeing is:
+                    <br>
+                    $q(\text{Alice=Pizza, Bob=Sushi}) = 0.5 \times 0.5 = 0.25$
+                </p>
+
+                <p>
+                    But in the true world $p$, this event has probability <strong>0</strong>.
+                    <br>
+                    The KL divergence formula contains the term $\log \frac{q(z)}{p(z)}$.
+                    <br>
+                    If $p(z) = 0$ and $q(z) > 0$, then we are dividing by zero inside the log. The penalty is <strong>Infinite</strong>.
+                </p>
+
                 <div class="definition-box">
-                    <div class="box-title">Mode Seeking vs Mean Seeking</div>
+                    <div class="box-title">The Consequence: Mode Collapse</div>
                     <p>
-                        <strong>$KL(q\|p)$ (Variational):</strong> Mode-seeking. Finds one peak. Good for specific predictions.<br>
-                        <strong>$KL(p\|q)$ (Expectation Propagation):</strong> Mean-seeking. Covers all probability mass. Good for conservative estimates.
+                        To avoid this infinite penalty, $q$ must ensure that it <strong>never</strong> assigns probability to events that are impossible in $p$.
+                    </p>
+                    <p>
+                        The only way to satisfy this with independent distributions is to pick <strong>one valid solution</strong> and stick to it 100%.
+                        <br>
+                        • Solution 1: $q_1(0)=1, q_2(0)=1$ (Both eat Pizza with certainty).
+                        <br>• Solution 2: $q_1(1)=1, q_2(1)=1$ (Both eat Sushi with certainty).
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        We successfully approximated <em>one</em> of the modes, but we completely lost the global uncertainty (that it could have been the other option). <strong>The correlation is broken.</strong>
+                    </p>
+                </div>
+
+                <h3>2. Continuous Example: Mode Seeking</h3>
+                <p>
+                    Now consider a continuous case where the true posterior $p(z)$ is <strong>bimodal</strong> (has two separate peaks, like a camel's back).
+                    <br>
+                    Our variational family $q(z)$ is a single Gaussian (unimodal, one peak).
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Analogy: The Perfectionist vs. The Politician</div>
+                    <p>
+                        There are two ways to measure the difference between distributions, leading to opposite behaviors.
+                    </p>
+                </div>
+
+                <h4>Case 1: The Perfectionist ($D_{KL}(q\|p)$) - Variational Inference</h4>
+                <p>
+                    This is what we use in VI. Let's look at the term inside the integral:
+                </p>
+                <div class="math-block">
+                    $$D_{KL}(q\|p) = \int q(z) \log \left( \frac{q(z)}{p(z)} \right) dz$$
+                </div>
+                <p>
+                    <strong>The Danger Zone:</strong> Consider regions where $p(z) \approx 0$ (the valley between the two peaks).
+                    <br>
+                    If $q(z)$ puts any mass there ($q(z) > 0$), the ratio $\frac{q(z)}{p(z)}$ explodes to infinity.
+                    <br>
+                    <strong>The Strategy:</strong> To stay safe, $q(z)$ acts like a <strong>Perfectionist</strong>. It effectively says: <em>"I cannot be wrong. If $p$ is zero, I MUST be zero."</em>
+                </p>
+                <p>
+                    <strong>The Result (Mode Seeking):</strong> $q$ will choose <strong>one</strong> of the two peaks and fit it tightly. It completely ignores the other peak to avoid crossing the valley of zero probability.
+                    <br>
+                    <em>Consequence:</em> We underestimate variance. We think we are very certain about the answer, but we missed half the possibilities.
+                </p>
+
+                <h4>Case 2: The Politician ($D_{KL}(p\|q)$) - Expectation Propagation</h4>
+                <p>
+                    What if we swapped the order?
+                </p>
+                <div class="math-block">
+                    $$D_{KL}(p\|q) = \int p(z) \log \left( \frac{p(z)}{q(z)} \right) dz$$
+                </div>
+                <p>
+                    <strong>The Danger Zone:</strong> Now, if $p(z) > 0$ (a peak exists), $q(z)$ <strong>cannot</strong> be zero.
+                    <br>
+                    <strong>The Strategy:</strong> $q(z)$ acts like a <strong>Politician</strong>. It tries to please everyone. It says: <em>"If anyone is there ($p>0$), I must cover them."</em>
+                </p>
+                <p>
+                    <strong>The Result (Mean Seeking):</strong> $q$ will stretch out to cover <strong>both</strong> peaks. Since it's a single Gaussian, it ends up centered in the valley (where probability is low!) with a huge variance.
+                    <br>
+                    <em>Consequence:</em> We overestimate variance. We are "inclusive but vague."
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Summary: Why VI is Mode-Seeking</div>
+                    <p>
+                        Variational Inference uses the "Perfectionist" distance ($KL(q\|p)$) because it's computationally tractable (we can take expectations over $q$).
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        This creates the <strong>Zero-Forcing Property</strong>: $q$ is forced to be zero wherever $p$ is zero. This leads to sharp, focused approximations that may miss other modes.
                     </p>
                 </div>
                 
@@ -507,28 +639,96 @@
                 <h2 id="stochastic-vi">Stochastic Variational Inference</h2>
                 
                 <p>
-                    For large datasets, use stochastic gradients of the ELBO. Combined with the 
-                    reparameterization trick (from VAEs), this enables scalable variational inference.
+                    Mean-Field VI with Coordinate Ascent has a major flaw: it's slow. 
+                    To update the global parameters, you often need to iterate through the <strong>entire dataset</strong>. 
+                    For modern "Big Data" (millions of images), this is impossible.
                 </p>
-                
-                <div class="math-block">
-                    $$\nabla_\phi \mathcal{L} = \nabla_\phi \mathbb{E}_{q_\phi}[\log p(\mathbf{x},\mathbf{z}) - \log q_\phi(\mathbf{z})]$$
-                </div>
-                
+
+                <h3>The Solution: Mini-Batches</h3>
                 <p>
-                    Use Monte Carlo samples to estimate this gradient. With reparameterization:
+                    We want to use <strong>Stochastic Gradient Descent (SGD)</strong>. We want to grab a small "mini-batch" of data, 
+                    estimate the gradient of the ELBO, and take a small step. This makes learning scalable.
                 </p>
-                
-                <div class="math-block">
-                    $$\nabla_\phi \mathcal{L} \approx \frac{1}{L}\sum_{l=1}^{L} \nabla_\phi [\log p(\mathbf{x}, g_\phi(\boldsymbol{\epsilon}^{(l)})) - \log q_\phi(g_\phi(\boldsymbol{\epsilon}^{(l)}))]$$
+
+                <div class="definition-box">
+                    <div class="box-title">The Challenge: Backpropagating through Randomness</div>
+                    <p>
+                        To use SGD, we need to compute the gradient of our loss (the ELBO) with respect to the variational parameters $\phi$ (e.g., $\mu$ and $\sigma$).
+                    </p>
+                    <p>
+                        The ELBO contains an expectation: $\mathcal{L} = \mathbb{E}_{z \sim q_\phi}[\log p(x, z) - \log q_\phi(z)]$.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>The Problem:</strong> The distribution we are sampling from ($q_\phi$) <em>depends on the parameters we want to differentiate</em>. 
+                        You cannot standard backpropagate through a "sampling" node (like `np.random.normal()`). 
+                        It's like trying to ask a dice roll, "How would the outcome change if I changed the probability of rolling a 6?" 
+                        The outcome is discrete and random; the derivative is undefined or high-variance.
+                    </p>
                 </div>
-                
+
+                <h3>The Fix: The Reparameterization Trick</h3>
+                <p>
+                    We fix this by moving the randomness <strong>outside</strong> the network. This is the magic behind VAEs.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Analogy: Moving the Cloud</div>
+                    <p>
+                        <strong>Before (Standard Sampling):</strong> You tell the computer: "Draw a sample from $\mathcal{N}(\mu, \sigma^2)$."
+                        <br>
+                        The computer gives you a number, say `1.7`. You can't compute $\frac{\partial (1.7)}{\partial \mu}$. The connection is broken.
+                    </p>
+                    <p>
+                        <strong>After (Reparameterization):</strong> You tell the computer:
+                        <br>1. "Go get a random number $\epsilon$ from a standard generator $\mathcal{N}(0, 1)$." (This $\epsilon$ has no parameters).
+                        <br>2. "Now, calculate $z = \mu + \sigma \times \epsilon$."
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Now, $z$ is just a deterministic function of $\mu$ and $\sigma$ (and a fixed constant $\epsilon$). 
+                        We <strong>can</strong> compute $\frac{\partial z}{\partial \mu} = 1$ and $\frac{\partial z}{\partial \sigma} = \epsilon$. 
+                        Gradients can flow freely!
+                    </p>
+                </div>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Mathematical Formulation</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Original Gradient:</strong> $\nabla_\phi \mathbb{E}_{q_\phi}[f(z)]$ (Hard!)
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Reparameterize:</strong> Let $z = g_\phi(\epsilon)$ where $\epsilon \sim p(\epsilon)$ (fixed distribution).
+                            <br>
+                            For Gaussian: $z = \mu + \sigma \odot \epsilon$ with $\epsilon \sim \mathcal{N}(0, I)$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Pathwise Derivative:</strong> We can now move the gradient <em>inside</em> the expectation:
+                            $$\nabla_\phi \mathbb{E}_{q_\phi}[f(z)] = \mathbb{E}_{p(\epsilon)}[\nabla_\phi f(g_\phi(\epsilon))]$$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Monte Carlo:</strong> We approximate this expectation by sampling one (or a few) $\epsilon$ per step:
+                            $$\approx \frac{1}{L}\sum_{l=1}^{L} \nabla_\phi [\log p(\mathbf{x}, z^{(l)}) - \log q_\phi(z^{(l)})]$$
+                            where $z^{(l)} = \mu + \sigma \odot \epsilon^{(l)}$.
+                        </div>
+                    </div>
+                </div>
+
                 <div class="warning-box">
                     <div class="box-title">Modern VI Methods</div>
                     <p style="margin-bottom: 0;">
-                        <strong>Black-box VI:</strong> Works with any model using score function gradients<br>
-                        <strong>Normalizing flows:</strong> Rich posterior families beyond mean-field<br>
-                        <strong>Amortized inference:</strong> Neural networks predict variational parameters (like VAE encoders)
+                        <strong>Black-box VI:</strong> Works with any model using score function gradients (REINFORCE), even if reparameterization isn't possible (e.g., discrete latents).<br>
+                        <strong>Normalizing flows:</strong> Starts with a simple $q(z)$ and transforms it through a series of invertible mappings to create complex, flexible posteriors beyond the mean-field limit.<br>
+                        <strong>Amortized inference:</strong> Instead of optimizing a separate $\phi_i$ for every data point $x_i$, we train a neural network $f_\theta(x)$ that predicts $\phi$ for any input (like the VAE Encoder).
                     </p>
                 </div>
                 
@@ -536,21 +736,170 @@
                 <h2 id="comparison">VI vs MCMC</h2>
                 
                 <p>
-                    Two main approaches to approximate inference:
-                </p>
-                
-                <ul>
-                    <li><strong>Variational Inference:</strong> Fast, deterministic, gives lower bound on evidence, but biased (restricted family)</li>
-                    <li><strong>MCMC:</strong> Asymptotically exact, but slow, hard to diagnose convergence</li>
-                </ul>
-                
-                <p>
-                    VI is preferred when speed matters (large data, real-time). MCMC is preferred 
-                    when accuracy matters and compute is available.
+                    We've spent this entire tutorial on Variational Inference. But it's not the only game in town. 
+                    The other major family of algorithms is <strong>Markov Chain Monte Carlo (MCMC)</strong>.
                 </p>
 
-                <!-- Section 7: Exercises -->
-                <h2 id="exercises">Exercises</h2>
+                <div class="note-box">
+                    <div class="box-title">Analogy: The Hiker vs. The Surveyor</div>
+                    <p>
+                        Imagine the posterior $p(\mathbf{z}|\mathbf{x})$ is a vast, rugged mountain range. We want to understand its shape.
+                    </p>
+                    <p>
+                        <strong>Variational Inference (The Hiker):</strong>
+                        <br>The hiker wants to find the highest peak <em>quickly</em>. They choose a specific climbing gear (the variational family $q$) and sprint uphill (optimization).
+                        <br><em>Pros:</em> Fast, efficient.
+                        <br><em>Cons:</em> Might get stuck on a small hill (local optimum) or miss a second peak entirely (mode seeking).
+                    </p>
+                    <p>
+                        <strong>MCMC (The Surveyor):</strong>
+                        <br>The surveyor wants to map the <em>entire</em> landscape perfectly. They wander around randomly (sampling), spending more time in high-altitude areas.
+                        <br><em>Pros:</em> Eventually produces a perfect map (asymptotically exact). Captures all modes and complex shapes.
+                        <br><em>Cons:</em> Takes forever. Requires walking everywhere. Hard to know when the map is "done" (convergence).
+                    </p>
+                </div>
+
+                <h3>Comparison Summary</h3>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; margin: 2rem 0;">
+                        <thead>
+                            <tr style="background-color: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+                                <th style="padding: 1rem; text-align: left;">Feature</th>
+                                <th style="padding: 1rem; text-align: left;">Variational Inference (VI)</th>
+                                <th style="padding: 1rem; text-align: left;">MCMC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                <td style="padding: 1rem; font-weight: bold;">Core Math</td>
+                                <td style="padding: 1rem;">Optimization (minimize KL)</td>
+                                <td style="padding: 1rem;">Integration (sampling)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                <td style="padding: 1rem; font-weight: bold;">Speed</td>
+                                <td style="padding: 1rem;">⚡ Fast (seconds/minutes)</td>
+                                <td style="padding: 1rem;">🐢 Slow (hours/days)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                <td style="padding: 1rem; font-weight: bold;">Scalability</td>
+                                <td style="padding: 1rem;">High (works with SGD/Big Data)</td>
+                                <td style="padding: 1rem;">Low (hard to batch)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                <td style="padding: 1rem; font-weight: bold;">Accuracy</td>
+                                <td style="padding: 1rem;">Biased (restricted by family $\mathcal{Q}$)</td>
+                                <td style="padding: 1rem;">Asymptotically Exact</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                <td style="padding: 1rem; font-weight: bold;">Problem</td>
+                                <td style="padding: 1rem;">Underestimates variance</td>
+                                <td style="padding: 1rem;">Convergence diagnosis</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="definition-box">
+                    <div class="box-title">When to use which?</div>
+                    <p>
+                        <strong>Use Variational Inference when:</strong>
+                        <br>• You have massive datasets (Deep Learning, VAEs).
+                        <br>• You need real-time predictions.
+                        <br>• You care more about the "best guess" than perfect uncertainty bars.
+                    </p>
+                    <p>
+                        <strong>Use MCMC when:</strong>
+                        <br>• You have small, scientific datasets.
+                        <br>• Accuracy is critical (e.g., medical diagnosis, structural safety).
+                        <br>• You need to know the exact shape of the "tail" risks.
+                    </p>
+                </div>
+
+
+                
+                <!-- Navigation -->
+                
+
+                <div class="tutorial-nav">
+                    <a href="../12-vae/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← VAEs</span>
+                    </a>
+                    <div class="tutorial-nav-link next disabled">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">End of Series →</span>
+                    </div>
+                </div>
+                
+            </article>
+
+            <article class="article-content" id="code">
+                <h2>Implementing Variational Inference</h2>
+                <p>
+                    Let's implement a simple example: Approximating a bimodal distribution with a single Gaussian using <strong>Stochastic Variational Inference</strong> in PyTorch.
+                </p>
+
+                <h3>The Target Distribution</h3>
+                <p>
+                    $p(z) \propto e^{-(z-2)^2} + e^{-(z+2)^2}$ (A mixture of two Gaussians).
+                </p>
+
+                <div class="code-block">
+<pre><code class="language-python">import torch
+import torch.optim as optim
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 1. Define the (unnormalized) log-probability of the target p(z)
+def log_p(z):
+    # Mixture of two Gaussians at -2 and +2
+    return torch.log(torch.exp(-(z - 2)**2) + torch.exp(-(z + 2)**2))
+
+# 2. Define the Variational Family q(z) = N(mu, sigma)
+class VariationalGaussian(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.mu = torch.nn.Parameter(torch.tensor(0.0))
+        self.log_sigma = torch.nn.Parameter(torch.tensor(0.0))
+    
+    def sample(self, n_samples):
+        sigma = torch.exp(self.log_sigma)
+        epsilon = torch.randn(n_samples) # Standard Normal
+        return self.mu + sigma * epsilon # Reparameterization Trick
+    
+    def log_q(self, z):
+        sigma = torch.exp(self.log_sigma)
+        return -0.5 * torch.log(2 * torch.tensor(np.pi)) - self.log_sigma - 0.5 * ((z - self.mu) / sigma)**2
+
+# 3. Optimization Loop (Maximizing ELBO)
+model = VariationalGaussian()
+optimizer = optim.Adam(model.parameters(), lr=0.1)
+
+for i in range(1000):
+    optimizer.zero_grad()
+    
+    # Sample z from q (Reparameterization)
+    z = model.sample(100)
+    
+    # Calculate ELBO: E[log p(z) - log q(z)]
+    # Note: Since p(x) is constant, maximizing this is equivalent to minimizing KL(q||p)
+    elbo = torch.mean(log_p(z) - model.log_q(z))
+    
+    # Minimize negative ELBO
+    loss = -elbo
+    loss.backward()
+    optimizer.step()
+    
+    if i % 100 == 0:
+        print(f"Iter {i}: mu={model.mu.item():.2f}, sigma={torch.exp(model.log_sigma).item():.2f}")
+
+print("Result: The model converges to ONE of the modes (e.g., +2 or -2) with low variance.")
+</code></pre>
+                </div>
+            </article>
+
+            <article class="article-content" id="exercises">
+                <h2>Exercises</h2>
 
                 <div class="exercise-box">
                     <div class="box-title">Exercise 1: Discrete Mean-Field</div>
@@ -575,28 +924,6 @@
                         Show that the optimal $q$ is exactly $p$ (i.e., $\mu_q=\mu_p, \sigma_q=\sigma_p$).
                     </p>
                 </div>
-                
-                <!-- Navigation -->
-                
-            <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                <h1>14. Variational Inference</h1>
-                <p class="lead">
-                When exact Bayesian inference is intractable, variational inference turns it 
-                into optimization. Learn the general framework that powers VAEs, Bayesian neural 
-                networks, and modern probabilistic models.
-            </p>
-            </div>
-                <div class="tutorial-nav">
-                    <a href="../12-vae/index.html" class="tutorial-nav-link prev">
-                        <span class="nav-label">Previous</span>
-                        <span class="nav-title">← VAEs</span>
-                    </a>
-                    <div class="tutorial-nav-link next disabled">
-                        <span class="nav-label">Next</span>
-                        <span class="nav-title">End of Series →</span>
-                    </div>
-                </div>
-                
             </article>
         
         </main>
