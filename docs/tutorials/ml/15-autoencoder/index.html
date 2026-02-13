@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autoencoders | ML Fundamentals</title>
+    <meta name="description" content="Learn autoencoders from first principles: compression, information bottleneck, sparse, denoising, and contractive variants. The foundation for VAEs.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+<link rel="stylesheet" href="../../../css/sidebar.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Autoencoders</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../01-entropy/index.html" class="sidebar-link">01. Entropy Fundamentals</a>
+                    <a href="../02-cross-entropy/index.html" class="sidebar-link">02. Cross-Entropy</a>
+                    <a href="../02-kl-divergence/index.html" class="sidebar-link">03. KL Divergence</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">04. Normal Distributions</a>
+                    <a href="../04-logarithms/index.html" class="sidebar-link">05. Why Logarithms?</a>
+                    <a href="../05-combinatorics/index.html" class="sidebar-link">06. Combinatorics</a>
+                    <a href="../06-backpropagation/index.html" class="sidebar-link">07. Backpropagation</a>
+                    <a href="../07-regularization/index.html" class="sidebar-link">08. Regularization</a>
+                    <a href="../08-batch-normalization/index.html" class="sidebar-link">09. Batch Normalization</a>
+                    <a href="../09-learning-rate/index.html" class="sidebar-link">10. Learning Rate</a>
+                    <a href="../10-cnn/index.html" class="sidebar-link">11. CNNs</a>
+                    <a href="../11-rnn/index.html" class="sidebar-link">12. RNNs</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link active">13. Autoencoders</a>
+                    <a href="../13-variational-inference/index.html" class="sidebar-link">14. Variational Inference</a>
+                    <a href="../12-vae/index.html" class="sidebar-link">15. VAE</a>
+                    <a href="../14-entropy-connections/index.html" class="sidebar-link">16. Entropy Connections</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <article class="article-content" id="theory">
+
+            <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                <h1>13. Autoencoders</h1>
+                <p class="lead">
+                Autoencoders learn to compress data into a lower-dimensional representation and reconstruct it.
+                We derive the architecture, understand the information bottleneck, and explore variants:
+                sparse, denoising, and contractive autoencoders.
+            </p>
+            </div>
+
+                <!-- Section 1 -->
+                <h2 id="why-autoencoders">Why Autoencoders?</h2>
+
+                <p>
+                    Raw data lives in very high-dimensional spaces, but the <strong>intrinsic dimensionality</strong>
+                    is often much lower. A 64×64 grayscale image has 4,096 dimensions, but the space of "meaningful"
+                    images is a tiny manifold within $\mathbb{R}^{4096}$.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Autoencoder Architecture</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Encoder $f_\theta$:</strong> Maps input $x \in \mathbb{R}^n$ to latent code $z \in \mathbb{R}^d$ where $d \ll n$<br>
+                        <strong>Decoder $g_\phi$:</strong> Maps latent code back to reconstruction $\hat{x} \in \mathbb{R}^n$<br>
+                        <strong>Objective:</strong> Minimize $\|x - \hat{x}\|^2$ — the bottleneck forces learning what matters
+                    </p>
+                </div>
+
+                <p>
+                    A single-layer linear autoencoder learns the same subspace as PCA.
+                    The power of autoencoders comes from <strong>nonlinear</strong> encodings via deep networks.
+                </p>
+
+                <!-- Section 2 -->
+                <h2 id="mathematics">The Mathematics</h2>
+
+                <p>
+                    The encoder and decoder are parameterized as neural networks:
+                </p>
+
+                <div class="math-block">
+                    $$z = f_\theta(x) = \sigma(Wx + b)$$
+                </div>
+
+                <div class="math-block">
+                    $$\hat{x} = g_\phi(z) = \sigma'(W'z + b')$$
+                </div>
+
+                <p>For continuous data, we use <strong>MSE loss</strong>:</p>
+
+                <div class="math-block">
+                    $$\mathcal{L}_{MSE} = \|x - \hat{x}\|^2 = \sum_{j=1}^n (x_j - \hat{x}_j)^2$$
+                </div>
+
+                <p>For binary data, we use <strong>binary cross-entropy</strong> (maximum likelihood):</p>
+
+                <div class="math-block">
+                    $$\mathcal{L}_{BCE} = -\sum_{j=1}^n \left[x_j \log \hat{x}_j + (1 - x_j) \log(1 - \hat{x}_j)\right]$$
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Tied Weights</div>
+                    <p style="margin-bottom: 0;">
+                        Setting decoder weights $W' = W^T$ halves parameters and acts as regularization.
+                        The decoder is forced to use the transpose of the encoder's learned features.
+                    </p>
+                </div>
+
+                <!-- Section 3 -->
+                <h2 id="information-bottleneck">The Information Bottleneck</h2>
+
+                <p>
+                    The encoder performs <strong>lossy compression</strong>. With $d &lt; n$, information must be lost.
+                    The autoencoder learns <em>which</em> information to keep.
+                </p>
+
+                <div class="math-block">
+                    $$I(X; Z) = H(X) - H(X | Z)$$
+                </div>
+
+                <p>
+                    Since $H(X)$ is fixed, minimizing reconstruction loss maximizes $I(X; Z)$ subject to
+                    the bottleneck constraint. This connects directly to Shannon's <strong>rate-distortion theory</strong>:
+                </p>
+
+                <div class="math-block">
+                    $$R(D) = \min_{p(z|x): \mathbb{E}[d(x,\hat{x})] \leq D} I(X; Z)$$
+                </div>
+
+                <div class="definition-box">
+                    <div class="box-title">Rate-Distortion Trade-off</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Rate:</strong> Bits needed to represent $z$ (limited by bottleneck dimension)<br>
+                        <strong>Distortion:</strong> Reconstruction error $\|x - \hat{x}\|^2$<br>
+                        <strong>Trade-off:</strong> Smaller bottleneck → more compression → higher distortion
+                    </p>
+                </div>
+
+                <!-- Section 4 -->
+                <h2 id="undercomplete-overcomplete">Undercomplete vs Overcomplete</h2>
+
+                <p>
+                    <strong>Undercomplete ($d &lt; n$):</strong> The bottleneck alone forces compression. Simple and effective,
+                    but may be too restrictive for complex data.
+                </p>
+
+                <p>
+                    <strong>Overcomplete ($d \geq n$):</strong> The network can learn the identity function with zero loss!
+                    We must add explicit regularization to prevent trivial solutions.
+                </p>
+
+                <!-- Section 5 -->
+                <h2 id="sparse-autoencoders">Sparse Autoencoders</h2>
+
+                <p>
+                    Add a sparsity penalty so most latent units are inactive for any given input:
+                </p>
+
+                <div class="math-block">
+                    $$\mathcal{L} = \|x - \hat{x}\|^2 + \lambda \sum_{j=1}^d |z_j|$$
+                </div>
+
+                <p>
+                    For a more principled approach, use the <strong>KL divergence sparsity penalty</strong>.
+                    Define the average activation $\hat{\rho}_j = \frac{1}{N}\sum_{i=1}^N z_j^{(i)}$ and
+                    penalize deviation from target sparsity $\rho$:
+                </p>
+
+                <div class="math-block">
+                    $$\Omega_{sparse} = \sum_{j=1}^d D_{KL}(\rho \| \hat{\rho}_j) = \sum_{j=1}^d \left[\rho \log \frac{\rho}{\hat{\rho}_j} + (1-\rho)\log\frac{1-\rho}{1-\hat{\rho}_j}\right]$$
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Why Sparsity?</div>
+                    <p style="margin-bottom: 0;">
+                        Sparse codes enable overcomplete representations, produce interpretable features
+                        (each unit learns a distinct pattern), and connect to biological neural coding where
+                        cortical neurons have sparse firing patterns.
+                    </p>
+                </div>
+
+                <!-- Section 6 -->
+                <h2 id="denoising-autoencoders">Denoising Autoencoders</h2>
+
+                <p>
+                    Train the autoencoder to reconstruct <strong>clean</strong> input from <strong>corrupted</strong> input:
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Denoising Training</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Corrupt:</strong> $\tilde{x} = \text{corrupt}(x)$ (masking, Gaussian noise, or salt-and-pepper)
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Encode:</strong> $z = f_\theta(\tilde{x})$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Decode:</strong> $\hat{x} = g_\phi(z)$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Loss:</strong> $\|x - \hat{x}\|^2$ — compare to the <em>original</em> $x$, not corrupted $\tilde{x}$
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    The optimal denoising function satisfies $g^*(\tilde{x}) = \mathbb{E}[X | \tilde{X} = \tilde{x}]$.
+                    For Gaussian noise, this implicitly learns the <strong>score function</strong>:
+                </p>
+
+                <div class="math-block">
+                    $$\nabla_{\tilde{x}} \log p(\tilde{x}) \approx \frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2}$$
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Connection to Diffusion Models</div>
+                    <p style="margin-bottom: 0;">
+                        Denoising autoencoders implicitly learn the score function (gradient of log-density).
+                        This is the same principle behind modern diffusion models like DDPM and score-based generative models.
+                    </p>
+                </div>
+
+                <!-- Section 7 -->
+                <h2 id="contractive-autoencoders">Contractive Autoencoders</h2>
+
+                <p>
+                    Penalize the encoder's Jacobian to encourage locally invariant representations:
+                </p>
+
+                <div class="math-block">
+                    $$\mathcal{L} = \|x - \hat{x}\|^2 + \lambda \left\|\frac{\partial f_\theta(x)}{\partial x}\right\|_F^2$$
+                </div>
+
+                <p>
+                    The Frobenius norm of the Jacobian measures how sensitive the encoding is to input perturbations.
+                    Minimizing it makes $z$ locally invariant, pulling the representation toward a lower-dimensional manifold.
+                </p>
+
+                <h3>Comparison of Regularized Autoencoders</h3>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="padding: 0.75rem; text-align: left;">Variant</th>
+                            <th style="padding: 0.75rem; text-align: left;">Regularizer</th>
+                            <th style="padding: 0.75rem; text-align: left;">Effect</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">Sparse</td>
+                            <td style="padding: 0.75rem;">$\lambda \sum|z_j|$</td>
+                            <td style="padding: 0.75rem;">Few active units per input</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">Denoising</td>
+                            <td style="padding: 0.75rem;">Corrupt input</td>
+                            <td style="padding: 0.75rem;">Learn to denoise; score matching</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.75rem;">Contractive</td>
+                            <td style="padding: 0.75rem;">$\lambda \|J\|_F^2$</td>
+                            <td style="padding: 0.75rem;">Locally invariant encodings</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Section 8 -->
+                <h2 id="applications">Applications</h2>
+
+                <h3>Dimensionality Reduction</h3>
+                <p>Use encoder output $z$ for visualization (2D/3D), clustering, or classification.</p>
+
+                <h3>Anomaly Detection</h3>
+                <p>
+                    Train on "normal" data. Anomalies produce high reconstruction error:
+                </p>
+                <div class="math-block">
+                    $$\text{anomaly score}(x) = \|x - g_\phi(f_\theta(x))\|^2$$
+                </div>
+
+                <h3>Pretraining</h3>
+                <p>
+                    Layer-wise autoencoder pretraining was historically crucial for deep networks.
+                    The principle of learning useful representations remains central to modern self-supervised learning.
+                </p>
+
+                <!-- Section 9 -->
+                <h2 id="from-ae-to-vae">From Autoencoders to VAEs</h2>
+
+                <p>
+                    Standard autoencoders learn <strong>deterministic</strong> encodings: $z = f_\theta(x)$.
+                    This means the latent space may have "holes" and we can't meaningfully sample new data.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The VAE Solution (Next Tutorial)</div>
+                    <p style="margin-bottom: 0;">
+                        VAEs make encoding <strong>probabilistic</strong>: $q_\phi(z|x) = \mathcal{N}(\mu_\phi(x), \sigma_\phi^2(x))$<br>
+                        Adding KL regularization gives a smooth, continuous latent space that enables generation.
+                    </p>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="padding: 0.75rem; text-align: left;">Autoencoder</th>
+                            <th style="padding: 0.75rem; text-align: left;">VAE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">$z = f(x)$ (point)</td>
+                            <td style="padding: 0.75rem;">$z \sim q(z|x)$ (distribution)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">Bottleneck regularizes</td>
+                            <td style="padding: 0.75rem;">KL divergence regularizes</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">Can't generate</td>
+                            <td style="padding: 0.75rem;">Can generate</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.75rem;">Reconstruction only</td>
+                            <td style="padding: 0.75rem;">Reconstruction + KL</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../11-rnn/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← RNNs</span>
+                    </a>
+                    <a href="../13-variational-inference/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Variational Inference →</span>
+                    </a>
+                </div>
+
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+        <h4 class="toc-title">Contents</h4>
+        <nav class="toc-list">
+            <a href="#why-autoencoders" class="toc-link">Why Autoencoders?</a>
+            <a href="#mathematics" class="toc-link">The Mathematics</a>
+            <a href="#information-bottleneck" class="toc-link">Information Bottleneck</a>
+            <a href="#undercomplete-overcomplete" class="toc-link">Undercomplete vs Overcomplete</a>
+            <a href="#sparse-autoencoders" class="toc-link">Sparse Autoencoders</a>
+            <a href="#denoising-autoencoders" class="toc-link">Denoising Autoencoders</a>
+            <a href="#contractive-autoencoders" class="toc-link">Contractive Autoencoders</a>
+            <a href="#applications" class="toc-link">Applications</a>
+            <a href="#from-ae-to-vae" class="toc-link">From AE to VAE</a>
+        </nav>
+    </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

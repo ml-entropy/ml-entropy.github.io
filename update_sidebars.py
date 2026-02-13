@@ -20,9 +20,10 @@ NAV_LINKS = {
         ("09-learning-rate", "10. Learning Rate"),
         ("10-cnn", "11. CNNs"),
         ("11-rnn", "12. RNNs"),
-        ("12-vae", "13. VAE"),
+        ("15-autoencoder", "13. Autoencoders"),
         ("13-variational-inference", "14. Variational Inference"),
-        ("14-entropy-connections", "15. Entropy Connections"),
+        ("12-vae", "15. VAE"),
+        ("14-entropy-connections", "16. Entropy Connections"),
     ],
     "linear-algebra": [
         ("01-vectors", "01. Vectors and Spaces"),
