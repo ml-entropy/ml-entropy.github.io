@@ -24,6 +24,14 @@ NAV_LINKS = {
         ("15-autoencoder", "14. Autoencoders"),
         ("13-variational-inference", "15. Variational Inference"),
         ("12-vae", "16. VAE"),
+        ("16-inductive-bias", "17. Inductive Bias"),
+        ("17-architectural-biases", "18. Architectural Biases"),
+        ("18-designing-biases", "19. Designing Biases"),
+        ("19-fst-fundamentals", "20. FST Fundamentals"),
+        ("20-weighted-fsts", "21. Weighted FSTs"),
+        ("21-fst-libraries", "22. FST Libraries"),
+        ("22-fst-applications", "23. FST Applications"),
+        ("23-neural-symbolic", "24. Neural-Symbolic Hybrids"),
     ],
     "linear-algebra": [
         ("01-vectors", "01. Vectors and Spaces"),
@@ -44,6 +52,7 @@ NAV_LINKS = {
     "physics": [
         ("01-entropy", "01. Entropy"),
         ("02-carnot", "02. Carnot Cycle"),
+        ("03-differentials", "03. Differentials"),
     ]
 }
 
