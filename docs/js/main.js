@@ -12,6 +12,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         initThemeToggle();
         initMobileNav();
+        initMobileSidebar();
         initScrollEffects();
         initKaTeX();
         initExercises();
@@ -75,52 +76,124 @@
     // Mobile Navigation
     // ========================================
     function initMobileNav() {
-        const menuToggle = document.querySelector('.mobile-menu-toggle');
-        const nav = document.querySelector('.nav-main');
+        const menuToggle = document.getElementById('navToggle');
+        const nav = document.getElementById('navMenu');
         const body = document.body;
 
         if (!menuToggle || !nav) return;
 
-        menuToggle.addEventListener('click', function() {
-            const isOpen = nav.classList.toggle('mobile-open');
-            menuToggle.classList.toggle('active');
-            body.classList.toggle('nav-open', isOpen);
-            
-            // Accessibility
-            menuToggle.setAttribute('aria-expanded', isOpen);
-            nav.setAttribute('aria-hidden', !isOpen);
+        // Create overlay element for mobile menu backdrop
+        const overlay = document.createElement('div');
+        overlay.className = 'nav-overlay';
+        document.body.appendChild(overlay);
+
+        var scrollY = 0;
+
+        function openMenu() {
+            scrollY = window.pageYOffset;
+            nav.classList.add('active');
+            menuToggle.classList.add('active');
+            overlay.classList.add('active');
+            body.classList.add('nav-open');
+            body.style.top = '-' + scrollY + 'px';
+            menuToggle.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeMenu() {
+            nav.classList.remove('active');
+            menuToggle.classList.remove('active');
+            overlay.classList.remove('active');
+            body.classList.remove('nav-open');
+            body.style.top = '';
+            window.scrollTo(0, scrollY);
+            menuToggle.setAttribute('aria-expanded', 'false');
+        }
+
+        function isMenuOpen() {
+            return nav.classList.contains('active');
+        }
+
+        menuToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (isMenuOpen()) {
+                closeMenu();
+            } else {
+                openMenu();
+            }
         });
+
+        // Close on overlay click
+        overlay.addEventListener('click', closeMenu);
 
         // Close on escape
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && nav.classList.contains('mobile-open')) {
-                nav.classList.remove('mobile-open');
-                menuToggle.classList.remove('active');
-                body.classList.remove('nav-open');
-                menuToggle.setAttribute('aria-expanded', 'false');
-                nav.setAttribute('aria-hidden', 'true');
+            if (e.key === 'Escape' && isMenuOpen()) {
+                closeMenu();
             }
         });
 
         // Close when clicking outside
         document.addEventListener('click', function(e) {
-            if (nav.classList.contains('mobile-open') && 
-                !nav.contains(e.target) && 
+            if (isMenuOpen() &&
+                !nav.contains(e.target) &&
                 !menuToggle.contains(e.target)) {
-                nav.classList.remove('mobile-open');
-                menuToggle.classList.remove('active');
-                body.classList.remove('nav-open');
+                closeMenu();
             }
         });
 
-        // Handle dropdown clicks on mobile
-        const dropdownTriggers = document.querySelectorAll('.nav-dropdown > a');
-        dropdownTriggers.forEach(function(trigger) {
-            trigger.addEventListener('click', function(e) {
+        // Close menu when a nav link is clicked (mobile)
+        nav.querySelectorAll('.nav-link').forEach(function(link) {
+            link.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
-                    e.preventDefault();
-                    const parent = this.parentElement;
-                    parent.classList.toggle('open');
+                    closeMenu();
+                }
+            });
+        });
+    }
+
+    // ========================================
+    // Mobile Sidebar (Tutorial pages)
+    // ========================================
+    function initMobileSidebar() {
+        var sidebar = document.querySelector('.tutorial-sidebar');
+        var main = document.querySelector('.tutorial-main');
+        if (!sidebar || !main) return;
+
+        // Create toggle button
+        var toggleBtn = document.createElement('button');
+        toggleBtn.className = 'sidebar-mobile-toggle';
+        toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg> <span>Navigate Tutorials</span>';
+        main.insertBefore(toggleBtn, main.firstChild);
+
+        // Create overlay
+        var overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+
+        function openSidebar() {
+            sidebar.classList.add('mobile-open');
+            overlay.classList.add('active');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+        }
+
+        toggleBtn.addEventListener('click', openSidebar);
+        overlay.addEventListener('click', closeSidebar);
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sidebar.classList.contains('mobile-open')) {
+                closeSidebar();
+            }
+        });
+
+        // Close sidebar when a link is clicked
+        sidebar.querySelectorAll('.sidebar-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 1024) {
+                    closeSidebar();
                 }
             });
         });
@@ -130,7 +203,7 @@
     // Scroll Effects
     // ========================================
     function initScrollEffects() {
-        const header = document.querySelector('.header');
+        const header = document.querySelector('.navbar');
         if (!header) return;
 
         let lastScroll = 0;
@@ -325,7 +398,7 @@
                 const target = document.querySelector(targetId);
                 if (target) {
                     e.preventDefault();
-                    const headerHeight = document.querySelector('.header')?.offsetHeight || 0;
+                    const headerHeight = document.querySelector('.navbar')?.offsetHeight || 0;
                     const targetPosition = target.getBoundingClientRect().top + window.pageYOffset;
                     
                     window.scrollTo({
