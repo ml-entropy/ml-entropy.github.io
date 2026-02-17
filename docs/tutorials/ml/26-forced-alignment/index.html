@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forced Alignment &amp; Montreal Forced Aligner | ML Fundamentals</title>
+    <meta name="description" content="Forced alignment with HMMs, Montreal Forced Aligner (MFA), CTC-based alignment, and practical workflows for aligning speech corpora.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Forced Alignment &amp; MFA</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../04-logarithms/index.html" class="sidebar-link">01. Why Logarithms?</a>
+                    <a href="../05-combinatorics/index.html" class="sidebar-link">02. Combinatorics</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">03. Normal Distributions</a>
+                    <a href="../01-entropy/index.html" class="sidebar-link">04. Entropy Fundamentals</a>
+                    <a href="../02-cross-entropy/index.html" class="sidebar-link">05. Cross-Entropy</a>
+                    <a href="../02-kl-divergence/index.html" class="sidebar-link">06. KL Divergence</a>
+                    <a href="../14-entropy-connections/index.html" class="sidebar-link">07. Entropy Connections</a>
+                    <a href="../06-backpropagation/index.html" class="sidebar-link">08. Backpropagation</a>
+                    <a href="../07-regularization/index.html" class="sidebar-link">09. Regularization</a>
+                    <a href="../08-batch-normalization/index.html" class="sidebar-link">10. Batch Normalization</a>
+                    <a href="../09-learning-rate/index.html" class="sidebar-link">11. Learning Rate</a>
+                    <a href="../10-cnn/index.html" class="sidebar-link">12. CNNs</a>
+                    <a href="../11-rnn/index.html" class="sidebar-link">13. RNNs</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link">14. Autoencoders</a>
+                    <a href="../13-variational-inference/index.html" class="sidebar-link">15. Variational Inference</a>
+                    <a href="../12-vae/index.html" class="sidebar-link">16. VAE</a>
+                    <a href="../16-inductive-bias/index.html" class="sidebar-link">17. Inductive Bias</a>
+                    <a href="../17-architectural-biases/index.html" class="sidebar-link">18. Architectural Biases</a>
+                    <a href="../18-designing-biases/index.html" class="sidebar-link">19. Designing Biases</a>
+                    <a href="../19-fst-fundamentals/index.html" class="sidebar-link">20. FST Fundamentals</a>
+                    <a href="../20-weighted-fsts/index.html" class="sidebar-link">21. Weighted FSTs</a>
+                    <a href="../21-fst-libraries/index.html" class="sidebar-link">22. FST Libraries</a>
+                    <a href="../22-fst-applications/index.html" class="sidebar-link">23. FST Applications</a>
+                    <a href="../23-neural-symbolic/index.html" class="sidebar-link">24. Neural-Symbolic Hybrids</a>
+                    <a href="../24-sequence-alignment/index.html" class="sidebar-link">25. Sequence Alignment</a>
+                    <a href="../25-mas-algorithm/index.html" class="sidebar-link">26. MAS Algorithm</a>
+                    <a href="../26-forced-alignment/index.html" class="sidebar-link active">27. Forced Alignment & MFA</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: What Is Forced Alignment? -->
+                <h2 id="what-is-forced-alignment">What Is Forced Alignment?</h2>
+
+                <p>
+                    Forced alignment is the process of determining the precise time boundaries of each word and phoneme in an audio recording, given a known transcript. The word "forced" is key: unlike speech recognition (where the system must figure out <em>what</em> was said), forced alignment already knows the transcript and only needs to determine <em>when</em> each unit was spoken. The transcript "forces" the alignment path through a constrained search space.
+                </p>
+
+                <p>
+                    The inputs and outputs are straightforward. The input is a pair: (1) an audio file (typically a WAV file) and (2) the corresponding text transcript. The output is a set of time-stamped intervals &mdash; for each word and/or phoneme in the transcript, the system produces a <code>(start_time, end_time)</code> pair indicating exactly when that unit occurs in the audio.
+                </p>
+
+                <p>
+                    Forced alignment has wide-ranging applications across speech technology and linguistics:
+                </p>
+                <ul>
+                    <li><strong>TTS training data preparation:</strong> To train a text-to-speech model, you need phone-level durations for each utterance. Forced alignment extracts these durations from recorded speech corpora.</li>
+                    <li><strong>Corpus phonetics:</strong> Linguists use forced alignment to study the acoustic properties of phonemes across thousands of utterances, enabling large-scale phonetic research that would be impossible with manual annotation.</li>
+                    <li><strong>Subtitle synchronization:</strong> Given a script and a video, forced alignment automatically produces timed subtitles without manual timestamping.</li>
+                    <li><strong>Language documentation:</strong> For endangered languages, forced alignment helps linguists efficiently annotate recordings with time-aligned transcriptions.</li>
+                </ul>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Forced Alignment</div>
+                    <p>
+                        Given an audio signal $\mathbf{O} = (o_1, o_2, \ldots, o_N)$ of $N$ acoustic frames and a known transcript $\mathbf{W} = (w_1, w_2, \ldots, w_M)$ of $M$ words, which expands to a phone sequence $\mathbf{P} = (p_1, p_2, \ldots, p_K)$ via a pronunciation dictionary, <strong>forced alignment</strong> finds the optimal mapping:
+                    </p>
+                    $$\hat{\mathbf{a}} = \arg\max_{\mathbf{a}} P(\mathbf{O} \mid \mathbf{a}, \mathbf{P})$$
+                    <p>
+                        where $\mathbf{a} = (a_1, a_2, \ldots, a_N)$ assigns each frame $o_n$ to a phone $p_{a_n}$, subject to the monotonicity constraint $a_n \leq a_{n+1}$. The output is a set of intervals $\{(s_k, e_k, p_k)\}_{k=1}^{K}$ where $s_k$ and $e_k$ are the start and end times of phone $p_k$.
+                    </p>
+                </div>
+
+                <p>
+                    The distinction between forced alignment and speech recognition is fundamental. In ASR, both the transcript and the timing are unknown &mdash; the system searches over all possible word sequences. In forced alignment, the transcript is given, so the system only searches over all possible <em>timings</em> of that fixed transcript. This dramatically reduces the search space and makes the problem tractable even with relatively simple models.
+                </p>
+
+                <!-- Section 2: HMM-Based Forced Alignment -->
+                <h2 id="hmm-based-alignment">HMM-Based Forced Alignment</h2>
+
+                <p>
+                    The classical approach to forced alignment uses Hidden Markov Models (HMMs). This approach has been the backbone of speech processing for decades and remains the foundation of modern tools like the Montreal Forced Aligner. Understanding HMM-based alignment requires three key concepts: phone-level HMMs, composite HMMs built from the transcript, and Viterbi decoding.
+                </p>
+
+                <p>
+                    <strong>Phone-level HMMs.</strong> Each phone (speech sound) is modeled as a 3-state left-to-right HMM. The three states capture the onset, steady-state, and offset portions of the phone. For example, the vowel /ae/ (as in "cat") has: state 1 modeling the transition from the preceding consonant, state 2 modeling the stable vowel portion, and state 3 modeling the transition to the following consonant. Each state has a Gaussian (or Gaussian mixture) emission distribution that models the acoustic features (typically MFCCs or filterbank energies) expected during that portion of the phone.
+                </p>
+
+                <p>
+                    In practice, <strong>triphone models</strong> are used instead of simple monophones. A triphone is a phone in context &mdash; for example, the /ae/ in "cat" (preceded by /k/ and followed by /t/) is modeled differently from the /ae/ in "bat" (preceded by /b/ and followed by /t/). This context-dependency dramatically improves alignment accuracy because the acoustic realization of a phone depends heavily on its neighbors.
+                </p>
+
+                <p>
+                    <strong>Composite HMM construction.</strong> Given the transcript, a pronunciation dictionary maps each word to its phone sequence. For example, "cat" maps to /k ae t/. The forced aligner concatenates the individual phone HMMs into a single <strong>composite HMM</strong> that represents the entire utterance. Crucially, this composite HMM includes explicit <code>sil</code> (silence) states at the beginning and end of the utterance, and optionally between words. The silence phone has its own HMM with emissions trained on silence/noise segments.
+                </p>
+
+                <p>
+                    For the utterance "the cat," the composite HMM would be:
+                </p>
+<pre><code>sil &rarr; dh(1) &rarr; dh(2) &rarr; dh(3) &rarr; ax(1) &rarr; ax(2) &rarr; ax(3) &rarr;
+      k(1)  &rarr; k(2)  &rarr; k(3)  &rarr; ae(1) &rarr; ae(2) &rarr; ae(3) &rarr;
+      t(1)  &rarr; t(2)  &rarr; t(3)  &rarr; sil</code></pre>
+
+                <p>
+                    Each state can either transition to itself (self-loop, modeling longer duration) or to the next state (forward transition, advancing through the phone). The self-loop probability controls how many frames each state can absorb.
+                </p>
+
+                <p>
+                    <strong>Viterbi decoding.</strong> The Viterbi algorithm finds the most likely state sequence through the composite HMM given the observed acoustic features. The recursion is:
+                </p>
+                $$\delta_t(j) = \max_i [\delta_{t-1}(i) \cdot a_{ij}] \cdot b_j(o_t)$$
+                <p>
+                    where $\delta_t(j)$ is the probability of the best path ending in state $j$ at time $t$, $a_{ij}$ is the transition probability from state $i$ to state $j$, and $b_j(o_t)$ is the emission probability of observation $o_t$ in state $j$. The algorithm maintains backpointers $\psi_t(j) = \arg\max_i [\delta_{t-1}(i) \cdot a_{ij}]$ for traceback.
+                </p>
+
+                <p>
+                    After the forward pass, backtracking from the final state yields the optimal state sequence. The boundaries between phones are determined by where the state sequence transitions from the last state of one phone HMM to the first state of the next phone HMM. The computational complexity is $O(N \times S^2)$ where $N$ is the number of frames and $S$ is the total number of states in the composite HMM. In practice, the left-to-right topology limits transitions to at most 2 possibilities per state (self-loop or forward), reducing the effective complexity to $O(N \times S)$.
+                </p>
+
+                <p>
+                    A critical property of this architecture is how silence states naturally absorb silence frames. The <code>sil</code> HMM at the beginning and end of the composite model has Gaussian emissions trained on silence (low energy, flat spectrum). When the audio contains leading or trailing silence, the Viterbi algorithm naturally assigns those frames to the <code>sil</code> states because the silence emission model gives those frames much higher probability than any speech phone model would. This is not a special case &mdash; it falls directly out of the probabilistic framework.
+                </p>
+
+                <!-- Section 3: Montreal Forced Aligner (MFA) -->
+                <h2 id="mfa-overview">Montreal Forced Aligner (MFA)</h2>
+
+                <p>
+                    The Montreal Forced Aligner (MFA) is a modern, open-source forced alignment tool that implements the HMM-based approach described above. Built on top of the Kaldi speech recognition toolkit, MFA provides a practical, well-engineered system for aligning speech corpora in many languages.
+                </p>
+
+                <p>
+                    MFA uses a <strong>GMM-HMM architecture</strong> (Gaussian Mixture Model &mdash; Hidden Markov Model). Each phone state's emission distribution is a mixture of Gaussians rather than a single Gaussian, allowing the model to capture the variability in how a phone sounds across different speakers, speaking styles, and recording conditions. The acoustic features are typically 13-dimensional MFCCs plus their delta and delta-delta coefficients, giving a 39-dimensional feature vector per frame.
+                </p>
+
+                <p>
+                    Key features of MFA include:
+                </p>
+                <ul>
+                    <li><strong>Pretrained acoustic models:</strong> MFA provides acoustic models pretrained on large speech corpora for many languages (English, French, German, Mandarin, Japanese, and many more). These models can be used directly without any training data from the user.</li>
+                    <li><strong>Pronunciation dictionaries:</strong> MFA includes pronunciation dictionaries that map words to phone sequences. For English, this is based on the ARPAbet phoneme set. Users can also provide custom dictionaries for specialized vocabulary.</li>
+                    <li><strong>Speaker adaptation:</strong> MFA performs speaker-level feature-space Maximum Likelihood Linear Regression (fMLLR) to adapt the acoustic model to each speaker, improving alignment accuracy for speakers whose voices differ from the training data.</li>
+                    <li><strong>Triphone models:</strong> MFA uses context-dependent triphone models with decision-tree state tying, the same approach used in state-of-the-art ASR systems. This provides much better alignment accuracy than monophone models, especially at phone boundaries.</li>
+                    <li><strong>Multi-language support:</strong> With pretrained models available for dozens of languages, MFA is one of the most versatile forced alignment tools available.</li>
+                </ul>
+
+                <p>
+                    The alignment process in MFA follows the standard HMM pipeline: (1) extract MFCC features from the audio, (2) construct the composite HMM from the transcript using the pronunciation dictionary, (3) optionally adapt the acoustic model to the speaker, and (4) run Viterbi decoding to find the optimal alignment. The output is a Praat TextGrid file containing time-aligned word and phone tiers.
+                </p>
+
+                <!-- Section 4: Using MFA in Practice -->
+                <h2 id="mfa-practical">Using MFA in Practice</h2>
+
+                <p>
+                    MFA is installed via conda and uses a command-line interface. The typical workflow involves preparing a corpus directory, validating the data, and running the alignment.
+                </p>
+
+                <p>
+                    <strong>Installation:</strong>
+                </p>
+<pre><code># Create a conda environment for MFA
+conda create -n mfa -c conda-forge montreal-forced-aligner
+conda activate mfa
+
+# Download pretrained English model and dictionary
+mfa model download acoustic english_mfa
+mfa model download dictionary english_mfa</code></pre>
+
+                <p>
+                    <strong>Corpus directory structure.</strong> MFA expects a specific directory layout. The corpus directory contains subdirectories for each speaker, and each speaker directory contains pairs of audio files (.wav) and transcript files (.lab or .TextGrid):
+                </p>
+<pre><code>corpus/
+  speaker1/
+    utterance001.wav
+    utterance001.lab    # Plain text transcript
+    utterance002.wav
+    utterance002.lab
+  speaker2/
+    utterance003.wav
+    utterance003.lab</code></pre>
+
+                <p>
+                    Each <code>.lab</code> file contains the plain text transcript of the corresponding audio file. For example, <code>utterance001.lab</code> might contain simply: <code>london is the capital of great britain</code>.
+                </p>
+
+                <p>
+                    <strong>Validation and alignment commands:</strong>
+                </p>
+<pre><code># Validate corpus (check for missing files, OOV words, etc.)
+mfa validate /path/to/corpus english_mfa english_mfa
+
+# Run alignment
+mfa align /path/to/corpus english_mfa english_mfa /path/to/output
+
+# The output directory will contain TextGrid files with alignments</code></pre>
+
+                <p>
+                    <strong>Output format: Praat TextGrid.</strong> MFA outputs Praat TextGrid files, a standard format in phonetics research. A TextGrid file contains multiple <strong>tiers</strong>, each consisting of time-stamped intervals. MFA produces two tiers: a word tier and a phone tier.
+                </p>
+<pre><code>File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0.0
+xmax = 3.45
+tiers? &lt;exists&gt;
+size = 2
+
+item [1]:
+    class = "IntervalTier"
+    name = "words"
+    xmin = 0.0
+    xmax = 3.45
+    intervals: size = 9
+        intervals [1]:
+            xmin = 0.0
+            xmax = 0.12
+            text = ""
+        intervals [2]:
+            xmin = 0.12
+            xmax = 0.45
+            text = "london"
+        intervals [3]:
+            xmin = 0.45
+            xmax = 0.62
+            text = "is"
+        ...
+
+item [2]:
+    class = "IntervalTier"
+    name = "phones"
+    xmin = 0.0
+    xmax = 3.45
+    intervals: size = 28
+        intervals [1]:
+            xmin = 0.0
+            xmax = 0.12
+            text = "sil"
+        intervals [2]:
+            xmin = 0.12
+            xmax = 0.18
+            text = "L"
+        ...</code></pre>
+
+                <p>
+                    Each interval has three fields: <code>xmin</code> (start time in seconds), <code>xmax</code> (end time in seconds), and <code>text</code> (the word or phone label). Empty text (<code>""</code>) in the word tier corresponds to silence intervals. In the phone tier, silence is explicitly labeled as <code>"sil"</code>.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">TextGrid as the Standard Exchange Format</div>
+                    <p style="margin-bottom: 0;">
+                        Praat TextGrid is the de facto standard for time-aligned linguistic annotations. It can be opened in the Praat phonetics software for visualization and manual correction, parsed programmatically with libraries like <code>textgrid</code> (Python) or <code>tgt</code> (Python), and converted to other formats (CTM, JSON, etc.) as needed. When building a TTS pipeline, you will typically parse TextGrids to extract phone durations for training.
+                    </p>
+                </div>
+
+                <!-- Section 5: Silence in MFA -->
+                <h2 id="silence-in-mfa">How MFA Handles the Silence Edge Case</h2>
+
+                <p>
+                    In the previous tutorial on Monotonic Alignment Search (MAS), we examined a critical edge case: aligning the utterance "london is the capital of great britain" where the audio contains the speech followed by approximately 20 seconds of trailing silence. We showed that vanilla MAS, which has no concept of silence, assigns all trailing silence frames to the last token "britain," inflating its duration from a natural ~0.5 seconds to an absurd ~20.5 seconds. This is a fundamental limitation of MAS's architecture.
+                </p>
+
+                <p>
+                    MFA handles this scenario correctly <strong>by design</strong>, without any preprocessing or special cases. The reason is architectural: MFA's composite HMM includes explicit <code>sil</code> (silence) phone models at the beginning and end of every utterance.
+                </p>
+
+                <p>
+                    <strong>How it works mechanically:</strong> The composite HMM for "london is the capital of great britain" looks like:
+                </p>
+<pre><code>sil &rarr; L &rarr; AH &rarr; N &rarr; D &rarr; AH &rarr; N &rarr;   (london)
+      IH &rarr; Z &rarr;                                (is)
+      DH &rarr; AH &rarr;                               (the)
+      K &rarr; AE &rarr; P &rarr; AH &rarr; T &rarr; AH &rarr; L &rarr;  (capital)
+      AH &rarr; V &rarr;                                (of)
+      G &rarr; R &rarr; EY &rarr; T &rarr;                    (great)
+      B &rarr; R &rarr; IH &rarr; T &rarr; AH &rarr; N &rarr;        (britain)
+      sil                                          (trailing silence)</code></pre>
+
+                <p>
+                    The final <code>sil</code> HMM has Gaussian emission distributions trained on silence segments &mdash; low energy, flat spectral profile, minimal variation. When Viterbi decoding encounters the 20 seconds of trailing silence, the emission probabilities tell a clear story:
+                </p>
+                <ul>
+                    <li>The <code>sil</code> model gives silence frames <strong>high probability</strong> (these frames look exactly like what the silence model was trained on).</li>
+                    <li>The <code>N</code> phone model (last phone of "britain") gives silence frames <strong>very low probability</strong> (silence looks nothing like the nasal consonant /n/).</li>
+                </ul>
+
+                <p>
+                    The Viterbi algorithm, maximizing the total path probability, naturally transitions from the last phone of "britain" to the trailing <code>sil</code> state after "britain" finishes. The <code>sil</code> state's self-loop then absorbs all ~20 seconds of silence, while "britain" receives only its natural ~0.5 seconds.
+                </p>
+
+                <p>
+                    <strong>Comparison across methods:</strong>
+                </p>
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.5rem;">Method</th>
+                            <th style="text-align: left; padding: 0.5rem;">Duration of "britain"</th>
+                            <th style="text-align: left; padding: 0.5rem;">Silence Handling</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">MAS (no preprocessing)</td>
+                            <td style="padding: 0.5rem;">~20.5s</td>
+                            <td style="padding: 0.5rem;">All silence absorbed by last token</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">MAS (with VAD trimming)</td>
+                            <td style="padding: 0.5rem;">~0.5s</td>
+                            <td style="padding: 0.5rem;">Silence removed before alignment</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">MAS (with &lt;sil&gt; token)</td>
+                            <td style="padding: 0.5rem;">~0.5s</td>
+                            <td style="padding: 0.5rem;">Silence assigned to &lt;sil&gt; token</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;"><strong>MFA</strong></td>
+                            <td style="padding: 0.5rem;"><strong>~0.5s</strong></td>
+                            <td style="padding: 0.5rem;"><strong>sil HMM absorbs silence by design</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="note-box">
+                    <div class="box-title">MFA Handles Silence by Design</div>
+                    <p style="margin-bottom: 0;">
+                        The key insight is that MFA does not need any preprocessing to handle silence correctly. The HMM-based architecture with explicit silence models naturally separates speech from silence as part of the alignment process. This is a structural advantage over MAS, which treats all frames as belonging to text tokens and has no mechanism to "discard" silence frames. In production TTS pipelines, this robustness to silence is one of the main reasons MFA is preferred for corpus alignment over neural alignment methods like MAS.
+                    </p>
+                </div>
+
+                <!-- Section 6: CTC-Based Alignment -->
+                <h2 id="ctc-alignment">CTC-Based Alignment</h2>
+
+                <p>
+                    Connectionist Temporal Classification (CTC) provides an alternative approach to forced alignment that leverages neural networks instead of GMM-HMMs. CTC was originally designed for sequence-to-sequence tasks where the alignment between input and output is unknown (like speech recognition), but its machinery can also be repurposed for forced alignment when the transcript is known.
+                </p>
+
+                <p>
+                    The key innovation in CTC is the <strong>blank symbol</strong> $\epsilon$. CTC defines an extended alphabet that includes all real tokens plus a special blank token. At each frame, the model outputs a probability distribution over this extended alphabet. The blank symbol serves a critical role: it absorbs frames that do not correspond to any specific token &mdash; including silence, transitions between phones, and hesitations.
+                </p>
+
+                <p>
+                    For forced alignment with CTC, the process works as follows. Given a pretrained CTC model (such as wav2vec 2.0) and a known transcript, we construct a <strong>CTC topology</strong> that represents all valid frame-level sequences that could produce the target transcript after collapsing. For a transcript with tokens $(t_1, t_2, \ldots, t_K)$, the topology is:
+                </p>
+                $$\epsilon \to t_1 \to \epsilon \to t_2 \to \epsilon \to \cdots \to \epsilon \to t_K \to \epsilon$$
+
+                <p>
+                    Each position in this topology can either stay (self-loop) or advance to the next position. The blank symbols $\epsilon$ between tokens are optional &mdash; the path can skip them. This topology enforces monotonicity while allowing flexible timing.
+                </p>
+
+                <p>
+                    Viterbi decoding on this CTC topology finds the most likely frame-level path, from which phone boundaries can be extracted. The blank frames naturally absorb silence and inter-phone transitions, similar to how the <code>sil</code> HMM absorbs silence in MFA.
+                </p>
+
+                <p>
+                    Modern tools like <code>torchaudio.functional.forced_align</code> implement this CTC-based approach using pretrained wav2vec 2.0 models. The advantages are speed (GPU-accelerated neural inference) and simplicity (no pronunciation dictionary or acoustic model training needed). The disadvantage is that CTC alignment boundaries tend to be less precise than HMM-based methods, because the CTC model was trained for recognition (getting the right transcript) rather than alignment (getting precise boundaries).
+                </p>
+
+                <!-- Section 7: MAS vs MFA vs CTC -->
+                <h2 id="comparison">MAS vs MFA vs CTC: When to Use Which</h2>
+
+                <p>
+                    Each alignment method has distinct strengths and weaknesses. The choice depends on your specific requirements for silence handling, boundary precision, speed, and integration with your training pipeline.
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.5rem;">Aspect</th>
+                            <th style="text-align: left; padding: 0.5rem;">MAS</th>
+                            <th style="text-align: left; padding: 0.5rem;">MFA</th>
+                            <th style="text-align: left; padding: 0.5rem;">CTC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Silence handling</strong></td>
+                            <td style="padding: 0.5rem;">None (requires preprocessing)</td>
+                            <td style="padding: 0.5rem;">Built-in sil HMM</td>
+                            <td style="padding: 0.5rem;">Blank $\epsilon$ absorbs silence</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Boundary accuracy</strong></td>
+                            <td style="padding: 0.5rem;">Good (neural features)</td>
+                            <td style="padding: 0.5rem;">Best (triphone HMMs)</td>
+                            <td style="padding: 0.5rem;">Moderate (frame-level CTC)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Speed</strong></td>
+                            <td style="padding: 0.5rem;">Fast (GPU, in-training)</td>
+                            <td style="padding: 0.5rem;">Slow (CPU, offline)</td>
+                            <td style="padding: 0.5rem;">Fast (GPU, offline)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Prerequisites</strong></td>
+                            <td style="padding: 0.5rem;">Encoder + decoder (in TTS model)</td>
+                            <td style="padding: 0.5rem;">Acoustic model + pronunciation dict</td>
+                            <td style="padding: 0.5rem;">Pretrained CTC model (e.g., wav2vec2)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Output</strong></td>
+                            <td style="padding: 0.5rem;">Token-level durations</td>
+                            <td style="padding: 0.5rem;">Phone + word TextGrids</td>
+                            <td style="padding: 0.5rem;">Token-level boundaries</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Primary use case</strong></td>
+                            <td style="padding: 0.5rem;">In-training alignment (Glow-TTS)</td>
+                            <td style="padding: 0.5rem;">Corpus preparation for TTS</td>
+                            <td style="padding: 0.5rem;">Quick alignment, ASR applications</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;"><strong>Differentiable</strong></td>
+                            <td style="padding: 0.5rem;">No (but used with differentiable loss)</td>
+                            <td style="padding: 0.5rem;">No</td>
+                            <td style="padding: 0.5rem;">Yes (CTC loss is differentiable)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    <strong>Decision flowchart:</strong>
+                </p>
+                <ul>
+                    <li><strong>Building a TTS system like Glow-TTS?</strong> Use MAS as the in-training alignment mechanism. It runs during training and produces durations that the duration predictor learns from.</li>
+                    <li><strong>Preparing a speech corpus for TTS training (e.g., FastSpeech 2)?</strong> Use MFA for offline alignment. It gives the most accurate phone-level boundaries and handles silence robustly.</li>
+                    <li><strong>Need quick alignment for a new language with a pretrained wav2vec2 model?</strong> Use CTC-based alignment. It requires no pronunciation dictionary and works with any language that has a CTC model.</li>
+                    <li><strong>Building an end-to-end differentiable pipeline?</strong> Use CTC-based alignment, as the CTC loss provides gradients through the alignment.</li>
+                </ul>
+
+                <!-- Section 8: Practical Workflow -->
+                <h2 id="practical-workflow">Practical Workflow</h2>
+
+                <p>
+                    Building a production-quality aligned speech corpus involves more than just running an alignment tool. Here is an 8-step workflow that covers the full pipeline from raw recordings to training-ready data:
+                </p>
+
+                <ol>
+                    <li>
+                        <strong>Collect data.</strong> Record or obtain audio files with corresponding transcripts. Ensure consistent audio quality (sample rate, bit depth, noise level). For TTS, single-speaker corpora of 10&ndash;40 hours are typical.
+                    </li>
+                    <li>
+                        <strong>Preprocess audio.</strong> Normalize sample rate (typically 22050 Hz for TTS), convert to mono, normalize loudness. Remove any metadata or non-speech audio headers.
+                    </li>
+                    <li>
+                        <strong>Trim silence.</strong> Use Voice Activity Detection (VAD) to remove excessive leading and trailing silence. This step is especially important if using MAS-based alignment, but also helps MFA by reducing file sizes and speeding up alignment. Tools: <code>silero-vad</code>, <code>webrtcvad</code>, or simple energy-based detection.
+                    </li>
+                    <li>
+                        <strong>Validate the corpus.</strong> Run <code>mfa validate</code> to check for: missing audio or transcript files, out-of-vocabulary (OOV) words not in the pronunciation dictionary, audio files that are too short or too long, and encoding issues in transcript files.
+                    </li>
+                    <li>
+                        <strong>Align.</strong> Run <code>mfa align</code> with appropriate acoustic model and dictionary. For languages without a pretrained model, train one from scratch using <code>mfa train</code> on your corpus.
+                    </li>
+                    <li>
+                        <strong>Extract durations.</strong> Parse the output TextGrid files to extract phone-level and word-level durations. Convert frame counts to the mel-spectrogram frame rate used by your TTS model (e.g., 12.5ms per frame at 80 Hz).
+                    </li>
+                    <li>
+                        <strong>Quality control.</strong> Spot-check alignments by visualizing TextGrids in Praat. Flag and manually correct utterances where: word boundaries are obviously wrong (off by more than 50ms), phones have implausible durations (e.g., a stop consonant lasting 500ms), or the alignment score is unusually low.
+                    </li>
+                    <li>
+                        <strong>Train.</strong> Use the extracted durations to train your TTS model. For duration-based models (FastSpeech 2), the durations are direct supervision. For flow-based models (Glow-TTS), MFA alignments can be used as initialization before switching to MAS-based online alignment.
+                    </li>
+                </ol>
+
+                <div class="note-box">
+                    <div class="box-title">Alignment Quality Matters</div>
+                    <p style="margin-bottom: 0;">
+                        The quality of forced alignment directly impacts TTS quality. Poor alignments lead to incorrect durations, which cause the synthesized speech to sound unnatural &mdash; words may be rushed, drawn out, or have incorrect rhythm. Investing time in alignment quality control pays dividends in final speech quality. A common rule of thumb: if more than 5% of your utterances have visibly incorrect alignments, investigate your preprocessing pipeline before proceeding to training.
+                    </p>
+                </div>
+
+                <!-- Tutorial Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../25-mas-algorithm/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; MAS Algorithm</span>
+                    </a>
+                    <div class="tutorial-nav-link next disabled">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">End of Series</span>
+                    </div>
+                </div>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>Three implementations covering the core alignment approaches: HMM-based forced alignment from scratch, MFA workflow with TextGrid parsing, and CTC-based alignment.</p>
+
+                <!-- Code Example 1: Simplified HMM Forced Alignment -->
+                <h3>1. Simplified HMM Forced Alignment</h3>
+                <p>A from-scratch implementation of HMM-based forced alignment with Gaussian emissions, 3-state phone models, and Viterbi decoding. This demonstrates how silence states naturally absorb silence frames.</p>
+
+<pre><code>import numpy as np
+from dataclasses import dataclass
+from typing import List, Tuple, Dict
+
+
+@dataclass
+class PhoneHMM:
+    """A 3-state left-to-right HMM for a single phone."""
+    name: str
+    num_states: int = 3
+    # Gaussian emission parameters per state: (mean, variance) for 1D features
+    means: np.ndarray = None      # shape: (num_states,)
+    variances: np.ndarray = None  # shape: (num_states,)
+    # Transition probabilities: self-loop vs forward
+    self_loop_prob: float = 0.6   # probability of staying in same state
+    forward_prob: float = 0.4     # probability of advancing to next state
+
+    def emission_prob(self, state: int, obs: float) -&gt; float:
+        """Gaussian emission probability for observation in given state."""
+        mean = self.means[state]
+        var = self.variances[state]
+        coeff = 1.0 / np.sqrt(2 * np.pi * var)
+        exponent = -0.5 * ((obs - mean) ** 2) / var
+        return coeff * np.exp(exponent)
+
+
+def create_phone_models() -&gt; Dict[str, PhoneHMM]:
+    """Create simple phone HMMs with distinct emission parameters."""
+    models = {}
+
+    # Silence model: low energy (mean near 0), low variance
+    models['sil'] = PhoneHMM(
+        name='sil',
+        means=np.array([0.1, 0.05, 0.1]),
+        variances=np.array([0.02, 0.01, 0.02]),
+        self_loop_prob=0.7,  # silence can be long
+        forward_prob=0.3
+    )
+
+    # Consonant /k/: burst of energy
+    models['k'] = PhoneHMM(
+        name='k',
+        means=np.array([0.3, 0.8, 0.5]),
+        variances=np.array([0.05, 0.1, 0.05]),
+        self_loop_prob=0.5,
+        forward_prob=0.5
+    )
+
+    # Vowel /ae/: steady high energy
+    models['ae'] = PhoneHMM(
+        name='ae',
+        means=np.array([0.6, 0.9, 0.7]),
+        variances=np.array([0.08, 0.1, 0.08]),
+        self_loop_prob=0.6,
+        forward_prob=0.4
+    )
+
+    # Consonant /t/: short burst
+    models['t'] = PhoneHMM(
+        name='t',
+        means=np.array([0.4, 0.7, 0.3]),
+        variances=np.array([0.05, 0.08, 0.05]),
+        self_loop_prob=0.4,
+        forward_prob=0.6
+    )
+
+    return models
+
+
+def build_composite_hmm(phone_sequence: List[str],
+                        phone_models: Dict[str, PhoneHMM]):
+    """
+    Build a composite HMM by concatenating phone HMMs.
+
+    Returns:
+        states: list of (phone_name, state_index) for each composite state
+        trans_prob: transition matrix (S x S) for composite HMM
+        emit_params: list of (mean, variance) for each composite state
+    """
+    states = []
+    emit_params = []
+
+    for phone_name in phone_sequence:
+        model = phone_models[phone_name]
+        for s in range(model.num_states):
+            states.append((phone_name, s))
+            emit_params.append((model.means[s], model.variances[s]))
+
+    S = len(states)
+    trans_prob = np.zeros((S, S))
+
+    idx = 0
+    for phone_name in phone_sequence:
+        model = phone_models[phone_name]
+        for s in range(model.num_states):
+            # Self-loop
+            trans_prob[idx, idx] = model.self_loop_prob
+            # Forward transition (within phone or to next phone)
+            if idx + 1 &lt; S:
+                trans_prob[idx, idx + 1] = model.forward_prob
+            idx += 1
+
+    return states, trans_prob, emit_params
+
+
+def viterbi_forced_alignment(observations: np.ndarray,
+                              states: list,
+                              trans_prob: np.ndarray,
+                              emit_params: list) -&gt; List[Tuple[str, int, int]]:
+    """
+    Viterbi decoding on composite HMM.
+
+    Args:
+        observations: 1D array of acoustic features (N frames)
+        states: list of (phone_name, state_index)
+        trans_prob: S x S transition matrix
+        emit_params: list of (mean, variance) per state
+
+    Returns:
+        List of (phone_name, start_frame, end_frame)
+    """
+    N = len(observations)
+    S = len(states)
+
+    # Log domain for numerical stability
+    log_delta = np.full((N, S), -np.inf)
+    backptr = np.zeros((N, S), dtype=int)
+
+    # Initialization (t=0): start in first state
+    for j in range(S):
+        mean, var = emit_params[j]
+        log_emit = -0.5 * np.log(2 * np.pi * var) - 0.5 * ((observations[0] - mean) ** 2) / var
+        if j == 0:
+            log_delta[0, j] = log_emit  # start probability = 1 for first state
+        else:
+            log_delta[0, j] = -np.inf
+
+    # Recursion
+    log_trans = np.log(trans_prob + 1e-300)  # avoid log(0)
+
+    for t in range(1, N):
+        for j in range(S):
+            mean, var = emit_params[j]
+            log_emit = -0.5 * np.log(2 * np.pi * var) - 0.5 * ((observations[t] - mean) ** 2) / var
+
+            best_score = -np.inf
+            best_prev = 0
+            for i in range(S):
+                if trans_prob[i, j] &gt; 0:
+                    score = log_delta[t-1, i] + log_trans[i, j]
+                    if score &gt; best_score:
+                        best_score = score
+                        best_prev = i
+
+            log_delta[t, j] = best_score + log_emit
+            backptr[t, j] = best_prev
+
+    # Backtracking
+    state_seq = np.zeros(N, dtype=int)
+    state_seq[N-1] = np.argmax(log_delta[N-1])
+
+    for t in range(N-2, -1, -1):
+        state_seq[t] = backptr[t+1, state_seq[t+1]]
+
+    # Extract phone boundaries
+    boundaries = []
+    current_phone = states[state_seq[0]][0]
+    start_frame = 0
+
+    for t in range(1, N):
+        phone = states[state_seq[t]][0]
+        if phone != current_phone:
+            boundaries.append((current_phone, start_frame, t - 1))
+            current_phone = phone
+            start_frame = t
+
+    boundaries.append((current_phone, start_frame, N - 1))
+    return boundaries
+
+
+# === Example: Align "cat" = /sil k ae t sil/ with trailing silence ===
+np.random.seed(42)
+phone_models = create_phone_models()
+
+# Phone sequence with silence bookends
+phone_seq = ['sil', 'k', 'ae', 't', 'sil']
+
+# Build composite HMM
+composite_states, trans, emit = build_composite_hmm(phone_seq, phone_models)
+
+# Generate synthetic observations:
+# - 3 frames of initial silence (low energy)
+# - 4 frames of /k/ (medium-high energy burst)
+# - 6 frames of /ae/ (high energy vowel)
+# - 3 frames of /t/ (medium energy burst)
+# - 20 frames of trailing silence (low energy)
+observations = np.concatenate([
+    np.random.normal(0.05, 0.1, 3),   # initial silence
+    np.random.normal(0.7, 0.15, 4),   # /k/
+    np.random.normal(0.85, 0.1, 6),   # /ae/
+    np.random.normal(0.6, 0.12, 3),   # /t/
+    np.random.normal(0.05, 0.08, 20), # trailing silence (20 frames!)
+])
+observations = np.clip(observations, 0, 1)
+
+# Run Viterbi alignment
+boundaries = viterbi_forced_alignment(observations, composite_states, trans, emit)
+
+print("Phone boundaries for 'cat' with trailing silence:")
+print(f"{'Phone':&gt;8s}  {'Start':&gt;6s}  {'End':&gt;6s}  {'Frames':&gt;6s}")
+print("-" * 35)
+for phone, start, end in boundaries:
+    print(f"{phone:&gt;8s}  {start:&gt;6d}  {end:&gt;6d}  {end-start+1:&gt;6d}")
+
+print()
+print("KEY RESULT: The trailing silence is absorbed by the final 'sil' model,")
+print("NOT by the last speech phone /t/. This is the architectural advantage")
+print("of HMM-based alignment over MAS.")</code></pre>
+
+                <!-- Code Example 2: MFA Workflow + TextGrid Parsing -->
+                <h3>2. MFA Workflow &amp; TextGrid Parsing</h3>
+                <p>Complete MFA command reference and a Python TextGrid parser that extracts word and phone durations without external dependencies. Demonstrates how MFA's output shows silence absorption.</p>
+
+<pre><code># ============================================================
+# Part A: MFA Command Reference
+# ============================================================
+#
+# Install MFA:
+#   conda create -n mfa -c conda-forge montreal-forced-aligner
+#   conda activate mfa
+#
+# Download pretrained models:
+#   mfa model download acoustic english_mfa
+#   mfa model download dictionary english_mfa
+#
+# Validate corpus:
+#   mfa validate /path/to/corpus english_mfa english_mfa
+#
+# Align corpus:
+#   mfa align /path/to/corpus english_mfa english_mfa /path/to/output
+#
+# Train a new acoustic model (if no pretrained model exists):
+#   mfa train /path/to/corpus english_mfa /path/to/output
+#
+
+# ============================================================
+# Part B: Sample TextGrid for "london is the capital of great britain"
+# with ~20s trailing silence
+# ============================================================
+SAMPLE_TEXTGRID = """File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0.0
+xmax = 23.5
+tiers? &lt;exists&gt;
+size = 2
+
+item [1]:
+    class = "IntervalTier"
+    name = "words"
+    xmin = 0.0
+    xmax = 23.5
+    intervals: size = 9
+        intervals [1]:
+            xmin = 0.0
+            xmax = 0.12
+            text = ""
+        intervals [2]:
+            xmin = 0.12
+            xmax = 0.52
+            text = "london"
+        intervals [3]:
+            xmin = 0.52
+            xmax = 0.68
+            text = "is"
+        intervals [4]:
+            xmin = 0.68
+            xmax = 0.82
+            text = "the"
+        intervals [5]:
+            xmin = 0.82
+            xmax = 1.35
+            text = "capital"
+        intervals [6]:
+            xmin = 1.35
+            xmax = 1.52
+            text = "of"
+        intervals [7]:
+            xmin = 1.52
+            xmax = 1.92
+            text = "great"
+        intervals [8]:
+            xmin = 1.92
+            xmax = 2.45
+            text = "britain"
+        intervals [9]:
+            xmin = 2.45
+            xmax = 23.5
+            text = ""
+
+item [2]:
+    class = "IntervalTier"
+    name = "phones"
+    xmin = 0.0
+    xmax = 23.5
+    intervals: size = 24
+        intervals [1]:
+            xmin = 0.0
+            xmax = 0.12
+            text = "sil"
+        intervals [2]:
+            xmin = 0.12
+            xmax = 0.18
+            text = "L"
+        intervals [3]:
+            xmin = 0.18
+            xmax = 0.28
+            text = "AH"
+        intervals [4]:
+            xmin = 0.28
+            xmax = 0.35
+            text = "N"
+        intervals [5]:
+            xmin = 0.35
+            xmax = 0.42
+            text = "D"
+        intervals [6]:
+            xmin = 0.42
+            xmax = 0.52
+            text = "AH"
+        intervals [7]:
+            xmin = 0.52
+            xmax = 0.55
+            text = "N"
+        intervals [8]:
+            xmin = 0.55
+            xmax = 0.62
+            text = "IH"
+        intervals [9]:
+            xmin = 0.62
+            xmax = 0.68
+            text = "Z"
+        intervals [10]:
+            xmin = 0.68
+            xmax = 0.75
+            text = "DH"
+        intervals [11]:
+            xmin = 0.75
+            xmax = 0.82
+            text = "AH"
+        intervals [12]:
+            xmin = 0.82
+            xmax = 0.92
+            text = "K"
+        intervals [13]:
+            xmin = 0.92
+            xmax = 1.02
+            text = "AE"
+        intervals [14]:
+            xmin = 1.02
+            xmax = 1.10
+            text = "P"
+        intervals [15]:
+            xmin = 1.10
+            xmax = 1.18
+            text = "AH"
+        intervals [16]:
+            xmin = 1.18
+            xmax = 1.25
+            text = "T"
+        intervals [17]:
+            xmin = 1.25
+            xmax = 1.35
+            text = "AH"
+        intervals [18]:
+            xmin = 1.35
+            xmax = 1.38
+            text = "L"
+        intervals [19]:
+            xmin = 1.38
+            xmax = 1.45
+            text = "AH"
+        intervals [20]:
+            xmin = 1.45
+            xmax = 1.52
+            text = "V"
+        intervals [21]:
+            xmin = 1.52
+            xmax = 1.68
+            text = "G"
+        intervals [22]:
+            xmin = 1.68
+            xmax = 1.82
+            text = "R"
+        intervals [23]:
+            xmin = 1.82
+            xmax = 1.92
+            text = "EY"
+        intervals [24]:
+            xmin = 1.92
+            xmax = 2.45
+            text = "T"
+"""
+# (Note: simplified for illustration; real TextGrid would have all phones for "britain" + trailing sil)
+
+
+# ============================================================
+# Part C: TextGrid Parser (no external dependencies)
+# ============================================================
+import re
+from dataclasses import dataclass
+from typing import List, Optional
+
+
+@dataclass
+class Interval:
+    xmin: float
+    xmax: float
+    text: str
+
+    @property
+    def duration(self) -&gt; float:
+        return self.xmax - self.xmin
+
+
+@dataclass
+class IntervalTier:
+    name: str
+    xmin: float
+    xmax: float
+    intervals: List[Interval]
+
+
+def parse_textgrid(content: str) -&gt; List[IntervalTier]:
+    """Parse a Praat TextGrid file (long format) into IntervalTier objects."""
+    tiers = []
+    lines = content.strip().split('\n')
+
+    i = 0
+    while i &lt; len(lines):
+        line = lines[i].strip()
+
+        # Find tier start
+        if line.startswith('class = "IntervalTier"'):
+            # Parse tier name
+            i += 1
+            name_match = re.search(r'name = "(.+?)"', lines[i].strip())
+            tier_name = name_match.group(1) if name_match else "unknown"
+
+            # Parse tier xmin, xmax
+            i += 1
+            tier_xmin = float(re.search(r'xmin = (.+)', lines[i].strip()).group(1))
+            i += 1
+            tier_xmax = float(re.search(r'xmax = (.+)', lines[i].strip()).group(1))
+
+            # Parse interval count
+            i += 1
+            # intervals: size = N
+            intervals = []
+
+            i += 1
+            while i &lt; len(lines):
+                line = lines[i].strip()
+                if line.startswith('intervals ['):
+                    # Parse one interval
+                    i += 1
+                    ixmin = float(re.search(r'xmin = (.+)', lines[i].strip()).group(1))
+                    i += 1
+                    ixmax = float(re.search(r'xmax = (.+)', lines[i].strip()).group(1))
+                    i += 1
+                    text_match = re.search(r'text = "(.+?)"', lines[i].strip())
+                    text = text_match.group(1) if text_match else ""
+                    intervals.append(Interval(ixmin, ixmax, text))
+                    i += 1
+                elif line.startswith('item ['):
+                    break  # next tier
+                else:
+                    i += 1
+
+            tiers.append(IntervalTier(tier_name, tier_xmin, tier_xmax, intervals))
+        else:
+            i += 1
+
+    return tiers
+
+
+# ============================================================
+# Part D: Extract and display durations
+# ============================================================
+tiers = parse_textgrid(SAMPLE_TEXTGRID)
+
+print("=== Word Durations ===")
+word_tier = next(t for t in tiers if t.name == "words")
+for interval in word_tier.intervals:
+    label = interval.text if interval.text else "(silence)"
+    print(f"  {label:&lt;12s}  {interval.xmin:6.2f}s - {interval.xmax:6.2f}s  "
+          f"(duration: {interval.duration:5.2f}s)")
+
+print()
+print("=== Phone Durations ===")
+phone_tier = next(t for t in tiers if t.name == "phones")
+for interval in phone_tier.intervals:
+    label = interval.text if interval.text else "(empty)"
+    print(f"  {label:&lt;6s}  {interval.xmin:6.2f}s - {interval.xmax:6.2f}s  "
+          f"(duration: {interval.duration:5.3f}s)")
+
+print()
+print("=== KEY OBSERVATION ===")
+# Find "britain" word duration and trailing silence
+britain = next((iv for iv in word_tier.intervals if iv.text == "britain"), None)
+trailing_sil = [iv for iv in word_tier.intervals if iv.text == "" and iv.xmin &gt; 2.0]
+
+if britain:
+    print(f"  'britain' duration:        {britain.duration:.2f}s  (natural)")
+if trailing_sil:
+    sil = trailing_sil[0]
+    print(f"  Trailing silence duration: {sil.duration:.2f}s  (absorbed by sil HMM)")
+    print(f"  MFA correctly separates speech ({britain.duration:.2f}s) from silence ({sil.duration:.2f}s)")
+    print(f"  MAS without preprocessing would give 'britain' = {britain.duration + sil.duration:.2f}s!")</code></pre>
+
+                <!-- Code Example 3: CTC Forced Alignment -->
+                <h3>3. CTC Forced Alignment</h3>
+                <p>Implementation of CTC-based forced alignment using the Viterbi algorithm on a CTC topology. Demonstrates how the blank symbol absorbs silence, analogous to MFA's sil model.</p>
+
+<pre><code>import numpy as np
+from typing import List, Tuple
+
+
+def ctc_forced_alignment(log_probs: np.ndarray,
+                          tokens: List[int],
+                          blank_id: int = 0) -&gt; List[Tuple[int, int, int]]:
+    """
+    CTC forced alignment via Viterbi decoding on CTC topology.
+
+    The CTC topology for tokens [t1, t2, ..., tK] is:
+        eps -> t1 -> eps -> t2 -> eps -> ... -> eps -> tK -> eps
+
+    Each node can self-loop or advance to the next node.
+    Transitions can skip blank nodes (eps) but not token nodes.
+
+    Args:
+        log_probs: (N, V) log probabilities per frame per vocabulary item
+        tokens: list of token IDs in the target sequence (without blanks)
+        blank_id: ID of the blank token in vocabulary
+
+    Returns:
+        List of (token_id, start_frame, end_frame) boundaries
+    """
+    N, V = log_probs.shape
+    K = len(tokens)
+
+    # Build CTC topology: eps t1 eps t2 eps ... eps tK eps
+    # Total nodes: 2*K + 1
+    topo = []
+    for k in range(K):
+        topo.append(blank_id)   # eps before token k
+        topo.append(tokens[k])  # token k
+    topo.append(blank_id)       # trailing eps
+    L = len(topo)  # 2*K + 1
+
+    # Viterbi in log domain
+    log_delta = np.full((N, L), -np.inf)
+    backptr = np.zeros((N, L), dtype=int)
+
+    # Initialization: can start in first blank or first token
+    log_delta[0, 0] = log_probs[0, topo[0]]  # start in blank
+    if L &gt; 1:
+        log_delta[0, 1] = log_probs[0, topo[1]]  # start in first token
+
+    # Recursion
+    for t in range(1, N):
+        for s in range(L):
+            # Option 1: self-loop (stay in same node)
+            candidates = [(log_delta[t-1, s], s)]
+
+            # Option 2: come from previous node
+            if s &gt; 0:
+                candidates.append((log_delta[t-1, s-1], s-1))
+
+            # Option 3: skip blank (only if current is a token and s-2 is a
+            # different token -- standard CTC topology allows skipping blanks)
+            if s &gt; 1 and topo[s] != blank_id and topo[s-2] != topo[s]:
+                candidates.append((log_delta[t-1, s-2], s-2))
+
+            best_score, best_prev = max(candidates, key=lambda x: x[0])
+            log_delta[t, s] = best_score + log_probs[t, topo[s]]
+            backptr[t, s] = best_prev
+
+    # Termination: must end in last blank or last token
+    final_candidates = []
+    if L &gt; 0:
+        final_candidates.append((log_delta[N-1, L-1], L-1))  # trailing blank
+    if L &gt; 1:
+        final_candidates.append((log_delta[N-1, L-2], L-2))  # last token
+    _, best_final = max(final_candidates, key=lambda x: x[0])
+
+    # Backtracking
+    state_seq = np.zeros(N, dtype=int)
+    state_seq[N-1] = best_final
+    for t in range(N-2, -1, -1):
+        state_seq[t] = backptr[t+1, state_seq[t+1]]
+
+    # Convert state sequence to token boundaries
+    # Group consecutive frames by their topology node
+    boundaries = []
+    current_node = state_seq[0]
+    start_frame = 0
+
+    for t in range(1, N):
+        if state_seq[t] != current_node:
+            token_id = topo[current_node]
+            boundaries.append((token_id, start_frame, t - 1))
+            current_node = state_seq[t]
+            start_frame = t
+
+    boundaries.append((topo[current_node], start_frame, N - 1))
+
+    return boundaries
+
+
+# === Example: Align "cat" with CTC ===
+np.random.seed(42)
+
+# Vocabulary: 0=blank, 1=k, 2=ae, 3=t
+vocab = {0: '(blank)', 1: 'k', 2: 'ae', 3: 't'}
+tokens = [1, 2, 3]  # k, ae, t
+
+# Simulate log-probabilities for 36 frames:
+# Frames 0-2: silence (blank likely)
+# Frames 3-6: /k/ (token 1 likely)
+# Frames 7-12: /ae/ (token 2 likely)
+# Frames 13-15: /t/ (token 3 likely)
+# Frames 16-35: silence (blank likely) -- 20 frames of trailing silence
+N = 36
+V = 4  # vocab size
+
+log_probs = np.full((N, V), -5.0)  # low baseline
+
+# Initial silence: blank dominates
+for t in range(3):
+    log_probs[t, 0] = -0.1  # blank very likely
+
+# /k/ region
+for t in range(3, 7):
+    log_probs[t, 1] = -0.2  # /k/ likely
+    log_probs[t, 0] = -2.0  # blank less likely
+
+# /ae/ region
+for t in range(7, 13):
+    log_probs[t, 2] = -0.15  # /ae/ likely
+    log_probs[t, 0] = -2.5
+
+# /t/ region
+for t in range(13, 16):
+    log_probs[t, 3] = -0.3  # /t/ likely
+    log_probs[t, 0] = -1.5
+
+# Trailing silence: blank dominates
+for t in range(16, 36):
+    log_probs[t, 0] = -0.05  # blank very likely
+
+# Run CTC forced alignment
+boundaries = ctc_forced_alignment(log_probs, tokens, blank_id=0)
+
+print("CTC Forced Alignment for 'cat' with trailing silence:")
+print(f"{'Token':&gt;10s}  {'Start':&gt;6s}  {'End':&gt;6s}  {'Frames':&gt;6s}")
+print("-" * 40)
+for token_id, start, end in boundaries:
+    name = vocab[token_id]
+    print(f"{name:&gt;10s}  {start:&gt;6d}  {end:&gt;6d}  {end-start+1:&gt;6d}")
+
+# Count blank vs non-blank frames
+blank_frames = sum(end - start + 1 for tid, start, end in boundaries if tid == 0)
+speech_frames = sum(end - start + 1 for tid, start, end in boundaries if tid != 0)
+
+print()
+print(f"Blank (silence) frames: {blank_frames}")
+print(f"Speech frames: {speech_frames}")
+print(f"Total frames: {N}")
+print()
+print("KEY RESULT: CTC blank symbol absorbs silence frames,")
+print("similar to MFA's sil HMM. The speech tokens get natural durations.")
+
+print()
+print("=" * 50)
+print("Reference: torchaudio CTC forced alignment")
+print("=" * 50)
+print("""
+# Using torchaudio with wav2vec2 for CTC forced alignment:
+#
+# import torch
+# import torchaudio
+# from torchaudio.functional import forced_align
+#
+# # Load pretrained wav2vec2 model
+# bundle = torchaudio.pipelines.WAV2VEC2_ASR_BASE_960H
+# model = bundle.get_model()
+# labels = bundle.get_labels()
+#
+# # Load audio
+# waveform, sr = torchaudio.load("utterance.wav")
+# if sr != bundle.sample_rate:
+#     waveform = torchaudio.functional.resample(waveform, sr, bundle.sample_rate)
+#
+# # Get emission probabilities
+# with torch.no_grad():
+#     emissions, _ = model(waveform)
+#     emissions = torch.log_softmax(emissions, dim=-1)
+#
+# # Prepare target tokens
+# transcript = "LONDON IS THE CAPITAL OF GREAT BRITAIN"
+# token_ids = [labels.index(c) for c in transcript if c in labels]
+#
+# # Run forced alignment
+# aligned_tokens, scores = forced_align(emissions[0], torch.tensor([token_ids]))
+#
+# # aligned_tokens contains frame-level token assignments
+# # Convert to word boundaries using token grouping
+""")</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of forced alignment, HMM-based alignment, MFA, and CTC alignment. Exercises range from basic topology questions to advanced cross-lingual alignment challenges. Solutions are provided for self-study.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. HMM Topology Drawing</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Draw the composite HMM topology for the word "go" with phone sequence /sil g ow sil/. Each phone has 3 states. Label each state, show self-loop and forward transitions, and indicate where the silence states are. How many total states does the composite HMM have?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>The phone sequence /sil g ow sil/ has 4 phones, each with 3 states, giving <strong>12 total states</strong>:</p>
+<pre><code>sil(1) &rarr; sil(2) &rarr; sil(3) &rarr; g(1) &rarr; g(2) &rarr; g(3) &rarr; ow(1) &rarr; ow(2) &rarr; ow(3) &rarr; sil(1) &rarr; sil(2) &rarr; sil(3)
+  &circlearrowleft;      &circlearrowleft;      &circlearrowleft;     &circlearrowleft;    &circlearrowleft;    &circlearrowleft;     &circlearrowleft;      &circlearrowleft;      &circlearrowleft;      &circlearrowleft;      &circlearrowleft;      &circlearrowleft;</code></pre>
+                                <p>Each state has exactly two possible transitions:</p>
+                                <ul>
+                                    <li><strong>Self-loop</strong> (curved arrow back to itself): the state absorbs another frame. Probability $a_{ii}$, typically 0.5&ndash;0.7.</li>
+                                    <li><strong>Forward transition</strong> (arrow to next state): advance to next state in the phone, or to the first state of the next phone. Probability $a_{i,i+1} = 1 - a_{ii}$.</li>
+                                </ul>
+                                <p>Key observations:</p>
+                                <ul>
+                                    <li>The topology is strictly left-to-right: no backward transitions are allowed.</li>
+                                    <li>The first <code>sil</code> block (states 1&ndash;3) absorbs any leading silence.</li>
+                                    <li>The last <code>sil</code> block (states 10&ndash;12) absorbs any trailing silence.</li>
+                                    <li>Each phone must consume at least 3 frames (one per state), so the minimum utterance length is 12 frames.</li>
+                                    <li>The self-loop on the last <code>sil</code> state allows it to absorb arbitrarily many frames of trailing silence.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. TextGrid Parsing</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Given a TextGrid with a word tier containing intervals: ("", 0.0, 0.15), ("hello", 0.15, 0.62), ("world", 0.62, 1.10), ("", 1.10, 1.30), calculate: (a) the duration of each word, (b) the total speech duration (excluding silence), (c) the speech-to-silence ratio, and (d) the speaking rate in words per second.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Word durations:</strong></p>
+                                <ul>
+                                    <li>Initial silence: $0.15 - 0.0 = 0.15$s</li>
+                                    <li>"hello": $0.62 - 0.15 = 0.47$s</li>
+                                    <li>"world": $1.10 - 0.62 = 0.48$s</li>
+                                    <li>Trailing silence: $1.30 - 1.10 = 0.20$s</li>
+                                </ul>
+                                <p><strong>(b) Total speech duration:</strong></p>
+                                <p>Speech = "hello" + "world" = $0.47 + 0.48 = 0.95$s</p>
+                                <p><strong>(c) Speech-to-silence ratio:</strong></p>
+                                <p>Silence = $0.15 + 0.20 = 0.35$s. Ratio = $0.95 / 0.35 \approx 2.71$. This means there is about 2.7 times more speech than silence.</p>
+                                <p><strong>(d) Speaking rate:</strong></p>
+                                <p>2 words in 0.95s of speech = $2 / 0.95 \approx 2.1$ words per second. If we include the total duration: $2 / 1.30 \approx 1.54$ words per second. The speech-only rate is more commonly used in phonetics.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. MAS vs MFA Silence Comparison</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>An audio file contains 3 seconds of speech ("thank you") followed by 10 seconds of silence. The mel-spectrogram has 1040 frames (80 frames/sec). Compare what MAS (no preprocessing) and MFA would produce for the duration of the word "you." Explain the mechanism behind each result.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>MAS (no preprocessing):</strong></p>
+                                <p>MAS has two tokens: "thank" and "you." It must assign all 1040 frames to these two tokens. Suppose "thank" naturally takes about 120 frames (~1.5s). MAS would assign the remaining 920 frames to "you" &mdash; giving it a duration of $920 / 80 = 11.5$s. The actual word "you" takes about 1.5s; the remaining 10s of silence is incorrectly attributed to "you."</p>
+                                <p><strong>Mechanism:</strong> MAS maximizes $\sum_t C_{a(t), t}$ where $C$ is the log-likelihood cost matrix from the encoder-decoder. For silence frames, all tokens have low log-likelihood scores, but MAS must assign every frame to some token. The last token absorbs all remaining frames because of the monotonicity constraint &mdash; once all earlier tokens have their frames, everything left goes to the last token.</p>
+                                <p><strong>MFA:</strong></p>
+                                <p>MFA's composite HMM is: <code>sil &rarr; TH &rarr; AE &rarr; NG &rarr; K &rarr; Y &rarr; UW &rarr; sil</code>. The trailing <code>sil</code> HMM's emission model recognizes the 10 seconds of silence and absorbs those frames via self-loops. The word "you" (phones Y, UW) receives only its natural duration of ~1.5s.</p>
+                                <p><strong>Mechanism:</strong> The Viterbi algorithm computes $\delta_t(j) = \max_i [\delta_{t-1}(i) \cdot a_{ij}] \cdot b_j(o_t)$. For silence frames, the silence emission $b_{\text{sil}}(o_t)$ is much higher than any speech phone emission. The optimal path transitions from the last speech phone to the <code>sil</code> state and stays there.</p>
+                                <p><strong>Summary:</strong> MAS gives "you" ~11.5s (wrong). MFA gives "you" ~1.5s (correct). The difference is entirely due to MFA's explicit silence model.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. Viterbi by Hand</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a tiny composite HMM with 4 states: sil(1), a(1), a(2), sil(1) (initial silence, 1-state phone /a/ with 2 states, final silence). Self-loop probability is 0.5 for all states, forward probability is 0.5. Emission means: sil=0.1, a(1)=0.8, a(2)=0.6. All variances = 0.1. Given observations $[0.1, 0.1, 0.7, 0.9, 0.5, 0.1, 0.1]$, trace through Viterbi to find the optimal state sequence and phone boundaries.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>States: S0=sil, S1=a(1), S2=a(2), S3=sil. Observations: $[0.1, 0.1, 0.7, 0.9, 0.5, 0.1, 0.1]$.</p>
+                                <p>We compute Gaussian emission log-probabilities $\log b_j(o_t) = -\frac{1}{2}\log(2\pi \cdot 0.1) - \frac{(o_t - \mu_j)^2}{2 \cdot 0.1}$ for each state and frame.</p>
+                                <p><strong>Key emission values</strong> (higher = better match):</p>
+                                <ul>
+                                    <li>$o_t = 0.1$: sil gives highest (mean=0.1, perfect match), a(1) and a(2) give low values</li>
+                                    <li>$o_t = 0.7$: a(1) gives moderate (mean=0.8), a(2) gives highest (mean=0.6, close)</li>
+                                    <li>$o_t = 0.9$: a(1) gives highest (mean=0.8, close)</li>
+                                    <li>$o_t = 0.5$: a(2) gives highest (mean=0.6, close)</li>
+                                </ul>
+                                <p><strong>Optimal state sequence:</strong> Following Viterbi with transition probabilities of 0.5 for both self-loop and forward:</p>
+<pre><code>Frame:  0    1    2    3    4    5    6
+Obs:   0.1  0.1  0.7  0.9  0.5  0.1  0.1
+State: S0   S0   S1   S1   S2   S3   S3
+       sil  sil  a(1) a(1) a(2) sil  sil</code></pre>
+                                <p><strong>Phone boundaries:</strong></p>
+                                <ul>
+                                    <li>sil: frames 0&ndash;1 (2 frames of initial silence)</li>
+                                    <li>/a/: frames 2&ndash;4 (3 frames of speech)</li>
+                                    <li>sil: frames 5&ndash;6 (2 frames of trailing silence)</li>
+                                </ul>
+                                <p>The Viterbi algorithm correctly identifies the silence-speech-silence structure. The silence model (mean=0.1) strongly matches the low-energy frames at the beginning and end, while the speech model (means 0.8, 0.6) matches the high-energy frames in the middle.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. CTC Blank Distribution</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In CTC forced alignment of a 50-frame utterance with target "hi" (tokens: h, i), the CTC topology is $\epsilon \to h \to \epsilon \to i \to \epsilon$. If the alignment produces the path $[\epsilon, \epsilon, \epsilon, h, h, h, h, h, \epsilon, i, i, i, \epsilon, \epsilon, \ldots, \epsilon]$ (3 leading blanks, 5 h's, 1 blank, 3 i's, 38 trailing blanks), what fraction of frames are blank? How does this relate to MFA's silence handling?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Blank frame count:</strong></p>
+                                <ul>
+                                    <li>Leading blanks: 3 frames</li>
+                                    <li>Inter-token blank: 1 frame</li>
+                                    <li>Trailing blanks: 38 frames</li>
+                                    <li>Total blank: $3 + 1 + 38 = 42$ frames</li>
+                                </ul>
+                                <p><strong>Speech frame count:</strong> $5 + 3 = 8$ frames</p>
+                                <p><strong>Blank fraction:</strong> $42 / 50 = 84\%$</p>
+                                <p>This means 84% of frames are assigned to the CTC blank symbol, and only 16% are assigned to actual speech tokens.</p>
+                                <p><strong>Relationship to MFA's silence handling:</strong></p>
+                                <p>The CTC blank symbol plays an analogous role to MFA's <code>sil</code> HMM:</p>
+                                <ul>
+                                    <li>Leading blanks $\leftrightarrow$ initial <code>sil</code> in MFA: both absorb pre-speech silence.</li>
+                                    <li>Inter-token blank $\leftrightarrow$ optional inter-word <code>sil</code> or <code>sp</code> (short pause) in MFA: both absorb brief pauses between speech segments.</li>
+                                    <li>Trailing blanks $\leftrightarrow$ final <code>sil</code> in MFA: both absorb post-speech silence.</li>
+                                </ul>
+                                <p>The key difference is that CTC has a single blank symbol for all non-speech frames, while MFA can distinguish between different types of silence (e.g., <code>sil</code> for long silence, <code>sp</code> for short pauses, <code>spn</code> for spoken noise). MFA's richer silence inventory provides more detailed annotation but requires more training data to learn the distinctions.</p>
+                                <p>Both approaches solve the same fundamental problem: providing a mechanism to "discard" frames that do not correspond to any speech token, which MAS lacks.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Alignment Quality Metric</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Propose a quantitative metric to evaluate the quality of a forced alignment without manual ground truth. Your metric should detect common failure modes: (a) a phone with implausibly long duration, (b) a phone with implausibly short duration, and (c) poor acoustic match. Define the metric formally and explain the threshold values you would use.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>We propose a composite <strong>Alignment Quality Score (AQS)</strong> with three components:</p>
+                                <p><strong>Component 1: Duration plausibility score.</strong> For each phone $p_k$ with duration $d_k$ (in ms), compute a z-score relative to the expected duration distribution for that phone:</p>
+                                $$z_k = \frac{\log d_k - \mu_{\log}(p_k)}{\sigma_{\log}(p_k)}$$
+                                <p>where $\mu_{\log}(p_k)$ and $\sigma_{\log}(p_k)$ are the mean and standard deviation of log-durations for phone $p_k$ (estimated from a reference corpus or from the corpus statistics). The duration plausibility score is:</p>
+                                $$S_{\text{dur}} = 1 - \frac{1}{K} \sum_{k=1}^{K} \min(|z_k| / 3, 1)$$
+                                <p>This gives 1.0 for perfectly typical durations and approaches 0 when many phones have extreme z-scores ($|z| \geq 3$).</p>
+                                <p><strong>Component 2: Minimum duration check.</strong> Phones have physical minimum durations. Stop consonants need at least ~20ms, vowels at least ~30ms. The score is:</p>
+                                $$S_{\text{min}} = 1 - \frac{1}{K} \sum_{k=1}^{K} \mathbb{1}[d_k &lt; d_{\text{min}}(p_k)]$$
+                                <p>where $d_{\text{min}}(p_k)$ is the minimum plausible duration for phone type $p_k$.</p>
+                                <p><strong>Component 3: Acoustic match score.</strong> Compute the average log-likelihood of the acoustic features within each phone segment under that phone's emission model:</p>
+                                $$S_{\text{acoustic}} = \frac{1}{N} \sum_{t=1}^{N} \log b_{a(t)}(o_t)$$
+                                <p>Normalize this to [0, 1] using corpus-level statistics. Low acoustic match suggests the alignment is placing speech frames in wrong phone segments.</p>
+                                <p><strong>Composite score:</strong></p>
+                                $$\text{AQS} = 0.4 \cdot S_{\text{dur}} + 0.2 \cdot S_{\text{min}} + 0.4 \cdot S_{\text{acoustic}}$$
+                                <p><strong>Thresholds:</strong></p>
+                                <ul>
+                                    <li>AQS &gt; 0.85: Good alignment, use as-is</li>
+                                    <li>0.70 &lt; AQS &le; 0.85: Acceptable, spot-check recommended</li>
+                                    <li>AQS &le; 0.70: Poor, manual review or re-alignment needed</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. MFA vs MAS for TTS Pipeline</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You are building a FastSpeech 2 TTS system. You have two options for obtaining training durations: (A) Use MFA to align the corpus offline and use the durations as ground truth, or (B) Train a Glow-TTS model first with MAS, extract its alignments, then use those as ground truth for FastSpeech 2. Compare both approaches in terms of: alignment quality, pipeline complexity, robustness to noisy data, and computational cost.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid var(--color-border);">
+                                            <th style="text-align: left; padding: 0.5rem;">Criterion</th>
+                                            <th style="text-align: left; padding: 0.5rem;">(A) MFA Offline</th>
+                                            <th style="text-align: left; padding: 0.5rem;">(B) Glow-TTS + MAS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Alignment quality</strong></td>
+                                            <td style="padding: 0.5rem;">High. MFA uses triphone GMM-HMMs trained on large speech corpora. Phone boundaries are typically within 10&ndash;20ms of manual annotation.</td>
+                                            <td style="padding: 0.5rem;">Good but variable. MAS quality depends on how well the Glow-TTS encoder-decoder learns the alignment. Early training alignments may be poor.</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Pipeline complexity</strong></td>
+                                            <td style="padding: 0.5rem;">Simple: install MFA, run alignment, extract durations, train FastSpeech 2. One-pass pipeline.</td>
+                                            <td style="padding: 0.5rem;">Complex: train Glow-TTS to convergence, extract alignments from trained model, then train FastSpeech 2. Two-model pipeline.</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Silence robustness</strong></td>
+                                            <td style="padding: 0.5rem;">Excellent. MFA handles silence by design (sil HMM).</td>
+                                            <td style="padding: 0.5rem;">Requires preprocessing (VAD trimming or &lt;sil&gt; token). Without it, last-token inflation occurs.</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Noisy data</strong></td>
+                                            <td style="padding: 0.5rem;">MFA can fail on very noisy recordings (GMMs are sensitive to noise). Speaker adaptation helps partially.</td>
+                                            <td style="padding: 0.5rem;">Neural features (Glow-TTS encoder) may be more robust to noise, especially if the model learns noise-invariant representations.</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 0.5rem;"><strong>Computational cost</strong></td>
+                                            <td style="padding: 0.5rem;">MFA alignment is CPU-based and relatively fast (~1x real-time). No GPU needed for alignment.</td>
+                                            <td style="padding: 0.5rem;">Requires training a full Glow-TTS model to convergence (days of GPU time), then running inference to extract alignments.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p><strong>Recommendation:</strong> For most practical TTS pipelines, option (A) with MFA is preferred. It is simpler, produces high-quality alignments with robust silence handling, and does not require training a separate model. Option (B) is mainly useful when: (1) no pronunciation dictionary exists for the target language, (2) the text uses a non-phonemic writing system, or (3) you want the alignment to be specifically tailored to your model's acoustic representation. In practice, many state-of-the-art TTS systems use MFA for alignment.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. End-to-End Alignment Learning</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Design a hybrid system that combines MFA's robustness with MAS's differentiability. The system should: (1) use MFA alignments as initialization, (2) allow the alignment to be refined during TTS training, and (3) handle silence correctly. Describe the architecture, loss function, and training procedure.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Architecture: MFA-Initialized Refinable Alignment (MIRA)</strong></p>
+                                <p>The system has three components:</p>
+                                <ol>
+                                    <li><strong>Offline stage (MFA):</strong> Run MFA on the entire corpus to obtain initial phone-level alignments. Extract per-phone durations $d_k^{\text{MFA}}$ for each utterance. Also extract the silence boundaries to separate speech from silence.</li>
+                                    <li><strong>Duration predictor with residual refinement:</strong> The duration predictor outputs a <em>refinement</em> $\Delta d_k$ rather than the absolute duration:
+                                        $$d_k^{\text{pred}} = d_k^{\text{MFA}} + \Delta d_k$$
+                                        where $\Delta d_k$ is predicted by a neural network from the encoder output. This ensures the initial alignment is close to MFA and the model only learns small corrections.</li>
+                                    <li><strong>Silence-aware loss:</strong> The loss function treats speech and silence separately:
+                                        $$\mathcal{L}_{\text{dur}} = \sum_{k \in \text{speech}} (\log d_k^{\text{pred}} - \log d_k^{\text{target}})^2 + \lambda \sum_{k \in \text{sil}} (\log d_k^{\text{pred}} - \log d_k^{\text{target}})^2$$
+                                        where $\lambda &lt; 1$ down-weights silence duration errors (exact silence duration matters less than speech duration for TTS quality).</li>
+                                </ol>
+                                <p><strong>Training procedure:</strong></p>
+                                <ol>
+                                    <li><strong>Phase 1 (frozen alignment):</strong> Train with MFA durations as fixed targets. The duration predictor learns to replicate MFA's output. The refinement $\Delta d_k$ starts near zero.</li>
+                                    <li><strong>Phase 2 (joint refinement):</strong> Switch to a reconstruction loss $\mathcal{L}_{\text{recon}} = \|X - \hat{X}\|^2$ (mel-spectrogram reconstruction). Allow gradients to flow through the duration predictor via the straight-through estimator or soft duration mechanisms. The alignment can now deviate from MFA if it improves reconstruction.</li>
+                                    <li><strong>Phase 3 (optional MAS refinement):</strong> Periodically run MAS between the encoder and decoder to get updated alignment targets. Use a weighted combination: $d_k^{\text{target}} = \alpha \cdot d_k^{\text{MFA}} + (1 - \alpha) \cdot d_k^{\text{MAS}}$, annealing $\alpha$ from 1.0 to 0.0 during training.</li>
+                                </ol>
+                                <p><strong>Silence handling:</strong> By inheriting MFA's silence boundaries in Phase 1, the system correctly identifies silence regions from the start. In Phases 2&ndash;3, the silence tokens have their own embedding in the encoder, allowing the model to treat them differently from speech tokens. The silence durations can be refined but are anchored to MFA's estimates.</p>
+                                <p>This approach combines MFA's robustness and silence handling with the potential for end-to-end refinement during training.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Multi-Speaker Alignment</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You are aligning a multi-speaker corpus with 100 speakers, each contributing 30 minutes of speech. Some speakers have accents that cause systematic alignment errors with MFA's pretrained English model. Describe a strategy to improve alignment quality across all speakers. Address: speaker adaptation, model fine-tuning, quality monitoring, and fallback strategies for problematic speakers.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Strategy: Multi-Stage Adaptive Alignment Pipeline</strong></p>
+                                <p><strong>Stage 1: Initial alignment with speaker adaptation.</strong></p>
+                                <p>MFA performs per-speaker fMLLR (feature-space Maximum Likelihood Linear Regression) adaptation by default. This adapts the acoustic model to each speaker's vocal characteristics without modifying the model parameters. For most speakers, this is sufficient:</p>
+<pre><code># MFA automatically groups files by speaker directory
+# and performs speaker adaptation per speaker
+mfa align /corpus english_mfa english_mfa /output --speaker_characters 0</code></pre>
+                                <p><strong>Stage 2: Quality monitoring.</strong> After initial alignment, compute per-speaker alignment statistics:</p>
+                                <ul>
+                                    <li>Average log-likelihood per frame (from Viterbi alignment scores)</li>
+                                    <li>Percentage of phones with duration z-score $|z| &gt; 3$</li>
+                                    <li>Percentage of very short phones (&lt; 20ms)</li>
+                                </ul>
+                                <p>Flag speakers with anomalous statistics (e.g., average log-likelihood in the bottom 10th percentile) for further processing.</p>
+                                <p><strong>Stage 3: Model fine-tuning for problematic speakers.</strong> For flagged speakers, train a speaker-adapted acoustic model:</p>
+<pre><code># Train a new model on the full corpus (all 100 speakers)
+# This adapts to the corpus-specific acoustic conditions
+mfa train /corpus english_mfa /output_retrained
+
+# Re-align problematic speakers with the retrained model
+mfa align /corpus_subset retrained_model english_mfa /output_fixed</code></pre>
+                                <p><strong>Stage 4: Fallback for remaining problems.</strong> If some speakers still have poor alignment after fine-tuning:</p>
+                                <ul>
+                                    <li><strong>CTC fallback:</strong> Use wav2vec2-based CTC alignment as an alternative. Neural models may handle accented speech better than GMM-HMMs.</li>
+                                    <li><strong>Hybrid approach:</strong> Use MFA for most phones but replace phone boundaries near flagged regions with CTC boundaries.</li>
+                                    <li><strong>Manual review:</strong> For the worst 1&ndash;2% of utterances, manual correction in Praat is the most reliable option.</li>
+                                    <li><strong>Exclusion:</strong> If a speaker's alignment quality is consistently poor (&gt; 20% flagged utterances), consider excluding that speaker from the training set rather than training on bad alignments.</li>
+                                </ul>
+                                <p><strong>Stage 5: Cross-validation.</strong> Randomly select 50 utterances across speakers and manually verify the alignments. If the error rate is below 5% (boundaries within 25ms of manual annotation), the corpus is ready for training. If not, iterate on stages 2&ndash;4.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Cross-Lingual Alignment</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You need to build a TTS system for a language with no pretrained MFA acoustic model and no pronunciation dictionary (e.g., an under-resourced language). Describe three different strategies for obtaining forced alignments, discussing the trade-offs of each. At least one strategy should not require any language-specific resources.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Strategy 1: Train MFA from scratch.</strong></p>
+                                <p>Create a pronunciation dictionary from the language's orthography (if it is phonemic, like Spanish or Finnish, this is straightforward; for non-phonemic scripts, linguist input is needed) and train an acoustic model using MFA's training mode:</p>
+<pre><code>mfa train /corpus custom_dictionary /output_model</code></pre>
+                                <p><strong>Pros:</strong> Produces high-quality phone-level alignments tailored to the target language. The trained model can be reused for future corpora.</p>
+                                <p><strong>Cons:</strong> Requires a pronunciation dictionary, which is significant effort for languages with complex phonology. Needs at least 5&ndash;10 hours of training data. MFA's training can take hours.</p>
+                                <p><strong>Strategy 2: CTC alignment with multilingual wav2vec2.</strong></p>
+                                <p>Use a multilingual pretrained wav2vec2 model (e.g., XLS-R or MMS) that covers the target language. These models are trained on thousands of languages and can produce CTC log-probabilities for any language:</p>
+<pre><code># Using torchaudio with MMS (Massively Multilingual Speech)
+# MMS covers 1,100+ languages
+bundle = torchaudio.pipelines.MMS_FA  # MMS forced alignment
+model = bundle.get_model()
+
+# Tokenize transcript using MMS tokenizer
+# Run forced_align as in Code Example 3</code></pre>
+                                <p><strong>Pros:</strong> No pronunciation dictionary needed. No language-specific acoustic model training. Works out of the box for 1,100+ languages. GPU-accelerated.</p>
+                                <p><strong>Cons:</strong> Character-level alignment only (no phone-level detail). Boundary accuracy is lower than HMM-based methods. The CTC model was trained for recognition, not alignment precision.</p>
+                                <p><strong>Strategy 3: Glow-TTS with MAS (language-agnostic).</strong></p>
+                                <p>Train a Glow-TTS model directly on the target language corpus. MAS learns the alignment during training without any pronunciation dictionary or acoustic model:</p>
+                                <ul>
+                                    <li>Use characters or byte-pair encoding (BPE) tokens as the text representation</li>
+                                    <li>MAS discovers the alignment jointly with the mel-spectrogram generation</li>
+                                    <li>Extract durations from the trained model for downstream use</li>
+                                </ul>
+                                <p><strong>Pros:</strong> Completely language-agnostic. No external resources needed beyond the text-audio pairs. The alignment is optimized for the specific TTS task.</p>
+                                <p><strong>Cons:</strong> Requires training a full TTS model (GPU time, hyperparameter tuning). Silence handling requires preprocessing (VAD) or adding &lt;sil&gt; tokens. Alignment quality depends on training convergence. No phone-level detail unless the text representation is phonemic.</p>
+                                <p><strong>Recommendation for under-resourced languages:</strong> Start with Strategy 2 (CTC + multilingual model) for a quick baseline alignment, then iterate with Strategy 3 (Glow-TTS + MAS) for a TTS-optimized alignment. Use Strategy 1 only if a linguist can provide a pronunciation dictionary, as this gives the highest quality but requires the most language-specific effort.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#what-is-forced-alignment" class="toc-link">What Is Forced Alignment?</a>
+                <a href="#hmm-based-alignment" class="toc-link">HMM-Based Alignment</a>
+                <a href="#mfa-overview" class="toc-link">Montreal Forced Aligner</a>
+                <a href="#mfa-practical" class="toc-link">Using MFA in Practice</a>
+                <a href="#silence-in-mfa" class="toc-link">Silence in MFA</a>
+                <a href="#ctc-alignment" class="toc-link">CTC-Based Alignment</a>
+                <a href="#comparison" class="toc-link">MAS vs MFA vs CTC</a>
+                <a href="#practical-workflow" class="toc-link">Practical Workflow</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

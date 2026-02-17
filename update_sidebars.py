@@ -32,6 +32,9 @@ NAV_LINKS = {
         ("21-fst-libraries", "22. FST Libraries"),
         ("22-fst-applications", "23. FST Applications"),
         ("23-neural-symbolic", "24. Neural-Symbolic Hybrids"),
+        ("24-sequence-alignment", "25. Sequence Alignment"),
+        ("25-mas-algorithm", "26. MAS Algorithm"),
+        ("26-forced-alignment", "27. Forced Alignment & MFA"),
     ],
     "linear-algebra": [
         ("01-vectors", "01. Vectors and Spaces"),

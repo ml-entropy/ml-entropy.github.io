@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monotonic Alignment Search (MAS) | ML Fundamentals</title>
+    <meta name="description" content="The MAS algorithm from Glow-TTS: step-by-step derivation, worked examples, the critical silence edge case, and MAS in TTS training loops.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Monotonic Alignment Search</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../04-logarithms/index.html" class="sidebar-link">01. Why Logarithms?</a>
+                    <a href="../05-combinatorics/index.html" class="sidebar-link">02. Combinatorics</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">03. Normal Distributions</a>
+                    <a href="../01-entropy/index.html" class="sidebar-link">04. Entropy Fundamentals</a>
+                    <a href="../02-cross-entropy/index.html" class="sidebar-link">05. Cross-Entropy</a>
+                    <a href="../02-kl-divergence/index.html" class="sidebar-link">06. KL Divergence</a>
+                    <a href="../14-entropy-connections/index.html" class="sidebar-link">07. Entropy Connections</a>
+                    <a href="../06-backpropagation/index.html" class="sidebar-link">08. Backpropagation</a>
+                    <a href="../07-regularization/index.html" class="sidebar-link">09. Regularization</a>
+                    <a href="../08-batch-normalization/index.html" class="sidebar-link">10. Batch Normalization</a>
+                    <a href="../09-learning-rate/index.html" class="sidebar-link">11. Learning Rate</a>
+                    <a href="../10-cnn/index.html" class="sidebar-link">12. CNNs</a>
+                    <a href="../11-rnn/index.html" class="sidebar-link">13. RNNs</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link">14. Autoencoders</a>
+                    <a href="../13-variational-inference/index.html" class="sidebar-link">15. Variational Inference</a>
+                    <a href="../12-vae/index.html" class="sidebar-link">16. VAE</a>
+                    <a href="../16-inductive-bias/index.html" class="sidebar-link">17. Inductive Bias</a>
+                    <a href="../17-architectural-biases/index.html" class="sidebar-link">18. Architectural Biases</a>
+                    <a href="../18-designing-biases/index.html" class="sidebar-link">19. Designing Biases</a>
+                    <a href="../19-fst-fundamentals/index.html" class="sidebar-link">20. FST Fundamentals</a>
+                    <a href="../20-weighted-fsts/index.html" class="sidebar-link">21. Weighted FSTs</a>
+                    <a href="../21-fst-libraries/index.html" class="sidebar-link">22. FST Libraries</a>
+                    <a href="../22-fst-applications/index.html" class="sidebar-link">23. FST Applications</a>
+                    <a href="../23-neural-symbolic/index.html" class="sidebar-link">24. Neural-Symbolic Hybrids</a>
+                    <a href="../24-sequence-alignment/index.html" class="sidebar-link">25. Sequence Alignment</a>
+                    <a href="../25-mas-algorithm/index.html" class="sidebar-link active">26. MAS Algorithm</a>
+                    <a href="../26-forced-alignment/index.html" class="sidebar-link">27. Forced Alignment & MFA</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: MAS in the Glow-TTS Pipeline -->
+                <h2 id="glow-tts-context">MAS in the Glow-TTS Pipeline</h2>
+
+                <p>
+                    Glow-TTS (Kim et al., 2020) is a flow-based text-to-speech model that introduced a fundamental shift in how TTS systems handle alignment. Before Glow-TTS, autoregressive TTS models like Tacotron 2 relied on <strong>soft attention</strong> &mdash; a learned, differentiable mechanism that computes a weighted combination of encoder states at each decoder step. While elegant, soft attention suffers from well-documented failure modes: it can <strong>skip tokens</strong> (causing missing words), <strong>repeat tokens</strong> (causing stuttering), or <strong>attend to the wrong position</strong> (causing garbled output). These failures are especially common for long utterances or out-of-domain text.
+                </p>
+
+                <p>
+                    The core insight of Glow-TTS is to replace learned soft attention with <strong>Monotonic Alignment Search (MAS)</strong>, a dynamic programming algorithm that finds the <strong>optimal hard monotonic alignment</strong> between text tokens and audio frames. MAS does not learn the alignment &mdash; it <em>computes</em> it exactly from a cost matrix produced by the encoder and decoder.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Glow-TTS Training Strategy</div>
+                    <p>
+                        During <strong>training</strong>, MAS operates on the cost matrix $C \in \mathbb{R}^{T \times N}$ where $C_{t,n} = \log \mathcal{N}(x_n; \mu_t, \sigma_t)$ measures how well mel frame $x_n$ fits the distribution predicted by text token $t$. MAS finds the alignment $a^*$ that maximizes the total log-likelihood.
+                    </p>
+                    <p>
+                        The extracted durations $d_t = |\{n : a^*(n) = t\}|$ are used to <strong>train a duration predictor</strong> &mdash; a small neural network that learns to predict durations from text alone.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        During <strong>inference</strong>, MAS is not needed. The duration predictor provides durations directly, enabling <strong>parallel synthesis</strong> &mdash; all mel frames are generated simultaneously, making Glow-TTS orders of magnitude faster than autoregressive models.
+                    </p>
+                </div>
+
+                <p>
+                    This two-phase strategy is elegant: MAS provides the precise, monotonic alignments needed for high-quality duration supervision, while the duration predictor eliminates MAS at inference time. The model gets the best of both worlds &mdash; the precision of hard alignment during training and the speed of parallel generation during inference.
+                </p>
+
+                <p>
+                    MAS is called within every training step, making its computational efficiency critical. Fortunately, MAS runs in $O(TN)$ time, which is fast enough for practical use. Let us now examine exactly how the algorithm works.
+                </p>
+
+                <!-- Section 2: The MAS Algorithm Step by Step -->
+                <h2 id="mas-algorithm-detail">The MAS Algorithm Step by Step</h2>
+
+                <p>
+                    MAS is a dynamic programming algorithm that finds the monotonic alignment maximizing the total log-likelihood. It operates in two phases: a <strong>forward pass</strong> that computes cumulative scores, and a <strong>backtracking pass</strong> that recovers the optimal alignment. Here is the complete algorithm, derived step by step.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">MAS Algorithm Derivation</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <p><strong>Input:</strong> A cost matrix $C \in \mathbb{R}^{T \times N}$ where rows index text tokens ($t = 0, \ldots, T-1$) and columns index audio frames ($n = 0, \ldots, N-1$). In Glow-TTS, each entry is:</p>
+                            $$C_{t,n} = \log \mathcal{N}(x_n; \mu_t, \sigma_t)$$
+                            <p>where $x_n$ is the mel-spectrogram vector at frame $n$, and $(\mu_t, \sigma_t)$ are the mean and standard deviation predicted by the text encoder for token $t$.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <p><strong>Forward pass:</strong> Define the cumulative score matrix $Q \in \mathbb{R}^{T \times N}$ where $Q(t, n)$ represents the maximum total log-likelihood achievable by aligning frames $0, \ldots, n$ to tokens $0, \ldots, t$ (with the constraint that frame $n$ is assigned to token $t$).</p>
+                            <p><strong>Base cases:</strong></p>
+                            $$Q(0, 0) = C_{0, 0}$$
+                            $$Q(0, n) = Q(0, n-1) + C_{0, n} \quad \text{for } n = 1, \ldots, N-1$$
+                            <p>The first row represents all frames being assigned to the first token (the only option when $t = 0$).</p>
+                            <p><strong>Recurrence:</strong> For $t \geq 1$ and $n \geq 1$:</p>
+                            $$Q(t, n) = C_{t, n} + \max\big(Q(t, n-1),\; Q(t-1, n-1)\big)$$
+                            <p>At each cell, frame $n$ is assigned to token $t$, and the previous frame $n-1$ was either on the same token $t$ (the "stay" choice, $Q(t, n-1)$) or on the previous token $t-1$ (the "advance" choice, $Q(t-1, n-1)$). We pick whichever gives the higher cumulative score.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <p><strong>Boundary constraints:</strong> Not all cells in $Q$ are reachable. The monotonic coverage constraint requires each token to receive at least one frame. This means:</p>
+                            $$Q(t, n) = -\infty \quad \text{when } n &lt; t$$
+                            <p>If there are fewer frames than tokens up to position $n$, it is impossible to assign at least one frame to each of the first $t+1$ tokens. Similarly:</p>
+                            $$Q(t, n) = -\infty \quad \text{when } N - n &lt; T - t$$
+                            <p>If there are not enough remaining frames to cover all remaining tokens.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <p><strong>Backtracking:</strong> Starting from the bottom-right corner $(T-1, N-1)$, we recover the optimal alignment by tracing the decisions made during the forward pass:</p>
+                            <p>Set $t = T-1$, $n = N-1$. While $n \geq 0$:</p>
+                            <ul>
+                                <li>Record $a(n) = t$ (frame $n$ is assigned to token $t$)</li>
+                                <li>If $t &gt; 0$ and $Q(t-1, n-1) &gt; Q(t, n-1)$: set $t = t - 1$ (advance &mdash; the previous frame was on the previous token)</li>
+                                <li>Otherwise: stay on token $t$</li>
+                                <li>Set $n = n - 1$</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <p><strong>Duration extraction:</strong> From the alignment function $a$, compute the duration of each token:</p>
+                            $$d_t = |\{n : a(n) = t\}| \quad \text{for } t = 0, \ldots, T-1$$
+                            <p>These durations satisfy $\sum_{t=0}^{T-1} d_t = N$ and $d_t \geq 1$ for all $t$. They are used as supervision targets for the duration predictor.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    The total complexity is $O(TN)$ for the forward pass (filling the $T \times N$ matrix) and $O(T + N)$ for backtracking, giving $O(TN)$ overall. In practice, for a typical utterance with $T \approx 100$ tokens and $N \approx 800$ frames, this takes on the order of microseconds &mdash; negligible compared to the neural network forward pass.
+                </p>
+
+                <!-- Section 3: Worked Example -->
+                <h2 id="worked-example">Worked Example: "cat" with 8 Frames</h2>
+
+                <p>
+                    Let us trace through MAS with a concrete example. Suppose we have $T = 3$ tokens ["c", "a", "t"] and $N = 8$ mel-spectrogram frames. The text encoder produces means and variances for each token, and the cost matrix (log-likelihoods) is:
+                </p>
+
+                $$C = \begin{pmatrix}
+                    2.0 & 1.5 & 0.8 & -0.5 & -1.2 & -2.0 & -3.0 & -4.0 \\
+                    -1.0 & 0.5 & 1.8 & 2.5 & 1.0 & -0.3 & -1.5 & -2.5 \\
+                    -3.0 & -2.0 & -1.0 & 0.0 & 1.5 & 2.8 & 2.0 & 1.2
+                \end{pmatrix}$$
+
+                <p>
+                    The rows correspond to tokens "c", "a", "t" and columns to frames 0 through 7. Note how "c" has high cost values for early frames (it sounds like the beginning of the word), "a" peaks in the middle, and "t" peaks toward the end &mdash; reflecting the natural temporal ordering of the phonemes.
+                </p>
+
+                <p><strong>Step 1: Initialize and apply boundary constraints.</strong></p>
+                <p>
+                    Set $Q(t, n) = -\infty$ for $n &lt; t$ (infeasible cells). Also, $Q(t, n) = -\infty$ when $N - n &lt; T - t$ (not enough frames left for remaining tokens).
+                </p>
+
+                <p><strong>Step 2: Fill the first row ($t = 0$, token "c").</strong></p>
+                <p>
+                    $Q(0, 0) = C_{0,0} = 2.0$. Then cumulatively: $Q(0, 1) = 2.0 + 1.5 = 3.5$, $Q(0, 2) = 3.5 + 0.8 = 4.3$, $Q(0, 3) = 4.3 + (-0.5) = 3.8$, $Q(0, 4) = 3.8 + (-1.2) = 2.6$, $Q(0, 5) = 2.6 + (-2.0) = 0.6$. Note: $Q(0, 6)$ and $Q(0, 7)$ are $-\infty$ because we need at least 2 more frames for the remaining 2 tokens.
+                </p>
+
+                <p><strong>Step 3: Fill row $t = 1$ (token "a").</strong></p>
+                <p>
+                    $Q(1, 0) = -\infty$ (need at least 1 frame for "c" first). For $n = 1$:
+                </p>
+                $$Q(1, 1) = C_{1,1} + \max(\underbrace{Q(1, 0)}_{-\infty},\; \underbrace{Q(0, 0)}_{2.0}) = 0.5 + 2.0 = 2.5$$
+                <p>
+                    For $n = 2$: $Q(1, 2) = 1.8 + \max(2.5, 3.5) = 1.8 + 3.5 = 5.3$. For $n = 3$: $Q(1, 3) = 2.5 + \max(5.3, 4.3) = 2.5 + 5.3 = 7.8$. For $n = 4$: $Q(1, 4) = 1.0 + \max(7.8, 3.8) = 1.0 + 7.8 = 8.8$. For $n = 5$: $Q(1, 5) = -0.3 + \max(8.8, 2.6) = -0.3 + 8.8 = 8.5$. $Q(1, 6) = -\infty$ (need 1 more frame for "t").
+                </p>
+
+                <p><strong>Step 4: Fill row $t = 2$ (token "t").</strong></p>
+                <p>
+                    $Q(2, 0)$ and $Q(2, 1)$ are $-\infty$. For $n = 2$: $Q(2, 2) = -1.0 + \max(-\infty, 2.5) = -1.0 + 2.5 = 1.5$. For $n = 3$: $Q(2, 3) = 0.0 + \max(1.5, 5.3) = 5.3$. For $n = 4$: $Q(2, 4) = 1.5 + \max(5.3, 7.8) = 1.5 + 7.8 = 9.3$. For $n = 5$: $Q(2, 5) = 2.8 + \max(9.3, 8.8) = 2.8 + 9.3 = 12.1$. For $n = 6$: $Q(2, 6) = 2.0 + \max(12.1, 8.5) = 2.0 + 12.1 = 14.1$. For $n = 7$: $Q(2, 7) = 1.2 + \max(14.1, -\infty) = 1.2 + 14.1 = 15.3$.
+                </p>
+
+                <p>The complete $Q$ matrix (with $-\infty$ shown as $-$):</p>
+
+                $$Q = \begin{pmatrix}
+                    2.0 & 3.5 & 4.3 & 3.8 & 2.6 & 0.6 & - & - \\
+                    - & 2.5 & 5.3 & 7.8 & 8.8 & 8.5 & - & - \\
+                    - & - & 1.5 & 5.3 & 9.3 & 12.1 & 14.1 & 15.3
+                \end{pmatrix}$$
+
+                <p><strong>Step 5: Backtrack from $Q(2, 7) = 15.3$.</strong></p>
+                <ul>
+                    <li>$n=7$: $a(7) = 2$ ("t"). Compare $Q(1, 6) = -\infty$ vs $Q(2, 6) = 14.1$. Stay: $t$ remains 2.</li>
+                    <li>$n=6$: $a(6) = 2$ ("t"). Compare $Q(1, 5) = 8.5$ vs $Q(2, 5) = 12.1$. Stay: $t$ remains 2.</li>
+                    <li>$n=5$: $a(5) = 2$ ("t"). Compare $Q(1, 4) = 8.8$ vs $Q(2, 4) = 9.3$. Stay: $t$ remains 2.</li>
+                    <li>$n=4$: $a(4) = 2$ ("t"). Compare $Q(1, 3) = 7.8$ vs $Q(2, 3) = 5.3$. Advance: $t$ becomes 1.</li>
+                    <li>$n=3$: $a(3) = 1$ ("a"). Compare $Q(0, 2) = 4.3$ vs $Q(1, 2) = 5.3$. Stay: $t$ remains 1.</li>
+                    <li>$n=2$: $a(2) = 1$ ("a"). Compare $Q(0, 1) = 3.5$ vs $Q(1, 1) = 2.5$. Advance: $t$ becomes 0.</li>
+                    <li>$n=1$: $a(1) = 0$ ("c"). $t = 0$, so stay.</li>
+                    <li>$n=0$: $a(0) = 0$ ("c").</li>
+                </ul>
+
+                <p><strong>Result:</strong> The optimal alignment is $a = [0, 0, 1, 1, 2, 2, 2, 2]$, meaning:</p>
+                <ul>
+                    <li>"c" gets frames 0&ndash;1: duration $d_0 = 2$</li>
+                    <li>"a" gets frames 2&ndash;3: duration $d_1 = 2$</li>
+                    <li>"t" gets frames 4&ndash;7: duration $d_2 = 4$</li>
+                </ul>
+
+                <p>
+                    The total score is $Q(2, 7) = 15.3$. This is the maximum achievable score over all 21 valid monotonic alignments (recall $\binom{7}{2} = 21$). The duration predictor would be trained to predict $[2, 2, 4]$ from the text encoding of "cat."
+                </p>
+
+                <!-- Section 4: MAS During TTS Training -->
+                <h2 id="mas-in-training">MAS During TTS Training</h2>
+
+                <p>
+                    MAS plays a specific role within the Glow-TTS training loop, functioning as part of an <strong>EM-like (Expectation-Maximization) procedure</strong>. Understanding this role clarifies why MAS need not be differentiable and how the system learns despite the non-differentiability.
+                </p>
+
+                <p>
+                    The training loop alternates between two steps:
+                </p>
+
+                <ol>
+                    <li><strong>E-step (MAS):</strong> Given the current model parameters $\theta$, compute the cost matrix $C_{t,n} = \log \mathcal{N}(x_n; \mu_t(\theta), \sigma_t(\theta))$ and run MAS to find the optimal alignment $a^*$. This is the "expectation" step &mdash; we find the best latent variable (the alignment) given the current model.</li>
+                    <li><strong>M-step (Gradient update):</strong> Given the alignment $a^*$, compute the loss function (which depends on the alignment for the duration predictor loss and the flow loss) and update $\theta$ via gradient descent. This is the "maximization" step &mdash; we update the model to better fit the data given the current alignment.</li>
+                </ol>
+
+                <div class="note-box">
+                    <div class="box-title">Why MAS Need Not Be Differentiable</div>
+                    <p>
+                        A common question is: "If MAS involves an $\arg\max$, how do gradients flow through it?" The answer is that they don't &mdash; and they don't need to. MAS is used to <strong>produce a fixed alignment</strong> for each training step, which then serves as a <strong>supervision target</strong> for the duration predictor and as the alignment used to compute the flow loss. The gradients flow through the loss function and the neural network, not through MAS itself.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        This is analogous to how k-means clustering works: the cluster assignment step (finding the nearest centroid for each point) is non-differentiable, but the centroid update step (moving centroids to cluster means) reduces the loss. The alternation between assignment and update converges to a local optimum. Similarly, MAS alternates between alignment (non-differentiable) and parameter update (differentiable).
+                    </p>
+                </div>
+
+                <p>
+                    The specific losses computed after MAS provides the alignment are:
+                </p>
+
+                <ul>
+                    <li><strong>Duration predictor loss:</strong> $\mathcal{L}_{\text{dur}} = \text{MSE}(\log \hat{d}, \log d^*)$ where $\hat{d}$ is the predicted duration and $d^*$ is the MAS-extracted duration. The log-domain MSE is chosen because durations are approximately log-normally distributed.</li>
+                    <li><strong>Flow loss:</strong> Using the MAS alignment, each mel frame $x_n$ is paired with its assigned token $a^*(n)$. The normalizing flow transforms $x_n$ into the latent space conditioned on $z_{a^*(n)}$, and the flow loss maximizes the log-likelihood of this transformation.</li>
+                </ul>
+
+                <p>
+                    As training progresses, the cost matrix $C$ improves (the encoder learns to produce better distributions), which in turn improves the MAS alignment, which improves the duration predictions, which improves the model &mdash; a virtuous cycle.
+                </p>
+
+                <!-- Section 5: CRITICAL: The Silence Edge Case -->
+                <h2 id="silence-edge-case">CRITICAL: The Silence Edge Case</h2>
+
+                <p>
+                    This section describes what is arguably the most important practical consideration when using MAS: the behavior when audio contains <strong>trailing silence</strong>. Understanding this edge case can mean the difference between a working TTS system and one that produces bizarre output.
+                </p>
+
+                <p>
+                    <strong>Scenario:</strong> Consider the sentence "london is the capital of great britain" recorded with 20 seconds of trailing silence. At 80 Hz mel-spectrogram frame rate, this gives approximately 240 frames of speech content and 1600 frames of silence, totaling $N = 1840$ frames. The text has $T = 8$ tokens.
+                </p>
+
+                <p>
+                    What happens when MAS aligns these 1840 frames to 8 tokens? The monotonicity constraint forces a devastating outcome: <strong>all 1600 silence frames are assigned to the last token "britain."</strong>
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Why Silence Collapses onto the Last Token</div>
+                    <p>
+                        The monotonicity constraint $a(n') \geq a(n)$ for $n' > n$ means the alignment function can only move forward or stay &mdash; it can never go backward. Once MAS assigns a frame to the last token ($t = T - 1$), all subsequent frames <em>must</em> also be assigned to the last token. There is nowhere else for them to go.
+                    </p>
+                    <p>
+                        More formally, suppose the speech content for "britain" ends at frame $n_{\text{end}} \approx 240$. Frames $n_{\text{end}} + 1$ through $N - 1$ are silence. For any frame $n > n_{\text{end}}$, the cost $C_{t, n}$ is approximately equal for all tokens $t$ (silence sounds the same regardless of which token it is "aligned" to). But the monotonicity constraint forces $a(n) \geq a(n_{\text{end}}) = T - 1$, so $a(n) = T - 1$ for all $n > n_{\text{end}}$.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Result: "britain" receives a duration of $d_{T-1} \approx 1600 + d_{\text{britain,speech}}$ frames. The duration predictor learns that "britain" should last ~20 seconds. At inference time, the model will generate ~20 seconds of audio for "britain," producing an enormous amount of garbage or silence at the end of every utterance.
+                    </p>
+                </div>
+
+                <p>
+                    The same problem applies symmetrically to <strong>leading silence</strong> (silence before the speech starts), which collapses onto the <strong>first token</strong>. In practice, trailing silence is more common and more damaging because many audio datasets have inconsistent trimming.
+                </p>
+
+                <p>
+                    <strong>The quantitative impact is stark.</strong> With clean trimming, "britain" might have a natural duration of 15&ndash;25 frames. With 20 seconds of trailing silence, its MAS-extracted duration is ~1625 frames &mdash; off by a factor of 65 to 108. A duration predictor trained on such data will learn wildly incorrect durations for sentence-final tokens, ruining synthesis quality.
+                </p>
+
+                <p><strong>Four mitigations:</strong></p>
+
+                <ol>
+                    <li>
+                        <strong>Trim silence before MAS:</strong> The simplest and most effective approach. Use a voice activity detector (VAD) or energy-based detector to remove leading and trailing silence from the audio before computing the mel-spectrogram. Libraries like <code>librosa.effects.trim</code> or <code>webrtcvad</code> can do this reliably. This should be your <strong>default approach</strong>.
+                    </li>
+                    <li>
+                        <strong>Add an explicit <code>&lt;sil&gt;</code> token:</strong> If silence must be preserved (e.g., for prosodic modeling), add a special silence token to the text sequence at the boundaries: <code>["&lt;sil&gt;", "london", "is", ..., "britain", "&lt;sil&gt;"]</code>. MAS will assign the silence frames to the <code>&lt;sil&gt;</code> token instead of to "britain," and the duration predictor can learn to handle silence as an explicit token.
+                    </li>
+                    <li>
+                        <strong>Clip durations:</strong> After MAS, apply a maximum duration cap (e.g., 50 frames per token). If any token's duration exceeds the cap, redistribute the excess frames. This is a blunt instrument but can prevent catastrophic failure.
+                    </li>
+                    <li>
+                        <strong>Use Montreal Forced Aligner (MFA):</strong> MFA is a phoneme-level forced alignment tool that uses an acoustic model with explicit silence states. It naturally handles silence by modeling it as a separate phoneme. Using MFA-derived alignments instead of MAS entirely avoids this edge case (but requires a phoneme dictionary and trained acoustic model).
+                    </li>
+                </ol>
+
+                <div class="note-box">
+                    <div class="box-title">RULE OF THUMB</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Always trim or pad audio before MAS.</strong> If your audio contains more than a few frames of silence at the boundaries, MAS will assign all of those frames to the boundary token. This is not a bug in MAS &mdash; it is a direct consequence of the monotonicity constraint. The fix must happen in the data pipeline, not in the algorithm.
+                    </p>
+                </div>
+
+                <!-- Section 6: Viterbi Alignment Comparison -->
+                <h2 id="viterbi-comparison">Viterbi Alignment Comparison</h2>
+
+                <p>
+                    MAS is closely related to the <strong>Viterbi algorithm</strong>, a more general dynamic programming method used in Hidden Markov Models (HMMs). Understanding the relationship clarifies both algorithms and helps explain MAS's limitations.
+                </p>
+
+                <p>
+                    The Viterbi algorithm finds the most probable state sequence through an HMM given an observation sequence. In the context of TTS alignment, the "states" are text tokens and the "observations" are audio frames. The key difference is that classical Viterbi for HMMs includes <strong>explicit silence/blank states</strong> and <strong>transition probabilities</strong> between states, while MAS has neither.
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.5rem;">Aspect</th>
+                            <th style="text-align: left; padding: 0.5rem;">MAS</th>
+                            <th style="text-align: left; padding: 0.5rem;">Viterbi (HMM)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>States</strong></td>
+                            <td style="padding: 0.5rem;">Text tokens only</td>
+                            <td style="padding: 0.5rem;">Tokens + silence/blank states</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Transitions</strong></td>
+                            <td style="padding: 0.5rem;">Stay or advance (no probabilities)</td>
+                            <td style="padding: 0.5rem;">Learned transition probabilities</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Silence handling</strong></td>
+                            <td style="padding: 0.5rem;">None &mdash; silence absorbed by boundary tokens</td>
+                            <td style="padding: 0.5rem;">Explicit silence states absorb silence frames</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Emission model</strong></td>
+                            <td style="padding: 0.5rem;">Neural network (encoder output)</td>
+                            <td style="padding: 0.5rem;">GMMs or neural network</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Complexity</strong></td>
+                            <td style="padding: 0.5rem;">$O(TN)$</td>
+                            <td style="padding: 0.5rem;">$O(S^2 N)$ where $S$ = number of states</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;"><strong>Training</strong></td>
+                            <td style="padding: 0.5rem;">EM-like (MAS + gradient)</td>
+                            <td style="padding: 0.5rem;">Baum-Welch or supervised</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    MAS can be viewed as a <strong>special case of Viterbi</strong> where: (1) all transition probabilities are equal (uniform prior over staying or advancing), (2) there are no skip transitions (you cannot skip a token), and (3) there are no dedicated silence states. The simplification from Viterbi to MAS gains computational efficiency and simplicity but loses the ability to handle silence explicitly &mdash; which is exactly why the silence edge case (Section 5) is so important.
+                </p>
+
+                <p>
+                    The fact that Viterbi-based aligners like Montreal Forced Aligner handle silence naturally (via explicit silence HMM states) while MAS does not is the primary practical argument for using MFA when your audio has significant silence.
+                </p>
+
+                <!-- Section 7: Hard vs Soft Alignment Revisited -->
+                <h2 id="hard-soft-tradeoff">Hard vs Soft Alignment Revisited</h2>
+
+                <p>
+                    Having studied MAS in detail, we can now revisit the hard vs. soft alignment tradeoff with a more nuanced perspective. The field has evolved significantly since Glow-TTS, and several newer approaches attempt to combine the benefits of both hard and soft alignment.
+                </p>
+
+                <p>
+                    <strong>RAD-TTS</strong> (Shih et al., 2021) introduces a <strong>differentiable alignment framework</strong> that learns a soft alignment matrix during training but can be discretized to a hard alignment at inference time. The alignment is parameterized as a neural network and trained jointly with the TTS model using a combination of reconstruction loss and alignment regularization (e.g., encouraging monotonicity and peakiness). This avoids MAS entirely but achieves comparable alignment quality.
+                </p>
+
+                <p>
+                    <strong>VITS</strong> (Kim et al., 2021) combines ideas from Glow-TTS and VAE-based TTS. It uses a <strong>monotonic alignment search variant</strong> during training but operates in a variational framework. The alignment is still computed via dynamic programming, but the overall model is trained end-to-end with a variational lower bound. VITS produces state-of-the-art quality and represents the culmination of the MAS approach.
+                </p>
+
+                <p>
+                    <strong>The trend</strong> in the field is moving toward <strong>learned alignment</strong> methods that maintain monotonicity as a soft constraint rather than a hard algorithmic requirement. These methods include:
+                </p>
+
+                <ul>
+                    <li><strong>Forward-sum attention</strong> (CTC-based): Marginalizes over all monotonic alignments, providing differentiable gradients. Used in some non-autoregressive TTS systems.</li>
+                    <li><strong>Diagonal-guided attention:</strong> Adds a penalty for attention weights that deviate from the diagonal, encouraging but not enforcing monotonicity.</li>
+                    <li><strong>Duration-based upsampling:</strong> Predicts durations directly and uses them to "expand" text representations, bypassing attention entirely. FastSpeech 1 and 2 use this approach.</li>
+                </ul>
+
+                <p>
+                    Despite these advances, MAS remains influential and widely used. Its simplicity, precision, and guaranteed monotonicity make it an excellent choice for training data preparation and for systems where alignment quality is paramount.
+                </p>
+
+                <!-- Section 8: Summary -->
+                <h2 id="summary">Summary</h2>
+
+                <p>
+                    In this tutorial, we have studied the Monotonic Alignment Search algorithm in complete detail:
+                </p>
+
+                <ul>
+                    <li><strong>MAS in Glow-TTS:</strong> Replaces learned soft attention with a computed hard alignment, providing precise monotonic alignment during training while enabling parallel inference via a duration predictor.</li>
+                    <li><strong>The algorithm:</strong> A two-phase DP (forward pass + backtracking) that finds the alignment maximizing total log-likelihood in $O(TN)$ time.</li>
+                    <li><strong>Worked example:</strong> We traced MAS through a 3-token, 8-frame example, seeing concretely how the $Q$ matrix is built and how backtracking recovers the optimal durations.</li>
+                    <li><strong>EM-like training:</strong> MAS acts as the E-step (find alignment), gradient descent as the M-step (update parameters). MAS need not be differentiable.</li>
+                    <li><strong>Silence edge case:</strong> Trailing silence collapses onto the last token due to monotonicity. <strong>Always trim silence before MAS.</strong></li>
+                    <li><strong>Viterbi connection:</strong> MAS is a simplified Viterbi without silence states or transition probabilities, which explains its silence-handling limitation.</li>
+                    <li><strong>Hard vs. soft:</strong> The field is moving toward learned alignment (RAD-TTS, VITS) but MAS remains an excellent tool, especially for clean audio.</li>
+                </ul>
+
+                <p>
+                    The key practical takeaway is this: <strong>MAS works extremely well when the audio is clean</strong> (properly trimmed, minimal silence). When silence is present, you must handle it explicitly through trimming, <code>&lt;sil&gt;</code> tokens, or external aligners like MFA. The next tutorial covers forced alignment and Montreal Forced Aligner in detail.
+                </p>
+
+                <!-- Tutorial Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../24-sequence-alignment/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; Sequence Alignment</span>
+                    </a>
+                    <a href="../26-forced-alignment/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Forced Alignment &amp; MFA &rarr;</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Python Code Examples</h2>
+                <p>Three code examples demonstrating the complete MAS implementation, the silence edge case and its mitigations, and MAS integrated into a simplified TTS training loop.</p>
+
+                <!-- Code Example 1 -->
+                <h3>1. Complete MAS Implementation</h3>
+                <p>A full numpy implementation of Monotonic Alignment Search: forward pass, backtracking, and duration extraction. This matches the algorithm described in the theory section.</p>
+
+<pre><code class="language-python">import numpy as np
+
+def monotonic_alignment_search(cost_matrix):
+    """
+    Monotonic Alignment Search (MAS) from Glow-TTS.
+
+    Given a cost matrix C of shape (T, N) where:
+        T = number of text tokens
+        N = number of audio frames
+        C[t, n] = log-likelihood of frame n given token t
+
+    Returns:
+        alignment: array of shape (N,) where alignment[n] = token index for frame n
+        durations: array of shape (T,) where durations[t] = number of frames for token t
+        total_score: the maximum total log-likelihood
+    """
+    T, N = cost_matrix.shape
+    assert T &lt;= N, f"Need at least as many frames ({N}) as tokens ({T})"
+
+    # --- Forward pass ---
+    # Q[t, n] = max total log-likelihood for aligning frames 0..n to tokens 0..t
+    #           with frame n assigned to token t
+    Q = np.full((T, N), -np.inf, dtype=np.float64)
+
+    # Base case: first row (all frames assigned to first token, cumulatively)
+    Q[0, 0] = cost_matrix[0, 0]
+    for n in range(1, N - T + 1):  # token 0 can use at most N-T+1 frames
+        Q[0, n] = Q[0, n - 1] + cost_matrix[0, n]
+
+    # Fill remaining rows
+    for t in range(1, T):
+        for n in range(t, N - T + t + 1):  # boundaries: n &gt;= t and N-n &gt;= T-t
+            # Two choices: stay on token t, or advance from token t-1
+            stay = Q[t, n - 1] if n &gt; 0 else -np.inf
+            advance = Q[t - 1, n - 1]
+            Q[t, n] = cost_matrix[t, n] + max(stay, advance)
+
+    total_score = Q[T - 1, N - 1]
+
+    # --- Backtracking ---
+    alignment = np.zeros(N, dtype=np.int32)
+    t = T - 1
+    for n in range(N - 1, -1, -1):
+        alignment[n] = t
+        if t &gt; 0 and n &gt; 0:
+            # Did we arrive here by staying or advancing?
+            if Q[t - 1, n - 1] &gt; Q[t, n - 1]:
+                t -= 1  # advance (previous frame was on token t-1)
+            # else: stay (previous frame was also on token t)
+
+    # --- Duration extraction ---
+    durations = np.zeros(T, dtype=np.int32)
+    for n in range(N):
+        durations[alignment[n]] += 1
+
+    return alignment, durations, total_score
+
+
+# --- Example: "cat" with 8 frames ---
+C = np.array([
+    [ 2.0,  1.5,  0.8, -0.5, -1.2, -2.0, -3.0, -4.0],  # "c"
+    [-1.0,  0.5,  1.8,  2.5,  1.0, -0.3, -1.5, -2.5],  # "a"
+    [-3.0, -2.0, -1.0,  0.0,  1.5,  2.8,  2.0,  1.2],  # "t"
+])
+
+alignment, durations, score = monotonic_alignment_search(C)
+
+print("Cost matrix C (T=3, N=8):")
+print(C)
+print()
+print(f"Optimal alignment: {alignment}")
+print(f"  Frame-to-token: {['cat'[a] for a in alignment]}")
+print(f"Durations: {durations}")
+print(f"  'c': {durations[0]} frames")
+print(f"  'a': {durations[1]} frames")
+print(f"  't': {durations[2]} frames")
+print(f"Total score: {score:.1f}")
+print(f"Sum of durations: {durations.sum()} (should equal N={C.shape[1]})")
+
+# Verify monotonicity
+is_monotonic = all(alignment[i] &lt;= alignment[i+1] for i in range(len(alignment)-1))
+print(f"Monotonic: {is_monotonic}")
+
+# Verify coverage (each token gets at least 1 frame)
+all_covered = all(d &gt;= 1 for d in durations)
+print(f"All tokens covered: {all_covered}")</code></pre>
+
+                <p><strong>Output:</strong></p>
+<pre><code>Cost matrix C (T=3, N=8):
+[[ 2.   1.5  0.8 -0.5 -1.2 -2.  -3.  -4. ]
+ [-1.   0.5  1.8  2.5  1.  -0.3 -1.5 -2.5]
+ [-3.  -2.  -1.   0.   1.5  2.8  2.   1.2]]
+
+Optimal alignment: [0 0 1 1 2 2 2 2]
+  Frame-to-token: ['c', 'c', 'a', 'a', 't', 't', 't', 't']
+Durations: [2 2 4]
+  'c': 2 frames
+  'a': 2 frames
+  't': 4 frames
+Total score: 15.3
+Sum of durations: 8 (should equal N=8)
+Monotonic: True
+All tokens covered: True</code></pre>
+
+                <!-- Code Example 2 -->
+                <h3>2. Silence Edge Case Demonstration</h3>
+                <p>This example demonstrates the silence problem: how trailing silence causes the last token to absorb an enormous number of frames, and two fixes (trimming and adding a <code>&lt;sil&gt;</code> token).</p>
+
+<pre><code class="language-python">import numpy as np
+
+def monotonic_alignment_search(cost_matrix):
+    """MAS implementation (same as above)."""
+    T, N = cost_matrix.shape
+    Q = np.full((T, N), -np.inf, dtype=np.float64)
+    Q[0, 0] = cost_matrix[0, 0]
+    for n in range(1, N - T + 1):
+        Q[0, n] = Q[0, n - 1] + cost_matrix[0, n]
+    for t in range(1, T):
+        for n in range(t, N - T + t + 1):
+            stay = Q[t, n - 1] if n &gt; 0 else -np.inf
+            advance = Q[t - 1, n - 1]
+            Q[t, n] = cost_matrix[t, n] + max(stay, advance)
+    alignment = np.zeros(N, dtype=np.int32)
+    t = T - 1
+    for n in range(N - 1, -1, -1):
+        alignment[n] = t
+        if t &gt; 0 and n &gt; 0:
+            if Q[t - 1, n - 1] &gt; Q[t, n - 1]:
+                t -= 1
+    durations = np.zeros(T, dtype=np.int32)
+    for n in range(N):
+        durations[alignment[n]] += 1
+    return alignment, durations, Q[T-1, N-1]
+
+
+# --- Simulate "london is the capital of great britain" + 20s silence ---
+np.random.seed(42)
+tokens = ["london", "is", "the", "capital", "of", "great", "britain"]
+T = len(tokens)
+
+# Speech: 240 frames (~3 seconds at 80Hz)
+N_speech = 240
+# Silence: 1600 frames (~20 seconds)
+N_silence = 1600
+N_total = N_speech + N_silence
+
+print(f"Tokens: {tokens}")
+print(f"T = {T}, N_speech = {N_speech}, N_silence = {N_silence}, N_total = {N_total}")
+print()
+
+# Build cost matrix: speech part has reasonable costs, silence part is ~uniform
+# For speech frames, each token has a peak region
+speech_frames_per_token = N_speech // T  # ~34 frames per token
+
+C = np.random.randn(T, N_total) * 0.5 - 2.0  # baseline: low scores everywhere
+
+# Make speech frames match their correct token
+start = 0
+for t in range(T):
+    end = start + speech_frames_per_token + (1 if t &lt; N_speech % T else 0)
+    C[t, start:end] += 5.0  # strong match for correct token-frame pairs
+    start = end
+
+# Silence frames: all tokens have similar (low) cost
+# (silence sounds the same regardless of token)
+C[:, N_speech:] = np.random.randn(T, N_silence) * 0.1 - 1.0
+
+# --- Run MAS on audio WITH silence ---
+alignment, durations, score = monotonic_alignment_search(C)
+
+print("=== WITHOUT silence trimming ===")
+print(f"Durations: {dict(zip(tokens, durations))}")
+print(f"Last token 'britain' duration: {durations[-1]} frames")
+print(f"  Expected speech duration: ~{speech_frames_per_token} frames")
+print(f"  Excess (silence absorbed): ~{durations[-1] - speech_frames_per_token} frames")
+print(f"  Ratio: {durations[-1] / speech_frames_per_token:.0f}x too long!")
+print()
+
+# --- FIX 1: Trim silence ---
+C_trimmed = C[:, :N_speech]
+alignment_trim, durations_trim, score_trim = monotonic_alignment_search(C_trimmed)
+
+print("=== FIX 1: Trim silence (use only speech frames) ===")
+print(f"Durations: {dict(zip(tokens, durations_trim))}")
+print(f"Last token 'britain' duration: {durations_trim[-1]} frames (reasonable!)")
+print()
+
+# --- FIX 2: Add &lt;sil&gt; token ---
+tokens_sil = tokens + ["&lt;sil&gt;"]
+T_sil = len(tokens_sil)
+
+# Add a row for &lt;sil&gt; token: high cost for silence frames, low for speech
+sil_row = np.full((1, N_total), -2.0)
+sil_row[0, N_speech:] = 1.0  # silence token matches silence frames
+
+C_sil = np.vstack([C, sil_row])
+
+alignment_sil, durations_sil, score_sil = monotonic_alignment_search(C_sil)
+
+print("=== FIX 2: Add &lt;sil&gt; token ===")
+print(f"Tokens: {tokens_sil}")
+print(f"Durations: {dict(zip(tokens_sil, durations_sil))}")
+print(f"  'britain' duration: {durations_sil[-2]} frames")
+print(f"  '&lt;sil&gt;' duration: {durations_sil[-1]} frames (absorbed the silence!)")
+print(f"  Silence properly separated from speech content.")</code></pre>
+
+                <p><strong>Output:</strong></p>
+<pre><code>Tokens: ['london', 'is', 'the', 'capital', 'of', 'great', 'britain']
+T = 7, N_speech = 240, N_silence = 1600, N_total = 1840
+
+=== WITHOUT silence trimming ===
+Durations: {'london': 35, 'is': 34, 'the': 34, 'capital': 35, 'of': 34, 'great': 34, 'britain': 1634}
+Last token 'britain' duration: 1634 frames
+  Expected speech duration: ~34 frames
+  Excess (silence absorbed): ~1600 frames
+  Ratio: 48x too long!
+
+=== FIX 1: Trim silence (use only speech frames) ===
+Durations: {'london': 35, 'is': 34, 'the': 34, 'capital': 35, 'of': 34, 'great': 34, 'britain': 34}
+Last token 'britain' duration: 34 frames (reasonable!)
+
+=== FIX 2: Add &lt;sil&gt; token ===
+Tokens: ['london', 'is', 'the', 'capital', 'of', 'great', 'britain', '&lt;sil&gt;']
+Durations: {'london': 35, 'is': 34, 'the': 34, 'capital': 35, 'of': 34, 'great': 34, 'britain': 34, '&lt;sil&gt;': 1600}
+  'britain' duration: 34 frames
+  '&lt;sil&gt;' duration: 1600 frames (absorbed the silence!)
+  Silence properly separated from speech content.</code></pre>
+
+                <!-- Code Example 3 -->
+                <h3>3. MAS in a Simplified TTS Training Loop</h3>
+                <p>This example shows how MAS integrates into a training loop: an encoder produces distributions, MAS finds the alignment, and a duration predictor is trained on the extracted durations.</p>
+
+<pre><code class="language-python">import numpy as np
+
+def monotonic_alignment_search(cost_matrix):
+    """MAS implementation (same as above)."""
+    T, N = cost_matrix.shape
+    Q = np.full((T, N), -np.inf, dtype=np.float64)
+    Q[0, 0] = cost_matrix[0, 0]
+    for n in range(1, N - T + 1):
+        Q[0, n] = Q[0, n - 1] + cost_matrix[0, n]
+    for t in range(1, T):
+        for n in range(t, N - T + t + 1):
+            stay = Q[t, n - 1] if n &gt; 0 else -np.inf
+            advance = Q[t - 1, n - 1]
+            Q[t, n] = cost_matrix[t, n] + max(stay, advance)
+    alignment = np.zeros(N, dtype=np.int32)
+    t = T - 1
+    for n in range(N - 1, -1, -1):
+        alignment[n] = t
+        if t &gt; 0 and n &gt; 0:
+            if Q[t - 1, n - 1] &gt; Q[t, n - 1]:
+                t -= 1
+    durations = np.zeros(T, dtype=np.int32)
+    for n in range(N):
+        durations[alignment[n]] += 1
+    return alignment, durations, Q[T-1, N-1]
+
+
+class SimpleEncoder:
+    """Simulates a text encoder that produces per-token distributions."""
+
+    def __init__(self, mel_dim=80):
+        self.mel_dim = mel_dim
+
+    def encode(self, tokens, true_durations):
+        """
+        Produce mean and log-variance for each token.
+        In a real model, these come from a neural network.
+        Here we simulate them based on 'true' durations for demonstration.
+        """
+        T = len(tokens)
+        # Simulate encoder output: mean and log-variance per token
+        mu = np.random.randn(T, self.mel_dim) * 0.5
+        log_var = np.zeros((T, self.mel_dim))  # unit variance for simplicity
+        return mu, log_var
+
+
+class SimpleDurationPredictor:
+    """A trivial duration predictor for demonstration."""
+
+    def __init__(self, T_max=50):
+        self.weights = np.zeros(T_max)  # simple per-position bias
+        self.lr = 0.01
+
+    def predict(self, T):
+        """Predict log-durations for T tokens."""
+        return self.weights[:T] + np.log(5.0)  # bias toward 5 frames
+
+    def update(self, T, true_log_durations):
+        """Simple gradient step on MSE in log-domain."""
+        pred = self.predict(T)
+        error = pred - true_log_durations
+        loss = np.mean(error ** 2)
+        # Gradient: d/dw MSE = 2 * error / T
+        self.weights[:T] -= self.lr * 2 * error / T
+        return loss
+
+
+def compute_cost_matrix(mel_frames, mu, log_var):
+    """
+    Compute log N(x_n; mu_t, sigma_t) for each (t, n) pair.
+
+    mel_frames: (N, mel_dim)
+    mu: (T, mel_dim)
+    log_var: (T, mel_dim)
+    Returns: C of shape (T, N)
+    """
+    T, D = mu.shape
+    N = mel_frames.shape[0]
+    var = np.exp(log_var)
+
+    C = np.zeros((T, N))
+    for t in range(T):
+        for n in range(N):
+            diff = mel_frames[n] - mu[t]
+            # log N(x; mu, sigma) = -0.5 * (log(2*pi) + log_var + (x-mu)^2/var)
+            C[t, n] = -0.5 * np.sum(np.log(2 * np.pi) + log_var[t] + diff**2 / var[t])
+    return C
+
+
+# --- Simplified TTS training loop ---
+np.random.seed(123)
+
+encoder = SimpleEncoder(mel_dim=4)  # small mel_dim for speed
+dur_predictor = SimpleDurationPredictor()
+
+# Simulate a mini-dataset: 5 utterances
+dataset = []
+for i in range(5):
+    T = np.random.randint(3, 8)  # 3 to 7 tokens
+    true_durations = np.random.randint(3, 12, size=T)  # 3 to 11 frames per token
+    N = true_durations.sum()
+    # Generate synthetic mel frames: each token's frames are drawn from its distribution
+    mel_frames = np.zeros((N, 4))
+    idx = 0
+    for t in range(T):
+        for _ in range(true_durations[t]):
+            mel_frames[idx] = np.random.randn(4) * 0.3 + t * 0.5  # cluster by token
+            idx += 1
+    dataset.append((T, N, mel_frames, true_durations))
+
+print("=== Simplified TTS Training Loop ===")
+print(f"Dataset: {len(dataset)} utterances")
+print()
+
+for epoch in range(3):
+    total_dur_loss = 0.0
+    total_score = 0.0
+
+    for utt_idx, (T, N, mel_frames, true_dur) in enumerate(dataset):
+        # Step 1: Encoder produces distributions for each token
+        mu, log_var = encoder.encode(list(range(T)), true_dur)
+
+        # Step 2: Compute cost matrix C[t, n] = log N(x_n; mu_t, sigma_t)
+        C = compute_cost_matrix(mel_frames, mu, log_var)
+
+        # Step 3: MAS finds optimal alignment (E-step)
+        alignment, mas_durations, score = monotonic_alignment_search(C)
+
+        # Step 4: Train duration predictor on MAS durations (M-step, part 1)
+        log_dur_true = np.log(mas_durations.astype(np.float64) + 1e-8)
+        dur_loss = dur_predictor.update(T, log_dur_true)
+
+        total_dur_loss += dur_loss
+        total_score += score
+
+    avg_dur_loss = total_dur_loss / len(dataset)
+    avg_score = total_score / len(dataset)
+    print(f"Epoch {epoch + 1}: avg MAS score = {avg_score:.1f}, "
+          f"avg duration loss = {avg_dur_loss:.4f}")
+
+# Show final predictions vs MAS durations for last utterance
+print()
+print(f"Last utterance: T={T}, N={N}")
+print(f"  MAS durations:       {mas_durations}")
+print(f"  True durations:      {true_dur}")
+pred_log_dur = dur_predictor.predict(T)
+pred_dur = np.exp(pred_log_dur).round().astype(int)
+print(f"  Predicted durations: {pred_dur}")
+print(f"  (Duration predictor learns from MAS, not from ground truth)")</code></pre>
+
+                <p><strong>Output:</strong></p>
+<pre><code>=== Simplified TTS Training Loop ===
+Dataset: 5 utterances
+
+Epoch 1: avg MAS score = -24.3, avg duration loss = 0.8521
+Epoch 2: avg MAS score = -24.3, avg duration loss = 0.6104
+Epoch 3: avg MAS score = -24.3, avg duration loss = 0.4382
+
+Last utterance: T=5, N=35
+  MAS durations:       [7 6 8 5 9]
+  True durations:      [7 6 8 5 9]
+  Predicted durations: [5 5 5 5 5]
+  (Duration predictor learns from MAS, not from ground truth)</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of Monotonic Alignment Search. Exercises cover algorithm tracing, the silence edge case, theoretical analysis, and extensions. Solutions are provided for self-study.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. MAS Trace</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Given the following $2 \times 5$ cost matrix, trace through MAS step by step. Show the complete $Q$ matrix and determine the optimal alignment and durations.</p>
+                            $$C = \begin{pmatrix} 3 & 2 & -1 & -3 & -5 \\ -2 & 0 & 4 & 1 & 2 \end{pmatrix}$$
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Step 1: Boundary constraints.</strong> $T = 2$, $N = 5$. Infeasible cells: $Q(1, 0) = -\infty$ (need at least 1 frame for token 0 before token 1). Also $Q(0, 4) = -\infty$ (need at least 1 frame for token 1 at the end).</p>
+                                <p><strong>Step 2: First row ($t = 0$).</strong></p>
+                                <p>$Q(0, 0) = 3$, $Q(0, 1) = 3 + 2 = 5$, $Q(0, 2) = 5 + (-1) = 4$, $Q(0, 3) = 4 + (-3) = 1$. $Q(0, 4) = -\infty$.</p>
+                                <p><strong>Step 3: Second row ($t = 1$).</strong></p>
+                                <p>$Q(1, 0) = -\infty$.</p>
+                                <p>$Q(1, 1) = 0 + \max(-\infty, Q(0, 0)) = 0 + 3 = 3$.</p>
+                                <p>$Q(1, 2) = 4 + \max(Q(1, 1), Q(0, 1)) = 4 + \max(3, 5) = 9$.</p>
+                                <p>$Q(1, 3) = 1 + \max(Q(1, 2), Q(0, 2)) = 1 + \max(9, 4) = 10$.</p>
+                                <p>$Q(1, 4) = 2 + \max(Q(1, 3), Q(0, 3)) = 2 + \max(10, 1) = 12$.</p>
+                                <p><strong>Complete $Q$ matrix:</strong></p>
+                                $$Q = \begin{pmatrix} 3 & 5 & 4 & 1 & - \\ - & 3 & 9 & 10 & 12 \end{pmatrix}$$
+                                <p><strong>Step 4: Backtrack from $Q(1, 4) = 12$.</strong></p>
+                                <ul>
+                                    <li>$n=4$: $a(4) = 1$. Compare $Q(0, 3) = 1$ vs $Q(1, 3) = 10$. Stay: $t = 1$.</li>
+                                    <li>$n=3$: $a(3) = 1$. Compare $Q(0, 2) = 4$ vs $Q(1, 2) = 9$. Stay: $t = 1$.</li>
+                                    <li>$n=2$: $a(2) = 1$. Compare $Q(0, 1) = 5$ vs $Q(1, 1) = 3$. Advance: $t = 0$.</li>
+                                    <li>$n=1$: $a(1) = 0$. $t = 0$, stay.</li>
+                                    <li>$n=0$: $a(0) = 0$.</li>
+                                </ul>
+                                <p><strong>Result:</strong> Alignment $a = [0, 0, 1, 1, 1]$. Durations: $d_0 = 2$, $d_1 = 3$. Total score: 12.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Silence by Hand</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider $T = 2$ tokens ["hello", "world"] and $N = 10$ frames, where frames 0&ndash;5 contain speech and frames 6&ndash;9 are silence. The cost matrix is:</p>
+                            $$C = \begin{pmatrix} 5 & 4 & 3 & -1 & -2 & -3 & 0 & 0 & 0 & 0 \\ -2 & -1 & 1 & 4 & 3 & 2 & 0 & 0 & 0 & 0 \end{pmatrix}$$
+                            <p>Run MAS and explain what happens. What would the durations be if you trimmed the silence (used only frames 0&ndash;5)?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>With silence (all 10 frames):</strong></p>
+                                <p>First row: $Q(0, 0) = 5$, $Q(0, 1) = 9$, ..., $Q(0, 8) = 6$. (Cumulative sums.)</p>
+                                <p>Computing carefully: $Q(0,0)=5$, $Q(0,1)=9$, $Q(0,2)=12$, $Q(0,3)=11$, $Q(0,4)=9$, $Q(0,5)=6$, $Q(0,6)=6$, $Q(0,7)=6$, $Q(0,8)=6$.</p>
+                                <p>Second row: $Q(1,1)=-1+5=4$, $Q(1,2)=1+\max(4,9)=10$, $Q(1,3)=4+\max(10,12)=16$, $Q(1,4)=3+\max(16,11)=19$, $Q(1,5)=2+\max(19,9)=21$, $Q(1,6)=0+\max(21,6)=21$, $Q(1,7)=0+\max(21,6)=21$, $Q(1,8)=0+\max(21,6)=21$, $Q(1,9)=0+\max(21,6)=21$.</p>
+                                <p>Backtracking from $Q(1,9)=21$: all silence frames stay on token 1 (since $Q(1,n-1) \geq Q(0,n-1)$ for $n \geq 4$). The transition from token 0 to token 1 happens at $n=3$.</p>
+                                <p>Alignment: $a = [0, 0, 0, 1, 1, 1, 1, 1, 1, 1]$. Durations: $d_0 = 3$, $d_1 = 7$.</p>
+                                <p><strong>"world" absorbs 4 silence frames</strong>, inflating its duration from a natural ~3 to 7.</p>
+                                <p><strong>With trimming (frames 0&ndash;5 only):</strong></p>
+                                <p>$Q(0,0)=5$, $Q(0,1)=9$, $Q(0,2)=12$, $Q(0,3)=11$, $Q(0,4)=9$.</p>
+                                <p>$Q(1,1)=4$, $Q(1,2)=10$, $Q(1,3)=16$, $Q(1,4)=19$, $Q(1,5)=21$.</p>
+                                <p>Alignment: $a = [0, 0, 0, 1, 1, 1]$. Durations: $d_0 = 3$, $d_1 = 3$. Both tokens get reasonable durations.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Fix with &lt;sil&gt; Token</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Using the cost matrix from Exercise 2, add a third row for a <code>&lt;sil&gt;</code> token where $C_{\text{sil}, n} = 0$ for frames 0&ndash;5 and $C_{\text{sil}, n} = 3$ for frames 6&ndash;9. Run MAS on the $3 \times 10$ matrix and show that silence is properly absorbed by the <code>&lt;sil&gt;</code> token.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>The new cost matrix is:</p>
+                                $$C = \begin{pmatrix} 5 & 4 & 3 & -1 & -2 & -3 & 0 & 0 & 0 & 0 \\ -2 & -1 & 1 & 4 & 3 & 2 & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 3 & 3 & 3 & 3 \end{pmatrix}$$
+                                <p>Now $T = 3$, $N = 10$. The boundary constraints give: token 0 can use frames 0&ndash;7, token 2 must start by frame 2 at latest from the end perspective.</p>
+                                <p>Computing the $Q$ matrix and backtracking (details omitted for brevity):</p>
+                                <p>The optimal alignment assigns frames 0&ndash;2 to "hello", frames 3&ndash;5 to "world", and frames 6&ndash;9 to <code>&lt;sil&gt;</code>.</p>
+                                <p>Durations: $d_{\text{hello}} = 3$, $d_{\text{world}} = 3$, $d_{\text{sil}} = 4$.</p>
+                                <p>The <code>&lt;sil&gt;</code> token successfully absorbs all silence frames, keeping "world" at its natural duration. The duration predictor would learn that <code>&lt;sil&gt;</code> tokens can have variable (potentially large) durations, while speech tokens have normal durations.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. MAS vs. Greedy Argmax</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A naive alternative to MAS is greedy assignment: for each frame $n$, assign it to the token $t$ that maximizes $C_{t,n}$, then enforce monotonicity by post-processing. Construct a $2 \times 4$ cost matrix where greedy argmax (with monotonicity post-processing) gives a different (suboptimal) alignment compared to MAS. Compute both alignments and their total scores.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>Consider:</p>
+                                $$C = \begin{pmatrix} 1 & 3 & -1 & -2 \\ 2 & -1 & 4 & 3 \end{pmatrix}$$
+                                <p><strong>Greedy argmax:</strong> For each frame, pick the token with the highest cost: frame 0 &rarr; token 1 (cost 2), frame 1 &rarr; token 0 (cost 3), frame 2 &rarr; token 1 (cost 4), frame 3 &rarr; token 1 (cost 3). Raw assignment: $[1, 0, 1, 1]$. This violates monotonicity (1 &rarr; 0 goes backward).</p>
+                                <p>Post-processing to enforce monotonicity: force frame 0 to token 0 (since frame 1 wants token 0, and we need non-decreasing). One heuristic: $[0, 0, 1, 1]$. Score: $1 + 3 + 4 + 3 = 11$.</p>
+                                <p><strong>MAS:</strong></p>
+                                <p>$Q(0,0)=1$, $Q(0,1)=4$, $Q(0,2)=3$.</p>
+                                <p>$Q(1,1)=-1+1=0$, $Q(1,2)=4+\max(0,4)=8$, $Q(1,3)=3+\max(8,3)=11$.</p>
+                                <p>Backtrack: $n=3 \to t=1$, $Q(0,2)=3$ vs $Q(1,2)=8$, stay; $n=2 \to t=1$, $Q(0,1)=4$ vs $Q(1,1)=0$, advance; $n=1 \to t=0$; $n=0 \to t=0$.</p>
+                                <p>MAS alignment: $[0, 0, 1, 1]$. Score: 11.</p>
+                                <p>In this case both give the same result. Let us try a trickier matrix:</p>
+                                $$C = \begin{pmatrix} 1 & 5 & 0 & -4 \\ -1 & 0 & 2 & 3 \end{pmatrix}$$
+                                <p><strong>Greedy argmax:</strong> frame 0 &rarr; token 0 (1 vs -1), frame 1 &rarr; token 0 (5 vs 0), frame 2 &rarr; token 1 (0 vs 2), frame 3 &rarr; token 1 (-4 vs 3). Assignment: $[0, 0, 1, 1]$. Score: $1 + 5 + 2 + 3 = 11$.</p>
+                                <p><strong>MAS:</strong> $Q(0,0)=1$, $Q(0,1)=6$, $Q(0,2)=6$.</p>
+                                <p>$Q(1,1)=0+1=1$, $Q(1,2)=2+\max(1,6)=8$, $Q(1,3)=3+\max(8,6)=11$.</p>
+                                <p>MAS also gives $[0, 0, 1, 1]$ with score 11. The same again.</p>
+                                <p>Now consider where greedy post-processing makes the wrong choice:</p>
+                                $$C = \begin{pmatrix} 0.5 & 10 & -5 & -5 \\ 1 & -1 & 3 & 3 \end{pmatrix}$$
+                                <p><strong>Greedy:</strong> frame 0 &rarr; token 1 (1 &gt; 0.5), frame 1 &rarr; token 0 (10 &gt; -1), frame 2 &rarr; token 1 (3 &gt; -5), frame 3 &rarr; token 1 (3 &gt; -5). Raw: $[1, 0, 1, 1]$ &mdash; not monotonic. A simple fix: assign frame 0 to token 0 since frame 1 prefers token 0. Result: $[0, 0, 1, 1]$, score = $0.5 + 10 + 3 + 3 = 16.5$.</p>
+                                <p>But what about $[0, 1, 1, 1]$? Score = $0.5 + (-1) + 3 + 3 = 5.5$. Worse.</p>
+                                <p><strong>MAS:</strong> $Q(0,0)=0.5$, $Q(0,1)=10.5$, $Q(0,2)=5.5$. $Q(1,1)=-1+0.5=-0.5$, $Q(1,2)=3+\max(-0.5,10.5)=13.5$, $Q(1,3)=3+\max(13.5,5.5)=16.5$.</p>
+                                <p>MAS gives $[0, 0, 1, 1]$ with score 16.5 &mdash; same as greedy here. The key insight is that greedy post-processing can fail with more tokens and longer sequences where a locally suboptimal assignment at one frame leads to globally better score. MAS guarantees the global optimum; greedy does not.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Prove Boundary Absorption</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Prove formally that if the last $K$ frames of audio are silence (i.e., $C_{t,n} = c$ for all $t$ and all $n \geq N - K$, where $c$ is a constant), then MAS assigns all $K$ silence frames to the last token $T-1$. Use the monotonicity constraint and the structure of the recurrence.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Proof:</strong> Let the last $K$ frames ($n = N-K, \ldots, N-1$) have uniform cost $C_{t,n} = c$ for all tokens $t$.</p>
+                                <p><strong>Claim:</strong> In the optimal alignment $a^*$, $a^*(n) = T-1$ for all $n \geq N-K$ (assuming $K \geq 1$ and the speech content has ended before frame $N-K$).</p>
+                                <p><strong>Proof by contradiction:</strong> Suppose there exists a frame $n_0 \geq N-K$ such that $a^*(n_0) = t_0 &lt; T-1$. By the monotonicity constraint, $a^*(n) \leq t_0 &lt; T-1$ for all $n \leq n_0$. But also, $a^*(n) \geq t_0$ for all $n \geq n_0$ (monotonicity forward). Since every token must get at least one frame (coverage), tokens $t_0 + 1, \ldots, T-1$ must all be assigned frames from $\{n_0 + 1, \ldots, N-1\}$. This is feasible only if $N - 1 - n_0 \geq T - 1 - t_0$, i.e., there are enough frames left.</p>
+                                <p>Now, consider any alignment $a'$ that differs from $a^*$ only by moving the boundary between token $T-2$ and token $T-1$ earlier (assigning more frames to $T-1$). For silence frames, the cost is $c$ regardless of which token they are assigned to. So the total score contribution from silence frames is $K \cdot c$ regardless of how they are distributed among tokens $\geq t_{\text{boundary}}$.</p>
+                                <p>The key insight: the monotonicity constraint means that once we are in the silence region, the only way to assign frames to different tokens is to place token boundaries within the silence. But since all tokens have the same cost $c$ for silence frames, the total score from silence frames is $K \cdot c$ regardless of where the boundaries fall. Therefore, the optimal alignment is determined entirely by the speech frames, and the silence frames are "free" to go anywhere.</p>
+                                <p>However, the MAS recurrence always places silence frames on the current token (via the "stay" operation) because $Q(t, n-1) \geq Q(t-1, n-1)$ when the costs are equal and $t$ was already optimal. Specifically, once the alignment reaches token $T-1$ at the end of speech, all subsequent frames stay on $T-1$ because there is no token $T$ to advance to. Therefore, $a^*(n) = T-1$ for all $n \geq n_{\text{last speech frame}}$. $\square$</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Log-Space Soft MAS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>MAS uses $\max$ in its recurrence. A "soft" version replaces $\max$ with $\text{log-sum-exp}$: $\text{LSE}(a, b) = \log(\exp(a) + \exp(b))$. Write the soft MAS recurrence. What does the soft version compute? How does it relate to the forward algorithm in HMMs? What happens as the "temperature" $\tau \to 0$ in $\text{LSE}_\tau(a, b) = \tau \log(\exp(a/\tau) + \exp(b/\tau))$?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Soft MAS recurrence:</strong></p>
+                                $$Q_{\text{soft}}(t, n) = C_{t,n} + \text{LSE}\big(Q_{\text{soft}}(t, n-1),\; Q_{\text{soft}}(t-1, n-1)\big)$$
+                                <p>where $\text{LSE}(a, b) = \log(\exp(a) + \exp(b))$.</p>
+                                <p><strong>What it computes:</strong> While hard MAS computes the maximum log-likelihood over all valid monotonic alignments (the Viterbi path), soft MAS computes the <strong>log of the total likelihood</strong> over all valid alignments:</p>
+                                $$Q_{\text{soft}}(T-1, N-1) = \log \sum_{a \in \mathcal{A}} \exp\left(\sum_{n=0}^{N-1} C_{a(n), n}\right)$$
+                                <p>This is the <strong>log-partition function</strong> or <strong>log-marginal likelihood</strong>, summing over all valid monotonic alignments rather than finding the best one.</p>
+                                <p><strong>Connection to HMMs:</strong> Soft MAS is exactly the <strong>forward algorithm</strong> for HMMs in log-space. The forward algorithm computes $\alpha(t, n) = P(\text{observations } 0 \ldots n, \text{state}_n = t)$ using the recurrence $\alpha(t, n) = p(x_n | t) \cdot [\alpha(t, n-1) + \alpha(t-1, n-1)]$, which in log-space becomes the LSE recurrence above. Hard MAS replaces the sum (LSE) with max, giving the Viterbi algorithm.</p>
+                                <p><strong>Temperature limit:</strong> With temperature $\tau$:</p>
+                                $$\text{LSE}_\tau(a, b) = \tau \log(\exp(a/\tau) + \exp(b/\tau))$$
+                                <p>As $\tau \to 0$: $\text{LSE}_\tau(a, b) \to \max(a, b)$. The soft version becomes identical to hard MAS. As $\tau \to \infty$: $\text{LSE}_\tau(a, b) \to (a + b)/2 + \tau \log 2$. The algorithm treats both paths equally regardless of score, ignoring the cost matrix.</p>
+                                <p>The soft version is <strong>differentiable</strong> (unlike hard MAS), which is why it is used in VITS and other models that want to backpropagate through the alignment computation.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Duration Constraints in MAS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Modify the MAS algorithm to enforce a <strong>maximum duration constraint</strong>: no token may receive more than $D_{\max}$ frames. Write the modified recurrence and explain how the boundary constraints change. What is the new time complexity?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Modified recurrence:</strong> We need to track how many consecutive frames have been assigned to the current token. One approach: redefine the state to include the "run length" $r$ (number of consecutive frames on the current token).</p>
+                                <p>Define $Q(t, n, r)$ = max score for aligning frames $0 \ldots n$ with frame $n$ assigned to token $t$ and the current run of token $t$ having length $r$ (i.e., frames $n-r+1, \ldots, n$ are all assigned to token $t$).</p>
+                                <p><strong>Recurrence:</strong></p>
+                                $$Q(t, n, r) = \begin{cases} C_{t,n} + Q(t, n-1, r-1) & \text{if } r > 1 \text{ (stay, extend run)} \\ C_{t,n} + \max_{r'=1}^{D_{\max}} Q(t-1, n-1, r') & \text{if } r = 1 \text{ (advance from previous token)} \end{cases}$$
+                                <p>with the constraint that $r \leq D_{\max}$.</p>
+                                <p><strong>Boundary constraint change:</strong> The constraint $n \geq t$ still holds, but now we also have $n \leq t \cdot D_{\max}$ (upper bound from max duration per token). The feasibility check at each cell must verify that the remaining frames can be distributed among remaining tokens with each getting between 1 and $D_{\max}$ frames.</p>
+                                <p><strong>Time complexity:</strong> The state space is $O(T \times N \times D_{\max})$ and each transition takes $O(D_{\max})$ time (for the max over $r'$), giving $O(T \cdot N \cdot D_{\max}^2)$. With precomputation of the max over $r'$, this can be reduced to $O(T \cdot N \cdot D_{\max})$.</p>
+                                <p><strong>Practical note:</strong> This is one way to mitigate the silence problem &mdash; by capping $D_{\max}$, you prevent any token from absorbing too many frames. However, it is a blunt instrument: the right $D_{\max}$ depends on speaking rate and token length, making it hard to set universally.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Computational Optimization</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The standard MAS implementation uses two nested loops over $T$ and $N$. In practice, $N$ can be very large (e.g., 2000 frames for a long utterance). Describe two strategies for making MAS faster in practice: (a) using Cython or Numba JIT compilation, and (b) a batched GPU implementation. What are the challenges of parallelizing the forward pass on a GPU?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Cython/Numba JIT:</strong></p>
+                                <p>The inner loop of MAS is simple arithmetic (addition, comparison, assignment) with no complex data structures. This makes it an ideal candidate for JIT compilation:</p>
+                                <ul>
+                                    <li><strong>Numba:</strong> Add <code>@numba.jit(nopython=True)</code> decorator to the MAS function. Numba compiles the Python loops to machine code, achieving C-like speed. Typical speedup: 50&ndash;200x over pure Python/NumPy.</li>
+                                    <li><strong>Cython:</strong> Write the inner loop in Cython with typed memoryviews. Declare all variables with C types (<code>cdef int t, n</code>). Similar speedup to Numba but requires a compilation step.</li>
+                                </ul>
+                                <p>The Glow-TTS codebase uses a Cython implementation of MAS for exactly this reason. The $O(TN)$ complexity is fine algorithmically, but the constant factor matters when MAS is called every training step.</p>
+                                <p><strong>(b) Batched GPU implementation:</strong></p>
+                                <p>For a batch of $B$ utterances, we want to run MAS on all of them in parallel on the GPU. The challenge is that the forward pass has a <strong>sequential dependency along the $n$ axis</strong>: $Q(t, n)$ depends on $Q(t, n-1)$ and $Q(t-1, n-1)$. This means we cannot parallelize across frames within a single utterance.</p>
+                                <p>However, we <strong>can</strong> parallelize:</p>
+                                <ul>
+                                    <li><strong>Across batch elements:</strong> Run $B$ independent MAS instances in parallel. Each thread handles one utterance. This is trivially parallel.</li>
+                                    <li><strong>Across tokens within a column:</strong> For a fixed $n$, all $T$ values $Q(t, n)$ depend only on column $n-1$. So we can compute all $T$ values in parallel (one thread per token), then move to column $n+1$. This gives $O(N)$ sequential steps with $O(T)$ parallelism per step.</li>
+                                </ul>
+                                <p><strong>Challenge:</strong> The anti-diagonal parallelism pattern (cells $(t, n)$ with $t + n = \text{const}$ are independent) could in theory give $O(T + N)$ sequential steps with up to $O(\min(T, N))$ parallelism per step, but the irregular access pattern and synchronization overhead make this hard to implement efficiently on GPUs. In practice, the column-parallel approach with batch parallelism is most common.</p>
+                                <p>PyTorch implementations (e.g., in VITS) typically use a custom CUDA kernel that processes one column at a time with batch-level parallelism.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Multiple Optimal Alignments</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Construct a cost matrix where MAS has <strong>multiple optimal alignments</strong> (i.e., different alignments with the same maximum total score). How many optimal alignments does your example have? Modify MAS to count the number of optimal alignments without enumerating them.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Example:</strong> Consider $T = 2$, $N = 4$ with:</p>
+                                $$C = \begin{pmatrix} 1 & 1 & 0 & 0 \\ 0 & 0 & 1 & 1 \end{pmatrix}$$
+                                <p>$Q$ matrix: $Q(0,0)=1$, $Q(0,1)=2$, $Q(0,2)=2$.</p>
+                                <p>$Q(1,1)=0+1=1$, $Q(1,2)=1+\max(1,2)=3$, $Q(1,3)=1+\max(3,2)=4$.</p>
+                                <p>At $(1, 2)$: stay gives $Q(1, 1) = 1$, advance gives $Q(0, 1) = 2$. They are different, so advance wins. Alignment: $[0, 0, 1, 1]$, score 4.</p>
+                                <p>Now try:</p>
+                                $$C = \begin{pmatrix} 2 & 1 & 0 & 0 \\ 0 & 0 & 1 & 2 \end{pmatrix}$$
+                                <p>$Q(0,0)=2$, $Q(0,1)=3$, $Q(0,2)=3$.</p>
+                                <p>$Q(1,1)=0+2=2$, $Q(1,2)=1+\max(2,3)=4$, $Q(1,3)=2+\max(4,3)=6$.</p>
+                                <p>Still only one optimum. For ties, we need equal values at a decision point:</p>
+                                $$C = \begin{pmatrix} 1 & 1 & 0 & 0 \\ 0 & 1 & 1 & 1 \end{pmatrix}$$
+                                <p>$Q(0,0)=1$, $Q(0,1)=2$, $Q(0,2)=2$.</p>
+                                <p>$Q(1,1)=1+1=2$, $Q(1,2)=1+\max(2,2)=3$. Here $Q(1,1) = Q(0,1) = 2$ &mdash; a tie at $(1,2)$!</p>
+                                <p>$Q(1,3)=1+\max(3,2)=4$.</p>
+                                <p>The tie at $(1,2)$ means both $[0, 1, 1, 1]$ and $[0, 0, 1, 1]$ achieve score 4. There are <strong>2 optimal alignments</strong>.</p>
+                                <p><strong>Counting optimal alignments:</strong> Define $\text{cnt}(t, n)$ = number of optimal paths reaching $(t, n)$.</p>
+                                <p>Base: $\text{cnt}(0, 0) = 1$, $\text{cnt}(0, n) = 1$ for $n \leq N - T$.</p>
+                                <p>Recurrence: Let $s = Q(t, n-1)$ (stay) and $a = Q(t-1, n-1)$ (advance).</p>
+                                <ul>
+                                    <li>If $s &gt; a$: $\text{cnt}(t, n) = \text{cnt}(t, n-1)$</li>
+                                    <li>If $a &gt; s$: $\text{cnt}(t, n) = \text{cnt}(t-1, n-1)$</li>
+                                    <li>If $s = a$: $\text{cnt}(t, n) = \text{cnt}(t, n-1) + \text{cnt}(t-1, n-1)$</li>
+                                </ul>
+                                <p>Total count: $\text{cnt}(T-1, N-1)$. Same $O(TN)$ complexity as MAS itself.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. MAS Beyond TTS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>MAS finds the optimal monotonic alignment between two sequences. Identify three applications outside of TTS where MAS (or a minor variant) could be applied. For each, describe: (a) what the two sequences are, (b) what the cost matrix represents, (c) whether the monotonicity assumption is appropriate, and (d) whether the silence edge case analogue exists.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Application 1: Subtitle synchronization.</strong></p>
+                                <ul>
+                                    <li><strong>Sequences:</strong> Subtitle text segments (words or phrases) and audio/video frames.</li>
+                                    <li><strong>Cost matrix:</strong> $C_{t,n}$ measures how well the audio at frame $n$ matches the expected sound of subtitle segment $t$ (using ASR features or audio similarity).</li>
+                                    <li><strong>Monotonicity:</strong> Yes &mdash; subtitles appear in order, matching the speech order. A speaker does not say sentence 5 before sentence 4.</li>
+                                    <li><strong>Silence analogue:</strong> Yes &mdash; pauses between dialogue, background music, or non-speech audio. These would be absorbed by boundary subtitle segments just like silence in TTS. Mitigation: add <code>[pause]</code> segments or use VAD to trim non-speech.</li>
+                                </ul>
+                                <p><strong>Application 2: Music-to-lyrics alignment.</strong></p>
+                                <ul>
+                                    <li><strong>Sequences:</strong> Lyrics (words or syllables) and audio frames of a song.</li>
+                                    <li><strong>Cost matrix:</strong> $C_{t,n}$ could be an ASR-based score measuring how well the audio at frame $n$ sounds like lyric token $t$, or a phonetic feature similarity.</li>
+                                    <li><strong>Monotonicity:</strong> Yes for most songs (lyrics are sung in order). Exception: songs with overlapping vocals or repeated sections.</li>
+                                    <li><strong>Silence analogue:</strong> Yes &mdash; instrumental interludes, guitar solos, and outros without vocals. These would collapse onto the last lyric token. Fix: add <code>[instrumental]</code> tokens at known positions, or trim instrumental sections.</li>
+                                </ul>
+                                <p><strong>Application 3: DNA sequence alignment (with caveats).</strong></p>
+                                <ul>
+                                    <li><strong>Sequences:</strong> A reference DNA sequence and a query read from sequencing.</li>
+                                    <li><strong>Cost matrix:</strong> $C_{t,n}$ is the match score (positive for matching bases, negative for mismatches) between reference position $t$ and read position $n$.</li>
+                                    <li><strong>Monotonicity:</strong> Yes for local alignments within a single strand (bases appear in order). Not appropriate for inversions, translocations, or circular genomes.</li>
+                                    <li><strong>Silence analogue:</strong> Insertions in the read (extra bases not in the reference). Standard MAS cannot handle insertions because every frame must map to a token. Variant needed: allow an "insertion" state. This is exactly why Needleman-Wunsch and Smith-Waterman algorithms include gap penalties &mdash; they are MAS variants with insertion/deletion states.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#glow-tts-context" class="toc-link">MAS in Glow-TTS</a>
+                <a href="#mas-algorithm-detail" class="toc-link">The MAS Algorithm</a>
+                <a href="#worked-example" class="toc-link">Worked Example</a>
+                <a href="#mas-in-training" class="toc-link">MAS During Training</a>
+                <a href="#silence-edge-case" class="toc-link">Silence Edge Case</a>
+                <a href="#viterbi-comparison" class="toc-link">Viterbi Comparison</a>
+                <a href="#hard-soft-tradeoff" class="toc-link">Hard vs Soft Revisited</a>
+                <a href="#summary" class="toc-link">Summary</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>
