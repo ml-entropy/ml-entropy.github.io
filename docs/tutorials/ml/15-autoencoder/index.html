@@ -1216,6 +1216,151 @@ for nf in [0.1, 0.3, 0.5, 0.7, 1.0]:
                         </div>
                     </div>
 
+                    <!-- Exercise 14 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">14. L1 vs KL Sparsity</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Compare two sparsity penalties for an overcomplete AE ($d=256$, $n=784$): (a) $\Omega_{L_1} = \lambda \sum_j |z_j|$ and (b) $\Omega_{KL} = \beta \sum_j D_{KL}(\rho \| \hat{\rho}_j)$ with target $\rho = 0.05$. Show that $L_1$ pushes activations to exactly zero while KL pushes them toward $\rho$. Which produces sparser representations? Which is more biologically plausible?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>For $L_1$:</strong> The subgradient $\frac{\partial |z_j|}{\partial z_j} = \text{sign}(z_j)$ for $z_j \neq 0$. At $z_j = 0$, the subgradient includes 0, so zero is a stable point. The penalty creates a "dead zone" around zero — any activation with gradient magnitude less than $\lambda$ gets pushed to exactly zero. This is the proximal operator effect: the optimal solution has $z_j = 0$ for many units.</p>
+                                <p><strong>For KL:</strong> $\frac{\partial D_{KL}}{\partial \hat{\rho}_j} = 0$ when $\hat{\rho}_j = \rho = 0.05$. The equilibrium is not zero but the target sparsity $\rho$. Each unit is encouraged to be active $5\%$ of the time across the dataset.</p>
+                                <p>$L_1$ produces sparser representations (exact zeros vs. small-but-nonzero values). However, KL sparsity is more biologically plausible: real neurons have low but nonzero baseline firing rates, and the "5% active" interpretation matches sparse coding theories in neuroscience (Olshausen &amp; Field, 1996).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 15 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">15. Convolutional Autoencoder Dimensions</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>An encoder has: Conv2d(1, 16, 3, stride=2, padding=1) $\to$ ReLU $\to$ Conv2d(16, 32, 3, stride=2, padding=1) $\to$ ReLU $\to$ Flatten $\to$ Linear(?, 64). For a $28 \times 28$ input: (a) Compute the spatial dimensions after each conv layer using $\lfloor(n + 2p - k)/s\rfloor + 1$. (b) What is the "?" in the Linear layer? (c) Total encoder parameters (with biases).</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> After Conv1: $\lfloor(28 + 2 - 3)/2\rfloor + 1 = \lfloor 27/2 \rfloor + 1 = 13 + 1 = 14$. Output: 16 channels $\times$ 14 $\times$ 14.</p>
+                                <p>After Conv2: $\lfloor(14 + 2 - 3)/2\rfloor + 1 = \lfloor 13/2 \rfloor + 1 = 6 + 1 = 7$. Output: 32 channels $\times$ 7 $\times$ 7.</p>
+                                <p><strong>(b)</strong> After flatten: $32 \times 7 \times 7 = 1568$. So the Linear layer is Linear(1568, 64).</p>
+                                <p><strong>(c)</strong> Conv1: $1 \times 16 \times 3 \times 3 + 16 = 144 + 16 = 160$. Conv2: $16 \times 32 \times 3 \times 3 + 32 = 4608 + 32 = 4640$. Linear: $1568 \times 64 + 64 = 100{,}352 + 64 = 100{,}416$. Total: $160 + 4640 + 100{,}416 = 105{,}216$.</p>
+                                <p>Note: the linear layer dominates (~95% of parameters). This motivates fully convolutional autoencoders that replace it with global average pooling.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 16 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">16. Symmetric Decoder Design</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>For the encoder in Exercise 15, design a symmetric decoder. (a) Write the decoder architecture using ConvTranspose2d to go from 64-dim latent back to $28 \times 28$. (b) What is the "checkerboard artifact" problem with transposed convolutions? (c) Propose an alternative.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Decoder: Linear(64, 1568) $\to$ Reshape to $32 \times 7 \times 7$ $\to$ ConvTranspose2d(32, 16, 3, stride=2, padding=1, output_padding=1) $\to$ ReLU $\to$ ConvTranspose2d(16, 1, 3, stride=2, padding=1, output_padding=1) $\to$ Sigmoid.</p>
+                                <p>Verification: ConvT1: $(7-1)\times 2 - 2\times 1 + 3 + 1 = 14$. Output: $16 \times 14 \times 14$. ConvT2: $(14-1)\times 2 - 2\times 1 + 3 + 1 = 28$. Output: $1 \times 28 \times 28$. &#10003;</p>
+                                <p><strong>(b)</strong> Checkerboard artifacts: ConvTranspose2d with stride $> 1$ produces overlapping patterns in the output. When stride doesn't evenly divide the kernel size, some output pixels receive contributions from more kernel elements than others, creating a grid-like pattern. For kernel=3, stride=2, every other pixel gets 2 contributions while adjacent ones get 1.</p>
+                                <p><strong>(c)</strong> Alternative: Upsample + Conv2d. Replace each ConvTranspose2d with: nn.Upsample(scale_factor=2, mode='bilinear') followed by nn.Conv2d with stride=1. This separates the upsampling (bilinear interpolation) from the learned filtering (convolution), eliminating checkerboard artifacts. This is the approach used in many modern architectures (e.g., U-Net decoders).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 17 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">17. Manifold Dimension Theorem</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Suppose data lies exactly on a $k$-dimensional linear subspace $V \subset \mathbb{R}^n$ (so $x = U\alpha$ where $U \in \mathbb{R}^{n \times k}$ has orthonormal columns and $\alpha \in \mathbb{R}^k$). Prove: (a) A linear AE with $d \geq k$ can achieve zero reconstruction error. (b) A linear AE with $d < k$ cannot achieve zero error. (c) What changes for a nonlinear manifold?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Since $x = U\alpha \in V$, the data covariance $\Sigma = U \text{diag}(\sigma_1^2, \ldots, \sigma_k^2) U^T$ has rank $k$, with $k$ positive eigenvalues and $n-k$ zero eigenvalues. A linear AE with $d \geq k$ can set $W = U^T$ (the top-$d$ eigenvectors of $\Sigma$, which include all $k$ non-zero directions). Then $P = W^T W = UU^T$ is the projection onto $V$, and since $x \in V$: $\hat{x} = Px = x$. Error = 0.</p>
+                                <p><strong>(b)</strong> If $d < k$, the projection $P = W^T W$ has rank $d < k$, so its column space is a strict subspace of $V$. There exist $x \in V$ not in this subspace, giving $Px \neq x$. Formally, the error is $\sum_{i=d+1}^k \sigma_i^2 > 0$ (the sum of discarded eigenvalues).</p>
+                                <p><strong>(c)</strong> For nonlinear manifolds, a linear AE with $d = k$ may fail because it can only capture linear subspaces. But a nonlinear AE (with sufficient depth and width) can parameterize a nonlinear encoder $f: \mathbb{R}^n \to \mathbb{R}^k$ that maps the manifold to $\mathbb{R}^k$ bijectively, and a decoder $g: \mathbb{R}^k \to \mathbb{R}^n$ that inverts it. Universal approximation theorems guarantee such $f, g$ exist. This is why nonlinear AEs outperform PCA on real data.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 18 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">18. Dropout as Implicit Ensemble</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Applying dropout with rate $p$ to the $d$-dimensional latent layer: $\tilde{z}_i = z_i \cdot m_i / (1-p)$ where $m_i \sim \text{Bernoulli}(1-p)$. (a) How many distinct "sub-autoencoders" does this create? (b) Show the scaling factor $1/(1-p)$ ensures $\mathbb{E}[\tilde{z}_i] = z_i$. (c) How is this different from a denoising autoencoder?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Each of the $d$ latent units is either on or off, giving $2^d$ possible binary masks. Each mask defines a different sub-autoencoder that uses a subset of the latent dimensions. For $d = 32$, that's $2^{32} \approx 4.3 \times 10^9$ sub-networks.</p>
+                                <p><strong>(b)</strong> $\mathbb{E}[\tilde{z}_i] = \mathbb{E}[z_i \cdot m_i / (1-p)] = z_i \cdot \mathbb{E}[m_i] / (1-p) = z_i \cdot (1-p)/(1-p) = z_i$. The scaling ensures that at test time (no dropout), the expected latent values match training, so no rescaling is needed.</p>
+                                <p><strong>(c)</strong> Key differences: (1) Dropout corrupts the latent code $z$ (internal representation), while denoising AEs corrupt the input $x$. (2) Dropout applies multiplicative Bernoulli noise (binary masking), while denoising AEs typically apply additive Gaussian noise. (3) Dropout trains the decoder to be robust to missing features, while denoising trains the encoder to be robust to noisy inputs. (4) Dropout can be seen as Bayesian approximate inference (Gal &amp; Ghahramani, 2016), while denoising connects to score matching.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 19 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">19. Backpropagation Through the Decoder</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>For a single-layer decoder $\hat{x} = \sigma(W_2 z + b_2)$ with sigmoid activation, MSE loss $\mathcal{L} = \|x - \hat{x}\|^2$: (a) Derive $\frac{\partial \mathcal{L}}{\partial z}$ (the gradient that flows back to the encoder). (b) When does this gradient vanish? What does this mean for training?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Let $a = W_2 z + b_2$ (pre-activation), $\hat{x} = \sigma(a)$.</p>
+                                <p>$\frac{\partial \mathcal{L}}{\partial \hat{x}_i} = -2(x_i - \hat{x}_i)$</p>
+                                <p>$\frac{\partial \hat{x}_i}{\partial a_i} = \hat{x}_i(1 - \hat{x}_i)$</p>
+                                <p>$\frac{\partial a_i}{\partial z_j} = (W_2)_{ij}$</p>
+                                <p>By chain rule:</p>
+                                $$\frac{\partial \mathcal{L}}{\partial z_j} = \sum_i \frac{\partial \mathcal{L}}{\partial \hat{x}_i} \cdot \frac{\partial \hat{x}_i}{\partial a_i} \cdot \frac{\partial a_i}{\partial z_j} = -2 \sum_i (x_i - \hat{x}_i) \hat{x}_i(1-\hat{x}_i) (W_2)_{ij}$$
+                                <p>In matrix form: $\frac{\partial \mathcal{L}}{\partial z} = -2 W_2^T [\delta \odot \hat{x} \odot (1-\hat{x})]$ where $\delta = x - \hat{x}$.</p>
+                                <p><strong>(b)</strong> The gradient vanishes when: (1) $\hat{x}_i \approx x_i$ (reconstruction is already good — this is the desired equilibrium); (2) $\hat{x}_i \approx 0$ or $\hat{x}_i \approx 1$ (sigmoid saturation): the factor $\hat{x}_i(1-\hat{x}_i) \approx 0$ kills the gradient regardless of reconstruction quality. This is the vanishing gradient problem with sigmoid decoders. Fix: use ReLU intermediate layers or skip connections.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 20 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">20. Wasserstein Autoencoder Motivation</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In a VAE, we minimize $D_{KL}(q(z|x) \| p(z))$ for each input $x$, matching each individual posterior to the prior. In a Wasserstein AE (WAE), we instead match the aggregated posterior $q(z) = \mathbb{E}_{p(x)}[q(z|x)]$ to $p(z)$. (a) Why is matching the aggregated posterior weaker than matching individual posteriors? (b) Show with an example: let $p(z) = \mathcal{N}(0, 1)$ and $q(z|x)$ be point masses at $z = f(x)$. When does $q(z)$ match $p(z)$? (c) What is the practical benefit?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Matching individual posteriors: $D_{KL}(q(z|x) \| p(z)) = 0$ for all $x$ means $q(z|x) = p(z)$ for every $x$. This forces the encoder to ignore the input entirely! In practice, the VAE trades off between this term and reconstruction, but the KL penalty still pushes toward ignoring the input. Matching the aggregate: $q(z) = p(z)$ only requires that the overall distribution of latent codes matches the prior, not that each individual input maps to the prior. This is a much weaker constraint.</p>
+                                <p><strong>(b)</strong> If $q(z|x) = \delta(z - f(x))$ (deterministic encoder), then $q(z) = p_{f(X)}(z)$, the push-forward of $p(x)$ through $f$. This matches $p(z) = \mathcal{N}(0,1)$ when $f$ is a measure-preserving map: e.g., $f = \Phi^{-1} \circ F_X$ where $F_X$ is the data CDF and $\Phi^{-1}$ is the standard normal quantile function. The encoder just needs to rearrange the data distribution into a Gaussian — without adding noise!</p>
+                                <p><strong>(c)</strong> Practical benefit: WAE allows deterministic encoders (no sampling noise, no reparameterization trick needed), producing sharper reconstructions than VAE. The latent space is still regularized (covers the prior), but individual encodings are precise, not blurred.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 21 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">21. Memorization vs Generalization</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>An autoencoder has a single hidden layer with $d$ units and is trained on $N$ samples in $\mathbb{R}^n$ with ReLU activations. (a) Derive a condition on $d$ such that the AE can perfectly memorize all $N$ training samples (zero training loss) without learning any generalizable features. (b) Why is this bad? Give a concrete example.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> A ReLU network with $d$ hidden units can represent a piecewise-linear function with at most $d$ linear regions. For the encoder $f: \mathbb{R}^n \to \mathbb{R}^d$, each of the $N$ training points $x^{(i)}$ can be mapped to a unique latent code $z^{(i)} = f(x^{(i)})$ as long as the encoder has enough capacity.</p>
+                                <p>The decoder $g: \mathbb{R}^d \to \mathbb{R}^n$ needs to map each $z^{(i)}$ back to $x^{(i)}$. This is an interpolation problem: fitting $N$ points in $\mathbb{R}^d$ to $\mathbb{R}^n$. A single-layer ReLU network can memorize $N$ arbitrary input-output pairs if $d \geq N$ (each hidden unit can "specialize" to one training sample using indicator-like activation patterns).</p>
+                                <p>So the condition is $d \geq N$: with at least as many hidden units as training samples, perfect memorization is possible.</p>
+                                <p><strong>(b)</strong> This is bad because the AE acts as a lookup table: for training point $x^{(7)}$, the encoder stores a unique code, and the decoder retrieves the original. For any input not seen during training, the output is meaningless. Example: train an AE with $d = 1000$ on $N = 500$ MNIST digits. It achieves zero training loss but produces garbage for any new digit, even from the same distribution. The latent space has no structure — nearby latent codes don't correspond to similar images. The model has learned nothing about "digit-ness," only about these specific 500 images.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
 
                     <!-- Exercise 8 -->
@@ -1298,6 +1443,139 @@ for nf in [0.1, 0.3, 0.5, 0.7, 1.0]:
                                 <p><strong>Step 3: The connection.</strong> A trained denoising autoencoder with output $g(\tilde{x}) \approx g^*(\tilde{x})$ implicitly provides an estimate of the score:</p>
                                 $$\nabla_{\tilde{x}} \log p_\sigma(\tilde{x}) \approx \frac{g(\tilde{x}) - \tilde{x}}{\sigma^2}$$
                                 <p>As $\sigma \to 0$, $p_\sigma(\tilde{x}) \to p(x)$ and we recover the score of the clean data distribution. This is the foundation of <strong>score-based generative models</strong> and <strong>diffusion models</strong> (DDPM, Score SDE), which train denoisers at multiple noise levels $\sigma$ to estimate the score function across scales.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 25 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">25. VQ-VAE: Vector Quantized Latent Codes</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In VQ-VAE, the encoder outputs $z_e \in \mathbb{R}^d$, which is quantized to the nearest codebook vector: $z_q = e_k$ where $k = \arg\min_j \|z_e - e_j\|^2$, with codebook $\{e_j\}_{j=1}^K$. The loss is:</p>
+                            $$\mathcal{L} = \|x - \hat{x}\|^2 + \|\text{sg}[z_e] - z_q\|^2 + \beta\|z_e - \text{sg}[z_q]\|^2$$
+                            <p>where $\text{sg}[\cdot]$ is stop-gradient. (a) Explain what each of the three loss terms does. (b) Since $\arg\min$ is not differentiable, how does the gradient flow from $\hat{x}$ to the encoder? Derive the "straight-through estimator." (c) Compute the information-theoretic capacity: with $K$ codebook vectors and a sequence of $L$ latent positions, how many bits can be stored?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Term 1: $\|x - \hat{x}\|^2$ — reconstruction loss. Trains the decoder to reconstruct $x$ from $z_q$, and (via straight-through) the encoder to produce useful $z_e$.</p>
+                                <p>Term 2: $\|\text{sg}[z_e] - z_q\|^2$ — codebook loss. Moves codebook vectors $e_k$ toward the encoder outputs $z_e$. The stop-gradient on $z_e$ means this only updates the codebook, not the encoder.</p>
+                                <p>Term 3: $\beta\|z_e - \text{sg}[z_q]\|^2$ — commitment loss. Encourages the encoder output $z_e$ to stay close to the chosen codebook vector. Prevents $z_e$ from fluctuating wildly and "jumping" between codebook entries. $\beta$ is typically 0.25.</p>
+                                <p><strong>(b)</strong> The quantization $z_q = e_k$ is non-differentiable. The straight-through estimator simply copies the gradient from $z_q$ to $z_e$:</p>
+                                $$\frac{\partial \mathcal{L}}{\partial z_e} \approx \frac{\partial \mathcal{L}}{\partial z_q}$$
+                                <p>In code: $z_q = z_e + \text{sg}[z_q - z_e]$. During forward pass, this equals $z_q$. During backward pass, $\text{sg}[\cdot]$ has zero gradient, so $\frac{\partial z_q}{\partial z_e} = 1$. The decoder's gradient flows unchanged to the encoder.</p>
+                                <p><strong>(c)</strong> Each latent position selects one of $K$ codebook vectors, encoding $\log_2 K$ bits. With $L$ positions: total capacity $= L \log_2 K$ bits. For $K = 512, L = 32$: $32 \times \log_2 512 = 32 \times 9 = 288$ bits. This is an exact, discrete capacity — unlike continuous latent spaces where the effective bit rate depends on precision.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 26 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">26. Information Bottleneck Lagrangian</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The Information Bottleneck (IB) objective minimizes $I(X;Z)$ while preserving $I(Z;Y)$: $\mathcal{L}_{IB} = I(X;Z) - \beta I(Z;Y)$ where $Y$ is a target variable. (a) Using calculus of variations, derive the self-consistent equation for the optimal encoder $p(z|x)$. (b) Show that the optimal $p(z|x) \propto p(z) \exp(-\beta D_{KL}(p(y|x) \| p(y|z)))$. (c) Explain how $\beta$ controls the rate-relevance trade-off.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> We minimize $\mathcal{L} = I(X;Z) - \beta I(Z;Y)$ over $p(z|x)$ subject to normalization $\sum_z p(z|x) = 1$.</p>
+                                $$I(X;Z) = \sum_{x,z} p(x) p(z|x) \log \frac{p(z|x)}{p(z)}$$
+                                $$I(Z;Y) = \sum_{z,y} p(z,y) \log \frac{p(y|z)}{p(y)}$$
+                                <p>where $p(z) = \sum_x p(x) p(z|x)$ and $p(y|z) = \sum_x p(y|x) p(x|z)$. Using a Lagrange multiplier $\lambda(x)$ for normalization:</p>
+                                $$\frac{\delta}{\delta p(z|x)} \left[\mathcal{L} - \sum_x \lambda(x) \sum_z p(z|x)\right] = 0$$
+                                <p><strong>(b)</strong> Taking the functional derivative and solving (noting that $p(z)$ and $p(y|z)$ depend on $p(z|x)$, requiring self-consistency):</p>
+                                $$p(z|x) = \frac{p(z)}{Z(\beta, x)} \exp\left(-\beta D_{KL}(p(y|x) \| p(y|z))\right)$$
+                                <p>where $Z(\beta, x) = \sum_z p(z) \exp(-\beta D_{KL}(p(y|x) \| p(y|z)))$ is the normalization constant.</p>
+                                <p>Intuition: The encoder $p(z|x)$ assigns $x$ to cluster $z$ proportionally to: (1) the cluster's size $p(z)$ (prior); (2) how similar $x$'s label distribution $p(y|x)$ is to cluster $z$'s label distribution $p(y|z)$. The KL divergence penalizes assigning $x$ to a cluster whose predictions differ from the true labels.</p>
+                                <p><strong>(c)</strong> $\beta \to 0$: $p(z|x) \propto p(z)$ — the encoder ignores the input entirely. $I(X;Z) = 0$ (perfect compression), $I(Z;Y) = 0$ (no information preserved). $\beta \to \infty$: the encoder becomes deterministic, mapping each $x$ to the $z$ with the best-matching $p(y|z)$. $I(X;Z)$ is maximized, $I(Z;Y) \approx I(X;Y)$ (all relevant information preserved). Intermediate $\beta$: trades off compression against predictive power. This traces out the information curve, analogous to the rate-distortion curve.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 27 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">27. Contractive AE with ReLU</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Repeat the Jacobian analysis of Exercise 22 (Contractive Jacobian) for ReLU activation $\sigma(a) = \max(0, a)$. (a) Derive $J_{ij}$ and show $\|J\|_F^2 = \sum_i \mathbb{1}[a_i > 0] \sum_j W_{ij}^2$. (b) Why is this harder to optimize than the sigmoid case? (c) Is the penalty still useful? What does it actually penalize?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> With ReLU, $\sigma'(a_i) = \mathbb{1}[a_i > 0]$ (1 if pre-activation is positive, 0 otherwise).</p>
+                                $$J_{ij} = \sigma'(a_i) \cdot W_{ij} = \mathbb{1}[a_i > 0] \cdot W_{ij}$$
+                                $$\|J\|_F^2 = \sum_i \sum_j [\mathbb{1}[a_i > 0]]^2 W_{ij}^2 = \sum_i \mathbb{1}[a_i > 0] \sum_j W_{ij}^2$$
+                                <p>Since $\mathbb{1}[a_i > 0]^2 = \mathbb{1}[a_i > 0]$ (the indicator is 0 or 1).</p>
+                                <p><strong>(b)</strong> Two problems: (1) The gradient of the indicator $\mathbb{1}[a_i > 0]$ is zero almost everywhere (and undefined at $a_i = 0$). The penalty can only reduce $\|J\|_F^2$ by shrinking $W_{ij}$ (like weight decay) for active units, not by moving units toward saturation. (2) The penalty is piecewise constant in $a_i$: it doesn't smoothly encourage any particular activation level. With sigmoid, the $z_i^2(1-z_i)^2$ factor smoothly encourages saturation ($z_i \to 0$ or $1$), providing a richer optimization landscape.</p>
+                                <p><strong>(c)</strong> Yes, still useful but acts differently. For active units ($a_i > 0$), the penalty is $\sum_j W_{ij}^2$ — pure weight decay on the $i$-th row of $W$. For dead units ($a_i \leq 0$), the penalty is 0, so they contribute nothing. The penalty thus: (1) shrinks weights of active units, reducing input sensitivity; (2) doesn't affect dead units at all; (3) indirectly encourages sparsity by making it "free" (zero penalty) to kill a unit. With ReLU, the contractive AE behaves more like sparse AE + weight decay than the sigmoid version's contraction toward saturated states.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 28 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">28. Optimal Transport View of Autoencoders</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The autoencoder objective $\min_{f,g} \mathbb{E}_{p(x)}[\|x - g(f(x))\|^2]$ can be viewed through optimal transport. (a) In the Monge formulation, optimal transport finds a map $T: \mathbb{R}^n \to \mathbb{R}^n$ minimizing $\mathbb{E}[\|x - T(x)\|^2]$ subject to $T_{\#}p = q$ (pushforward constraint). Show that an autoencoder computes a map $T = g \circ f$ with the implicit constraint $T_{\#}p \approx p$. (b) The key difference: autoencoder maps factor through a bottleneck. Show that if $f: \mathbb{R}^n \to \mathbb{R}^d$ with $d < n$, then $T = g \circ f$ can only produce outputs on a $d$-dimensional manifold. (c) Interpret: what does the autoencoder "transport" and where?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Define $T(x) = g(f(x)) = \hat{x}$. The AE loss $\mathbb{E}[\|x - T(x)\|^2]$ is the quadratic transport cost from $p(x)$ to $T_{\#}p$. If the AE achieves zero loss, $T(x) = x$ for $p$-a.e. $x$, meaning $T_{\#}p = p$ exactly. In practice, $T_{\#}p \approx p$ — the reconstruction distribution approximates the data distribution. But unlike standard OT, we don't specify the target measure; the objective itself drives $T_{\#}p$ toward $p$.</p>
+                                <p><strong>(b)</strong> Since $f$ maps to $\mathbb{R}^d$ and $g$ maps back to $\mathbb{R}^n$, the image of $T = g \circ f$ is $\text{Im}(g) \subseteq \mathbb{R}^n$. By the rank theorem, if $g$ is smooth and $d < n$, then $\text{Im}(g)$ has measure zero in $\mathbb{R}^n$ — it's a $d$-dimensional manifold (assuming $g$ is an immersion). Therefore $T_{\#}p$ is a distribution supported on a $d$-dimensional manifold, even if $p$ has full $n$-dimensional support.</p>
+                                <p><strong>(c)</strong> The autoencoder "transports" each data point $x$ to its nearest point $\hat{x}$ on the learned manifold $\mathcal{M} = g(\mathbb{R}^d)$. The manifold is optimized so that the total transport cost (sum of squared distances from data to manifold) is minimized. This is a nonlinear generalization of PCA, where PCA finds the best $d$-dimensional hyperplane and the AE finds the best $d$-dimensional manifold. The "transport plan" is deterministic: each $x$ maps to exactly one $\hat{x} = g(f(x))$, which is the autoencoder's version of projection onto the manifold.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 29 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">29. Posterior Collapse in VAEs</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In a VAE, the ELBO is $\mathcal{L} = \mathbb{E}_{q(z|x)}[\log p(x|z)] - D_{KL}(q(z|x) \| p(z))$. (a) Show that if the decoder $p(x|z)$ is a powerful autoregressive model (e.g., PixelCNN) that ignores $z$, then the optimal encoder is $q(z|x) = p(z)$. This is "posterior collapse." (b) Compute the ELBO when posterior collapse occurs. (c) Name three remedies and explain the mechanism of each.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> If the decoder ignores $z$: $p(x|z) = p(x)$ for all $z$. Then the reconstruction term becomes $\mathbb{E}_{q(z|x)}[\log p(x|z)] = \mathbb{E}_{q(z|x)}[\log p(x)] = \log p(x)$, which doesn't depend on $q(z|x)$. The only term involving $q$ is $-D_{KL}(q(z|x) \| p(z))$, which is maximized (least negative) when $q(z|x) = p(z)$, giving $D_{KL} = 0$. So the optimal encoder outputs the prior regardless of $x$.</p>
+                                <p><strong>(b)</strong> With $q(z|x) = p(z)$: $\mathcal{L} = \log p(x) - 0 = \log p(x)$. The ELBO equals the log-evidence. This is tight, but trivial: the latent variable is unused. The model degenerates to $p(x)$ alone.</p>
+                                <p><strong>(c)</strong> Three remedies:</p>
+                                <p>(1) <strong>KL annealing (warm-up):</strong> start training with $\beta = 0$ in $\beta \cdot D_{KL}$ and slowly increase to 1. This lets the encoder learn useful representations before the KL penalty pushes toward collapse. Mechanism: the reconstruction term dominates early, establishing encoder-decoder communication.</p>
+                                <p>(2) <strong>Free bits (Kingma et al.):</strong> use $\max(\delta, D_{KL})$ instead of $D_{KL}$, ensuring each latent dimension uses at least $\delta$ nats. Mechanism: directly prevents the KL from reaching zero.</p>
+                                <p>(3) <strong>Weaken the decoder:</strong> use a simpler decoder (MLP instead of PixelCNN) that cannot model $p(x)$ without $z$. Mechanism: forces $p(x|z) \neq p(x)$, making the reconstruction term depend on $z$, so the encoder must transmit information.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 30 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">30. Denoising Score Matching to Diffusion Models</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Extend Exercise 24 (Score Matching) to multiple noise levels. Consider $L$ noise levels $\sigma_1 > \sigma_2 > \cdots > \sigma_L > 0$ and the multi-scale denoising score matching objective:</p>
+                            $$\mathcal{L} = \sum_{i=1}^L \lambda(\sigma_i) \mathbb{E}_{x \sim p(x)} \mathbb{E}_{\tilde{x} \sim \mathcal{N}(x, \sigma_i^2 I)} \left[\left\|s_\theta(\tilde{x}, \sigma_i) - \nabla_{\tilde{x}} \log p_{\sigma_i}(\tilde{x}|x)\right\|^2\right]$$
+                            <p>(a) Show that $\nabla_{\tilde{x}} \log p_{\sigma_i}(\tilde{x}|x) = \frac{x - \tilde{x}}{\sigma_i^2}$ and simplify the objective. (b) With $\lambda(\sigma_i) = \sigma_i^2$, show this is equivalent to training a denoiser: $\epsilon_\theta(\tilde{x}, \sigma_i) \approx \epsilon$ where $\tilde{x} = x + \sigma_i \epsilon$. (c) Explain how this connects to DDPM: as $L \to \infty$ and we take $\sigma_i^2 = \bar{\sigma}^2(t_i)$ for a continuous noise schedule $t \in [0, T]$, the discrete sum becomes an integral and the iterative denoising process becomes the reverse of a stochastic differential equation.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Since $p(\tilde{x}|x) = \mathcal{N}(\tilde{x}; x, \sigma_i^2 I)$:</p>
+                                $$\log p(\tilde{x}|x) = -\frac{\|\tilde{x} - x\|^2}{2\sigma_i^2} - \frac{n}{2}\log(2\pi\sigma_i^2)$$
+                                $$\nabla_{\tilde{x}} \log p(\tilde{x}|x) = -\frac{\tilde{x} - x}{\sigma_i^2} = \frac{x - \tilde{x}}{\sigma_i^2}$$
+                                <p>Substituting into the objective:</p>
+                                $$\mathcal{L} = \sum_{i=1}^L \lambda(\sigma_i) \mathbb{E}\left[\left\|s_\theta(\tilde{x}, \sigma_i) - \frac{x - \tilde{x}}{\sigma_i^2}\right\|^2\right]$$
+                                <p><strong>(b)</strong> Let $\epsilon = \frac{\tilde{x} - x}{\sigma_i} \sim \mathcal{N}(0, I)$, so $x - \tilde{x} = -\sigma_i \epsilon$ and $\frac{x - \tilde{x}}{\sigma_i^2} = \frac{-\epsilon}{\sigma_i}$.</p>
+                                <p>Reparametrize: $s_\theta(\tilde{x}, \sigma_i) = \frac{-\epsilon_\theta(\tilde{x}, \sigma_i)}{\sigma_i}$.</p>
+                                <p>With $\lambda(\sigma_i) = \sigma_i^2$:</p>
+                                $$\mathcal{L} = \sum_{i=1}^L \sigma_i^2 \mathbb{E}\left[\left\|\frac{-\epsilon_\theta}{\sigma_i} - \frac{-\epsilon}{\sigma_i}\right\|^2\right] = \sum_{i=1}^L \mathbb{E}\left[\|\epsilon_\theta(\tilde{x}, \sigma_i) - \epsilon\|^2\right]$$
+                                <p>This is exactly the DDPM loss: predict the noise $\epsilon$ that was added.</p>
+                                <p><strong>(c)</strong> As $L \to \infty$ with a continuous schedule $\sigma^2(t)$: the forward process $x_t = x_0 + \sigma(t)\epsilon$ becomes an Ito SDE: $dx_t = f(x_t, t)dt + g(t)dw_t$ where $g(t) = \left(\frac{d\sigma^2(t)}{dt}\right)^{1/2}$ and $f$ depends on the schedule parameterization. The discrete denoising iterations converge to the reverse-time SDE:</p>
+                                $$dx = [f(x,t) - g^2(t)\nabla_x \log p_t(x)]dt + g(t)d\bar{w}$$
+                                <p>where $\bar{w}$ is a reverse-time Brownian motion. The trained score network $s_\theta \approx \nabla_x \log p_t$ provides the drift correction. This is Anderson's (1982) reverse-time SDE theorem applied to generative modeling — the foundation of Score SDE (Song et al., 2021).</p>
                             </div>
                         </div>
                     </div>
