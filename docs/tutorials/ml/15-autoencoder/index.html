@@ -85,14 +85,6 @@
     <!-- Main Content -->
     <div class="tutorial-wrapper">
         <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">Machine Learning</h3>
@@ -143,14 +135,12 @@
 
             <article class="article-content" id="theory">
 
-            <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                <h1>13. Autoencoders</h1>
-                <p class="lead">
-                Autoencoders learn to compress data into a lower-dimensional representation and reconstruct it.
-                We derive the architecture, understand the information bottleneck, and explore variants:
-                sparse, denoising, and contractive autoencoders.
-            </p>
-            </div>
+                <h1>14. Autoencoders</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    Autoencoders learn to compress data into a lower-dimensional representation and reconstruct it.
+                    We derive the architecture, understand the information bottleneck, and explore variants:
+                    sparse, denoising, and contractive autoencoders.
+                </p>
 
                 <!-- Section 1 -->
                 <h2 id="why-autoencoders">Why Autoencoders?</h2>
@@ -215,28 +205,115 @@
 
                 <p>
                     The encoder performs <strong>lossy compression</strong>. With $d &lt; n$, information must be lost.
-                    The autoencoder learns <em>which</em> information to keep.
+                    The autoencoder learns <em>which</em> information to keep. To understand this precisely,
+                    we need three information-theoretic quantities.
                 </p>
 
+                <h3>Entropy $H(X)$</h3>
+
                 <div class="math-block">
-                    $$I(X; Z) = H(X) - H(X | Z)$$
+                    $$H(X) = -\sum_x p(x) \log p(x)$$
                 </div>
 
                 <p>
-                    Since $H(X)$ is fixed, minimizing reconstruction loss maximizes $I(X; Z)$ subject to
-                    the bottleneck constraint. This connects directly to Shannon's <strong>rate-distortion theory</strong>:
+                    <strong>Intuition:</strong> $H(X)$ is the total uncertainty or average surprise in $X$. For our data,
+                    $H(X)$ is fixed — it's how much information the images inherently contain.
+                    (We covered this in detail in the <a href="../01-entropy/index.html">Entropy Fundamentals</a> tutorial.)
                 </p>
 
+                <h3>Conditional Entropy $H(X|Z)$</h3>
+
                 <div class="math-block">
-                    $$R(D) = \min_{p(z|x): \mathbb{E}[d(x,\hat{x})] \leq D} I(X; Z)$$
+                    $$H(X|Z) = -\sum_{x,z} p(x,z) \log p(x|z)$$
+                </div>
+
+                <p>
+                    <strong>Intuition:</strong> $H(X|Z)$ is the uncertainty remaining in $X$ after observing the latent code $Z$.
+                    If the autoencoder is perfect, $H(X|Z) = 0$ — knowing $Z$ tells us everything about $X$.
+                    If the encoding is useless, $H(X|Z) = H(X)$ — $Z$ tells us nothing.
+                </p>
+
+                <h3>Mutual Information $I(X; Z)$</h3>
+
+                <div class="definition-box">
+                    <div class="box-title">Mutual Information</div>
+                    <p>
+                        $$I(X; Z) = H(X) - H(X|Z)$$
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        $I(X; Z)$ measures how many bits of information about $X$ are preserved in $Z$.
+                        The autoencoder's reconstruction loss is a proxy for maximizing $I(X; Z)$ — the better the
+                        reconstruction, the more information $Z$ retained.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Key insight:</strong> Since $H(X)$ is fixed for our dataset, minimizing $H(X|Z)$
+                    (which corresponds to minimizing reconstruction error) is equivalent to maximizing $I(X; Z)$.
+                </p>
+
+                <h3>Shannon's Rate-Distortion Theory</h3>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Shannon's Rate-Distortion Theory</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>The question:</strong> What is the minimum number of bits (rate $R$) needed to describe
+                            a source $X$ such that the expected distortion $\mathbb{E}[d(X, \hat{X})]$ is at most $D$?
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Rate-distortion function:</strong>
+                            $$R(D) = \min_{p(z|x): \mathbb{E}[d(x,\hat{x})] \leq D} I(X; Z)$$
+                            This is the theoretical minimum — no encoder-decoder pair can achieve distortion $\leq D$
+                            while transmitting fewer than $R(D)$ bits.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>The autoencoder connection:</strong> The bottleneck dimension $d$ implicitly controls
+                            the rate. A $d$-dimensional continuous bottleneck can transmit at most a certain number of bits
+                            per sample. The training process finds the best encoding within this budget.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>The trade-off curve:</strong> $R(D)$ is a monotonically decreasing, convex curve.
+                            At one extreme ($R = 0$), the best reconstruction is just $\hat{x} = \mathbb{E}[X]$ (the mean).
+                            At the other extreme ($R \to \infty$), distortion drops to zero (perfect reconstruction).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Example: Gaussian Rate-Distortion</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Example:</strong> For a Gaussian source $X \sim \mathcal{N}(0, \sigma^2)$ with MSE distortion,
+                        Shannon proved $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ for $D \leq \sigma^2$.
+                        A source with variance $\sigma^2 = 4$ requires at least $R(1) = 1$ bit to achieve distortion $D = 1$.
+                        Halving the distortion to $D = 0.5$ costs an additional half bit: $R(0.5) = 1.5$ bits.
+                    </p>
                 </div>
 
                 <div class="definition-box">
                     <div class="box-title">Rate-Distortion Trade-off</div>
-                    <p style="margin-bottom: 0;">
-                        <strong>Rate:</strong> Bits needed to represent $z$ (limited by bottleneck dimension)<br>
+                    <p>
+                        <strong>Rate:</strong> Bits needed to represent $z$ (limited by bottleneck dimension $d$)<br>
                         <strong>Distortion:</strong> Reconstruction error $\|x - \hat{x}\|^2$<br>
                         <strong>Trade-off:</strong> Smaller bottleneck → more compression → higher distortion
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        An autoencoder with bottleneck dimension $d=2$ on MNIST (784-dim) achieves roughly 99.7% compression
+                        — the network must learn which 0.3% of information matters most.
                     </p>
                 </div>
 
@@ -461,6 +538,652 @@
 
             </article>
 
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Python Code Examples</h2>
+                <p>Three complete, runnable examples demonstrating autoencoder variants on MNIST using PyTorch: a basic autoencoder, a sparse autoencoder with KL sparsity penalty, and a denoising autoencoder.</p>
+
+                <!-- Code Example 1 -->
+                <h3>1. Basic Autoencoder on MNIST</h3>
+                <p>A fully-connected autoencoder that compresses 784-dimensional MNIST images to a 32-dimensional latent space and reconstructs them. Includes the encoder, decoder, training loop, and visualization of reconstructions.</p>
+
+<pre><code class="language-python">import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import numpy as np
+
+# ---- Model ----
+class Autoencoder(nn.Module):
+    def __init__(self, input_dim=784, latent_dim=32):
+        super().__init__()
+        # Encoder: 784 -> 256 -> 128 -> 32
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, latent_dim),
+            nn.ReLU()
+        )
+        # Decoder: 32 -> 128 -> 256 -> 784
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, input_dim),
+            nn.Sigmoid()  # output in [0, 1] for pixel values
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+# ---- Data ----
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Lambda(lambda x: x.view(-1))  # flatten 28x28 -> 784
+])
+
+train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+
+train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
+
+# ---- Training ----
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = Autoencoder(input_dim=784, latent_dim=32).to(device)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.MSELoss()
+
+num_epochs = 20
+for epoch in range(num_epochs):
+    model.train()
+    total_loss = 0
+    for batch_x, _ in train_loader:
+        batch_x = batch_x.to(device)
+
+        x_hat, z = model(batch_x)
+        loss = criterion(x_hat, batch_x)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item() * batch_x.size(0)
+
+    avg_loss = total_loss / len(train_dataset)
+    if (epoch + 1) % 5 == 0:
+        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {avg_loss:.6f}")
+
+# ---- Evaluate and Visualize ----
+model.eval()
+with torch.no_grad():
+    test_x, _ = next(iter(test_loader))
+    test_x = test_x.to(device)
+    recon_x, latent_z = model(test_x)
+
+n = 10  # number of images to display
+fig, axes = plt.subplots(2, n, figsize=(15, 3))
+for i in range(n):
+    # Original
+    axes[0, i].imshow(test_x[i].cpu().view(28, 28), cmap='gray')
+    axes[0, i].axis('off')
+    if i == 0:
+        axes[0, i].set_title('Original', fontsize=10)
+
+    # Reconstruction
+    axes[1, i].imshow(recon_x[i].cpu().view(28, 28), cmap='gray')
+    axes[1, i].axis('off')
+    if i == 0:
+        axes[1, i].set_title('Reconstructed', fontsize=10)
+
+plt.suptitle(f'Basic Autoencoder (latent_dim=32, MSE={avg_loss:.4f})')
+plt.tight_layout()
+plt.savefig('basic_autoencoder_results.png', dpi=150)
+plt.show()
+
+print(f"\nCompression ratio: {784}/{32} = {784/32:.1f}x")
+print(f"Information retained: {32}/{784} = {32/784*100:.1f}%")</code></pre>
+
+                <!-- Code Example 2 -->
+                <h3>2. Sparse Autoencoder with KL Sparsity Penalty</h3>
+                <p>This extends the basic autoencoder with a KL divergence sparsity penalty that encourages most hidden units to be inactive for any given input. The target sparsity $\rho$ controls how sparse the latent activations should be.</p>
+
+<pre><code class="language-python">import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+
+# ---- KL Sparsity Penalty ----
+def kl_divergence_sparsity(rho, rho_hat):
+    """
+    KL divergence between Bernoulli(rho) and Bernoulli(rho_hat).
+    rho: target sparsity (scalar, e.g. 0.05)
+    rho_hat: average activation per unit (tensor of shape [latent_dim])
+    Returns: sum of KL divergences across all latent units
+    """
+    # Clamp to avoid log(0)
+    rho_hat = torch.clamp(rho_hat, 1e-6, 1 - 1e-6)
+    kl = rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
+    return kl.sum()
+
+# ---- Model ----
+class SparseAutoencoder(nn.Module):
+    def __init__(self, input_dim=784, latent_dim=128):
+        super().__init__()
+        # Overcomplete: latent_dim > input bottleneck (but we add sparsity)
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, latent_dim),
+            nn.Sigmoid()  # activations in [0,1] for KL sparsity
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, input_dim),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+# ---- Data ----
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Lambda(lambda x: x.view(-1))
+])
+train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
+
+# ---- Training ----
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = SparseAutoencoder(input_dim=784, latent_dim=128).to(device)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+rho = 0.05          # target sparsity: 5% average activation
+beta = 3.0          # sparsity penalty weight
+num_epochs = 20
+
+for epoch in range(num_epochs):
+    model.train()
+    total_loss = 0
+    total_recon = 0
+    total_sparse = 0
+
+    for batch_x, _ in train_loader:
+        batch_x = batch_x.to(device)
+
+        x_hat, z = model(batch_x)
+
+        # Reconstruction loss
+        recon_loss = nn.functional.mse_loss(x_hat, batch_x)
+
+        # Sparsity penalty: average activation across the batch
+        rho_hat = z.mean(dim=0)  # shape: [latent_dim]
+        sparse_loss = kl_divergence_sparsity(rho, rho_hat)
+
+        # Total loss
+        loss = recon_loss + beta * sparse_loss
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item() * batch_x.size(0)
+        total_recon += recon_loss.item() * batch_x.size(0)
+        total_sparse += sparse_loss.item() * batch_x.size(0)
+
+    n = len(train_dataset)
+    if (epoch + 1) % 5 == 0:
+        print(f"Epoch [{epoch+1}/{num_epochs}] "
+              f"Total: {total_loss/n:.4f}  "
+              f"Recon: {total_recon/n:.6f}  "
+              f"Sparsity: {total_sparse/n:.4f}")
+
+# ---- Analyze Sparsity ----
+model.eval()
+with torch.no_grad():
+    sample_x, _ = next(iter(train_loader))
+    sample_x = sample_x.to(device)
+    _, z = model(sample_x)
+
+    avg_activation = z.mean(dim=0)  # per-unit average
+    print(f"\nTarget sparsity (rho): {rho}")
+    print(f"Achieved avg activation: {avg_activation.mean().item():.4f}")
+    print(f"Units with avg activation < 0.1: {(avg_activation < 0.1).sum().item()}/{z.shape[1]}")
+    print(f"Units with avg activation < 0.01: {(avg_activation < 0.01).sum().item()}/{z.shape[1]}")
+
+    # Show activation histogram
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+    axes[0].hist(avg_activation.cpu().numpy(), bins=50, edgecolor='black')
+    axes[0].axvline(x=rho, color='red', linestyle='--', label=f'target rho={rho}')
+    axes[0].set_xlabel('Average Activation')
+    axes[0].set_ylabel('Number of Units')
+    axes[0].set_title('Per-Unit Average Activation Distribution')
+    axes[0].legend()
+
+    # Show a single sample's activations (should be sparse)
+    single_z = z[0].cpu().numpy()
+    axes[1].bar(range(len(single_z)), single_z, width=1.0)
+    axes[1].set_xlabel('Latent Unit Index')
+    axes[1].set_ylabel('Activation')
+    axes[1].set_title(f'Single Sample Activations ({(single_z > 0.1).sum()} active units)')
+
+    plt.tight_layout()
+    plt.savefig('sparse_autoencoder_analysis.png', dpi=150)
+    plt.show()</code></pre>
+
+                <!-- Code Example 3 -->
+                <h3>3. Denoising Autoencoder</h3>
+                <p>A denoising autoencoder trained to reconstruct clean MNIST images from noisy inputs. Gaussian noise is added during training, and the model learns to remove it. This implicitly learns the data manifold structure.</p>
+
+<pre><code class="language-python">import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import numpy as np
+
+# ---- Model ----
+class DenoisingAutoencoder(nn.Module):
+    def __init__(self, input_dim=784, latent_dim=64):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, latent_dim),
+            nn.ReLU()
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, input_dim),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+def add_gaussian_noise(x, noise_factor=0.5):
+    """Add Gaussian noise and clamp to [0, 1]."""
+    noisy = x + noise_factor * torch.randn_like(x)
+    return torch.clamp(noisy, 0.0, 1.0)
+
+# ---- Data ----
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Lambda(lambda x: x.view(-1))
+])
+train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
+
+# ---- Training ----
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = DenoisingAutoencoder(input_dim=784, latent_dim=64).to(device)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.MSELoss()
+
+noise_factor = 0.5
+num_epochs = 20
+
+for epoch in range(num_epochs):
+    model.train()
+    total_loss = 0
+
+    for batch_x, _ in train_loader:
+        batch_x = batch_x.to(device)
+
+        # Step 1: Corrupt the input
+        noisy_x = add_gaussian_noise(batch_x, noise_factor)
+
+        # Step 2-3: Encode noisy input, decode
+        x_hat, z = model(noisy_x)
+
+        # Step 4: Loss compares to CLEAN input (not noisy)
+        loss = criterion(x_hat, batch_x)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item() * batch_x.size(0)
+
+    avg_loss = total_loss / len(train_dataset)
+    if (epoch + 1) % 5 == 0:
+        print(f"Epoch [{epoch+1}/{num_epochs}], Denoising Loss: {avg_loss:.6f}")
+
+# ---- Evaluate: Denoise Test Images ----
+model.eval()
+with torch.no_grad():
+    test_x, _ = next(iter(test_loader))
+    test_x = test_x.to(device)
+    noisy_test = add_gaussian_noise(test_x, noise_factor)
+    denoised, _ = model(noisy_test)
+
+n = 10
+fig, axes = plt.subplots(3, n, figsize=(15, 4.5))
+for i in range(n):
+    # Original
+    axes[0, i].imshow(test_x[i].cpu().view(28, 28), cmap='gray')
+    axes[0, i].axis('off')
+    if i == 0:
+        axes[0, i].set_title('Original', fontsize=10)
+
+    # Noisy
+    axes[1, i].imshow(noisy_test[i].cpu().view(28, 28), cmap='gray')
+    axes[1, i].axis('off')
+    if i == 0:
+        axes[1, i].set_title('Noisy', fontsize=10)
+
+    # Denoised
+    axes[2, i].imshow(denoised[i].cpu().view(28, 28), cmap='gray')
+    axes[2, i].axis('off')
+    if i == 0:
+        axes[2, i].set_title('Denoised', fontsize=10)
+
+plt.suptitle(f'Denoising Autoencoder (noise_factor={noise_factor}, loss={avg_loss:.4f})')
+plt.tight_layout()
+plt.savefig('denoising_autoencoder_results.png', dpi=150)
+plt.show()
+
+# ---- Compare: noise levels ----
+print("\nDenoising performance at different noise levels:")
+for nf in [0.1, 0.3, 0.5, 0.7, 1.0]:
+    with torch.no_grad():
+        noisy = add_gaussian_noise(test_x, nf)
+        recon, _ = model(noisy)
+        mse = nn.functional.mse_loss(recon, test_x).item()
+        print(f"  noise_factor={nf:.1f}: MSE={mse:.6f}")</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of autoencoder theory, from linear autoencoders and PCA equivalence to information-theoretic foundations and advanced regularization techniques. Solutions are provided for self-study.</p>
+
+                <div class="exercise-group">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Linear Autoencoder = PCA</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a linear autoencoder with encoder $z = Wx$ and decoder $\hat{x} = W^T z$ (no activation functions, tied weights), trained with MSE loss $\mathcal{L} = \frac{1}{N}\sum_{i=1}^N \|x^{(i)} - W^T W x^{(i)}\|^2$. Show that the optimal $W \in \mathbb{R}^{d \times n}$ has rows equal to the top-$d$ eigenvectors of the data covariance matrix $\Sigma = \frac{1}{N}\sum_{i=1}^N x^{(i)} (x^{(i)})^T$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>We want to minimize $\mathcal{L} = \frac{1}{N}\sum_i \|x^{(i)} - W^T W x^{(i)}\|^2 = \mathbb{E}[\|x - W^T Wx\|^2]$.</p>
+                                <p>Let $P = W^T W$. This is a projection matrix (onto the column space of $W^T$). The loss becomes $\mathbb{E}[\|x - Px\|^2] = \mathbb{E}[\|(I - P)x\|^2]$.</p>
+                                <p>Expanding: $\mathbb{E}[\|(I-P)x\|^2] = \text{tr}((I-P)\Sigma(I-P)^T) = \text{tr}(\Sigma) - 2\text{tr}(P\Sigma) + \text{tr}(P\Sigma P^T)$.</p>
+                                <p>Since $P$ is an orthogonal projection ($P^2 = P$, $P = P^T$), we have $P\Sigma P^T = P\Sigma P$, and the loss simplifies to $\text{tr}(\Sigma) - \text{tr}(P\Sigma)$.</p>
+                                <p>Minimizing the loss is equivalent to maximizing $\text{tr}(P\Sigma) = \text{tr}(W^T W \Sigma)$. Writing $W$ with rows $w_1, \ldots, w_d$ (orthonormal), this equals $\sum_{k=1}^d w_k^T \Sigma w_k$.</p>
+                                <p>By the Rayleigh quotient, each $w_k^T \Sigma w_k$ is maximized when $w_k$ is an eigenvector of $\Sigma$, and the sum is maximized by choosing the top-$d$ eigenvectors. Therefore $\Sigma w_k = \lambda_k w_k$ for the $d$ largest eigenvalues $\lambda_1 \geq \cdots \geq \lambda_d$.</p>
+                                <p>This is exactly PCA: the rows of the optimal $W$ are the principal components, and $z = Wx$ gives the PCA projection.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Reconstruction Error Calculation</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Given a 1-layer autoencoder with $W = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix}$, $b = 0$, $W' = W^T$, $b' = 0$ (no activation function), compute the latent code and reconstruction for $x = (3, 4, 5)^T$. What information is lost?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Encoding:</strong> $z = Wx = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} \begin{pmatrix} 3 \\ 4 \\ 5 \end{pmatrix} = \begin{pmatrix} 3 \\ 4 \end{pmatrix}$</p>
+                                <p><strong>Decoding:</strong> $\hat{x} = W^T z = \begin{pmatrix} 1 & 0 \\ 0 & 1 \\ 0 & 0 \end{pmatrix} \begin{pmatrix} 3 \\ 4 \end{pmatrix} = \begin{pmatrix} 3 \\ 4 \\ 0 \end{pmatrix}$</p>
+                                <p><strong>What is lost:</strong> The third component ($x_3 = 5$) is completely lost. The encoder projects onto the first two coordinates, discarding the third dimension entirely.</p>
+                                <p><strong>Reconstruction error:</strong> $\|x - \hat{x}\|^2 = (3-3)^2 + (4-4)^2 + (5-0)^2 = 0 + 0 + 25 = 25$</p>
+                                <p>This illustrates how the bottleneck ($d=2 < n=3$) forces information loss. A smarter autoencoder might learn a different projection that distributes the error more evenly, but with this fixed $W$, all error concentrates on the discarded dimension.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Undercomplete vs Overcomplete</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>An autoencoder has input dimension $n = 100$ and latent dimension $d = 150$. (a) Is this undercomplete or overcomplete? (b) What pathological solution can it learn? (c) Name two regularization strategies to prevent this.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> This is <strong>overcomplete</strong> because $d = 150 > n = 100$. The latent space is higher-dimensional than the input.</p>
+                                <p><strong>(b)</strong> The network can learn the <strong>identity mapping</strong>: the encoder simply copies the input (plus padding with zeros), and the decoder copies it back. This achieves zero reconstruction loss without learning any useful features. Formally, the encoder can set $z = (x, 0_{50})$ and the decoder can read out the first 100 components.</p>
+                                <p><strong>(c)</strong> Two regularization strategies:</p>
+                                <ul>
+                                    <li><strong>Sparse autoencoder:</strong> Add a sparsity penalty ($L_1$ or KL divergence) on the latent activations. This forces most latent units to be inactive for any given input, preventing the identity solution even though $d > n$.</li>
+                                    <li><strong>Denoising autoencoder:</strong> Corrupt the input before encoding. The identity mapping on corrupted inputs would produce corrupted outputs, so the network must learn the data structure to denoise.</li>
+                                </ul>
+                                <p>A third option is the <strong>contractive autoencoder</strong>, which penalizes the Frobenius norm of the encoder's Jacobian, discouraging sensitivity to input perturbations.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. KL Sparsity Gradient</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive $\frac{\partial}{\partial \hat{\rho}_j} D_{KL}(\rho \| \hat{\rho}_j)$ where $D_{KL}(\rho \| \hat{\rho}_j) = \rho \log\frac{\rho}{\hat{\rho}_j} + (1-\rho)\log\frac{1-\rho}{1-\hat{\rho}_j}$, and show it equals $-\frac{\rho}{\hat{\rho}_j} + \frac{1-\rho}{1-\hat{\rho}_j}$. Discuss: what happens when $\hat{\rho}_j > \rho$? When $\hat{\rho}_j < \rho$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>Starting from $D_{KL}(\rho \| \hat{\rho}_j) = \rho \log\rho - \rho\log\hat{\rho}_j + (1-\rho)\log(1-\rho) - (1-\rho)\log(1-\hat{\rho}_j)$:</p>
+                                <p>Taking the derivative with respect to $\hat{\rho}_j$:</p>
+                                $$\frac{\partial}{\partial \hat{\rho}_j} D_{KL} = -\frac{\rho}{\hat{\rho}_j} - (1-\rho) \cdot \frac{-1}{1-\hat{\rho}_j} = -\frac{\rho}{\hat{\rho}_j} + \frac{1-\rho}{1-\hat{\rho}_j}$$
+                                <p><strong>When $\hat{\rho}_j > \rho$</strong> (unit is too active): The gradient is positive. Since we are minimizing the KL divergence, gradient descent will decrease $\hat{\rho}_j$, pushing it back toward $\rho$. The positive gradient means "the average activation is too high; reduce it."</p>
+                                <p><strong>When $\hat{\rho}_j < \rho$</strong> (unit is too inactive): The gradient is negative. Gradient descent will increase $\hat{\rho}_j$, pushing it toward $\rho$. The negative gradient means "the average activation is too low; increase it."</p>
+                                <p><strong>At equilibrium</strong> $\hat{\rho}_j = \rho$: The gradient is $-\frac{\rho}{\rho} + \frac{1-\rho}{1-\rho} = -1 + 1 = 0$, confirming that $\hat{\rho}_j = \rho$ is the stationary point. This is also the global minimum of $D_{KL}(\rho \| \hat{\rho}_j)$ since KL divergence is non-negative and equals zero iff the distributions match.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Tied Weights Constraint</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>If $W' = W^T$ (tied weights) and $W \in \mathbb{R}^{d \times n}$, how many free parameters does the autoencoder have compared to untied weights? For $n = 784, d = 32$, compute both counts. (Include bias terms: encoder bias $b \in \mathbb{R}^d$, decoder bias $b' \in \mathbb{R}^n$.)</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Tied weights:</strong></p>
+                                <ul>
+                                    <li>Encoder weight $W \in \mathbb{R}^{d \times n}$: $d \times n$ parameters</li>
+                                    <li>Decoder weight $W' = W^T$: 0 additional parameters (shared)</li>
+                                    <li>Encoder bias $b \in \mathbb{R}^d$: $d$ parameters</li>
+                                    <li>Decoder bias $b' \in \mathbb{R}^n$: $n$ parameters</li>
+                                    <li><strong>Total:</strong> $dn + d + n$</li>
+                                </ul>
+                                <p><strong>Untied weights:</strong></p>
+                                <ul>
+                                    <li>Encoder weight $W \in \mathbb{R}^{d \times n}$: $d \times n$ parameters</li>
+                                    <li>Decoder weight $W' \in \mathbb{R}^{n \times d}$: $n \times d$ parameters</li>
+                                    <li>Encoder bias $b \in \mathbb{R}^d$: $d$ parameters</li>
+                                    <li>Decoder bias $b' \in \mathbb{R}^n$: $n$ parameters</li>
+                                    <li><strong>Total:</strong> $2dn + d + n$</li>
+                                </ul>
+                                <p><strong>For $n = 784, d = 32$:</strong></p>
+                                <ul>
+                                    <li>Tied: $784 \times 32 + 32 + 784 = 25{,}088 + 32 + 784 = 25{,}904$</li>
+                                    <li>Untied: $2 \times 784 \times 32 + 32 + 784 = 50{,}176 + 32 + 784 = 50{,}992$</li>
+                                </ul>
+                                <p>Tied weights use roughly half the parameters ($25{,}904$ vs $50{,}992$), which acts as a form of regularization and can help prevent overfitting, especially with limited training data.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Denoising Optimality</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Show that for the MSE loss with noise $\tilde{x} = x + \epsilon$ where $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$, the optimal denoising function is $g^*(\tilde{x}) = \mathbb{E}[X | \tilde{X} = \tilde{x}]$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>We want to find $g^*$ that minimizes the expected MSE:</p>
+                                $$\mathcal{L}(g) = \mathbb{E}_{X, \tilde{X}}[\|X - g(\tilde{X})\|^2]$$
+                                <p>We can decompose this using the law of iterated expectations, conditioning on $\tilde{X}$:</p>
+                                $$\mathcal{L}(g) = \mathbb{E}_{\tilde{X}}\left[\mathbb{E}_{X|\tilde{X}}[\|X - g(\tilde{X})\|^2 \mid \tilde{X}]\right]$$
+                                <p>For any fixed $\tilde{x}$, the inner expectation $\mathbb{E}[\|X - c\|^2 | \tilde{X} = \tilde{x}]$ over a constant $c = g(\tilde{x})$ is minimized when $c = \mathbb{E}[X | \tilde{X} = \tilde{x}]$. This is a standard result: the conditional mean minimizes the conditional MSE.</p>
+                                <p><strong>Proof of the inner claim:</strong> Let $\mu = \mathbb{E}[X | \tilde{X} = \tilde{x}]$. Then:</p>
+                                $$\mathbb{E}[\|X - c\|^2 | \tilde{X}] = \mathbb{E}[\|X - \mu + \mu - c\|^2 | \tilde{X}]$$
+                                $$= \mathbb{E}[\|X - \mu\|^2 | \tilde{X}] + 2\mathbb{E}[(X - \mu)^T(\mu - c) | \tilde{X}] + \|\mu - c\|^2$$
+                                <p>The cross term vanishes because $\mathbb{E}[X - \mu | \tilde{X}] = 0$ by definition of conditional expectation. The first term is the irreducible conditional variance (does not depend on $c$). The third term $\|\mu - c\|^2 \geq 0$ is minimized when $c = \mu$.</p>
+                                <p>Since this holds for each $\tilde{x}$, the optimal $g^*(\tilde{x}) = \mathbb{E}[X | \tilde{X} = \tilde{x}]$ minimizes the overall loss.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Information Content of Bottleneck</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A 2-dimensional bottleneck uses 32-bit floats per dimension. What is the maximum number of bits per sample? Why is the effective rate typically much lower?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Maximum bits:</strong> $2 \times 32 = 64$ bits per sample. Each of the 2 dimensions is stored as a 32-bit float, so the raw storage capacity is 64 bits.</p>
+                                <p><strong>Why the effective rate is much lower:</strong></p>
+                                <p>The autoencoder maps inputs to a low-dimensional manifold within $\mathbb{R}^2$. The effective information content is determined by the <em>entropy</em> of the latent distribution $p(z)$, not the bit-width of the representation.</p>
+                                <ul>
+                                    <li><strong>Concentrated distribution:</strong> If the encoder maps all MNIST digits to a small region of $\mathbb{R}^2$ (say, 10 clusters for 10 digit classes), the effective entropy is $H(Z) \approx \log_2 10 \approx 3.3$ bits — far less than 64.</li>
+                                    <li><strong>Smooth manifold:</strong> The encoder learns a continuous mapping, so $z$ values are not spread uniformly across the full 32-bit float range. Most of the $2^{64}$ possible bit patterns are never produced.</li>
+                                    <li><strong>Correlation:</strong> The two latent dimensions may be correlated, further reducing the effective information.</li>
+                                    <li><strong>Precision vs information:</strong> Using 32-bit floats provides numerical precision for gradient-based optimization, but the meaningful information content is determined by the signal-to-noise ratio of the latent activations, which is much less than 32 bits per dimension.</li>
+                                </ul>
+                                <p>A rough estimate: if each latent dimension effectively uses about 4-8 bits of meaningful precision (based on the spread of activations relative to reconstruction sensitivity), the effective rate is roughly 8-16 bits per sample, not 64.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Contractive Jacobian Computation</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>For encoder $f(x) = \sigma(Wx + b)$ with sigmoid activation $\sigma$, derive the Jacobian $J_{ij} = \frac{\partial z_i}{\partial x_j}$ and show that $\|J\|_F^2 = \sum_i z_i^2(1-z_i)^2 \sum_j W_{ij}^2$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>The encoder computes $z_i = \sigma(a_i)$ where $a_i = \sum_j W_{ij} x_j + b_i$ is the pre-activation.</p>
+                                <p><strong>Step 1: Jacobian entry.</strong> By the chain rule:</p>
+                                $$J_{ij} = \frac{\partial z_i}{\partial x_j} = \frac{\partial \sigma(a_i)}{\partial a_i} \cdot \frac{\partial a_i}{\partial x_j} = \sigma'(a_i) \cdot W_{ij}$$
+                                <p><strong>Step 2: Sigmoid derivative.</strong> For the sigmoid function, $\sigma'(a) = \sigma(a)(1 - \sigma(a)) = z_i(1 - z_i)$. Therefore:</p>
+                                $$J_{ij} = z_i(1 - z_i) W_{ij}$$
+                                <p><strong>Step 3: Frobenius norm.</strong></p>
+                                $$\|J\|_F^2 = \sum_{i} \sum_{j} J_{ij}^2 = \sum_{i} \sum_{j} [z_i(1-z_i)]^2 W_{ij}^2$$
+                                $$= \sum_{i} z_i^2(1-z_i)^2 \sum_{j} W_{ij}^2$$
+                                <p>The last step factors because $z_i(1-z_i)$ does not depend on $j$.</p>
+                                <p><strong>Interpretation:</strong> The contractive penalty $\|J\|_F^2$ has two factors for each hidden unit $i$:</p>
+                                <ul>
+                                    <li>$z_i^2(1-z_i)^2$: the squared sigmoid derivative, which is largest when $z_i \approx 0.5$ (on the linear part of the sigmoid) and smallest when $z_i \approx 0$ or $z_i \approx 1$ (saturated). Units in saturation are already locally invariant.</li>
+                                    <li>$\sum_j W_{ij}^2$: the squared norm of the $i$-th row of $W$. Large weights amplify input perturbations.</li>
+                                </ul>
+                                <p>The penalty thus encourages either small weights (like $L_2$ regularization) or saturated activations (which create flat regions in the encoding function).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Rate-Distortion for Gaussian Source</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>For a Gaussian source $X \sim \mathcal{N}(0, \sigma^2)$ with MSE distortion, verify that $R(D) = \frac{1}{2}\log_2 \frac{\sigma^2}{D}$ by computing $I(X; Z)$ for the "test channel" $Z = X + N$ where $N \sim \mathcal{N}(0, \sigma_N^2)$ is independent noise, with $\hat{X} = \frac{\sigma^2}{\sigma^2 + \sigma_N^2} Z$ being the MMSE estimator. Set the distortion equal to $D$ and solve for $I(X;Z)$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Step 1: Compute the distortion.</strong> The MMSE estimator of $X$ given $Z = X + N$ is:</p>
+                                $$\hat{X} = \mathbb{E}[X|Z] = \frac{\sigma^2}{\sigma^2 + \sigma_N^2} Z$$
+                                <p>The MSE distortion is:</p>
+                                $$D = \mathbb{E}[(X - \hat{X})^2] = \text{Var}(X|Z) = \sigma^2 - \frac{\sigma^4}{\sigma^2 + \sigma_N^2} = \frac{\sigma^2 \sigma_N^2}{\sigma^2 + \sigma_N^2}$$
+                                <p><strong>Step 2: Solve for $\sigma_N^2$ in terms of $D$.</strong></p>
+                                $$D(\sigma^2 + \sigma_N^2) = \sigma^2 \sigma_N^2 \implies D\sigma^2 + D\sigma_N^2 = \sigma^2 \sigma_N^2 \implies \sigma_N^2 = \frac{D\sigma^2}{\sigma^2 - D}$$
+                                <p><strong>Step 3: Compute $I(X; Z)$.</strong> Since $X$ and $N$ are independent Gaussians, $Z \sim \mathcal{N}(0, \sigma^2 + \sigma_N^2)$. Using $I(X;Z) = h(Z) - h(Z|X) = h(Z) - h(N)$:</p>
+                                $$h(Z) = \frac{1}{2}\log_2(2\pi e(\sigma^2 + \sigma_N^2))$$
+                                $$h(N) = \frac{1}{2}\log_2(2\pi e \sigma_N^2)$$
+                                $$I(X;Z) = \frac{1}{2}\log_2\frac{\sigma^2 + \sigma_N^2}{\sigma_N^2}$$
+                                <p><strong>Step 4: Substitute $\sigma_N^2$.</strong></p>
+                                $$\frac{\sigma^2 + \sigma_N^2}{\sigma_N^2} = 1 + \frac{\sigma^2}{\sigma_N^2} = 1 + \frac{\sigma^2(\sigma^2 - D)}{D\sigma^2} = 1 + \frac{\sigma^2 - D}{D} = \frac{\sigma^2}{D}$$
+                                <p>Therefore:</p>
+                                $$I(X; Z) = \frac{1}{2}\log_2\frac{\sigma^2}{D} = R(D)$$
+                                <p>This confirms the rate-distortion function. The Gaussian test channel achieves the theoretical minimum: no encoding scheme can do better than $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ bits for distortion $D$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Score Matching Connection</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Show that the denoising autoencoder loss with Gaussian noise $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$ is equivalent to learning the score function $\nabla_x \log p(x)$ up to a constant. Start from $\mathcal{L} = \mathbb{E}_{x, \epsilon}[\|g(\tilde{x}) - x\|^2]$ and derive the connection $\nabla_{\tilde{x}} \log p(\tilde{x}) \approx \frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2}$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Step 1: Optimal denoiser via Tweedie's formula.</strong> From Exercise 6, we know $g^*(\tilde{x}) = \mathbb{E}[X | \tilde{X} = \tilde{x}]$. For the Gaussian noise model $\tilde{X} = X + \epsilon$ with $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$:</p>
+                                <p>By Bayes' rule: $p(x|\tilde{x}) = \frac{p(\tilde{x}|x) p(x)}{p(\tilde{x})}$ where $p(\tilde{x}|x) = \mathcal{N}(\tilde{x}; x, \sigma^2 I)$.</p>
+                                <p><strong>Step 2: Compute the score of the noisy distribution.</strong></p>
+                                $$\nabla_{\tilde{x}} \log p(\tilde{x}) = \nabla_{\tilde{x}} \log \int p(\tilde{x}|x) p(x) dx = \frac{\int \nabla_{\tilde{x}} p(\tilde{x}|x) p(x) dx}{p(\tilde{x})}$$
+                                <p>Since $p(\tilde{x}|x) = \mathcal{N}(\tilde{x}; x, \sigma^2 I)$, we have $\nabla_{\tilde{x}} \log p(\tilde{x}|x) = \frac{x - \tilde{x}}{\sigma^2}$, so $\nabla_{\tilde{x}} p(\tilde{x}|x) = p(\tilde{x}|x) \cdot \frac{x - \tilde{x}}{\sigma^2}$.</p>
+                                <p>Substituting:</p>
+                                $$\nabla_{\tilde{x}} \log p(\tilde{x}) = \frac{1}{p(\tilde{x})} \int \frac{x - \tilde{x}}{\sigma^2} p(\tilde{x}|x) p(x) dx = \frac{1}{\sigma^2}\left(\int x \cdot p(x|\tilde{x}) dx - \tilde{x}\right)$$
+                                $$= \frac{\mathbb{E}[X|\tilde{X} = \tilde{x}] - \tilde{x}}{\sigma^2} = \frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2}$$
+                                <p>This is <strong>Tweedie's formula</strong>: the score of the noisy distribution equals the optimal denoising direction scaled by $1/\sigma^2$.</p>
+                                <p><strong>Step 3: The connection.</strong> A trained denoising autoencoder with output $g(\tilde{x}) \approx g^*(\tilde{x})$ implicitly provides an estimate of the score:</p>
+                                $$\nabla_{\tilde{x}} \log p_\sigma(\tilde{x}) \approx \frac{g(\tilde{x}) - \tilde{x}}{\sigma^2}$$
+                                <p>As $\sigma \to 0$, $p_\sigma(\tilde{x}) \to p(x)$ and we recover the score of the clean data distribution. This is the foundation of <strong>score-based generative models</strong> and <strong>diffusion models</strong> (DDPM, Score SDE), which train denoisers at multiple noise levels $\sigma$ to estimate the score function across scales.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
         </main>
 
         <!-- TOC (Right Side) -->
@@ -512,6 +1235,64 @@
                     throwOnError: false
                 });
             }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
         });
     </script>
 </body>
