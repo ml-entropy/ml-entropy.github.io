@@ -157,6 +157,13 @@
                 </p>
 
                 <div class="note-box">
+                    <div class="box-title">Connection to Tutorial 17 (Inductive Bias)</div>
+                    <p style="margin-bottom: 0;">
+                        In Tutorial 17, we introduced <em>language bias</em> (restricting the hypothesis space $\mathcal{H}$) and <em>preference bias</em> (favoring certain solutions within $\mathcal{H}$). Architecture is the most powerful form of language bias: by choosing convolutions over fully-connected layers, for example, we eliminate all non-translation-equivariant functions from $\mathcal{H}$. This tutorial shows exactly how each architecture carves out its hypothesis space through symmetry and weight sharing.
+                    </p>
+                </div>
+
+                <div class="note-box">
                     <div class="box-title">The Key Insight</div>
                     <p style="margin-bottom: 0;">
                         A neural network architecture doesn't just process data &mdash; it makes a structural claim about the world. A CNN claims "local patterns matter and are translation-invariant." An RNN claims "order matters and patterns repeat across time." Choosing the wrong architecture means fighting against the structure of your data.
@@ -214,6 +221,16 @@
                 </p>
 
                 <div class="definition-box">
+                    <div class="box-title">Group and Group Action</div>
+                    <p>
+                        A <strong>group</strong> $(G, \circ)$ is a set $G$ with an operation $\circ$ satisfying four axioms: (1) <em>closure</em> — $g_1 \circ g_2 \in G$, (2) <em>associativity</em> — $(g_1 \circ g_2) \circ g_3 = g_1 \circ (g_2 \circ g_3)$, (3) <em>identity</em> — there exists $e \in G$ such that $e \circ g = g$, and (4) <em>inverses</em> — for every $g$ there exists $g^{-1}$ such that $g \circ g^{-1} = e$.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        A <strong>group action</strong> $T_g$ describes how a group element $g$ transforms data. For example, the <em>translation group</em> $(\mathbb{Z}, +)$ acts on 1D signals by shifting: $T_t(x)[n] = x[n - t]$. The <em>permutation group</em> $S_n$ acts on sets by reordering elements: $T_\pi(x) = (x_{\pi(1)}, \ldots, x_{\pi(n)})$. These are the symmetry groups that architectures are designed to respect.
+                    </p>
+                </div>
+
+                <div class="definition-box">
                     <div class="box-title">Equivariance</div>
                     <p style="margin-bottom: 0;">
                         A function $f$ is equivariant to a transformation group $G$ if applying a transformation $g \in G$ to the input produces a correspondingly transformed output:
@@ -244,7 +261,9 @@
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            This equals $(w * x)[n-t] = T_t(w * x)[n]$. Therefore $w * T_t(x) = T_t(w * x)$. QED.
+                            Substitute $m = n - t$ (so $n - k - t = m - k$):
+                            $$\sum_k w[k] \cdot x[n-k-t] = \sum_k w[k] \cdot x[m-k] = (w * x)[m] = (w * x)[n-t]$$
+                            But $(w * x)[n-t]$ is exactly $T_t(w * x)[n]$. Therefore $w * T_t(x) = T_t(w * x)$. QED.
                         </div>
                     </div>
                 </div>
@@ -297,8 +316,44 @@
                 </div>
 
                 <p>
+                    Here $d_k$ is the dimension of the key vectors (and queries). The scaling factor $\sqrt{d_k}$ prevents the dot products $QK^T$ from growing large in magnitude as $d_k$ increases. Without it, the softmax would saturate — pushing its outputs toward one-hot vectors — which causes vanishingly small gradients. Dividing by $\sqrt{d_k}$ keeps the variance of the dot products at roughly 1, ensuring the softmax stays in a region with meaningful gradients.
+                </p>
+
+                <p>
                     <strong>Key property:</strong> Self-attention is permutation equivariant &mdash; without position encodings, the output is unchanged by reordering the input tokens. This means self-attention treats its input as a <em>set</em>, not a sequence.
                 </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Proof: Self-Attention is Permutation Equivariant</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Let $P$ be a permutation matrix and let $X' = PX$ be the row-permuted input. The queries, keys, and values become $Q' = PXW_Q = PQ$, $K' = PK$, $V' = PV$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Compute the attention scores: $Q'K'^T = (PQ)(PK)^T = PQ K^T P^T$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Apply softmax row-wise: $\text{softmax}(PQK^TP^T) = P \,\text{softmax}(QK^T) \,P^T$. This works because $P$ permutes rows and $P^T$ permutes columns — softmax is applied per row, and permuting rows then permuting columns back preserves the row-wise operation.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            Multiply by $V' = PV$: $P\,\text{softmax}(QK^T)\,P^T \cdot PV = P\,\text{softmax}(QK^T)\,V$, since $P^TP = I$. This gives $P \cdot \text{Attention}(X) = \text{Attention}(PX)$. QED.
+                        </div>
+                    </div>
+                </div>
 
                 <p>
                     <strong>Position encodings as injected bias.</strong> Since self-attention is permutation-equivariant by design, sequential order must be explicitly injected via position encodings. This is an architectural choice: you add exactly the bias you need, rather than having it baked into the computation graph as in RNNs.
@@ -323,7 +378,11 @@
                 </div>
 
                 <p>
-                    <strong>Key bias: equivariance under node permutation.</strong> Relabeling the nodes of a graph shouldn't change the output. The AGGREGATE function (e.g., sum, mean) is permutation-invariant over neighbors, ensuring this property. This means a GNN produces the same result regardless of how the nodes happen to be indexed.
+                    <strong>Key bias: equivariance under node permutation.</strong> Relabeling the nodes of a graph shouldn't change the output. The AGGREGATE function (e.g., sum, mean, max) is permutation-invariant over neighbors, ensuring this property. This means a GNN produces the same result regardless of how the nodes happen to be indexed.
+                </p>
+
+                <p>
+                    <strong>Why must AGGREGATE be permutation-invariant?</strong> The neighbor set $\mathcal{N}(v)$ has no natural ordering — node 3's neighbors $\{7, 2, 5\}$ could equally be listed as $\{2, 5, 7\}$ or $\{5, 7, 2\}$. If AGGREGATE were sensitive to the order (like concatenation or an RNN), the output would depend on an arbitrary indexing convention, breaking equivariance. Functions like sum, mean, and max produce the same result regardless of input order, making them valid choices. This is why GNN papers always choose symmetric aggregation functions.
                 </p>
 
                 <!-- Section 7 -->

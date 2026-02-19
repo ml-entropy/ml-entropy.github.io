@@ -202,9 +202,12 @@
 
                 <div class="note-box">
                     <div class="box-title">Tied Weights</div>
-                    <p style="margin-bottom: 0;">
+                    <p>
                         Setting decoder weights $W' = W^T$ halves parameters and acts as regularization.
                         The decoder is forced to use the transpose of the encoder's learned features.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>Why does this help?</strong> With untied weights, the encoder and decoder can "conspire" — the encoder maps data to an arbitrary code using $W$, and the decoder inverts it using an independent $W'$. The code need not be meaningful. Tying forces $W' = W^T$, which means the encoder and decoder share the same linear subspace. The columns of $W$ are used for encoding and the rows of $W$ (= columns of $W^T$) for decoding, so the latent space must be interpretable in both directions. This prevents degenerate solutions and pushes the learned features toward principal directions of the data.
                     </p>
                 </div>
 
@@ -263,6 +266,10 @@
                 <h3>Shannon's Rate-Distortion Theory</h3>
 
                 <p>
+                    We've seen that the bottleneck forces lossy compression and that the autoencoder maximizes $I(X; Z)$ within a capacity budget. But what is the <em>theoretical limit</em> of this trade-off? How few bits can we get away with for a given reconstruction quality? Shannon's rate-distortion theory gives the exact answer.
+                </p>
+
+                <p>
                     Imagine you need to describe a photograph over a phone call. If you can say 1000 words, you can describe it precisely. With 10 words, you can convey the gist: "a cat on a red couch." With 1 word: "cat." Each reduction in description length (rate) forces more loss of detail (distortion). Shannon's rate-distortion theory tells us the <em>fundamental limit</em>: for a given level of acceptable distortion, what is the absolute minimum number of bits needed?
                 </p>
 
@@ -272,7 +279,7 @@
                         <strong>Source:</strong> A random variable $X$ with distribution $p(x)$ (e.g., images from a dataset).<br>
                         <strong>Encoder:</strong> Maps $X$ to a compressed representation $Z$ via a conditional distribution $p(z|x)$.<br>
                         <strong>Decoder:</strong> Reconstructs $\hat{X}$ from $Z$ via $p(\hat{x}|z)$.<br>
-                        <strong>Distortion measure:</strong> $d(x, \hat{x})$ quantifies how bad the reconstruction is. For MSE: $d(x, \hat{x}) = \|x - \hat{x}\|^2$.<br>
+                        <strong>Distortion measure:</strong> $d(x, \hat{x})$ is a function chosen by the practitioner to quantify how bad the reconstruction is. The most common choice is MSE: $d(x, \hat{x}) = \|x - \hat{x}\|^2$. For discrete data (e.g., text), Hamming distance $d(x, \hat{x}) = \sum_j \mathbf{1}[x_j \neq \hat{x}_j]$ counts the number of disagreeing symbols. The choice of $d$ shapes the entire rate-distortion trade-off.<br>
                         <strong>Rate:</strong> The mutual information $I(X; Z)$ — the number of bits the encoder "communicates" about $X$ through $Z$.
                     </p>
                     <p style="margin-bottom: 0;">
@@ -296,6 +303,7 @@
                         <div class="math-step-content">
                             <strong>Rate-distortion function:</strong>
                             $$R(D) = \min_{p(z|x): \mathbb{E}[d(x,\hat{x})] \leq D} I(X; Z)$$
+                            <p><strong>Notation:</strong> The colon "$:$" reads as "such that." The expression $\min_{p(z|x): \mathbb{E}[d(x,\hat{x})] \leq D}$ means "minimize over all $p(z|x)$ <em>such that</em> $\mathbb{E}[d(x,\hat{x})] \leq D$." The part before the colon is the optimization variable; the part after is the constraint.</p>
                             <p>Read this carefully: we search over all possible encoders $p(z|x)$ — every conceivable way to compress $X$ into $Z$ — subject to the constraint that the average distortion stays within budget $D$. Among all such encoders, we pick the one that transmits the <em>fewest bits</em> $I(X;Z)$. This minimum is $R(D)$.</p>
                             <p style="margin-bottom: 0;">No encoder-decoder pair — no matter how clever — can achieve distortion $\leq D$ while transmitting fewer than $R(D)$ bits. This is the <strong>fundamental limit of lossy compression</strong>.</p>
                         </div>
@@ -315,7 +323,7 @@
                             <ul style="margin-bottom: 0;">
                                 <li><strong>Monotonically decreasing:</strong> More bits (higher rate) always allows less distortion. You can't make reconstruction worse by sending more information.</li>
                                 <li><strong>Convex:</strong> The marginal benefit of each additional bit decreases. The first few bits capture the most important structure; later bits capture diminishing details.</li>
-                                <li><strong>At $R = 0$:</strong> No information transmitted. The decoder can only output a fixed value. The best choice is $\hat{x} = \mathbb{E}[X]$ (the mean), giving $D = \text{Var}(X)$.</li>
+                                <li><strong>At $R = 0$:</strong> No information transmitted. The decoder can only output a fixed value $c$. To find the best constant, minimize $\mathbb{E}[\|X - c\|^2]$: take the derivative, set it to zero, and get $c = \mathbb{E}[X]$. The resulting distortion is $D = \text{Var}(X)$.</li>
                                 <li><strong>At $D = 0$:</strong> Perfect reconstruction. For continuous sources, this requires $R \to \infty$ (infinite bits). For discrete sources with $|\mathcal{X}|$ outcomes, $R(0) = H(X) \leq \log_2|\mathcal{X}|$ bits.</li>
                             </ul>
                         </div>
@@ -355,6 +363,13 @@
                             <strong>Compute the rate.</strong> Since $X$ and $N$ are independent Gaussians, $Z \sim \mathcal{N}(0, \sigma^2 + \sigma_N^2)$. The mutual information is:
                             $$I(X;Z) = h(Z) - h(Z|X) = h(Z) - h(N) = \frac{1}{2}\log_2\frac{\sigma^2 + \sigma_N^2}{\sigma_N^2}$$
                         </div>
+                    </div>
+
+                    <div class="note-box" style="margin: 1rem 0;">
+                        <div class="box-title">Notation: $h(\cdot)$ vs $H(\cdot)$</div>
+                        <p style="margin-bottom: 0;">
+                            Lowercase $h$ denotes <strong>differential entropy</strong> for continuous random variables: $h(Z) = -\int p(z) \log p(z) \, dz$. Uppercase $H$ denotes <strong>discrete entropy</strong>: $H(X) = -\sum_x p(x) \log p(x)$. For a Gaussian $Z \sim \mathcal{N}(\mu, \sigma^2)$, the differential entropy is $h(Z) = \frac{1}{2}\log_2(2\pi e \sigma^2)$. The step $h(Z|X) = h(N)$ follows because given $X$, the only randomness in $Z = X + N$ comes from $N$.
+                        </p>
                     </div>
 
                     <div class="math-step">
@@ -544,7 +559,7 @@
                     <div class="box-title">Optimal Denoiser = Conditional Expectation</div>
                     <p>The function that minimizes $\mathbb{E}[\|X - g(\tilde{X})\|^2]$ over all possible functions $g$ is:</p>
                     $$g^*(\tilde{x}) = \mathbb{E}[X \mid \tilde{X} = \tilde{x}]$$
-                    <p style="margin-bottom: 0;">This is the <strong>posterior mean</strong>: "given that I observed the noisy version $\tilde{x}$, what is the expected value of the original clean $x$?"</p>
+                    <p style="margin-bottom: 0;">This is the <strong>posterior mean</strong>: "given that I observed the noisy version $\tilde{x}$, what is the expected value of the original clean $x$?" Geometrically, the conditional expectation is the "center of mass" of the posterior distribution $p(x|\tilde{x})$ — the point in data space that minimizes the average squared distance to all plausible clean images, weighted by their probability.</p>
                 </div>
 
                 <p>
@@ -589,7 +604,7 @@
                 <h3>Tweedie's Formula: Connecting Denoising to the Score</h3>
 
                 <p>
-                    Here is the remarkable connection: the optimal denoiser directly tells us the score function. This result, known as <strong>Tweedie's formula</strong>, is the theoretical foundation of modern diffusion models.
+                    Here is the remarkable connection: the optimal denoiser directly tells us the score function. This result, known as <strong>Tweedie's formula</strong>, is the theoretical foundation of modern diffusion models. The derivation has three steps: (1) write the noisy distribution $p_\sigma(\tilde{x})$ as a mixture of Gaussians centered on clean data points, (2) compute the score $\nabla_{\tilde{x}} \log p_\sigma(\tilde{x})$ using the quotient rule, and (3) recognize that the result is exactly the optimal denoising direction scaled by $1/\sigma^2$.
                 </p>
 
                 <div class="math-derivation">
