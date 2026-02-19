@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastSpeech &amp; Non-Autoregressive TTS | ML Fundamentals</title>
+    <meta name="description" content="FastSpeech, FastSpeech 2, non-autoregressive text-to-speech synthesis, duration prediction, length regulation, variance predictors, and controllable speech generation.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>FastSpeech &amp; Non-AR TTS</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../04-logarithms/index.html" class="sidebar-link">01. Why Logarithms?</a>
+                    <a href="../05-combinatorics/index.html" class="sidebar-link">02. Combinatorics</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">03. Normal Distributions</a>
+                    <a href="../01-entropy/index.html" class="sidebar-link">04. Entropy Fundamentals</a>
+                    <a href="../02-cross-entropy/index.html" class="sidebar-link">05. Cross-Entropy</a>
+                    <a href="../02-kl-divergence/index.html" class="sidebar-link">06. KL Divergence</a>
+                    <a href="../14-entropy-connections/index.html" class="sidebar-link">07. Entropy Connections</a>
+                    <a href="../06-backpropagation/index.html" class="sidebar-link">08. Backpropagation</a>
+                    <a href="../07-regularization/index.html" class="sidebar-link">09. Regularization</a>
+                    <a href="../08-batch-normalization/index.html" class="sidebar-link">10. Batch Normalization</a>
+                    <a href="../09-learning-rate/index.html" class="sidebar-link">11. Learning Rate</a>
+                    <a href="../10-cnn/index.html" class="sidebar-link">12. CNNs</a>
+                    <a href="../11-rnn/index.html" class="sidebar-link">13. RNNs</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link">14. Autoencoders</a>
+                    <a href="../13-variational-inference/index.html" class="sidebar-link">15. Variational Inference</a>
+                    <a href="../12-vae/index.html" class="sidebar-link">16. VAE</a>
+                    <a href="../16-inductive-bias/index.html" class="sidebar-link">17. Inductive Bias</a>
+                    <a href="../17-architectural-biases/index.html" class="sidebar-link">18. Architectural Biases</a>
+                    <a href="../18-designing-biases/index.html" class="sidebar-link">19. Designing Biases</a>
+                    <a href="../19-fst-fundamentals/index.html" class="sidebar-link">20. FST Fundamentals</a>
+                    <a href="../20-weighted-fsts/index.html" class="sidebar-link">21. Weighted FSTs</a>
+                    <a href="../21-fst-libraries/index.html" class="sidebar-link">22. FST Libraries</a>
+                    <a href="../22-fst-applications/index.html" class="sidebar-link">23. FST Applications</a>
+                    <a href="../23-neural-symbolic/index.html" class="sidebar-link">24. Neural-Symbolic Hybrids</a>
+                    <a href="../24-sequence-alignment/index.html" class="sidebar-link">25. Sequence Alignment</a>
+                    <a href="../25-mas-algorithm/index.html" class="sidebar-link">26. MAS Algorithm</a>
+                    <a href="../26-forced-alignment/index.html" class="sidebar-link">27. Forced Alignment & MFA</a>
+                    <a href="../27-tts-fundamentals/index.html" class="sidebar-link">28. TTS Fundamentals</a>
+                    <a href="../28-neural-vocoders/index.html" class="sidebar-link">29. Neural Vocoders</a>
+                    <a href="../29-tacotron/index.html" class="sidebar-link">30. Tacotron & Attention TTS</a>
+                    <a href="../30-fastspeech/index.html" class="sidebar-link active">31. FastSpeech & Non-AR TTS</a>
+                    <a href="../31-glow-tts/index.html" class="sidebar-link">32. Glow-TTS & Flows</a>
+                    <a href="../32-vits/index.html" class="sidebar-link">33. VITS: End-to-End TTS</a>
+                    <a href="../33-bilingual-tts/index.html" class="sidebar-link">34. Bilingual TTS: RU+KY</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: Why Go Non-Autoregressive? -->
+                <h2 id="why-non-ar">Why Go Non-Autoregressive?</h2>
+
+                <p>
+                    Autoregressive (AR) TTS models like Tacotron 2 generate mel-spectrogram frames one at a time &mdash; each frame is conditioned on all previously generated frames. While this approach produces high-quality, natural-sounding speech, it carries three fundamental limitations that motivate the non-autoregressive paradigm.
+                </p>
+
+                <p>
+                    <strong>Speed.</strong> An AR model generates one mel frame per forward pass. For an utterance with $T$ mel frames (typically 200&ndash;1000 for a sentence), the model must run $T$ sequential forward passes. This is $O(T)$ sequential computation that cannot be parallelized. On a modern GPU, Tacotron 2 generates speech at roughly 0.5&times; real-time &mdash; meaning it takes twice as long to generate the audio as the audio itself lasts. A non-autoregressive (non-AR) model generates all $T$ frames simultaneously in a single forward pass, achieving $O(1)$ sequential depth. In practice, this translates to synthesis speeds 10&ndash;270&times; faster than AR models.
+                </p>
+
+                <p>
+                    <strong>Robustness.</strong> AR models rely on an attention mechanism to determine which text tokens to attend to at each decoding step. This attention can fail in several ways: it can <em>skip</em> tokens (producing missing words), <em>repeat</em> tokens (producing stuttering), or <em>collapse</em> entirely (producing unintelligible output). These failures are especially common for long utterances, unusual text, or out-of-domain inputs. Non-AR models avoid attention altogether by using explicit duration prediction, which specifies exactly how many frames each phoneme receives. There is no attention to misalign &mdash; the mapping from text to acoustic frames is deterministic and monotonic by construction.
+                </p>
+
+                <p>
+                    <strong>Controllability.</strong> Because non-AR models predict explicit durations, pitch contours, and energy values, each of these can be modified at inference time. Want the speaker to talk faster? Multiply all durations by 0.5. Want a higher pitch? Add an offset to the F0 contour. Want to emphasize a particular word? Increase its duration and energy. This level of fine-grained control is essentially impossible with AR models, where prosody emerges implicitly from the autoregressive generation process and cannot be disentangled.
+                </p>
+
+                <p>
+                    <strong>The trade-off.</strong> Non-AR models cannot discover the alignment between text and audio from data alone. An AR model with attention learns where each text token maps to in the audio &mdash; the attention mechanism serves as an implicit alignment model. A non-AR model needs an external source of duration information: either from a forced aligner like MFA (Tutorial 27), from Monotonic Alignment Search (Tutorial 26), or by distillation from a trained AR teacher model. This is the fundamental cost of going non-autoregressive.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Non-Autoregressive Generation</div>
+                    <p>
+                        A <strong>non-autoregressive</strong> sequence generation model produces all output tokens simultaneously in a single forward pass, without conditioning each output on previously generated outputs. Formally, while an AR model factors the joint distribution as $p(\mathbf{y}) = \prod_{t=1}^{T} p(y_t \mid y_1, \ldots, y_{t-1}, \mathbf{x})$, a non-AR model assumes conditional independence: $p(\mathbf{y}) = \prod_{t=1}^{T} p(y_t \mid \mathbf{x})$. This conditional independence assumption enables parallel generation but removes the ability to model inter-frame dependencies, which must be compensated for by other mechanisms (e.g., normalizing flows, adversarial training, or iterative refinement).
+                    </p>
+                </div>
+
+                <p>
+                    The rest of this tutorial traces the evolution of non-AR TTS: from the original FastSpeech (which used teacher distillation) to FastSpeech 2 (which eliminated the teacher), and examines the fundamental speed-quality trade-off that drives continued research in this area.
+                </p>
+
+                <!-- Section 2: Duration Prediction -->
+                <h2 id="duration-prediction">Duration Prediction</h2>
+
+                <p>
+                    The central challenge in non-autoregressive TTS is the <strong>length mismatch</strong> between input and output: a phoneme sequence of length $N$ must map to a mel-spectrogram of length $T$, where $T \gg N$ (typically $T/N \approx 10\text{--}20$). In AR models, the attention mechanism implicitly handles this expansion. In non-AR models, an explicit <strong>duration predictor</strong> must determine how many mel frames each phoneme receives.
+                </p>
+
+                <p>
+                    <strong>Sources of duration information.</strong> There are three main approaches to obtaining ground-truth durations for training the duration predictor:
+                </p>
+
+                <ul>
+                    <li><strong>Montreal Forced Aligner (Tutorial 27):</strong> An external tool that uses HMM-based Viterbi decoding to find the optimal alignment between audio and a transcript. MFA provides phone-level time boundaries, from which durations are computed as $d_i = (\text{end}_i - \text{start}_i) \times \text{frame\_rate}$. This is offline, accurate, and the most widely used approach in modern non-AR TTS (used by FastSpeech 2, FastPitch, and others).</li>
+                    <li><strong>AR teacher distillation (FastSpeech 1):</strong> Train a Tacotron 2 model first, then extract attention alignments from it. The attention weights form a soft alignment matrix; these are converted to hard durations by taking the argmax at each decoder step. This was the original FastSpeech approach but is complex because it requires a fully trained AR teacher.</li>
+                    <li><strong>Monotonic Alignment Search (Tutorial 26):</strong> A dynamic programming algorithm that finds the optimal monotonic alignment between text and audio during training, without any external tool. Used by Glow-TTS and VITS. MAS runs within the training loop, providing fresh alignments as the model improves.</li>
+                </ul>
+
+                <p>
+                    <strong>The length regulator.</strong> Once durations are known (either ground-truth during training or predicted during inference), the <strong>length regulator</strong> expands the encoder output from length $N$ to length $T$ by repeating each encoder hidden state $h_i$ exactly $d_i$ times:
+                </p>
+
+                $$\text{LR}(h_1, \ldots, h_N;\; d_1, \ldots, d_N) = (\underbrace{h_1, \ldots, h_1}_{d_1},\; \underbrace{h_2, \ldots, h_2}_{d_2},\; \ldots,\; \underbrace{h_N, \ldots, h_N}_{d_N})$$
+
+                <p>
+                    The total number of mel frames produced is the sum of all durations:
+                </p>
+
+                $$T = \sum_{i=1}^{N} d_i$$
+
+                <p>
+                    This is a simple but powerful operation. It converts the encoder output from the phoneme time scale to the acoustic frame time scale, providing the decoder with a fixed-length input that exactly matches the target mel-spectrogram length.
+                </p>
+
+                <p>
+                    <strong>Duration loss.</strong> The duration predictor is trained with MSE loss in log-space:
+                </p>
+
+                $$\mathcal{L}_{dur} = \text{MSE}(\log \hat{d},\; \log d)$$
+
+                <p>
+                    where $\hat{d}$ is the predicted duration and $d$ is the ground-truth duration. The log-space formulation is critical for two reasons. First, durations are approximately log-normally distributed (most phonemes are short, a few are very long), so log-space MSE gives appropriate weight to both short and long durations. Second, log-space provides <strong>scale invariance</strong>: an error of predicting 2 frames instead of 4 (50% off) receives the same penalty as predicting 20 instead of 40 (50% off), which matches perceptual importance. In linear space, the second error would be penalized 100&times; more despite being equally bad perceptually.
+                </p>
+
+                <!-- Section 3: FastSpeech Architecture -->
+                <h2 id="fastspeech-architecture">FastSpeech Architecture</h2>
+
+                <p>
+                    FastSpeech (Ren et al., 2019) was the first successful non-autoregressive TTS model. Its architecture is built around <strong>Feed-Forward Transformer (FFT) blocks</strong> &mdash; a variant of the Transformer that replaces the cross-attention mechanism with a purely feed-forward architecture.
+                </p>
+
+                <p>
+                    <strong>Feed-Forward Transformer (FFT) block.</strong> Each FFT block consists of:
+                </p>
+                <ol>
+                    <li><strong>Multi-head self-attention:</strong> Standard Transformer self-attention that captures long-range dependencies between tokens (or frames).</li>
+                    <li><strong>Two-layer 1D convolution:</strong> Instead of the standard position-wise feed-forward network (two linear layers), FastSpeech uses two 1D convolutional layers with kernel sizes of 3 or 9. The convolution captures local patterns (e.g., coarticulation between adjacent phonemes or smoothness between adjacent mel frames) that the global self-attention may miss.</li>
+                    <li><strong>Residual connections and layer normalization:</strong> Applied after both the self-attention and the convolution sub-layers, following the standard Transformer pattern.</li>
+                </ol>
+
+                <p>
+                    <strong>Overall architecture.</strong> The FastSpeech model consists of three components arranged sequentially:
+                </p>
+
+                <ol>
+                    <li><strong>Encoder:</strong> $N_{\text{enc}}$ FFT blocks operating on the phoneme sequence. Input: phoneme embeddings + positional encoding. Output: a sequence of hidden representations $h_1, \ldots, h_N$ of dimension $d_{\text{model}}$, one per phoneme.</li>
+                    <li><strong>Length regulator:</strong> Takes the encoder output and predicted durations $\hat{d}_1, \ldots, \hat{d}_N$ and produces an expanded sequence of length $T = \sum_i \hat{d}_i$ by repeating each $h_i$ exactly $\hat{d}_i$ times.</li>
+                    <li><strong>Decoder:</strong> $N_{\text{dec}}$ FFT blocks operating on the expanded sequence. Output: a sequence of mel-spectrogram frames. A final linear projection maps from $d_{\text{model}}$ to the mel dimension (typically 80).</li>
+                </ol>
+
+                <p>
+                    <strong>Knowledge distillation from Tacotron 2.</strong> The original FastSpeech does not train directly on ground-truth mel-spectrograms. Instead, it uses a two-step process:
+                </p>
+                <ol>
+                    <li>Train a Tacotron 2 (AR teacher) model to convergence.</li>
+                    <li>Use the trained Tacotron 2 to generate mel-spectrograms for every training utterance. These teacher-generated mel-spectrograms become the training targets for FastSpeech.</li>
+                </ol>
+
+                <p>
+                    Why distillation? The teacher's output is more "average" and smoother than the ground-truth recordings, which contain natural variation (breaths, micro-pauses, pitch fluctuations). A non-AR model that tries to predict the average of many possible realizations will produce over-smoothed output if trained on diverse ground-truth. The teacher's deterministic output provides a single, consistent target that the non-AR student can match more easily.
+                </p>
+
+                <p>
+                    The reported speedup is striking: FastSpeech achieves mel-spectrogram generation ~270&times; faster than Tacotron 2 and end-to-end synthesis ~38&times; faster (including the vocoder).
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">The Complexity of the Distillation Pipeline</div>
+                    <p>
+                        The original FastSpeech training pipeline is complex: (1) train Tacotron 2 to convergence, (2) extract attention alignments from Tacotron 2 and convert them to durations, (3) use Tacotron 2 to generate target mel-spectrograms for every training utterance, (4) train FastSpeech on these synthetic targets with the extracted durations. This four-step process is error-prone and time-consuming. Attention alignments from Tacotron 2 are noisy (the attention sometimes fails), requiring careful filtering. The quality of FastSpeech is bounded by the quality of the teacher. These limitations directly motivated FastSpeech 2.
+                    </p>
+                </div>
+
+                <!-- Section 4: FastSpeech 2 -->
+                <h2 id="fastspeech2">FastSpeech 2</h2>
+
+                <p>
+                    FastSpeech 2 (Ren et al., 2021) eliminates the teacher distillation pipeline entirely. The key insight is simple but powerful: <strong>train directly on ground-truth mel-spectrograms</strong> and compensate for the one-to-many problem by predicting additional acoustic features (pitch and energy) that capture the variation the model needs to resolve.
+                </p>
+
+                <p>
+                    <strong>Variance predictors.</strong> FastSpeech 2 adds three variance predictors, each a small neural network that takes encoder hidden states as input:
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>Duration predictor:</strong>
+                        $$\hat{d}_i = \text{DurationPredictor}(h_i)$$
+                        Trained on ground-truth durations extracted by the Montreal Forced Aligner (MFA). During training, the ground-truth MFA durations are used for the length regulator; during inference, the predicted durations are used.
+                    </li>
+                    <li>
+                        <strong>Pitch predictor:</strong>
+                        $$\hat{f0}_i = \text{PitchPredictor}(h_i)$$
+                        Trained on ground-truth F0 (fundamental frequency) contours extracted from the audio using tools like WORLD, Praat, or pyin. The continuous F0 values are quantized into 256 bins and converted to pitch embeddings via a learned embedding table. These pitch embeddings are added to the encoder output before the length regulator.
+                    </li>
+                    <li>
+                        <strong>Energy predictor:</strong>
+                        $$\hat{e}_i = \text{EnergyPredictor}(h_i)$$
+                        Trained on the L2-norm of the STFT magnitude for each frame, which serves as a proxy for loudness. Like pitch, energy values are quantized into 256 bins and converted to embeddings that are added to the encoder output.
+                    </li>
+                </ul>
+
+                <p>
+                    Each variance predictor has the same architecture: two 1D convolutional layers (kernel size 3, ReLU activation) with layer normalization, followed by a linear projection to a scalar output. The design is intentionally simple &mdash; these predictors do not need to be powerful because they are predicting relatively smooth, low-frequency signals.
+                </p>
+
+                <p>
+                    <strong>Total loss.</strong> The training objective combines four terms:
+                </p>
+
+                $$\mathcal{L} = \mathcal{L}_{mel} + \alpha\,\mathcal{L}_{dur} + \beta\,\mathcal{L}_{pitch} + \gamma\,\mathcal{L}_{energy}$$
+
+                <p>
+                    where $\mathcal{L}_{mel}$ is the MSE between predicted and ground-truth mel-spectrograms, $\mathcal{L}_{dur}$ is the duration loss (MSE in log-space), $\mathcal{L}_{pitch}$ is the MSE between predicted and extracted F0 values, and $\mathcal{L}_{energy}$ is the MSE between predicted and extracted energy values. The coefficients $\alpha$, $\beta$, $\gamma$ are hyperparameters (typically all set to 1.0).
+                </p>
+
+                <p>
+                    <strong>Connection to MFA (Tutorial 27).</strong> The ground-truth durations that supervise the duration predictor come directly from MFA. This is where the alignment pipeline from Tutorial 27 feeds into the TTS training pipeline. The quality of these MFA durations directly impacts the duration predictor's accuracy, which in turn affects the naturalness of synthesized speech. This is why proper audio trimming (to avoid the silence edge case from Tutorial 26) is so important &mdash; corrupted durations from MFA will train a corrupted duration predictor.
+                </p>
+
+                <p>
+                    <strong>Why this works without distillation.</strong> The one-to-many problem (same text, many valid speech realizations) is partially resolved by the variance predictors. Given the same phoneme sequence, different speakers at different times will produce different durations, pitches, and energies. By explicitly predicting and conditioning on these three variance features, FastSpeech 2 narrows the space of possible outputs significantly. The remaining variation (speaker identity, microphone characteristics, room acoustics) is still averaged over by the MSE loss, which is why FastSpeech 2 output can sound slightly "flat" compared to natural speech &mdash; but the improvement over FastSpeech 1 is substantial.
+                </p>
+
+                <!-- Section 5: Controllability -->
+                <h2 id="controllability">Controllability</h2>
+
+                <p>
+                    One of the most compelling advantages of non-autoregressive TTS is the ability to independently control different aspects of the generated speech. Because duration, pitch, and energy are represented as explicit, interpretable values, they can be modified at inference time without retraining the model.
+                </p>
+
+                <p>
+                    <strong>Duration scaling (speed control).</strong> To change the speaking rate, multiply all predicted durations by a factor $\alpha$:
+                </p>
+
+                $$d_i' = \text{round}(\alpha \cdot \hat{d}_i)$$
+
+                <ul>
+                    <li>$\alpha = 0.5$: each phoneme gets half as many frames &rarr; speech is <strong>twice as fast</strong>.</li>
+                    <li>$\alpha = 1.0$: normal speed (no change).</li>
+                    <li>$\alpha = 2.0$: each phoneme gets twice as many frames &rarr; speech is <strong>half as fast</strong>.</li>
+                </ul>
+
+                <p>
+                    The rounding ensures integer frame counts. Extreme values of $\alpha$ (below 0.3 or above 3.0) typically produce unnatural results because the mel-spectrogram patterns stretch or compress beyond what the vocoder was trained to handle.
+                </p>
+
+                <p>
+                    <strong>F0 offset (pitch control).</strong> To shift the pitch up or down, add a constant offset to the predicted F0 values before converting them to pitch embeddings:
+                </p>
+
+                $$f0_i' = \hat{f0}_i + \Delta f0$$
+
+                <p>
+                    A positive $\Delta f0$ raises the pitch; a negative value lowers it. Because F0 is typically represented in log-Hz, adding a constant in log-space corresponds to multiplying the frequency by a constant factor &mdash; equivalent to a musical transposition.
+                </p>
+
+                <p>
+                    <strong>Energy scaling (volume control).</strong> To adjust perceived loudness, multiply predicted energy values by a factor:
+                </p>
+
+                $$e_i' = \beta \cdot \hat{e}_i$$
+
+                <p>
+                    Higher $\beta$ produces louder, more energetic speech; lower $\beta$ produces softer, quieter speech.
+                </p>
+
+                <p>
+                    <strong>Phoneme-level control.</strong> The most powerful form of control operates at the individual phoneme level. Instead of applying a uniform scaling factor, you can modify the duration, pitch, or energy of specific phonemes or words. For example, to emphasize the word "important" in "This is important," you could:
+                </p>
+                <ul>
+                    <li>Increase the duration of "important" by 1.5&times; while keeping other words at 1.0&times;.</li>
+                    <li>Raise the pitch of "important" by adding a positive F0 offset to its phonemes.</li>
+                    <li>Increase the energy of "important" by multiplying its energy by 1.3.</li>
+                </ul>
+
+                <p>
+                    This level of fine-grained prosodic control is <strong>fundamentally impossible with autoregressive models</strong>. In an AR model like Tacotron 2, prosody emerges from the complex interaction between the decoder's hidden state, the attention mechanism, and the previously generated frames. There is no explicit "duration knob" or "pitch knob" to turn. You can try to influence prosody through input manipulation (e.g., adding punctuation, SSML tags), but this is indirect and unreliable.
+                </p>
+
+                <!-- Section 6: Speed vs Quality Trade-Off -->
+                <h2 id="speed-quality-tradeoff">Speed vs Quality Trade-Off</h2>
+
+                <p>
+                    Non-autoregressive TTS models are fast and controllable, but they face a fundamental quality limitation that stems from the <strong>one-to-many problem</strong>: the same text can be spoken in many different ways that are all equally valid.
+                </p>
+
+                <p>
+                    <strong>The one-to-many problem.</strong> Consider the sentence "I didn't say he stole the money." Depending on which word is stressed, the sentence has seven different meanings. Even for a single intended meaning, the speaker might choose different pacing, intonation patterns, breath locations, or micro-prosodic variations. All of these are valid realizations of the same text. The ground-truth training data contains one specific realization for each utterance, but many other realizations would be equally natural.
+                </p>
+
+                <p>
+                    <strong>Why averaging hurts.</strong> A deterministic non-AR model trained with MSE loss learns to predict the <em>conditional mean</em> of all possible mel-spectrograms given the text. When the true distribution is multimodal (many distinct valid realizations), the mean lies between the modes and matches none of them. The result is over-smoothed mel-spectrograms with "flat" prosody &mdash; the predicted pitch contour is the average of many different pitch contours, which sounds monotonous. The predicted energy is the average of many energy patterns, which sounds lifeless. The spectral details are blurred, leading to muffled or "buzzy" audio quality.
+                </p>
+
+                <p>
+                    <strong>Solutions to the one-to-many problem:</strong>
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>Normalizing flows (Glow-TTS, next tutorial):</strong> Instead of predicting the mean, model the full distribution of mel-spectrograms. A normalizing flow transforms a simple distribution (e.g., standard Gaussian) into the complex, multimodal distribution of speech. At inference time, different samples from the prior produce different, equally valid realizations. This preserves the parallel generation advantage while enabling diverse output.
+                    </li>
+                    <li>
+                        <strong>Adversarial training:</strong> Add a discriminator (GAN loss) that evaluates whether the generated mel-spectrogram "looks real." The adversarial loss encourages the model to produce sharp, detailed spectrograms rather than blurry averages. This is used in models like Multi-band MelGAN and HiFi-GAN-based TTS systems.
+                    </li>
+                    <li>
+                        <strong>Variational approach (VITS):</strong> Combine a variational autoencoder with a normalizing flow. The VAE learns a latent distribution that captures the variation in speech, and sampling from this distribution at inference time produces diverse, natural-sounding output. VITS achieves quality comparable to AR models while maintaining non-AR speed.
+                    </li>
+                </ul>
+
+                <p>
+                    <strong>The fundamental limitation.</strong> A deterministic non-AR model (like FastSpeech 2) with MSE loss will always suffer from over-smoothing to some degree. This is not a failure of the model &mdash; it is a mathematical consequence of predicting the conditional mean of a multimodal distribution. The MSE-optimal prediction for a bimodal distribution with modes at $a$ and $b$ is $(a + b) / 2$, which is maximally far from both modes. The only way to escape this limitation is to move beyond deterministic prediction: either by modeling the full distribution (flows, VAE) or by using a loss function that rewards sharpness rather than average accuracy (adversarial loss).
+                </p>
+
+                <!-- Section 7: Non-AR Models Comparison -->
+                <h2 id="non-ar-comparison">Non-AR Models Comparison</h2>
+
+                <p>
+                    The following table compares the major non-autoregressive TTS models, highlighting their key design choices and trade-offs:
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.5rem;">Model</th>
+                            <th style="text-align: left; padding: 0.5rem;">Duration Source</th>
+                            <th style="text-align: left; padding: 0.5rem;">Variance Predictors</th>
+                            <th style="text-align: left; padding: 0.5rem;">Quality (MOS)</th>
+                            <th style="text-align: left; padding: 0.5rem;">Speed</th>
+                            <th style="text-align: left; padding: 0.5rem;">Year</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">FastSpeech</td>
+                            <td style="padding: 0.5rem;">AR teacher (Tacotron 2) attention</td>
+                            <td style="padding: 0.5rem;">Duration only</td>
+                            <td style="padding: 0.5rem;">~3.84</td>
+                            <td style="padding: 0.5rem;">~270&times; vs Tacotron 2</td>
+                            <td style="padding: 0.5rem;">2019</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">FastSpeech 2</td>
+                            <td style="padding: 0.5rem;">MFA (ground-truth)</td>
+                            <td style="padding: 0.5rem;">Duration + Pitch + Energy</td>
+                            <td style="padding: 0.5rem;">~4.06</td>
+                            <td style="padding: 0.5rem;">~270&times; vs Tacotron 2</td>
+                            <td style="padding: 0.5rem;">2021</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">FastPitch</td>
+                            <td style="padding: 0.5rem;">MFA (ground-truth)</td>
+                            <td style="padding: 0.5rem;">Duration + Continuous Pitch</td>
+                            <td style="padding: 0.5rem;">~4.08</td>
+                            <td style="padding: 0.5rem;">Comparable to FS2</td>
+                            <td style="padding: 0.5rem;">2020</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;">SpeedySpeech</td>
+                            <td style="padding: 0.5rem;">Teacher (convolutional) attention</td>
+                            <td style="padding: 0.5rem;">Duration only</td>
+                            <td style="padding: 0.5rem;">~3.70</td>
+                            <td style="padding: 0.5rem;">~170&times; vs Tacotron 2</td>
+                            <td style="padding: 0.5rem;">2020</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    <strong>FastPitch</strong> (Lancucki, 2021) is architecturally very similar to FastSpeech 2 but with an important difference in how pitch is handled. While FastSpeech 2 quantizes F0 into discrete bins, FastPitch uses <strong>continuous pitch prediction</strong>: the pitch predictor outputs a continuous F0 value per phoneme, which is projected through a 1D convolution to produce pitch embeddings. This avoids the information loss from quantization and can capture more subtle pitch variations. FastPitch also uses a single FFT block architecture (rather than separate encoder and decoder FFT stacks with different configurations) and is often preferred for production systems due to its simplicity and strong quality.
+                </p>
+
+                <p>
+                    <strong>When to use FastSpeech 2 vs flow-based models.</strong> FastSpeech 2 is the right choice when you need: (1) explicit controllability over duration, pitch, and energy, (2) a simple, well-understood training pipeline, (3) fast inference without requiring flow model overhead, or (4) a strong baseline for TTS research. Flow-based models like Glow-TTS (next tutorial) are preferred when: (1) you need diverse, natural-sounding output without the one-to-many averaging problem, (2) you want to learn the alignment jointly during training (no MFA dependency), or (3) you are willing to accept slightly more complex inference for higher quality.
+                </p>
+
+                <!-- Tutorial Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../29-tacotron/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; Tacotron &amp; Attention TTS</span>
+                    </a>
+                    <a href="../31-glow-tts/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Glow-TTS &amp; Flows &rarr;</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>Three implementations covering the core components of non-autoregressive TTS: a duration predictor network, a length regulator with batched support, and a FastSpeech 2 inference pipeline with controllability.</p>
+
+                <!-- Code Example 1: Duration Predictor Network -->
+                <h3>1. Duration Predictor Network</h3>
+                <p>A PyTorch implementation of the duration predictor used in FastSpeech and FastSpeech 2. The architecture consists of two 1D convolutional layers with layer normalization and ReLU activation, followed by a linear projection to predict log-duration per phoneme.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+
+
+class DurationPredictor(nn.Module):
+    """
+    Duration predictor from FastSpeech / FastSpeech 2.
+
+    Architecture: 2x (Conv1D + LayerNorm + ReLU + Dropout) + Linear
+    Input: encoder hidden states (B, N, d_model)
+    Output: log-duration per token (B, N)
+    """
+
+    def __init__(self, d_model=256, d_filter=256, kernel_size=3, dropout=0.1):
+        super().__init__()
+
+        self.conv1 = nn.Conv1d(
+            d_model, d_filter, kernel_size,
+            padding=(kernel_size - 1) // 2
+        )
+        self.norm1 = nn.LayerNorm(d_filter)
+
+        self.conv2 = nn.Conv1d(
+            d_filter, d_filter, kernel_size,
+            padding=(kernel_size - 1) // 2
+        )
+        self.norm2 = nn.LayerNorm(d_filter)
+
+        self.linear = nn.Linear(d_filter, 1)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask=None):
+        """
+        Args:
+            x: encoder hidden states (B, N, d_model)
+            mask: padding mask (B, N), True for valid positions
+        Returns:
+            log_duration: predicted log-duration (B, N)
+        """
+        # Conv layers expect (B, C, N), transpose from (B, N, C)
+        out = x.transpose(1, 2)  # (B, d_model, N)
+
+        # First conv block
+        out = self.conv1(out)               # (B, d_filter, N)
+        out = out.transpose(1, 2)           # (B, N, d_filter)
+        out = self.norm1(out)
+        out = F.relu(out)
+        out = self.dropout(out)
+
+        # Second conv block
+        out = out.transpose(1, 2)           # (B, d_filter, N)
+        out = self.conv2(out)               # (B, d_filter, N)
+        out = out.transpose(1, 2)           # (B, N, d_filter)
+        out = self.norm2(out)
+        out = F.relu(out)
+        out = self.dropout(out)
+
+        # Project to scalar
+        out = self.linear(out).squeeze(-1)  # (B, N)
+
+        if mask is not None:
+            out = out.masked_fill(~mask, 0.0)
+
+        return out
+
+
+def train_duration_predictor():
+    """Demonstrate training loop for the duration predictor."""
+    torch.manual_seed(42)
+
+    d_model = 256
+    num_tokens = 12  # simulated phoneme sequence length
+    batch_size = 4
+
+    predictor = DurationPredictor(d_model=d_model)
+    optimizer = torch.optim.Adam(predictor.parameters(), lr=1e-3)
+
+    # Simulate training data
+    encoder_hidden = torch.randn(batch_size, num_tokens, d_model)
+
+    # Ground-truth durations from MFA (integer frame counts)
+    gt_durations = torch.randint(2, 15, (batch_size, num_tokens)).float()
+
+    # Convert to log-space for training target
+    log_gt_durations = torch.log(gt_durations + 1e-8)
+
+    # Training loop
+    for step in range(200):
+        optimizer.zero_grad()
+        log_pred = predictor(encoder_hidden)
+
+        # MSE loss in log-space
+        loss = F.mse_loss(log_pred, log_gt_durations)
+        loss.backward()
+        optimizer.step()
+
+        if (step + 1) % 50 == 0:
+            pred_durations = torch.exp(log_pred).round().int()
+            print(f"Step {step + 1}: loss = {loss.item():.4f}")
+            print(f"  GT durations:   {gt_durations[0].int().tolist()}")
+            print(f"  Pred durations: {pred_durations[0].tolist()}")
+            print()
+
+
+if __name__ == "__main__":
+    train_duration_predictor()</code></pre>
+
+                <p><strong>Output:</strong></p>
+<pre><code>Step 50: loss = 0.3812
+  GT durations:   [5, 12, 3, 8, 14, 2, 11, 7, 4, 9, 6, 10]
+  Pred durations: [4, 9, 4, 7, 11, 3, 9, 6, 5, 8, 5, 8]
+
+Step 100: loss = 0.1247
+  GT durations:   [5, 12, 3, 8, 14, 2, 11, 7, 4, 9, 6, 10]
+  Pred durations: [5, 11, 3, 8, 13, 2, 10, 7, 4, 9, 6, 10]
+
+Step 150: loss = 0.0312
+  GT durations:   [5, 12, 3, 8, 14, 2, 11, 7, 4, 9, 6, 10]
+  Pred durations: [5, 12, 3, 8, 14, 2, 11, 7, 4, 9, 6, 10]
+
+Step 200: loss = 0.0058
+  GT durations:   [5, 12, 3, 8, 14, 2, 11, 7, 4, 9, 6, 10]
+  Pred durations: [5, 12, 3, 8, 14, 2, 11, 7, 4, 9, 6, 10]</code></pre>
+
+                <!-- Code Example 2: Length Regulator -->
+                <h3>2. Length Regulator</h3>
+                <p>The length regulator expands encoder outputs according to predicted (or ground-truth) durations. This implementation handles batched inputs with padding and supports fractional durations via configurable rounding strategies.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class LengthRegulator(nn.Module):
+    """
+    Length regulator for non-autoregressive TTS.
+
+    Expands encoder hidden states by repeating each token's representation
+    according to its duration. Handles batched inputs with variable-length
+    sequences and supports multiple rounding strategies for fractional durations.
+    """
+
+    def __init__(self, rounding='round'):
+        """
+        Args:
+            rounding: strategy for fractional durations.
+                'round' - standard rounding
+                'ceil'  - always round up (preserves total length better)
+                'floor' - always round down
+        """
+        super().__init__()
+        assert rounding in ('round', 'ceil', 'floor')
+        self.rounding = rounding
+
+    def _round_durations(self, durations):
+        """Apply rounding strategy and ensure minimum duration of 1."""
+        if self.rounding == 'round':
+            durations = torch.round(durations)
+        elif self.rounding == 'ceil':
+            durations = torch.ceil(durations)
+        else:
+            durations = torch.floor(durations)
+        return torch.clamp(durations, min=1).long()
+
+    def forward(self, encoder_out, durations, speed_factor=1.0):
+        """
+        Args:
+            encoder_out: (B, N, d_model) encoder hidden states
+            durations: (B, N) duration per token (can be float)
+            speed_factor: multiply durations by this factor (1.0 = normal)
+        Returns:
+            expanded: (B, T_max, d_model) expanded hidden states
+            mel_lengths: (B,) actual length of each expanded sequence
+        """
+        # Apply speed factor and round
+        scaled = durations.float() * speed_factor
+        int_durations = self._round_durations(scaled)  # (B, N)
+
+        batch_size, max_tokens, d_model = encoder_out.shape
+        mel_lengths = int_durations.sum(dim=1)          # (B,)
+        max_mel_len = mel_lengths.max().item()
+
+        # Expand each sequence in the batch
+        expanded = torch.zeros(
+            batch_size, max_mel_len, d_model,
+            device=encoder_out.device, dtype=encoder_out.dtype
+        )
+
+        for b in range(batch_size):
+            pos = 0
+            for i in range(max_tokens):
+                dur = int_durations[b, i].item()
+                if dur &lt;= 0:
+                    continue
+                # Repeat encoder output for this token dur times
+                expanded[b, pos:pos + dur, :] = encoder_out[b, i, :].unsqueeze(0)
+                pos += dur
+
+        return expanded, mel_lengths
+
+
+def demo_length_regulator():
+    """Demonstrate the length regulator with different speed factors."""
+    torch.manual_seed(42)
+
+    B, N, D = 2, 4, 8  # batch=2, tokens=4, hidden_dim=8
+    encoder_out = torch.randn(B, N, D)
+
+    # Ground-truth durations (e.g., from MFA)
+    durations = torch.tensor([
+        [3, 1, 4, 2],   # utterance 1: 10 frames total
+        [2, 5, 1, 3],   # utterance 2: 11 frames total
+    ], dtype=torch.float)
+
+    lr = LengthRegulator(rounding='round')
+
+    print("=== Length Regulator Demo ===\n")
+
+    for speed in [1.0, 0.5, 1.5, 2.0]:
+        expanded, lengths = lr(encoder_out, durations, speed_factor=speed)
+        print(f"Speed factor: {speed}")
+        for b in range(B):
+            scaled_dur = (durations[b] * speed).round().clamp(min=1).int()
+            print(f"  Utt {b}: durations {scaled_dur.tolist()}, "
+                  f"total frames = {lengths[b].item()}, "
+                  f"output shape = ({lengths[b].item()}, {D})")
+        print()
+
+
+if __name__ == "__main__":
+    demo_length_regulator()</code></pre>
+
+                <p><strong>Output:</strong></p>
+<pre><code>=== Length Regulator Demo ===
+
+Speed factor: 1.0
+  Utt 0: durations [3, 1, 4, 2], total frames = 10, output shape = (10, 8)
+  Utt 1: durations [2, 5, 1, 3], total frames = 11, output shape = (11, 8)
+
+Speed factor: 0.5
+  Utt 0: durations [2, 1, 2, 1], total frames = 6, output shape = (6, 8)
+  Utt 1: durations [1, 2, 1, 2], total frames = 6, output shape = (6, 8)
+
+Speed factor: 1.5
+  Utt 0: durations [4, 2, 6, 3], total frames = 15, output shape = (15, 8)
+  Utt 1: durations [3, 8, 2, 4], total frames = 17, output shape = (17, 8)
+
+Speed factor: 2.0
+  Utt 0: durations [6, 2, 8, 4], total frames = 20, output shape = (20, 8)
+  Utt 1: durations [4, 10, 2, 6], total frames = 22, output shape = (22, 8)</code></pre>
+
+                <!-- Code Example 3: FastSpeech 2 Inference with Controls -->
+                <h3>3. FastSpeech 2 Inference with Controls</h3>
+                <p>A simplified FastSpeech 2 inference class demonstrating the full pipeline from phoneme input to mel-spectrogram output, with methods for speed control, pitch control, energy control, and phoneme-level fine-grained control.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+
+
+class SimplifiedFS2Inference:
+    """
+    Simplified FastSpeech 2 inference pipeline.
+
+    Demonstrates the core inference flow:
+      phonemes -> encoder -> variance predictors -> length regulator -> decoder -> mel
+
+    All components are simplified for clarity. In a real system, the encoder
+    and decoder would be stacks of FFT blocks.
+    """
+
+    def __init__(self, vocab_size=100, d_model=256, n_mel=80):
+        self.d_model = d_model
+        self.n_mel = n_mel
+
+        # Simplified components (in practice, these are pretrained)
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.encoder = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=4, dim_feedforward=512, batch_first=True
+        )
+        self.duration_predictor = nn.Sequential(
+            nn.Linear(d_model, 256), nn.ReLU(),
+            nn.Linear(256, 1)
+        )
+        self.pitch_predictor = nn.Sequential(
+            nn.Linear(d_model, 256), nn.ReLU(),
+            nn.Linear(256, 1)
+        )
+        self.energy_predictor = nn.Sequential(
+            nn.Linear(d_model, 256), nn.ReLU(),
+            nn.Linear(256, 1)
+        )
+        self.pitch_embedding = nn.Embedding(256, d_model)  # quantized pitch
+        self.energy_embedding = nn.Embedding(256, d_model)  # quantized energy
+        self.decoder = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=4, dim_feedforward=512, batch_first=True
+        )
+        self.mel_linear = nn.Linear(d_model, n_mel)
+
+    def _quantize(self, values, n_bins=256, vmin=-4.0, vmax=4.0):
+        """Quantize continuous values into discrete bins."""
+        values = torch.clamp(values, vmin, vmax)
+        bins = ((values - vmin) / (vmax - vmin) * (n_bins - 1)).long()
+        return torch.clamp(bins, 0, n_bins - 1)
+
+    @torch.no_grad()
+    def synthesize(self, phoneme_ids, speed=1.0, pitch_shift=0.0,
+                   energy_scale=1.0, phoneme_controls=None):
+        """
+        Generate mel-spectrogram from phoneme IDs with optional controls.
+
+        Args:
+            phoneme_ids: (N,) tensor of phoneme IDs
+            speed: duration scaling factor (0.5 = 2x faster, 2.0 = 2x slower)
+            pitch_shift: additive F0 offset (positive = higher pitch)
+            energy_scale: multiplicative energy factor (>1 = louder)
+            phoneme_controls: dict mapping phoneme index to per-phoneme
+                overrides, e.g. {3: {'speed': 1.5, 'pitch': 0.5}}
+        Returns:
+            mel: (T, n_mel) generated mel-spectrogram
+            info: dict with intermediate values for inspection
+        """
+        x = phoneme_ids.unsqueeze(0)  # (1, N)
+        N = x.shape[1]
+
+        # 1. Encoder
+        h = self.embedding(x)          # (1, N, d_model)
+        h = self.encoder(h)            # (1, N, d_model)
+
+        # 2. Predict durations
+        log_dur = self.duration_predictor(h).squeeze(-1)  # (1, N)
+        durations = torch.exp(log_dur)                     # (1, N)
+
+        # Apply global speed control
+        durations = durations * speed
+
+        # Apply phoneme-level speed control
+        if phoneme_controls:
+            for idx, ctrl in phoneme_controls.items():
+                if 'speed' in ctrl:
+                    durations[0, idx] *= ctrl['speed']
+
+        # Round to integers, minimum 1
+        durations = torch.clamp(torch.round(durations), min=1).long()
+
+        # 3. Predict pitch
+        pitch = self.pitch_predictor(h).squeeze(-1)  # (1, N)
+        pitch = pitch + pitch_shift
+
+        # Apply phoneme-level pitch control
+        if phoneme_controls:
+            for idx, ctrl in phoneme_controls.items():
+                if 'pitch' in ctrl:
+                    pitch[0, idx] += ctrl['pitch']
+
+        pitch_bins = self._quantize(pitch)
+        pitch_emb = self.pitch_embedding(pitch_bins)  # (1, N, d_model)
+
+        # 4. Predict energy
+        energy = self.energy_predictor(h).squeeze(-1)  # (1, N)
+        energy = energy * energy_scale
+
+        # Apply phoneme-level energy control
+        if phoneme_controls:
+            for idx, ctrl in phoneme_controls.items():
+                if 'energy' in ctrl:
+                    energy[0, idx] *= ctrl['energy']
+
+        energy_bins = self._quantize(energy)
+        energy_emb = self.energy_embedding(energy_bins)  # (1, N, d_model)
+
+        # 5. Add variance embeddings to encoder output
+        h = h + pitch_emb + energy_emb  # (1, N, d_model)
+
+        # 6. Length regulator: expand to mel length
+        T = durations.sum().item()
+        expanded = torch.zeros(1, T, self.d_model)
+        pos = 0
+        for i in range(N):
+            dur = durations[0, i].item()
+            expanded[0, pos:pos + dur, :] = h[0, i, :].unsqueeze(0)
+            pos += dur
+
+        # 7. Decoder
+        decoded = self.decoder(expanded)     # (1, T, d_model)
+        mel = self.mel_linear(decoded)       # (1, T, n_mel)
+
+        info = {
+            'durations': durations[0].tolist(),
+            'total_frames': T,
+            'pitch': pitch[0].tolist(),
+            'energy': energy[0].tolist(),
+        }
+        return mel.squeeze(0), info
+
+
+def demo_fastspeech2_inference():
+    """Demonstrate FS2 inference with various control settings."""
+    torch.manual_seed(42)
+
+    model = SimplifiedFS2Inference(vocab_size=50, d_model=64, n_mel=80)
+
+    # Simulated phoneme sequence: "hello world" (arbitrary IDs)
+    phonemes = torch.tensor([5, 12, 23, 23, 31, 2, 45, 31, 37, 23, 8])
+    phoneme_labels = ['HH', 'AH', 'L', 'OW', ' ', 'W', 'ER', 'L', 'D', '.', '&lt;eos&gt;']
+
+    print("=== FastSpeech 2 Inference Demo ===\n")
+
+    # Normal speed
+    mel, info = model.synthesize(phonemes)
+    print(f"1. Normal speed:")
+    print(f"   Durations: {info['durations']}")
+    print(f"   Total frames: {info['total_frames']}")
+    print(f"   Mel shape: ({info['total_frames']}, 80)\n")
+
+    # Fast speech (0.5x duration = 2x speed)
+    mel, info = model.synthesize(phonemes, speed=0.5)
+    print(f"2. Fast speech (speed=0.5, 2x faster):")
+    print(f"   Durations: {info['durations']}")
+    print(f"   Total frames: {info['total_frames']}\n")
+
+    # Slow speech (2.0x duration = 0.5x speed)
+    mel, info = model.synthesize(phonemes, speed=2.0)
+    print(f"3. Slow speech (speed=2.0, 2x slower):")
+    print(f"   Durations: {info['durations']}")
+    print(f"   Total frames: {info['total_frames']}\n")
+
+    # Higher pitch
+    mel, info = model.synthesize(phonemes, pitch_shift=1.5)
+    print(f"4. Higher pitch (pitch_shift=+1.5):")
+    print(f"   Pitch values: [{', '.join(f'{p:.2f}' for p in info['pitch'])}]\n")
+
+    # Louder
+    mel, info = model.synthesize(phonemes, energy_scale=1.5)
+    print(f"5. Louder (energy_scale=1.5):")
+    print(f"   Energy values: [{', '.join(f'{e:.2f}' for e in info['energy'])}]\n")
+
+    # Phoneme-level control: emphasize "world" (indices 5-8)
+    controls = {
+        5: {'speed': 1.3, 'pitch': 0.8, 'energy': 1.4},
+        6: {'speed': 1.3, 'pitch': 0.8, 'energy': 1.4},
+        7: {'speed': 1.3, 'pitch': 0.5, 'energy': 1.3},
+        8: {'speed': 1.3, 'pitch': 0.3, 'energy': 1.2},
+    }
+    mel, info = model.synthesize(phonemes, phoneme_controls=controls)
+    print(f"6. Phoneme-level control (emphasize 'world'):")
+    print(f"   Durations: {info['durations']}")
+    print(f"   Total frames: {info['total_frames']}")
+    print(f"   (Phonemes 5-8 have increased duration, pitch, and energy)")
+
+
+if __name__ == "__main__":
+    demo_fastspeech2_inference()</code></pre>
+
+                <p><strong>Output:</strong></p>
+<pre><code>=== FastSpeech 2 Inference Demo ===
+
+1. Normal speed:
+   Durations: [2, 3, 1, 4, 2, 3, 5, 1, 2, 3, 1]
+   Total frames: 27
+   Mel shape: (27, 80)
+
+2. Fast speech (speed=0.5, 2x faster):
+   Durations: [1, 2, 1, 2, 1, 2, 2, 1, 1, 2, 1]
+   Total frames: 16
+
+3. Slow speech (speed=2.0, 2x slower):
+   Durations: [4, 6, 2, 8, 4, 6, 10, 2, 4, 6, 2]
+   Total frames: 54
+
+4. Higher pitch (pitch_shift=+1.5):
+   Pitch values: [1.23, 1.87, 1.45, 1.62, 1.38, 1.91, 1.55, 1.72, 1.48, 1.33, 1.60]
+
+5. Louder (energy_scale=1.5):
+   Energy values: [0.45, 0.72, 0.38, 0.61, 0.55, 0.83, 0.67, 0.41, 0.59, 0.48, 0.52]
+
+6. Phoneme-level control (emphasize 'world'):
+   Durations: [2, 3, 1, 4, 2, 4, 6, 1, 3, 3, 1]
+   Total frames: 30
+   (Phonemes 5-8 have increased duration, pitch, and energy)</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of FastSpeech, non-autoregressive TTS, duration prediction, and controllable speech synthesis. Exercises range from basic calculations to system design challenges.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Length Regulator Math</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Given durations $[3, 1, 4, 2]$ for a 4-phoneme sequence where the encoder output has dimension 256, what is the shape of the length regulator's output? Write out which encoder hidden state occupies each position in the expanded sequence.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>The total number of mel frames is $T = 3 + 1 + 4 + 2 = 10$. The output shape is $(10, 256)$.</p>
+                                <p>The expanded sequence is:</p>
+<pre><code>Position:  0    1    2    3    4    5    6    7    8    9
+State:     h1   h1   h1   h2   h3   h3   h3   h3   h4   h4
+Duration:  |--- d1=3 ---|  d2  |------ d3=4 ------|  d4=2 |</code></pre>
+                                <p>Positions 0&ndash;2 contain $h_1$ (repeated 3 times), position 3 contains $h_2$ (repeated 1 time), positions 4&ndash;7 contain $h_3$ (repeated 4 times), and positions 8&ndash;9 contain $h_4$ (repeated 2 times). Each $h_i$ is a 256-dimensional vector, so the output is a $(10, 256)$ matrix.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Speed Factor Calculation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>If the original predicted durations for a 4-phoneme sequence are $[2, 3, 1, 4]$ and the speed factor is $\alpha = 1.5$, what are the new durations after applying the speed factor and rounding? What is the total number of frames? How does the speaking rate change compared to the original?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>Original durations: $[2, 3, 1, 4]$. Total frames: $2 + 3 + 1 + 4 = 10$.</p>
+                                <p>Apply speed factor $\alpha = 1.5$:</p>
+                                <ul>
+                                    <li>$2 \times 1.5 = 3.0 \to 3$</li>
+                                    <li>$3 \times 1.5 = 4.5 \to 4$ (or 5, depending on rounding; standard rounding gives 4)</li>
+                                    <li>$1 \times 1.5 = 1.5 \to 2$ (or 2)</li>
+                                    <li>$4 \times 1.5 = 6.0 \to 6$</li>
+                                </ul>
+                                <p>New durations: $[3, 4, 2, 6]$ (with standard rounding of 4.5 to 4) or $[3, 5, 2, 6]$ (with round-half-up). Using Python's default banker's rounding: $[3, 4, 2, 6]$.</p>
+                                <p>New total frames: $3 + 4 + 2 + 6 = 15$ (or 16 with round-half-up).</p>
+                                <p>The speaking rate changes: with $\alpha = 1.5$, each phoneme gets 1.5&times; more frames, so the speech is <strong>1.5&times; slower</strong> (equivalently, the speaking rate is $1/1.5 \approx 0.67\times$ the original). To make speech faster, you would use $\alpha &lt; 1$.</p>
+                                <p>Note: the naming convention can be confusing. A "speed factor" of 1.5 means durations are multiplied by 1.5, making the speech <em>slower</em>. Some implementations invert this so that a "speed" of 1.5 means 1.5&times; faster (durations divided by 1.5). Always check the documentation.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Duration Loss: Log-Space vs Linear</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The duration loss is computed in log-space: $\mathcal{L}_{dur} = \text{MSE}(\log \hat{d}, \log d)$. Explain why this is preferred over linear MSE $\mathcal{L}_{dur} = \text{MSE}(\hat{d}, d)$. Give a concrete numerical example showing how linear MSE would give disproportionate weight to long-duration phonemes.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Why log-space is preferred:</strong></p>
+                                <p>1. <strong>Scale invariance.</strong> In log-space, the loss measures <em>relative</em> error rather than absolute error. Predicting 2 instead of 4 frames (2&times; error) gives the same loss as predicting 20 instead of 40 frames (2&times; error), which is perceptually appropriate since both represent the same proportional distortion.</p>
+                                <p>2. <strong>Distribution matching.</strong> Phoneme durations are approximately log-normally distributed (many short phonemes, few long ones). Log-space MSE is equivalent to assuming a log-normal distribution, which is a better fit than the Gaussian assumption of linear MSE.</p>
+                                <p><strong>Concrete example:</strong></p>
+                                <p>Consider two phonemes with ground-truth durations $d_1 = 3$ and $d_2 = 30$. Suppose the predictor makes a 50% relative error on each: $\hat{d}_1 = 4.5$, $\hat{d}_2 = 45$.</p>
+                                <p><strong>Linear MSE:</strong></p>
+                                <ul>
+                                    <li>Error for phoneme 1: $(4.5 - 3)^2 = 2.25$</li>
+                                    <li>Error for phoneme 2: $(45 - 30)^2 = 225$</li>
+                                    <li>Total: $227.25$. Phoneme 2 dominates by 100&times;!</li>
+                                </ul>
+                                <p><strong>Log-space MSE:</strong></p>
+                                <ul>
+                                    <li>Error for phoneme 1: $(\log 4.5 - \log 3)^2 = (\log 1.5)^2 \approx 0.164$</li>
+                                    <li>Error for phoneme 2: $(\log 45 - \log 30)^2 = (\log 1.5)^2 \approx 0.164$</li>
+                                    <li>Total: $0.328$. Both phonemes contribute equally!</li>
+                                </ul>
+                                <p>With linear MSE, the model would focus almost exclusively on getting long phonemes right (since errors there dominate the loss), while ignoring short phonemes. Since short phonemes (consonants, unstressed vowels) are far more common and perceptually important for intelligibility, this is a poor training signal. Log-space MSE gives each phoneme equal importance relative to its natural length.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. Pitch Extraction Challenges</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>FastSpeech 2 requires ground-truth F0 (fundamental frequency) contours for training the pitch predictor. Describe how to extract an F0 contour from a speech recording. What challenges arise? How should unvoiced segments (e.g., /s/, /f/, /t/) be handled, and why is this non-trivial?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>F0 extraction methods:</strong></p>
+                                <ul>
+                                    <li><strong>Autocorrelation-based (e.g., YIN, pyin):</strong> Compute the autocorrelation of the audio signal in windowed frames. The lag at which the autocorrelation peaks corresponds to the period of the fundamental frequency: $f0 = f_s / \tau_{\text{peak}}$ where $f_s$ is the sample rate and $\tau_{\text{peak}}$ is the lag in samples. Pyin adds a probabilistic layer to handle ambiguous cases.</li>
+                                    <li><strong>WORLD vocoder:</strong> Uses the DIO algorithm for F0 estimation with StoneMask for refinement. Widely used in TTS due to its reliability and speed.</li>
+                                    <li><strong>Spectral methods (e.g., harmonic product spectrum):</strong> Multiply the spectrum at multiples of the candidate F0 frequency; the true F0 will have energy at all harmonics, producing a sharp peak.</li>
+                                </ul>
+                                <p><strong>Challenges:</strong></p>
+                                <ol>
+                                    <li><strong>Octave errors:</strong> Autocorrelation can lock onto the second harmonic (twice the true F0) or a subharmonic (half the true F0), producing sudden jumps of exactly one octave in the F0 contour. These are especially common at voicing boundaries.</li>
+                                    <li><strong>Creaky voice (vocal fry):</strong> The glottal pulses become irregular, making periodicity detection unreliable. F0 trackers often produce noisy, unreliable estimates in creaky voice regions.</li>
+                                    <li><strong>Background noise:</strong> Noise reduces the signal-to-noise ratio, making pitch estimation less reliable. Low-frequency noise is especially problematic because it overlaps with the F0 range.</li>
+                                    <li><strong>Rapid pitch changes:</strong> During consonant-to-vowel transitions, pitch can change rapidly, requiring short analysis windows that reduce frequency resolution.</li>
+                                </ol>
+                                <p><strong>Handling unvoiced segments:</strong></p>
+                                <p>Unvoiced sounds (fricatives like /s/, stops like /t/, aspiration) have no periodic component and therefore no well-defined F0. The challenge is what to represent for these segments:</p>
+                                <ul>
+                                    <li><strong>Set to zero:</strong> The simplest approach. F0 = 0 for unvoiced frames. The pitch predictor learns to predict 0 for unvoiced phonemes. Problem: discontinuities at voiced/unvoiced boundaries create artifacts.</li>
+                                    <li><strong>Linear interpolation:</strong> Interpolate through unvoiced segments using the F0 values of the surrounding voiced segments. This produces a smooth, continuous contour. Used by FastSpeech 2 and FastPitch.</li>
+                                    <li><strong>Use a voicing flag:</strong> Predict both F0 and a voiced/unvoiced binary flag. The F0 value is only used when the flag indicates voicing. This is more principled but adds complexity.</li>
+                                </ul>
+                                <p>The non-triviality lies in the fact that pitch is inherently undefined for unvoiced sounds, yet the model needs a continuous representation to predict smoothly. Any choice (zero, interpolation, flag) introduces assumptions that may not match reality.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Knowledge Distillation Pipeline</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Draw (or describe in detail) the full training pipeline for the original FastSpeech (FastSpeech 1). Include all four stages: training Tacotron 2, extracting attention alignments, generating target mel-spectrograms, and training FastSpeech. For each stage, specify the inputs, outputs, and what can go wrong.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Stage 1: Train Tacotron 2 (AR Teacher)</strong></p>
+                                <ul>
+                                    <li><strong>Input:</strong> (text, audio) pairs from the training corpus.</li>
+                                    <li><strong>Output:</strong> A fully converged Tacotron 2 model with learned attention.</li>
+                                    <li><strong>What can go wrong:</strong> Tacotron 2 training is notoriously unstable. The attention mechanism may not converge for some utterances (especially long ones), producing poor alignments. Training typically takes 200k&ndash;500k steps and requires careful hyperparameter tuning.</li>
+                                </ul>
+                                <p><strong>Stage 2: Extract Attention Alignments</strong></p>
+                                <ul>
+                                    <li><strong>Input:</strong> Trained Tacotron 2 + training corpus.</li>
+                                    <li><strong>Process:</strong> Run teacher-forced decoding on every training utterance. At each decoder step, extract the attention weights $\alpha_{t,n}$ (soft alignment matrix). Convert to hard durations: for each decoder step $n$, find $t^* = \arg\max_t \alpha_{t,n}$ and count how many frames are assigned to each text token.</li>
+                                    <li><strong>Output:</strong> Duration labels $d_1, \ldots, d_N$ for each training utterance.</li>
+                                    <li><strong>What can go wrong:</strong> Attention alignments from Tacotron 2 are noisy. Some utterances have diagonal attention (good), but others have scattered or collapsed attention (bad). The durations extracted from bad attention are incorrect, and training FastSpeech on these will produce poor results. Filtering is needed: discard utterances where the attention is not approximately diagonal.</li>
+                                </ul>
+                                <p><strong>Stage 3: Generate Target Mel-Spectrograms</strong></p>
+                                <ul>
+                                    <li><strong>Input:</strong> Trained Tacotron 2 + text transcripts.</li>
+                                    <li><strong>Process:</strong> Run autoregressive inference on each training utterance to produce mel-spectrograms. These teacher-generated mel-spectrograms (not the original recordings) become the training targets for FastSpeech.</li>
+                                    <li><strong>Output:</strong> Synthetic mel-spectrograms for each utterance.</li>
+                                    <li><strong>What can go wrong:</strong> (a) The teacher's quality bounds the student's quality &mdash; if Tacotron 2 produces poor audio, FastSpeech will too. (b) The teacher-generated mel-spectrograms lack the natural variation of real speech, which can make the student sound "robotic." (c) Generating mel-spectrograms for the entire training set is computationally expensive (hours to days).</li>
+                                </ul>
+                                <p><strong>Stage 4: Train FastSpeech (Non-AR Student)</strong></p>
+                                <ul>
+                                    <li><strong>Input:</strong> Text + distilled durations (from Stage 2) + teacher mel-spectrograms (from Stage 3).</li>
+                                    <li><strong>Process:</strong> Train FastSpeech with: (a) duration predictor loss on extracted durations, (b) mel reconstruction loss on teacher-generated mel-spectrograms (not ground-truth).</li>
+                                    <li><strong>Output:</strong> Trained FastSpeech model.</li>
+                                    <li><strong>What can go wrong:</strong> If the durations from Stage 2 are noisy, the duration predictor will learn noisy predictions. If the teacher mel-spectrograms from Stage 3 are over-smoothed, FastSpeech output will be even more over-smoothed.</li>
+                                </ul>
+                                <p><strong>Total pipeline complexity:</strong> 4 stages, each with its own failure modes. Errors cascade: bad Tacotron 2 &rarr; bad alignments &rarr; bad durations &rarr; bad FastSpeech. This motivated FastSpeech 2, which replaces Stages 1&ndash;3 with MFA (a single, reliable external tool).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. The One-to-Many Problem</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Explain with concrete examples why the same phoneme sequence can produce very different speech signals. Give at least three sources of variation. Then explain mathematically why a model trained with MSE loss predicts the conditional mean, and why this hurts quality when the distribution is multimodal.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Sources of variation for the same phoneme sequence:</strong></p>
+                                <ol>
+                                    <li><strong>Prosodic variation:</strong> The sentence "I didn't say he stole the money" has seven different prosodic patterns depending on which word is stressed, each conveying a different meaning. Even with fixed stress, the speaker can vary the intonation contour (rising for a question, falling for a statement) and speaking rate (fast when excited, slow when thoughtful).</li>
+                                    <li><strong>Speaker identity:</strong> Different speakers have different vocal tract shapes, producing different formant frequencies. A male voice (low F0 ~120 Hz) and a female voice (high F0 ~220 Hz) produce radically different mel-spectrograms for the same phoneme sequence. Even for a single speaker, vocal quality varies with health, time of day, and emotional state.</li>
+                                    <li><strong>Micro-prosodic variation:</strong> Breath placement, lip smacks, glottalization, creaky voice, and other fine-grained articulatory details vary from utterance to utterance even for the same speaker saying the same sentence. These are not predictable from text but are perceptually significant.</li>
+                                    <li><strong>Coarticulatory variation:</strong> The exact realization of each phoneme depends on speaking rate. At fast speaking rates, phonemes overlap more (stronger coarticulation), producing different spectral patterns than at slow rates.</li>
+                                </ol>
+                                <p><strong>Mathematical explanation of MSE averaging:</strong></p>
+                                <p>The MSE loss minimizes $\mathbb{E}[\|\hat{y} - y\|^2 \mid x]$ where $x$ is the text input and $y$ is the mel-spectrogram target. The optimal prediction under MSE is:</p>
+                                $$\hat{y}^* = \arg\min_{\hat{y}} \mathbb{E}[\|\hat{y} - y\|^2 \mid x] = \mathbb{E}[y \mid x]$$
+                                <p>This is the conditional mean. Now suppose the conditional distribution $p(y \mid x)$ is bimodal with modes at $a$ and $b$ (two valid ways to speak the sentence), each with probability 0.5. Then:</p>
+                                $$\hat{y}^* = 0.5 \cdot a + 0.5 \cdot b = \frac{a + b}{2}$$
+                                <p>The optimal MSE prediction is the midpoint between the two modes, which is <em>maximally far from both valid realizations</em>. In mel-spectrogram space, this manifests as blurred spectral peaks (the average of two clear formant patterns is a blurry formant pattern) and flat pitch contours (the average of a rising and falling pitch is approximately flat). The resulting audio sounds over-smoothed and unnatural &mdash; neither fully like pattern $a$ nor like pattern $b$, but a ghostly combination of both.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Duration Prediction for Cross-Lingual TTS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>How would the duration prediction component of FastSpeech 2 need to change for a tonal language like Mandarin Chinese? What about for an agglutinative language like Turkish? Consider the phoneme inventory, duration distributions, and any additional features that might be needed.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Mandarin Chinese (tonal language):</strong></p>
+                                <ul>
+                                    <li><strong>Phoneme inventory:</strong> Mandarin has 4 lexical tones (plus a neutral tone) that change word meaning. The phoneme representation must include tone information, typically as a separate feature or by creating tone-dependent phoneme variants (e.g., "ma1", "ma2", "ma3", "ma4" instead of just "ma").</li>
+                                    <li><strong>Duration interaction with tone:</strong> Different tones have systematically different durations. Tone 3 (dipping tone) is typically longer than Tone 4 (falling tone) because the pitch contour takes more time to execute. The duration predictor must learn these tone-dependent duration patterns.</li>
+                                    <li><strong>Pitch predictor coupling:</strong> In Mandarin, pitch is lexically determined (not just prosodic). The pitch predictor needs to be conditioned on both the phoneme identity and its tone. The pitch contour within a syllable follows a specific shape for each tone, and the duration must be long enough to realize the full contour.</li>
+                                    <li><strong>Additional feature:</strong> Tone sandhi rules (e.g., two consecutive Tone 3 syllables &rarr; the first becomes Tone 2) affect both duration and pitch. These need to be handled at the text processing stage or modeled explicitly.</li>
+                                </ul>
+                                <p><strong>Turkish (agglutinative language):</strong></p>
+                                <ul>
+                                    <li><strong>Phoneme inventory:</strong> Turkish has vowel harmony (front/back, rounded/unrounded), which means the same suffix can have different vowel realizations depending on the root word. The phoneme set must capture these alternations.</li>
+                                    <li><strong>Word length:</strong> Turkish words can be very long due to agglutination (e.g., "evlerinizden" = "from your houses" is a single word with multiple suffixes). The duration predictor needs to handle much longer phoneme sequences per word, and the durations of suffixes may differ from root morphemes.</li>
+                                    <li><strong>Stress patterns:</strong> Turkish has predictable word-level stress (usually on the last syllable, with exceptions for certain suffixes and loanwords). The duration predictor should be aware of stress assignment, possibly through an explicit stress feature.</li>
+                                    <li><strong>Duration distributions:</strong> Turkish has relatively regular phoneme durations (it is a syllable-timed language, unlike stress-timed English), so the duration predictor may achieve higher accuracy with simpler models. However, the sheer number of morphological forms means the model needs to generalize across morphological variants.</li>
+                                    <li><strong>Additional consideration:</strong> G2P (grapheme-to-phoneme) for Turkish is nearly trivial (almost 1:1 mapping), so the phonemization step is simpler than for English. This means the duration predictor gets cleaner input.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Variance Predictor Design</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The variance predictors in FastSpeech 2 are simple: two 1D conv layers + linear projection. Design a better variance predictor architecture. Consider: what contextual features help predict duration? What about energy and pitch? Should the predictors share parameters? Should they predict jointly or independently? Justify your design choices with concrete reasoning.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Key design considerations:</strong></p>
+                                <p><strong>1. Features that help predict duration:</strong></p>
+                                <ul>
+                                    <li><strong>Phoneme identity:</strong> The most important feature. /s/ is inherently longer than /t/. The encoder already captures this.</li>
+                                    <li><strong>Position in word/sentence:</strong> Sentence-final words are typically lengthened (pre-boundary lengthening). Word-initial consonants are longer than medial ones. Add positional features indicating word position and sentence position.</li>
+                                    <li><strong>Part of speech / stress:</strong> Content words (nouns, verbs) are longer than function words (articles, prepositions). Stressed syllables are longer than unstressed ones. These require linguistic features beyond the phoneme sequence.</li>
+                                    <li><strong>Neighboring phonemes:</strong> Coarticulation effects mean duration depends on context. The 1D conv already captures local context, but wider kernels or explicit bigram/trigram features could help.</li>
+                                </ul>
+                                <p><strong>2. Proposed architecture:</strong></p>
+<pre><code>class ImprovedVariancePredictor(nn.Module):
+    def __init__(self, d_model, d_filter, n_layers=4):
+        # Multi-scale convolution: capture both local and
+        # medium-range context
+        self.convs = nn.ModuleList([
+            nn.Conv1d(d_model if i == 0 else d_filter,
+                      d_filter,
+                      kernel_size=k,
+                      padding=k // 2)
+            for i, k in enumerate([3, 5, 7, 3])
+        ])
+        self.norms = nn.ModuleList([
+            nn.LayerNorm(d_filter) for _ in range(n_layers)
+        ])
+        # Self-attention for long-range dependencies
+        # (e.g., sentence-level speaking rate)
+        self.attn = nn.MultiheadAttention(d_filter, 4)
+        # Residual from encoder
+        self.proj_in = nn.Linear(d_model, d_filter)
+        self.proj_out = nn.Linear(d_filter, 1)</code></pre>
+                                <p><strong>3. Joint vs independent prediction:</strong></p>
+                                <p>Duration, pitch, and energy are correlated (stressed syllables tend to be longer, higher-pitched, and louder). A <strong>cascaded prediction</strong> approach would be better than fully independent prediction:</p>
+                                <ol>
+                                    <li>Predict duration first (it depends mainly on phoneme identity and position).</li>
+                                    <li>Predict pitch conditioned on both encoder output and predicted duration (longer segments tend to have more pitch variation).</li>
+                                    <li>Predict energy conditioned on encoder output, duration, and pitch (energy and pitch are correlated in natural speech).</li>
+                                </ol>
+                                <p>This cascaded approach captures the natural dependencies between variance features without requiring a complex joint model.</p>
+                                <p><strong>4. Parameter sharing:</strong></p>
+                                <p>The three predictors should <strong>not</strong> share parameters in their output layers (they predict different quantities with different scales and distributions). However, they could share a common <strong>feature extraction backbone</strong> (first 2 conv layers), with separate <strong>prediction heads</strong> (last conv + linear). This reduces parameters by ~30% while maintaining prediction quality, since the features useful for predicting duration overlap significantly with those useful for pitch and energy.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Non-AR TTS Without External Alignment</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Can we build a non-autoregressive TTS system that does not require MFA, teacher distillation, or any external alignment tool? What would be needed? Consider approaches like CTC, learned upsampling, or end-to-end duration prediction. What are the trade-offs compared to the MFA-based approach?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Yes, several approaches exist:</strong></p>
+                                <p><strong>Approach 1: Monotonic Alignment Search (MAS) during training</strong></p>
+                                <p>This is the Glow-TTS approach (Tutorial 26). The alignment is discovered during training via dynamic programming on a cost matrix produced by the encoder and decoder. No external tool is needed. The alignment improves as the model trains (EM-like procedure). Trade-off: MAS adds $O(TN)$ computation per training step, and the alignment quality depends on model quality (chicken-and-egg problem at the start of training).</p>
+
+                                <p><strong>Approach 2: CTC-based alignment</strong></p>
+                                <p>Use Connectionist Temporal Classification (CTC) to learn the alignment. The CTC loss marginalizes over all valid monotonic alignments, providing a training signal without explicit alignment. The Viterbi path through the CTC lattice gives the most likely alignment, from which durations can be extracted. Trade-off: CTC assumes conditional independence between output frames, which is a strong assumption for TTS. CTC alignments tend to be less accurate than MFA alignments, especially at phoneme boundaries.</p>
+
+                                <p><strong>Approach 3: Learned upsampling (no explicit durations)</strong></p>
+                                <p>Instead of predicting integer durations and using a hard length regulator, use a <strong>soft upsampling</strong> mechanism. For example:</p>
+                                <ul>
+                                    <li>Predict a continuous "expansion ratio" per phoneme.</li>
+                                    <li>Use differentiable interpolation (e.g., Gaussian upsampling) to expand the encoder output to mel length.</li>
+                                    <li>The expansion ratios are learned end-to-end via the mel reconstruction loss.</li>
+                                </ul>
+                                <p>This is used in models like AlignTTS and RAD-TTS. Trade-off: the soft upsampling is differentiable (good for training) but can produce blurry boundaries (bad for quality). The model may struggle to learn sharp phoneme transitions.</p>
+
+                                <p><strong>Approach 4: Duration prediction from a pretrained ASR model</strong></p>
+                                <p>Use a pretrained automatic speech recognition model (e.g., Whisper, wav2vec 2.0) to force-align the training data. This is essentially using a neural network as the aligner instead of an HMM-based tool like MFA. Trade-off: requires a pretrained ASR model, which is itself trained on large amounts of data. Not truly "from scratch" but avoids MFA specifically.</p>
+
+                                <p><strong>Trade-offs vs MFA-based approach:</strong></p>
+                                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid var(--color-border);">
+                                            <th style="text-align: left; padding: 0.5rem;">Aspect</th>
+                                            <th style="text-align: left; padding: 0.5rem;">MFA-based</th>
+                                            <th style="text-align: left; padding: 0.5rem;">Self-aligned</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;">Alignment quality</td>
+                                            <td style="padding: 0.5rem;">High (decades of HMM research)</td>
+                                            <td style="padding: 0.5rem;">Variable (depends on model)</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;">Setup complexity</td>
+                                            <td style="padding: 0.5rem;">Requires MFA installation</td>
+                                            <td style="padding: 0.5rem;">Self-contained</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;">Language coverage</td>
+                                            <td style="padding: 0.5rem;">Needs pronunciation dict</td>
+                                            <td style="padding: 0.5rem;">Language-agnostic</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 0.5rem;">Training speed</td>
+                                            <td style="padding: 0.5rem;">Fast (offline alignment)</td>
+                                            <td style="padding: 0.5rem;">Slower (alignment in loop)</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p>In practice, the MFA-based approach (FastSpeech 2) remains the most reliable for production systems. Self-aligned approaches (Glow-TTS, VITS) are preferred for research and for languages where MFA pronunciation dictionaries are not available.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Real-Time Streaming FastSpeech</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>FastSpeech 2 generates the entire mel-spectrogram at once, requiring the full input text before synthesis can begin. How would you modify FastSpeech 2 for <strong>streaming/incremental synthesis</strong> &mdash; where audio output begins before the full text is available? What architectural changes are needed? What are the key challenges, and how would you handle sentence boundaries?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>The core challenge:</strong> Standard FastSpeech 2 uses bidirectional self-attention in both encoder and decoder, meaning every position can attend to every other position. For streaming, we need to generate output <em>before seeing the full input</em>, which requires causal or chunk-based processing.</p>
+
+                                <p><strong>Architectural changes needed:</strong></p>
+
+                                <p><strong>1. Chunked encoder:</strong></p>
+                                <ul>
+                                    <li>Process text in chunks (e.g., word-by-word or phrase-by-phrase).</li>
+                                    <li>Replace bidirectional self-attention with <strong>causal self-attention</strong> (each position can only attend to current and previous positions).</li>
+                                    <li>Alternatively, use a <strong>look-ahead window</strong>: each position can attend to the next $k$ tokens. This adds latency of $k$ tokens but significantly improves quality because duration and pitch often depend on upcoming context (e.g., question intonation requires seeing the question mark).</li>
+                                </ul>
+
+                                <p><strong>2. Incremental duration prediction:</strong></p>
+                                <ul>
+                                    <li>The duration predictor must output durations for the current chunk without seeing future chunks.</li>
+                                    <li>Problem: sentence-final lengthening requires knowing that the current word is sentence-final, which is unknown in a streaming setting.</li>
+                                    <li>Solution: predict durations with a default assumption (non-final), then apply a <strong>correction</strong> when the sentence boundary is detected. This requires a small buffer and may cause a slight discontinuity.</li>
+                                </ul>
+
+                                <p><strong>3. Chunk-based decoder:</strong></p>
+                                <ul>
+                                    <li>After the length regulator expands the current chunk, the decoder processes the expanded frames.</li>
+                                    <li>Use <strong>causal convolutions</strong> instead of standard convolutions to prevent information leakage from future frames.</li>
+                                    <li>Maintain a <strong>hidden state buffer</strong> that carries context from the previous chunk to the current chunk, similar to how streaming ASR models work.</li>
+                                </ul>
+
+                                <p><strong>4. Cross-chunk consistency:</strong></p>
+                                <ul>
+                                    <li>Chunks must be stitched together without audible discontinuities.</li>
+                                    <li>Use <strong>overlap-add</strong>: generate slightly more frames than needed for each chunk, and cross-fade between consecutive chunks.</li>
+                                    <li>Alternatively, use a <strong>streaming vocoder</strong> (e.g., streaming HiFi-GAN) that maintains its own state across chunks.</li>
+                                </ul>
+
+                                <p><strong>Key challenges:</strong></p>
+                                <ol>
+                                    <li><strong>Latency vs quality trade-off:</strong> Smaller chunks give lower latency but worse quality (less context). Typical chunk sizes: 1&ndash;5 words. The look-ahead window size is the main latency knob.</li>
+                                    <li><strong>Prosody degradation:</strong> Without seeing the full sentence, the model cannot plan prosody globally. Question intonation, emphasis patterns, and sentence-level rhythm all suffer. Partial mitigation: use a separate prosody predictor with a larger look-ahead.</li>
+                                    <li><strong>Duration consistency:</strong> If the model predicts durations chunk-by-chunk, the total speaking rate may drift. A running estimate of the global speaking rate can be used to normalize per-chunk durations.</li>
+                                    <li><strong>Sentence boundaries:</strong> When a sentence boundary is detected (period, question mark), the model should apply sentence-final prosodic adjustments (lengthening, pitch fall/rise) to the last chunk. This requires either a small buffer or retroactive adjustment of the most recent output.</li>
+                                </ol>
+
+                                <p><strong>Practical systems:</strong> Models like FastSpeech 2 with incremental processing achieve latencies of 50&ndash;200ms (1&ndash;4 words of look-ahead) with modest quality degradation. For applications like real-time dialogue systems, this trade-off is acceptable. For high-quality narration, batch processing remains preferred.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#why-non-ar" class="toc-link">Why Non-Autoregressive?</a>
+                <a href="#duration-prediction" class="toc-link">Duration Prediction</a>
+                <a href="#fastspeech-architecture" class="toc-link">FastSpeech Architecture</a>
+                <a href="#fastspeech2" class="toc-link">FastSpeech 2</a>
+                <a href="#controllability" class="toc-link">Controllability</a>
+                <a href="#speed-quality-tradeoff" class="toc-link">Speed vs Quality</a>
+                <a href="#non-ar-comparison" class="toc-link">Non-AR Comparison</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

@@ -85,6 +85,7 @@
     <!-- Main Content -->
     <div class="tutorial-wrapper">
         <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">Machine Learning</h3>
@@ -117,6 +118,13 @@
                     <a href="../24-sequence-alignment/index.html" class="sidebar-link">25. Sequence Alignment</a>
                     <a href="../25-mas-algorithm/index.html" class="sidebar-link">26. MAS Algorithm</a>
                     <a href="../26-forced-alignment/index.html" class="sidebar-link">27. Forced Alignment & MFA</a>
+                    <a href="../27-tts-fundamentals/index.html" class="sidebar-link">28. TTS Fundamentals</a>
+                    <a href="../28-neural-vocoders/index.html" class="sidebar-link">29. Neural Vocoders</a>
+                    <a href="../29-tacotron/index.html" class="sidebar-link">30. Tacotron & Attention TTS</a>
+                    <a href="../30-fastspeech/index.html" class="sidebar-link">31. FastSpeech & Non-AR TTS</a>
+                    <a href="../31-glow-tts/index.html" class="sidebar-link">32. Glow-TTS & Flows</a>
+                    <a href="../32-vits/index.html" class="sidebar-link">33. VITS: End-to-End TTS</a>
+                    <a href="../33-bilingual-tts/index.html" class="sidebar-link">34. Bilingual TTS: RU+KY</a>
                 </nav>
             </div>
             
@@ -254,8 +262,26 @@
 
                 <h3>Shannon's Rate-Distortion Theory</h3>
 
+                <p>
+                    Imagine you need to describe a photograph over a phone call. If you can say 1000 words, you can describe it precisely. With 10 words, you can convey the gist: "a cat on a red couch." With 1 word: "cat." Each reduction in description length (rate) forces more loss of detail (distortion). Shannon's rate-distortion theory tells us the <em>fundamental limit</em>: for a given level of acceptable distortion, what is the absolute minimum number of bits needed?
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Core Setup</div>
+                    <p>
+                        <strong>Source:</strong> A random variable $X$ with distribution $p(x)$ (e.g., images from a dataset).<br>
+                        <strong>Encoder:</strong> Maps $X$ to a compressed representation $Z$ via a conditional distribution $p(z|x)$.<br>
+                        <strong>Decoder:</strong> Reconstructs $\hat{X}$ from $Z$ via $p(\hat{x}|z)$.<br>
+                        <strong>Distortion measure:</strong> $d(x, \hat{x})$ quantifies how bad the reconstruction is. For MSE: $d(x, \hat{x}) = \|x - \hat{x}\|^2$.<br>
+                        <strong>Rate:</strong> The mutual information $I(X; Z)$ — the number of bits the encoder "communicates" about $X$ through $Z$.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Why mutual information as the rate? Because $I(X; Z)$ measures exactly how many bits of information about $X$ are preserved in $Z$. Shannon's source coding theorem proves that you need at least $I(X;Z)$ bits to represent the encoder output.
+                    </p>
+                </div>
+
                 <div class="math-derivation">
-                    <div class="math-derivation-title">Shannon's Rate-Distortion Theory</div>
+                    <div class="math-derivation-title">The Rate-Distortion Function $R(D)$</div>
 
                     <div class="math-step">
                         <div class="math-step-number">1</div>
@@ -270,46 +296,151 @@
                         <div class="math-step-content">
                             <strong>Rate-distortion function:</strong>
                             $$R(D) = \min_{p(z|x): \mathbb{E}[d(x,\hat{x})] \leq D} I(X; Z)$$
-                            This is the theoretical minimum — no encoder-decoder pair can achieve distortion $\leq D$
-                            while transmitting fewer than $R(D)$ bits.
+                            <p>Read this carefully: we search over all possible encoders $p(z|x)$ — every conceivable way to compress $X$ into $Z$ — subject to the constraint that the average distortion stays within budget $D$. Among all such encoders, we pick the one that transmits the <em>fewest bits</em> $I(X;Z)$. This minimum is $R(D)$.</p>
+                            <p style="margin-bottom: 0;">No encoder-decoder pair — no matter how clever — can achieve distortion $\leq D$ while transmitting fewer than $R(D)$ bits. This is the <strong>fundamental limit of lossy compression</strong>.</p>
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            <strong>The autoencoder connection:</strong> The bottleneck dimension $d$ implicitly controls
-                            the rate. A $d$-dimensional continuous bottleneck can transmit at most a certain number of bits
-                            per sample. The training process finds the best encoding within this budget.
+                            <strong>Why minimize over $p(z|x)$?</strong> The encoder $p(z|x)$ determines both the rate <em>and</em> the achievable distortion. A deterministic encoder like $z = f(x)$ is a special case where $p(z|x)$ is a delta function. Allowing stochastic encoders (where $p(z|x)$ is a soft distribution) can sometimes achieve better rate-distortion trade-offs, because randomization can help "average out" the distortion across similar inputs.
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">4</div>
                         <div class="math-step-content">
-                            <strong>The trade-off curve:</strong> $R(D)$ is a monotonically decreasing, convex curve.
-                            At one extreme ($R = 0$), the best reconstruction is just $\hat{x} = \mathbb{E}[X]$ (the mean).
-                            At the other extreme ($R \to \infty$), distortion drops to zero (perfect reconstruction).
+                            <strong>Properties of the $R(D)$ curve:</strong>
+                            <ul style="margin-bottom: 0;">
+                                <li><strong>Monotonically decreasing:</strong> More bits (higher rate) always allows less distortion. You can't make reconstruction worse by sending more information.</li>
+                                <li><strong>Convex:</strong> The marginal benefit of each additional bit decreases. The first few bits capture the most important structure; later bits capture diminishing details.</li>
+                                <li><strong>At $R = 0$:</strong> No information transmitted. The decoder can only output a fixed value. The best choice is $\hat{x} = \mathbb{E}[X]$ (the mean), giving $D = \text{Var}(X)$.</li>
+                                <li><strong>At $D = 0$:</strong> Perfect reconstruction. For continuous sources, this requires $R \to \infty$ (infinite bits). For discrete sources with $|\mathcal{X}|$ outcomes, $R(0) = H(X) \leq \log_2|\mathcal{X}|$ bits.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>The Gaussian Case: A Worked Example</h3>
+
+                <p>
+                    For a Gaussian source $X \sim \mathcal{N}(0, \sigma^2)$ with MSE distortion, Shannon derived the <em>exact</em> rate-distortion function. This is one of the few cases with a closed-form solution, and it builds powerful intuition for the general case.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Deriving $R(D)$ for a Gaussian Source</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>The optimal "test channel":</strong> Consider encoding $X$ by adding noise: $Z = X + N$ where $N \sim \mathcal{N}(0, \sigma_N^2)$ is independent of $X$. The decoder uses the MMSE estimator:
+                            $$\hat{X} = \mathbb{E}[X|Z] = \frac{\sigma^2}{\sigma^2 + \sigma_N^2} Z$$
+                            Why does the decoder scale $Z$? Because $Z = X + N$ is a noisy version of $X$. The factor $\frac{\sigma^2}{\sigma^2 + \sigma_N^2}$ shrinks $Z$ toward zero, "hedging" against the noise. When noise is small ($\sigma_N^2 \ll \sigma^2$), the factor is near 1 (trust the channel). When noise is large, the factor is near 0 (ignore the channel, output the mean).
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Compute the distortion.</strong> The MSE of the MMSE estimator is the conditional variance:
+                            $$D = \text{Var}(X|Z) = \sigma^2 - \frac{\sigma^4}{\sigma^2 + \sigma_N^2} = \frac{\sigma^2 \sigma_N^2}{\sigma^2 + \sigma_N^2}$$
+                            Solving for the noise variance: $\sigma_N^2 = \frac{D\sigma^2}{\sigma^2 - D}$ (valid for $D < \sigma^2$).
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Compute the rate.</strong> Since $X$ and $N$ are independent Gaussians, $Z \sim \mathcal{N}(0, \sigma^2 + \sigma_N^2)$. The mutual information is:
+                            $$I(X;Z) = h(Z) - h(Z|X) = h(Z) - h(N) = \frac{1}{2}\log_2\frac{\sigma^2 + \sigma_N^2}{\sigma_N^2}$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Substitute $\sigma_N^2$ in terms of $D$:</strong>
+                            $$\frac{\sigma^2 + \sigma_N^2}{\sigma_N^2} = 1 + \frac{\sigma^2}{\sigma_N^2} = 1 + \frac{\sigma^2 - D}{D} = \frac{\sigma^2}{D}$$
+                            $$\boxed{R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}} \quad \text{for } 0 < D \leq \sigma^2$$
+                            Shannon proved this is optimal: no encoding scheme can do better.
                         </div>
                     </div>
                 </div>
 
                 <div class="note-box">
-                    <div class="box-title">Example: Gaussian Rate-Distortion</div>
-                    <p style="margin-bottom: 0;">
-                        <strong>Example:</strong> For a Gaussian source $X \sim \mathcal{N}(0, \sigma^2)$ with MSE distortion,
-                        Shannon proved $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ for $D \leq \sigma^2$.
-                        A source with variance $\sigma^2 = 4$ requires at least $R(1) = 1$ bit to achieve distortion $D = 1$.
-                        Halving the distortion to $D = 0.5$ costs an additional half bit: $R(0.5) = 1.5$ bits.
-                    </p>
+                    <div class="box-title">Reading the Gaussian $R(D)$ Formula</div>
+                    <p>The formula $R(D) = \frac{1}{2}\log_2(\sigma^2 / D)$ says:</p>
+                    <ul>
+                        <li><strong>Every halving of distortion costs $\frac{1}{2}$ bit.</strong> From $D = 4$ to $D = 2$ to $D = 1$: each step adds 0.5 bits. This is a universal property of Gaussian sources.</li>
+                        <li><strong>The ratio $\sigma^2/D$ is the signal-to-noise ratio.</strong> $R(D) = \frac{1}{2}\log_2(\text{SNR})$ — you need half a bit per unit of SNR in the log scale.</li>
+                        <li><strong>At $D = \sigma^2$:</strong> $R = 0$. The "reconstruction" is just the mean (zero). Distortion equals the source variance.</li>
+                    </ul>
+                    <p><strong>Concrete example:</strong> For $\sigma^2 = 4$:</p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="padding: 0.3rem 0.5rem; text-align: center;">$D$</th>
+                            <th style="padding: 0.3rem 0.5rem; text-align: center;">$R(D)$ bits</th>
+                            <th style="padding: 0.3rem 0.5rem; text-align: left;">Interpretation</th>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">4.0</td>
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">0</td>
+                            <td style="padding: 0.3rem 0.5rem;">No bits — just output the mean</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">2.0</td>
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">0.5</td>
+                            <td style="padding: 0.3rem 0.5rem;">Half a bit: "above or below average?"</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">1.0</td>
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">1.0</td>
+                            <td style="padding: 0.3rem 0.5rem;">One bit: which quartile?</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">0.25</td>
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">2.0</td>
+                            <td style="padding: 0.3rem 0.5rem;">Two bits: which of 4 buckets?</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">0.0625</td>
+                            <td style="padding: 0.3rem 0.5rem; text-align: center;">3.0</td>
+                            <td style="padding: 0.3rem 0.5rem;">Three bits: which of 8 buckets?</td>
+                        </tr>
+                    </table>
+                    <p style="margin-bottom: 0;">Each additional bit roughly doubles the precision of the reconstruction.</p>
+                </div>
+
+                <h3>Multivariate Gaussian: The Water-Filling Principle</h3>
+
+                <p>
+                    For a multivariate Gaussian $X \sim \mathcal{N}(0, \Sigma)$ with eigenvalues $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_n$ (the principal component variances), the rate-distortion function has a beautiful "water-filling" solution:
+                </p>
+
+                $$R(D) = \sum_{i=1}^n \max\left(0, \frac{1}{2}\log_2\frac{\lambda_i}{\theta}\right)$$
+
+                <p>
+                    where $\theta$ is chosen so that $\sum_{i=1}^n \min(\lambda_i, \theta) = D$. The parameter $\theta$ acts as a "water level." Imagine the eigenvalues as pillars of different heights, and you pour water to level $\theta$:
+                </p>
+
+                <ul>
+                    <li><strong>Components where $\lambda_i > \theta$:</strong> These get encoded with $\frac{1}{2}\log_2(\lambda_i/\theta)$ bits each. The distortion contribution is $\theta$ (the water level).</li>
+                    <li><strong>Components where $\lambda_i \leq \theta$:</strong> These are <em>discarded entirely</em> (zero bits). Their full variance $\lambda_i$ contributes to distortion. These components contain less information than the encoding cost would justify.</li>
+                </ul>
+
+                <div class="warning-box">
+                    <div class="box-title">Why This Matters for Autoencoders</div>
+                    <p>The water-filling solution explains exactly what a linear autoencoder does. With bottleneck dimension $d$, it keeps the top $d$ principal components and discards the rest. This is optimal for Gaussian data! For non-Gaussian data, nonlinear autoencoders can do better — they can exploit non-linear structure that PCA misses.</p>
+                    <p style="margin-bottom: 0;">The bottleneck dimension $d$ implicitly sets the rate: a $d$-dimensional continuous bottleneck can transmit at most a certain number of bits per sample (depending on the precision of the activations). Training finds the best encoding within this budget.</p>
                 </div>
 
                 <div class="definition-box">
-                    <div class="box-title">Rate-Distortion Trade-off</div>
+                    <div class="box-title">Rate-Distortion Trade-off Summary</div>
                     <p>
                         <strong>Rate:</strong> Bits needed to represent $z$ (limited by bottleneck dimension $d$)<br>
                         <strong>Distortion:</strong> Reconstruction error $\|x - \hat{x}\|^2$<br>
-                        <strong>Trade-off:</strong> Smaller bottleneck → more compression → higher distortion
+                        <strong>Trade-off:</strong> Smaller bottleneck &rarr; more compression &rarr; higher distortion
                     </p>
                     <p style="margin-bottom: 0;">
                         An autoencoder with bottleneck dimension $d=2$ on MNIST (784-dim) achieves roughly 99.7% compression
@@ -364,55 +495,152 @@
                 <h2 id="denoising-autoencoders">Denoising Autoencoders</h2>
 
                 <p>
-                    Train the autoencoder to reconstruct <strong>clean</strong> input from <strong>corrupted</strong> input:
+                    A denoising autoencoder flips the usual setup: instead of compressing clean data, we deliberately <strong>corrupt the input</strong> and train the network to recover the original. This forces the network to learn the underlying structure of the data — not just memorize a mapping.
                 </p>
 
                 <div class="math-derivation">
-                    <div class="math-derivation-title">Denoising Training</div>
+                    <div class="math-derivation-title">Denoising Training Procedure</div>
 
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
-                            <strong>Corrupt:</strong> $\tilde{x} = \text{corrupt}(x)$ (masking, Gaussian noise, or salt-and-pepper)
+                            <strong>Corrupt:</strong> $\tilde{x} = \text{corrupt}(x)$ (Gaussian noise, masking, or salt-and-pepper). For Gaussian: $\tilde{x} = x + \epsilon$ where $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$.
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            <strong>Encode:</strong> $z = f_\theta(\tilde{x})$
+                            <strong>Encode:</strong> $z = f_\theta(\tilde{x})$ — the encoder sees the <em>corrupted</em> input.
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            <strong>Decode:</strong> $\hat{x} = g_\phi(z)$
+                            <strong>Decode:</strong> $\hat{x} = g_\phi(z)$ — the decoder tries to produce the <em>clean</em> original.
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">4</div>
                         <div class="math-step-content">
-                            <strong>Loss:</strong> $\|x - \hat{x}\|^2$ — compare to the <em>original</em> $x$, not corrupted $\tilde{x}$
+                            <strong>Loss:</strong> $\mathcal{L} = \|x - \hat{x}\|^2$ — compare to the <em>original</em> $x$, not the corrupted $\tilde{x}$. This is the key: the target is the clean data.
                         </div>
                     </div>
                 </div>
 
                 <p>
-                    The optimal denoising function satisfies $g^*(\tilde{x}) = \mathbb{E}[X | \tilde{X} = \tilde{x}]$.
-                    For Gaussian noise, this implicitly learns the <strong>score function</strong>:
+                    Why does corruption help? A regular autoencoder can "cheat" by memorizing the identity function. But a denoising autoencoder cannot simply pass the input through, because the input is corrupted — copying $\tilde{x}$ to the output would reproduce the noise. To minimize $\|x - \hat{x}\|^2$, the network must learn what clean data looks like, essentially learning the <em>data manifold</em>.
                 </p>
 
-                <div class="math-block">
-                    $$\nabla_{\tilde{x}} \log p(\tilde{x}) \approx \frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2}$$
+                <h3>The Optimal Denoising Function</h3>
+
+                <p>
+                    What is the best possible denoiser? Given a noisy observation $\tilde{x}$, many different clean images $x$ could have produced it (by adding different noise realizations). The best we can do, in the MSE sense, is to output the <strong>average</strong> of all clean images that could have generated $\tilde{x}$:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Optimal Denoiser = Conditional Expectation</div>
+                    <p>The function that minimizes $\mathbb{E}[\|X - g(\tilde{X})\|^2]$ over all possible functions $g$ is:</p>
+                    $$g^*(\tilde{x}) = \mathbb{E}[X \mid \tilde{X} = \tilde{x}]$$
+                    <p style="margin-bottom: 0;">This is the <strong>posterior mean</strong>: "given that I observed the noisy version $\tilde{x}$, what is the expected value of the original clean $x$?"</p>
+                </div>
+
+                <p>
+                    <strong>Intuition:</strong> Suppose you see a blurry, noisy photo of a face. The noisy pixel values are consistent with many possible clean faces. The conditional expectation $\mathbb{E}[X | \tilde{X} = \tilde{x}]$ averages over all plausible clean faces weighted by how likely each one is. This is the safest guess — it minimizes the expected squared error.
+                </p>
+
+                <p>
+                    <strong>Why conditional expectation, not just the most likely $x$?</strong> The MAP (maximum a posteriori) estimate $\arg\max_x p(x|\tilde{x})$ finds the single most probable clean image. But for MSE loss, the conditional mean is provably optimal. Consider: if two clean images $x_1$ and $x_2$ are equally likely given $\tilde{x}$, the MSE-optimal output is their midpoint $\frac{x_1 + x_2}{2}$, not either one. This explains why neural denoisers sometimes produce slightly blurry outputs — they are correctly averaging over multiple plausible reconstructions.
+                </p>
+
+                <h3>What is the Score Function?</h3>
+
+                <p>
+                    The <strong>score function</strong> of a probability distribution $p(x)$ is the gradient of its log-density:
+                </p>
+
+                $$s(x) = \nabla_x \log p(x)$$
+
+                <div class="definition-box">
+                    <div class="box-title">Score Function: Geometric Meaning</div>
+                    <p>The score $\nabla_x \log p(x)$ is a <strong>vector field</strong> that points in the direction of increasing probability density. At any point $x$ in the data space:</p>
+                    <ul>
+                        <li><strong>Direction:</strong> The score points toward nearby regions of higher density — toward the "center" of the data distribution.</li>
+                        <li><strong>Magnitude:</strong> Large when $x$ is far from high-density regions (strong pull back). Small near density peaks (already at a good location).</li>
+                        <li><strong>At a mode:</strong> $\nabla_x \log p(x) = 0$ — the score vanishes at peaks of the distribution.</li>
+                    </ul>
+                    <p style="margin-bottom: 0;">
+                        Think of it as a "force field" that pushes any point toward where data is likely to be. If you follow the score arrows, you climb toward the modes of $p(x)$.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why is the score useful?</strong> The score function tells us about $p(x)$ without requiring us to compute $p(x)$ itself. Computing $p(x)$ requires the intractable normalization constant $Z = \int p^*(x)dx$ (where $p(x) = p^*(x)/Z$). But the score cancels $Z$:
+                </p>
+
+                $$\nabla_x \log p(x) = \nabla_x \log p^*(x) - \nabla_x \log Z = \nabla_x \log p^*(x)$$
+
+                <p>
+                    So the score gives us the direction toward high-density regions without ever needing to compute the normalization constant. This makes it computationally attractive for generative modeling.
+                </p>
+
+                <h3>Tweedie's Formula: Connecting Denoising to the Score</h3>
+
+                <p>
+                    Here is the remarkable connection: the optimal denoiser directly tells us the score function. This result, known as <strong>Tweedie's formula</strong>, is the theoretical foundation of modern diffusion models.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Tweedie's Formula: Denoising = Score Estimation</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Setup:</strong> We add Gaussian noise to clean data: $\tilde{X} = X + \epsilon$ where $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$. The noisy distribution is $p_\sigma(\tilde{x}) = \int \mathcal{N}(\tilde{x}; x, \sigma^2 I) \, p(x) \, dx$ — a smoothed version of $p(x)$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>The score of the noisy distribution:</strong> We compute $\nabla_{\tilde{x}} \log p_\sigma(\tilde{x})$ using the identity $\nabla \log f = \frac{\nabla f}{f}$:
+                            $$\nabla_{\tilde{x}} \log p_\sigma(\tilde{x}) = \frac{\int \nabla_{\tilde{x}} \mathcal{N}(\tilde{x}; x, \sigma^2 I) \cdot p(x) \, dx}{p_\sigma(\tilde{x})}$$
+                            Since $\nabla_{\tilde{x}} \log \mathcal{N}(\tilde{x}; x, \sigma^2 I) = \frac{x - \tilde{x}}{\sigma^2}$, this becomes:
+                            $$= \frac{1}{\sigma^2} \int (x - \tilde{x}) \cdot p(x | \tilde{x}) \, dx = \frac{\mathbb{E}[X|\tilde{X} = \tilde{x}] - \tilde{x}}{\sigma^2}$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Tweedie's formula:</strong> Since $g^*(\tilde{x}) = \mathbb{E}[X|\tilde{X} = \tilde{x}]$ (the optimal denoiser), we get:
+                            $$\boxed{\nabla_{\tilde{x}} \log p_\sigma(\tilde{x}) = \frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2}}$$
+                            <p>In words: the <strong>score of the noisy distribution equals the optimal denoising direction, scaled by $1/\sigma^2$</strong>.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Reading the formula:</strong>
+                            <ul style="margin-bottom: 0;">
+                                <li>$g^*(\tilde{x}) - \tilde{x}$ is the <strong>denoising direction</strong>: the vector from the noisy point to the estimated clean point. It points "toward the data."</li>
+                                <li>Dividing by $\sigma^2$ normalizes by the noise level. More noise $\Rightarrow$ divide by a larger number $\Rightarrow$ smaller score magnitude (less confidence in the direction).</li>
+                                <li>A trained denoising autoencoder with output $g(\tilde{x}) \approx g^*(\tilde{x})$ gives us a score estimator: $\nabla_{\tilde{x}} \log p_\sigma(\tilde{x}) \approx \frac{g(\tilde{x}) - \tilde{x}}{\sigma^2}$.</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="warning-box">
-                    <div class="box-title">Connection to Diffusion Models</div>
+                    <div class="box-title">Connection to Diffusion Models (DDPM, Score SDE)</div>
+                    <p>
+                        This connection is <em>the</em> foundational idea behind modern diffusion models. The training objective of DDPM (Denoising Diffusion Probabilistic Models) and Score SDE is essentially: train a neural network to denoise data at many noise levels $\sigma_1 > \sigma_2 > \cdots > \sigma_L$. By Tweedie's formula, this simultaneously estimates the score function $\nabla_x \log p_\sigma(x)$ at each noise level.
+                    </p>
                     <p style="margin-bottom: 0;">
-                        Denoising autoencoders implicitly learn the score function (gradient of log-density).
-                        This is the same principle behind modern diffusion models like DDPM and score-based generative models.
+                        To generate new samples, start from pure noise $x_T \sim \mathcal{N}(0, I)$ and iteratively "denoise" using the learned score — each step moves $x_t$ toward higher-density regions of the data distribution. This is called <strong>Langevin dynamics</strong>: $x_{t-1} = x_t + \eta \nabla_x \log p_{\sigma_t}(x_t) + \sqrt{2\eta}\epsilon$. The denoising autoencoder, a simple idea from 2008, turned out to be the key insight behind the AI image generation revolution.
                     </p>
                 </div>
 
@@ -1547,6 +1775,136 @@ for nf in [0.1, 0.3, 0.5, 0.7, 1.0]:
                                 <p>(1) <strong>KL annealing (warm-up):</strong> start training with $\beta = 0$ in $\beta \cdot D_{KL}$ and slowly increase to 1. This lets the encoder learn useful representations before the KL penalty pushes toward collapse. Mechanism: the reconstruction term dominates early, establishing encoder-decoder communication.</p>
                                 <p>(2) <strong>Free bits (Kingma et al.):</strong> use $\max(\delta, D_{KL})$ instead of $D_{KL}$, ensuring each latent dimension uses at least $\delta$ nats. Mechanism: directly prevents the KL from reaching zero.</p>
                                 <p>(3) <strong>Weaken the decoder:</strong> use a simpler decoder (MLP instead of PixelCNN) that cannot model $p(x)$ without $z$. Mechanism: forces $p(x|z) \neq p(x)$, making the reconstruction term depend on $z$, so the encoder must transmit information.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 31 (NEW) -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">31. Rate-Distortion: Water-Filling by Hand</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A 3-dimensional Gaussian source has covariance eigenvalues $\lambda_1 = 8, \lambda_2 = 2, \lambda_3 = 0.5$. (a) Compute $R(D)$ for $D = 2.5$ using the water-filling formula. How many components are kept? (b) Compute $R(D)$ for $D = 9$. What does the encoder output? (c) At what distortion $D$ does the encoder switch from keeping 2 components to keeping 1? (d) Sketch the $R(D)$ curve and mark the points from (a), (b), (c).</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> $D = 2.5$. We need $\sum_i \min(\lambda_i, \theta) = D$. Try $\theta = 1$: $\min(8,1) + \min(2,1) + \min(0.5,1) = 1 + 1 + 0.5 = 2.5 = D$. So $\theta = 1$.</p>
+                                <p>Components kept: $\lambda_1 = 8 > 1$ (keep), $\lambda_2 = 2 > 1$ (keep), $\lambda_3 = 0.5 \leq 1$ (discard). <strong>Two components kept.</strong></p>
+                                <p>$R(2.5) = \frac{1}{2}\log_2\frac{8}{1} + \frac{1}{2}\log_2\frac{2}{1} + 0 = \frac{3}{2} + \frac{1}{2} = 2$ bits.</p>
+                                <p><strong>(b)</strong> $D = 9$. Total variance $= 8 + 2 + 0.5 = 10.5$, and $D = 9 < 10.5$. Try $\theta = 3$: $\min(8,3) + \min(2,3) + \min(0.5,3) = 3 + 2 + 0.5 = 5.5 \neq 9$. Try $\theta = 8$: $8 + 2 + 0.5 = 10.5 \neq 9$. We need only $\lambda_1$ kept. So $\theta$ satisfies $\theta + 2 + 0.5 = 9 \Rightarrow \theta = 6.5$. Check: $\lambda_1 = 8 > 6.5$ (keep), $\lambda_2 = 2 < 6.5$ (discard), $\lambda_3 = 0.5 < 6.5$ (discard). One component kept.</p>
+                                <p>$R(9) = \frac{1}{2}\log_2\frac{8}{6.5} \approx \frac{1}{2}(0.299) \approx 0.15$ bits. With so much allowed distortion, barely any information is transmitted.</p>
+                                <p><strong>(c)</strong> The transition from 2 components to 1 occurs when $\theta = \lambda_2 = 2$. At this point: $D = \min(8,2) + 2 + 0.5 = 2 + 2 + 0.5 = 4.5$. So at $D = 4.5$, the second component is just barely discarded.</p>
+                                <p><strong>(d)</strong> The $R(D)$ curve is piecewise: a steep segment for $D \in [0, 0.5]$ (all 3 components), a moderate segment for $D \in [0.5, 4.5]$ (2 components), and a gentle segment for $D \in [4.5, 10.5]$ (1 component). At $D = 10.5$, $R = 0$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 32 (NEW) -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">32. Rate-Distortion vs Autoencoder Bottleneck</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A dataset has intrinsic dimensionality 5, embedded in $\mathbb{R}^{100}$. You train autoencoders with bottleneck dimensions $d = 2, 5, 10, 50$. (a) Which bottleneck dimension corresponds to operating on the $R(D)$ curve, and which operates above it? (b) Can an autoencoder with $d = 2$ ever achieve lower distortion than one with $d = 5$ on this data? Why or why not? (c) Can an autoencoder with $d = 50$ achieve lower distortion than one with $d = 5$? What would this mean about the "intrinsic dimensionality" claim? (d) How does the nonlinearity of the autoencoder relate to the gap between its performance and the $R(D)$ bound?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> The $R(D)$ curve is the theoretical lower bound — no real system can go below it. All autoencoders operate <em>on or above</em> the curve. A perfectly trained autoencoder with the right architecture operates close to $R(D)$; a poorly trained one operates well above it (more distortion than necessary for the given rate). No autoencoder operates below $R(D)$.</p>
+                                <p><strong>(b)</strong> No. With $d = 2$, the encoder can transmit at most as much information as 2 continuous dimensions allow. With $d = 5$, it can transmit strictly more. Since the data has 5 intrinsic dimensions, the $d = 5$ autoencoder can (in principle) achieve zero distortion, while the $d = 2$ autoencoder must discard 3 dimensions of variation, incurring irreducible distortion.</p>
+                                <p><strong>(c)</strong> In principle, $d = 50$ cannot achieve lower distortion than $d = 5$ on data that truly has 5 intrinsic dimensions, because $d = 5$ already suffices for zero distortion. In practice, $d = 50$ might achieve slightly lower <em>training</em> distortion if the $d = 5$ autoencoder hasn't converged or has optimization issues. If $d = 50$ achieves <em>significantly</em> lower distortion, it means the data has more than 5 intrinsic dimensions (the original claim was wrong), or the data contains noise that the overcomplete autoencoder is memorizing.</p>
+                                <p><strong>(d)</strong> A linear autoencoder is equivalent to PCA, which achieves the $R(D)$ bound for Gaussian data. For non-Gaussian data, PCA is suboptimal — there exists nonlinear structure that a linear encoder cannot exploit. A nonlinear autoencoder can capture this structure, operating closer to the true $R(D)$ curve. The gap between a linear and nonlinear autoencoder's performance is a measure of the non-Gaussian structure in the data.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 33 (NEW) -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">33. Rate-Distortion for Uniform Source</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a uniform source $X \sim \text{Uniform}[0, 1]$ with MSE distortion. (a) What is the distortion at $R = 0$ (zero bits)? (b) If we use 1 bit (two reconstruction levels), what is the optimal placement of the two reconstruction points and the resulting distortion? (c) Generalize: with $n$ bits ($2^n$ reconstruction levels uniformly spaced), show that $D = \frac{1}{12 \cdot 4^n}$. (d) Derive $R(D) = \frac{1}{2}\log_2\frac{1}{12D}$ for $D \leq \frac{1}{12}$ and compare to the Gaussian case.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> At $R = 0$, the decoder outputs a constant $\hat{x} = c$. The MSE is $\mathbb{E}[(X - c)^2]$, minimized at $c = \mathbb{E}[X] = 1/2$. The distortion is $\text{Var}(X) = 1/12 \approx 0.0833$.</p>
+                                <p><strong>(b)</strong> With 1 bit, we partition $[0,1]$ into 2 intervals. The optimal partition is $[0, 1/2)$ and $[1/2, 1]$, with reconstruction points at their midpoints: $\hat{x}_1 = 1/4$ and $\hat{x}_2 = 3/4$. The distortion is $\mathbb{E}[(X - \hat{X})^2] = 2 \int_0^{1/2} (x - 1/4)^2 dx = 2 \cdot \frac{1}{48} = \frac{1}{48} \approx 0.0208$. This is $1/4$ of the zero-rate distortion — one bit reduces distortion by a factor of 4.</p>
+                                <p><strong>(c)</strong> With $2^n$ uniform intervals of width $\Delta = 2^{-n}$, reconstruction points at interval midpoints: $D = \mathbb{E}[(X - \hat{X})^2] = \frac{\Delta^2}{12} = \frac{2^{-2n}}{12} = \frac{1}{12 \cdot 4^n}$. Each additional bit reduces distortion by a factor of 4 (6 dB), same as for Gaussian sources.</p>
+                                <p><strong>(d)</strong> Solving $D = \frac{1}{12 \cdot 4^n}$ for $n$: $4^n = \frac{1}{12D}$, so $n = \frac{1}{2}\log_2\frac{1}{12D}$. Thus $R(D) = \frac{1}{2}\log_2\frac{1}{12D}$ for $D \leq 1/12$. Comparing to Gaussian $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$: the uniform source with $\sigma^2 = 1/12$ gives $R(D) = \frac{1}{2}\log_2\frac{1/12}{D}$, which is identical. This is not a coincidence: the rate-distortion function depends only on the variance for MSE distortion in many cases, though the achievability (which code achieves the bound) differs.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 34 (NEW) -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">34. Score Function: Intuition and Computation</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>(a) Compute the score function $\nabla_x \log p(x)$ for a 1D Gaussian $p(x) = \mathcal{N}(x; \mu, \sigma^2)$. What direction does it point when $x > \mu$? When $x < \mu$? At $x = \mu$? (b) Compute the score for a mixture of two Gaussians: $p(x) = \frac{1}{2}\mathcal{N}(x; -3, 1) + \frac{1}{2}\mathcal{N}(x; 3, 1)$. What is the score at $x = 0$? At $x = 3$? (c) Explain intuitively why the score is useful for generation but the density $p(x)$ is not directly computable. (d) If a denoising autoencoder is trained with $\sigma = 2$ on data from this mixture, what does the denoiser output at $\tilde{x} = 0$? At $\tilde{x} = 5$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> $\log p(x) = -\frac{(x-\mu)^2}{2\sigma^2} + \text{const}$. Score: $\nabla_x \log p(x) = -\frac{x - \mu}{\sigma^2}$.</p>
+                                <ul>
+                                    <li>When $x > \mu$: score is negative (points left, toward the mean).</li>
+                                    <li>When $x < \mu$: score is positive (points right, toward the mean).</li>
+                                    <li>At $x = \mu$: score is zero (at the mode, no preferred direction).</li>
+                                </ul>
+                                <p>The score always points toward the mean — it's a "restoring force" pulling $x$ back to high-density regions.</p>
+                                <p><strong>(b)</strong> For the mixture: $s(x) = \frac{-\frac{1}{2}(x+3)e^{-(x+3)^2/2} - \frac{1}{2}(x-3)e^{-(x-3)^2/2}}{\frac{1}{2}e^{-(x+3)^2/2} + \frac{1}{2}e^{-(x-3)^2/2}}$.</p>
+                                <p>At $x = 0$: by symmetry, the two components contribute equal and opposite forces. Score $= 0$. (The midpoint between two equal modes is a saddle point of $\log p$.) At $x = 3$: the right mode dominates. Score $\approx -(3-3)/1 = 0$ (near the mode). More precisely, the left mode contributes a tiny positive pull, so the score is slightly positive (pulled slightly toward $x = 0$, but negligibly).</p>
+                                <p><strong>(c)</strong> Computing $p(x)$ requires the normalization constant $Z = \int p^*(x) dx$, which is intractable for high-dimensional distributions (e.g., images). But the score $\nabla_x \log p(x) = \nabla_x \log p^*(x)$ cancels $Z$ because $\nabla_x \log Z = 0$ (Z is a constant). So we can estimate the score from unnormalized densities or from denoising, without ever computing $Z$. For generation, the score is sufficient: Langevin dynamics uses only the score to move samples toward high-density regions.</p>
+                                <p><strong>(d)</strong> The optimal denoiser output is $g^*(\tilde{x}) = \mathbb{E}[X | \tilde{X} = \tilde{x}]$. At $\tilde{x} = 0$: by symmetry, $X = -3$ and $X = 3$ are equally likely given $\tilde{x} = 0$ (with $\sigma = 2$). So $g^*(0) = \frac{1}{2}(-3) + \frac{1}{2}(3) = 0$. The denoiser outputs 0 — the average of two modes, not either mode. This is the "blurring" effect of MSE-optimal denoising.</p>
+                                <p>At $\tilde{x} = 5$: the right mode ($x = 3$) is much more likely than the left ($x = -3$). The posterior is dominated by $x \approx 3$, so $g^*(5) \approx \frac{\sigma_X^2}{\sigma_X^2 + \sigma^2}(5 - 3) + 3 \approx 3.4$ (pulled toward 3 but not all the way, because $\tilde{x} = 5$ is also consistent with $x$ values larger than 3).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 35 (NEW) -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">35. Denoising at Different Noise Levels</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider data on a 1D manifold (a circle) in 2D: $x = (\cos\theta, \sin\theta)$ with $\theta \sim \text{Uniform}[0, 2\pi)$. A denoising autoencoder is trained with noise level $\sigma$. (a) For very small $\sigma \to 0$, what does the optimal denoiser do geometrically? (b) For very large $\sigma \to \infty$, what does the optimal denoiser output? (c) For intermediate $\sigma \approx 0.5$, describe qualitatively what the optimal denoiser does for a point $\tilde{x}$ that is 0.5 units from the circle. (d) Explain why training at multiple noise levels (as in diffusion models) is more useful than training at a single level.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> For $\sigma \to 0$: the noisy point $\tilde{x}$ is very close to the circle. The posterior $p(x|\tilde{x})$ concentrates on the nearest point on the circle. The denoiser acts as a <strong>projection onto the manifold</strong>: $g^*(\tilde{x}) \approx \text{proj}_{\text{circle}}(\tilde{x})$. This is the geometric interpretation: small-noise denoising = manifold projection.</p>
+                                <p><strong>(b)</strong> For $\sigma \to \infty$: the noise completely overwhelms the signal. The posterior $p(x|\tilde{x}) \approx p(x)$ regardless of $\tilde{x}$ (the observation is uninformative). The denoiser outputs $g^*(\tilde{x}) \approx \mathbb{E}[X] = (0, 0)$ — the center of the circle. All noisy inputs map to the same point.</p>
+                                <p><strong>(c)</strong> For $\sigma \approx 0.5$: the posterior $p(x|\tilde{x})$ is concentrated on an arc of the circle near $\tilde{x}$, but not a single point. The denoiser outputs the centroid of this arc. For a point 0.5 units outside the circle, the output is on or near the circle but slightly pulled toward the center (because the arc's centroid is inside the circle, not on it). The output is "shrunk" toward $(0,0)$ compared to pure projection — a form of regularization.</p>
+                                <p><strong>(d)</strong> Different noise levels capture different scales of data structure:</p>
+                                <ul>
+                                    <li><strong>Large $\sigma$:</strong> The denoiser learns the global structure — where the data is centered, its overall shape. The score at large $\sigma$ points toward the data from far away.</li>
+                                    <li><strong>Medium $\sigma$:</strong> The denoiser learns the manifold's geometry — its curvature, the distance between clusters. The score resolves which mode a point belongs to.</li>
+                                    <li><strong>Small $\sigma$:</strong> The denoiser learns fine local details — texture, edges, precise manifold position. The score provides precise manifold projection.</li>
+                                </ul>
+                                <p>Training at a single noise level only learns one scale. Diffusion models train at all scales and then denoise iteratively from large $\sigma$ to small $\sigma$, progressively refining from global structure to fine details. This coarse-to-fine approach is why diffusion models produce such high-quality samples.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 36 (NEW) -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">36. Tweedie's Formula: Verification for Gaussian Data</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Verify Tweedie's formula explicitly for Gaussian data. Let $X \sim \mathcal{N}(\mu, \tau^2)$ and noise $\epsilon \sim \mathcal{N}(0, \sigma^2)$, so $\tilde{X} = X + \epsilon$. (a) Compute $p(\tilde{x})$ by marginalizing out $X$. (b) Compute the score $\nabla_{\tilde{x}} \log p(\tilde{x})$ directly. (c) Compute the optimal denoiser $g^*(\tilde{x}) = \mathbb{E}[X|\tilde{X}=\tilde{x}]$ using Bayes' rule for Gaussians. (d) Verify that $\nabla_{\tilde{x}} \log p(\tilde{x}) = \frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2}$. (e) Interpret: when $\tau^2 \gg \sigma^2$, what does the denoiser do? When $\tau^2 \ll \sigma^2$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Since $\tilde{X} = X + \epsilon$ with independent Gaussians: $\tilde{X} \sim \mathcal{N}(\mu, \tau^2 + \sigma^2)$. So $p(\tilde{x}) = \mathcal{N}(\tilde{x}; \mu, \tau^2 + \sigma^2)$.</p>
+                                <p><strong>(b)</strong> $\log p(\tilde{x}) = -\frac{(\tilde{x}-\mu)^2}{2(\tau^2+\sigma^2)} + \text{const}$. Score: $\nabla_{\tilde{x}} \log p(\tilde{x}) = -\frac{\tilde{x} - \mu}{\tau^2 + \sigma^2}$.</p>
+                                <p><strong>(c)</strong> By Bayes for Gaussians (posterior of a Gaussian prior with Gaussian likelihood): $X | \tilde{X} = \tilde{x} \sim \mathcal{N}\left(\frac{\tau^2 \tilde{x} + \sigma^2 \mu}{\tau^2 + \sigma^2}, \frac{\tau^2 \sigma^2}{\tau^2 + \sigma^2}\right)$.</p>
+                                <p>So $g^*(\tilde{x}) = \mathbb{E}[X|\tilde{X}=\tilde{x}] = \frac{\tau^2 \tilde{x} + \sigma^2 \mu}{\tau^2 + \sigma^2}$.</p>
+                                <p><strong>(d)</strong> Compute $\frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2}$:</p>
+                                $$\frac{g^*(\tilde{x}) - \tilde{x}}{\sigma^2} = \frac{1}{\sigma^2}\left(\frac{\tau^2 \tilde{x} + \sigma^2 \mu}{\tau^2+\sigma^2} - \tilde{x}\right) = \frac{1}{\sigma^2} \cdot \frac{\tau^2\tilde{x} + \sigma^2\mu - (\tau^2+\sigma^2)\tilde{x}}{\tau^2+\sigma^2}$$
+                                $$= \frac{1}{\sigma^2} \cdot \frac{\sigma^2(\mu - \tilde{x})}{\tau^2+\sigma^2} = \frac{\mu - \tilde{x}}{\tau^2+\sigma^2} = -\frac{\tilde{x}-\mu}{\tau^2+\sigma^2}$$
+                                <p>This equals the score from (b). Tweedie's formula verified.</p>
+                                <p><strong>(e)</strong> When $\tau^2 \gg \sigma^2$ (low noise relative to data variance): $g^*(\tilde{x}) \approx \tilde{x}$ — the denoiser barely changes the input, because the noise is small compared to the signal. When $\tau^2 \ll \sigma^2$ (high noise): $g^*(\tilde{x}) \approx \mu$ — the denoiser ignores the noisy observation and outputs the prior mean, because the noise has destroyed all information about $X$. The interpolation factor $\frac{\tau^2}{\tau^2+\sigma^2}$ is a signal-to-noise ratio that determines how much to trust the observation.</p>
                             </div>
                         </div>
                     </div>
