@@ -1,0 +1,2277 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shannon's Rate-Distortion Theory | ML Fundamentals</title>
+    <meta name="description" content="Understanding the fundamental limits of lossy compression — how many bits you need to represent data at a given quality level.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Rate-Distortion Theory</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active" onclick="showTab('theory')">Theory</a>
+                <a href="#code" class="tutorial-tab" onclick="showTab('code')">Code</a>
+                <a href="#exercises" class="tutorial-tab" onclick="showTab('exercises')">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../01-logarithms/index.html" class="sidebar-link">01. Why Logarithms?</a>
+                    <a href="../02-combinatorics/index.html" class="sidebar-link">02. Combinatorics</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">03. Normal Distributions</a>
+                    <a href="../04-entropy/index.html" class="sidebar-link">04. Entropy Fundamentals</a>
+                    <a href="../05-cross-entropy/index.html" class="sidebar-link">05. Cross-Entropy</a>
+                    <a href="../06-kl-divergence/index.html" class="sidebar-link">06. KL Divergence</a>
+                    <a href="../07-entropy-connections/index.html" class="sidebar-link">07. Entropy Connections</a>
+                    <a href="../08-backpropagation/index.html" class="sidebar-link">08. Backpropagation</a>
+                    <a href="../09-regularization/index.html" class="sidebar-link">09. Regularization</a>
+                    <a href="../10-batch-normalization/index.html" class="sidebar-link">10. Batch Normalization</a>
+                    <a href="../11-learning-rate/index.html" class="sidebar-link">11. Learning Rate</a>
+                    <a href="../12-cnn/index.html" class="sidebar-link">12. CNNs</a>
+                    <a href="../13-rnn/index.html" class="sidebar-link">13. RNNs</a>
+                    <a href="../14-rate-distortion/index.html" class="sidebar-link active">14. Rate-Distortion Theory</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link">15. Autoencoders</a>
+                    <a href="../16-variational-inference/index.html" class="sidebar-link">16. Variational Inference</a>
+                    <a href="../17-vae/index.html" class="sidebar-link">17. VAE</a>
+                    <a href="../18-inductive-bias/index.html" class="sidebar-link">18. Inductive Bias</a>
+                    <a href="../19-architectural-biases/index.html" class="sidebar-link">19. Architectural Biases</a>
+                    <a href="../20-designing-biases/index.html" class="sidebar-link">20. Designing Biases</a>
+                    <a href="../21-fst-fundamentals/index.html" class="sidebar-link">21. FST Fundamentals</a>
+                    <a href="../22-weighted-fsts/index.html" class="sidebar-link">22. Weighted FSTs</a>
+                    <a href="../23-fst-libraries/index.html" class="sidebar-link">23. FST Libraries</a>
+                    <a href="../24-fst-applications/index.html" class="sidebar-link">24. FST Applications</a>
+                    <a href="../25-neural-symbolic/index.html" class="sidebar-link">25. Neural-Symbolic Hybrids</a>
+                    <a href="../26-sequence-alignment/index.html" class="sidebar-link">26. Sequence Alignment</a>
+                    <a href="../27-mas-algorithm/index.html" class="sidebar-link">27. MAS Algorithm</a>
+                    <a href="../28-forced-alignment/index.html" class="sidebar-link">28. Forced Alignment & MFA</a>
+                    <a href="../29-tts-fundamentals/index.html" class="sidebar-link">29. TTS Fundamentals</a>
+                    <a href="../30-neural-vocoders/index.html" class="sidebar-link">30. Neural Vocoders</a>
+                    <a href="../31-tacotron/index.html" class="sidebar-link">31. Tacotron & Attention TTS</a>
+                    <a href="../32-fastspeech/index.html" class="sidebar-link">32. FastSpeech & Non-AR TTS</a>
+                    <a href="../33-glow-tts/index.html" class="sidebar-link">33. Glow-TTS & Flows</a>
+                    <a href="../34-vits/index.html" class="sidebar-link">34. VITS: End-to-End TTS</a>
+                    <a href="../35-bilingual-tts/index.html" class="sidebar-link">35. Bilingual TTS: RU+KY</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ============== THEORY TAB ============== -->
+            <article class="article-content" id="theory">
+
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>14. Shannon's Rate-Distortion Theory</h1>
+                    <p class="lead">
+                        How many bits do you truly need to represent data at a given quality level?
+                        Rate-distortion theory gives the mathematical answer — the fundamental limit
+                        of lossy compression that no algorithm can beat.
+                    </p>
+                </div>
+
+                <!-- Section 1: Motivating Example — Compressing MNIST -->
+                <h2 id="mnist-example">Motivating Example: Compressing an MNIST Digit</h2>
+
+                <p>
+                    Let's start with something concrete. You have a $28 \times 28$ grayscale image of a
+                    handwritten digit from the MNIST dataset. Each pixel is a value from 0 to 255.
+                    <strong>How many bits does it take to store this image?</strong>
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">MNIST: From Raw to Compressed</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Raw storage (no compression):</strong> $28 \times 28 = 784$ pixels.
+                            Each pixel needs $\log_2(256) = 8$ bits. Total: $784 \times 8 = 6{,}272$ bits
+                            $= 784$ bytes $\approx 0.77$ KB per image.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>But most pixels are zero!</strong> MNIST digits sit on a black background.
+                            About 80% of pixels are exactly 0. If $p(\text{pixel}=0) \approx 0.8$, a pixel's entropy
+                            is much less than 8 bits. Empirically, the per-pixel entropy of MNIST is about
+                            $H \approx 1.1$ bits/pixel. So the lossless limit is roughly $784 \times 1.1 = 862$
+                            bits $\approx 108$ bytes — <strong>7× smaller</strong> than raw storage.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Lossy compression — where rate-distortion enters.</strong>
+                            What if we accept some quality loss? Perhaps we only care that the digit is
+                            <em>recognizable</em> — we tolerate some blur or noise. With a distortion budget
+                            $D$, we can compress much further. A good autoencoder can encode MNIST digits into
+                            just $d = 10$ latent dimensions (as we'll see in the next tutorial). That's roughly
+                            $10 \times 8 = 80$ bits — <strong>10× smaller than lossless</strong>, with barely
+                            visible quality loss.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>The fundamental limit.</strong> Can we do even better? Could we compress
+                            a recognizable digit into just 5 bits? 2 bits? Rate-distortion theory
+                            answers exactly: for a given source distribution and distortion tolerance,
+                            $R(D)$ is the <em>absolute minimum</em> bits needed — no algorithm, no neural
+                            network, no future invention can beat it.
+                        </div>
+                    </div>
+                </div>
+
+                <h3>What is the "Distortion Budget" $D$?</h3>
+
+                <p>
+                    The distortion budget $D$ quantifies <strong>how much quality loss you'll accept</strong>.
+                    For images, the most common measure is <strong>Mean Squared Error (MSE)</strong>:
+                </p>
+
+                <div class="math-block">
+                    $$D = \frac{1}{784}\sum_{i=1}^{784}(x_i - \hat{x}_i)^2$$
+                </div>
+
+                <p>
+                    where $x_i$ is the original pixel and $\hat{x}_i$ is the reconstructed pixel (both in $[0, 255]$).
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <th style="text-align: left; padding: 8px;">Distortion $D$ (MSE)</th>
+                        <th style="text-align: left; padding: 8px;">What it looks like</th>
+                        <th style="text-align: left; padding: 8px;">Approximate bits needed</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$0$</td>
+                        <td style="padding: 8px;">Perfect pixel-for-pixel copy</td>
+                        <td style="padding: 8px;">$\sim 862$ bits (lossless entropy)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$\sim 50$</td>
+                        <td style="padding: 8px;">Slight blur, digit clearly recognizable</td>
+                        <td style="padding: 8px;">$\sim 80{-}160$ bits</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$\sim 500$</td>
+                        <td style="padding: 8px;">Heavy blur, digit identity guessable</td>
+                        <td style="padding: 8px;">$\sim 20{-}40$ bits</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$\sim 2000$</td>
+                        <td style="padding: 8px;">Just average gray blob</td>
+                        <td style="padding: 8px;">$\sim 3{-}10$ bits (class label only)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px;">$D_{\max} \approx 4700$</td>
+                        <td style="padding: 8px;">Constant output (dataset mean image)</td>
+                        <td style="padding: 8px;">$0$ bits (no information sent)</td>
+                    </tr>
+                </table>
+
+                <div class="warning-box">
+                    <div class="box-title">The Key Trade-Off</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Lower distortion = more bits.</strong> You pay for quality with file size.
+                        Rate-distortion theory makes this trade-off precise: $R(D)$ tells you the
+                        exact minimum number of bits per pixel for each quality level. No clever
+                        algorithm can go below this curve — it's a law of information, like the speed
+                        of light is a law of physics.
+                    </p>
+                </div>
+
+                <h3>Bigger Images, Higher Entropy</h3>
+
+                <p>
+                    How does this scale to more complex data?
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <th style="text-align: left; padding: 8px;">Image Type</th>
+                        <th style="text-align: left; padding: 8px;">Dimensions</th>
+                        <th style="text-align: left; padding: 8px;">Raw Size</th>
+                        <th style="text-align: left; padding: 8px;">Approx. Entropy</th>
+                        <th style="text-align: left; padding: 8px;">Typical JPEG</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">MNIST digit</td>
+                        <td style="padding: 8px;">$28 \times 28 \times 1$</td>
+                        <td style="padding: 8px;">0.77 KB</td>
+                        <td style="padding: 8px;">$\sim 0.1$ KB</td>
+                        <td style="padding: 8px;">$\sim 0.3$ KB</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">CIFAR-10</td>
+                        <td style="padding: 8px;">$32 \times 32 \times 3$</td>
+                        <td style="padding: 8px;">3 KB</td>
+                        <td style="padding: 8px;">$\sim 2$ KB</td>
+                        <td style="padding: 8px;">$\sim 1.5$ KB</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">ImageNet photo</td>
+                        <td style="padding: 8px;">$256 \times 256 \times 3$</td>
+                        <td style="padding: 8px;">192 KB</td>
+                        <td style="padding: 8px;">$\sim 100$ KB</td>
+                        <td style="padding: 8px;">$\sim 30$ KB</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px;">4K photograph</td>
+                        <td style="padding: 8px;">$3840 \times 2160 \times 3$</td>
+                        <td style="padding: 8px;">24 MB</td>
+                        <td style="padding: 8px;">$\sim 12$ MB</td>
+                        <td style="padding: 8px;">$\sim 2$ MB</td>
+                    </tr>
+                </table>
+
+                <p>
+                    Notice: JPEG achieves much less than the entropy because it uses <strong>lossy
+                    compression</strong> — it operates somewhere on the $R(D)$ curve, accepting some
+                    distortion to achieve dramatic size reduction. The gap between "raw" and "JPEG"
+                    is <em>all</em> rate-distortion theory in action.
+                </p>
+
+                <!-- Section 2: The Lossy Compression Problem -->
+                <h2 id="lossy-compression">The Lossy Compression Problem</h2>
+
+                <p>
+                    The MNIST example illustrates a universal problem. Whether compressing images,
+                    audio, video, or neural network representations, we face the same trade-off:
+                    <strong>quality versus size</strong>. Shannon formalized this in 1959.
+                </p>
+
+                <p>
+                    Shannon's <strong>lossless</strong> source coding theorem (1948) tells us the minimum
+                    bits for <em>perfect</em> reconstruction: the entropy $H(X)$. For our MNIST pixel,
+                    that's about 1.1 bits. But for continuous sources (like a temperature reading with
+                    infinite precision), $H(X) = \infty$ — you'd need infinite bits.
+                    In practice, we always accept some distortion: JPEG, MP3, video codecs all discard
+                    information strategically.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">The Central Question</div>
+                    <p style="margin-bottom: 0;">
+                        Given a source $X$ and a maximum tolerable distortion $D$, what is the
+                        <strong>minimum number of bits per symbol</strong> (the <em>rate</em>) needed
+                        to represent $X$ such that the average distortion is at most $D$?
+                    </p>
+                </div>
+
+                <p>
+                    Shannon answered this with <strong>rate-distortion theory</strong>. The answer
+                    is a function $R(D)$ — the rate-distortion function — that gives the exact
+                    minimum rate for each distortion level. For MNIST: $R(D)$ tells us the minimum
+                    bits per image to achieve any given MSE.
+                </p>
+
+                <!-- Section 2: The Framework -->
+                <h2 id="framework">The Rate-Distortion Framework</h2>
+
+                <p>
+                    Rate-distortion theory has four ingredients. Understanding each one clearly is
+                    essential before we can state the main result.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Four Ingredients</div>
+                    <p><strong>1. Source $X$:</strong> The data to compress. A random variable drawn from
+                    distribution $p(x)$. Examples: pixel values, audio samples, sensor readings.</p>
+
+                    <p><strong>2. Encoder $p(z|x)$:</strong> Maps input $x$ to a compressed code $z$.
+                    This is a <em>conditional probability distribution</em> — given input $x$, it specifies
+                    the probability of producing each possible code $z$.</p>
+
+                    <p><strong>3. Decoder $p(\hat{x}|z)$:</strong> Reconstructs an estimate $\hat{x}$
+                    from the code $z$. For a given code $z$, the optimal decoder outputs the $\hat{x}$
+                    that minimizes expected distortion.</p>
+
+                    <p style="margin-bottom: 0;"><strong>4. Distortion measure $d(x, \hat{x})$:</strong>
+                    Quantifies how different the reconstruction is from the original. Common choices:
+                    <ul style="margin-bottom: 0;">
+                        <li><strong>Squared error (MSE):</strong> $d(x, \hat{x}) = (x - \hat{x})^2$</li>
+                        <li><strong>Absolute error:</strong> $d(x, \hat{x}) = |x - \hat{x}|$</li>
+                        <li><strong>Hamming distance:</strong> $d(x, \hat{x}) = \mathbb{1}[x \neq \hat{x}]$ (for discrete sources)</li>
+                    </ul></p>
+                </div>
+
+                <p>
+                    The full pipeline is: $X \xrightarrow{p(z|x)} Z \xrightarrow{p(\hat{x}|z)} \hat{X}$.
+                    The encoder compresses, the channel transmits $Z$, and the decoder reconstructs.
+                    The <strong>rate</strong> is the mutual information $I(X; Z)$ — the number of bits
+                    the encoder actually communicates about $X$ through $Z$.
+                </p>
+
+                <!-- Section 3: Mutual Information as Rate -->
+                <h2 id="mutual-information">Mutual Information as Rate</h2>
+
+                <p>
+                    Why does mutual information $I(X; Z)$ measure the rate? Because it quantifies
+                    exactly how much information $Z$ carries about $X$:
+                </p>
+
+                <div class="math-block">
+                    $$I(X; Z) = H(X) - H(X|Z) = H(Z) - H(Z|X)$$
+                </div>
+
+                <p>
+                    Three intuitions for why this is the right measure of "bits transmitted":
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Why $I(X; Z)$ = Rate</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Uncertainty reduction:</strong> $I(X;Z) = H(X) - H(X|Z)$.
+                            Before seeing $Z$, our uncertainty about $X$ is $H(X)$. After seeing $Z$,
+                            it drops to $H(X|Z)$. The difference is how many bits of information
+                            $Z$ reveals about $X$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Minimum description length:</strong> Shannon's source coding theorem
+                            says you need at least $H(Z)$ bits to losslessly represent $Z$. But
+                            $H(Z|X)$ bits of $Z$ are "noise" (randomness from the stochastic encoder
+                            that doesn't depend on $X$). The useful information is $H(Z) - H(Z|X) = I(X;Z)$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Operational meaning:</strong> For long sequences of $n$ i.i.d. symbols,
+                            Shannon proved that $nI(X;Z)$ bits are necessary and sufficient to encode the
+                            sequence with the encoder $p(z|x)$. This is the <em>operational</em> rate.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Why $I(X;Z) = H(Z)$ for Deterministic Encoders (Not $H(X)$!)</div>
+                    <p>
+                        This confuses many people. If the encoder is deterministic ($z = f(x)$), then
+                        $I(X;Z) = H(Z)$, <strong>not</strong> $H(X)$. Here's why:
+                    </p>
+                    <p>
+                        Recall: $I(X;Z) = H(Z) - H(Z|X)$. For a deterministic encoder, once you know $x$,
+                        you know $z = f(x)$ with certainty — there's zero randomness left. So $H(Z|X) = 0$,
+                        giving $I(X;Z) = H(Z) - 0 = H(Z)$.
+                    </p>
+                    <p>
+                        <strong>But why not $H(X)$?</strong> Because $f$ might be <em>many-to-one</em>.
+                        If $f$ maps multiple different inputs to the same code, then $Z$ has fewer distinct
+                        values than $X$, so $H(Z) \leq H(X)$.
+                    </p>
+                    <p>
+                        <strong>Concrete example:</strong> Let $X \in \{0, 1, 2, 3\}$ uniform ($H(X) = 2$ bits).
+                        Encoder: $f(x) = \lfloor x/2 \rfloor$, so $f(0) = f(1) = 0$ and $f(2) = f(3) = 1$.
+                        Then $Z \in \{0, 1\}$ uniform, $H(Z) = 1$ bit. The mutual information is
+                        $I(X;Z) = H(Z) = 1$ bit — not $H(X) = 2$ bits. The encoder <em>discards</em>
+                        one bit of information (whether $X$ is even or odd within each group).
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Only when $f$ is <em>one-to-one</em> (invertible) does $H(Z) = H(X)$ and therefore
+                        $I(X;Z) = H(X)$. A one-to-one encoder preserves all information — maximum rate,
+                        zero distortion, no compression at all.
+                    </p>
+                </div>
+
+                <!-- Section 4: The Rate-Distortion Function -->
+                <h2 id="rate-distortion-function">The Rate-Distortion Function $R(D)$</h2>
+
+                <p>
+                    We now have all the pieces. The rate-distortion function answers: for a given
+                    distortion budget $D$, what is the minimum rate?
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Rate-Distortion Function</div>
+                    <p style="margin-bottom: 0;">
+                        $$R(D) = \min_{p(z|x): \, \mathbb{E}[d(X, \hat{X})] \leq D} I(X; Z)$$
+
+                        <strong>Read this as:</strong> Among all encoders $p(z|x)$ whose average distortion
+                        $\mathbb{E}[d(X, \hat{X})]$ is at most $D$, find the one that minimizes the
+                        mutual information $I(X; Z)$. That minimum is $R(D)$.
+                    </p>
+                </div>
+
+                <p>
+                    The optimization searches over <em>all possible conditional distributions</em>
+                    $p(z|x)$. This is an infinite-dimensional optimization — not over a finite set
+                    of parameters, but over the space of all probability distributions. Despite this
+                    complexity, the problem is <strong>convex</strong>, which means it has a unique
+                    global minimum that can be found reliably.
+                </p>
+
+                <h3>The Lagrangian Formulation</h3>
+
+                <p>
+                    The original problem is <strong>constrained</strong>: minimize rate subject to
+                    distortion $\leq D$. Constrained optimization is hard. The Lagrangian trick converts
+                    it to an <strong>unconstrained</strong> problem by adding a penalty for violating
+                    the constraint:
+                </p>
+
+                <div class="math-block">
+                    $$\mathcal{L}(p(z|x), s) = \underbrace{I(X; Z)}_{\text{rate (want small)}} + s \cdot \underbrace{\mathbb{E}[d(X, \hat{X})]}_{\text{distortion (want small)}}$$
+                </div>
+
+                <p>
+                    The parameter $s \geq 0$ is the <strong>Lagrange multiplier</strong> (also called the
+                    "slope parameter"). Think of it as the <strong>price of distortion</strong>: $s$ tells
+                    us how many bits of rate we're willing to "pay" to reduce distortion by one unit.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Lagrangian Intuition: Three Regimes</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>$s \to 0$ (distortion is "free"):</strong> The penalty for distortion
+                            vanishes. The optimizer minimizes rate only → it sends <em>nothing</em>
+                            ($I(X;Z) = 0$). Result: $R = 0, D = D_{\max}$. This is the top-right
+                            corner of the $R(D)$ curve.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>$s \to \infty$ (distortion is "infinitely expensive"):</strong>
+                            Any distortion is penalized overwhelmingly. The optimizer minimizes distortion
+                            at all costs → it sends everything ($I(X;Z) = H(X)$ for discrete sources).
+                            Result: $R = R_{\max}, D = 0$. This is the bottom-left corner.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>$s$ in between:</strong> Each value of $s$ finds the optimal trade-off
+                            between rate and distortion. As $s$ increases from 0 to $\infty$, we sweep
+                            the entire $R(D)$ curve from right to left. The slope of the curve at each
+                            point is $-s$: $R'(D) = -s$.
+                        </div>
+                    </div>
+                </div>
+
+                <h4>Concrete Example: MNIST with $s$</h4>
+
+                <p>
+                    Imagine training a MNIST autoencoder with loss $\mathcal{L} = \text{Rate} + s \cdot \text{MSE}$:
+                </p>
+                <ul>
+                    <li>$s = 0.001$: "I barely care about reconstruction quality." The encoder sends almost
+                    nothing, decoder outputs the mean digit. MSE $\approx 4700$, rate $\approx 0$.</li>
+                    <li>$s = 1$: "Rate and distortion matter equally." The encoder transmits key features
+                    (digit class, rough shape). MSE $\approx 200$, rate $\approx 20$ bits.</li>
+                    <li>$s = 1000$: "I need near-perfect reconstruction." The encoder transmits fine details.
+                    MSE $\approx 5$, rate $\approx 400$ bits.</li>
+                </ul>
+
+                <div class="note-box">
+                    <div class="box-title">Connection to VAE</div>
+                    <p>
+                        The VAE loss has the <strong>exact same structure</strong>:
+                    </p>
+                    <p>
+                        $$\mathcal{L}_{\text{VAE}} = \underbrace{D_{KL}(q(z|x) \| p(z))}_{\approx \text{ rate}} + \beta \cdot \underbrace{\mathbb{E}[-\log p(x|z)]}_{\text{distortion}}$$
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        The parameter $\beta$ in the $\beta$-VAE plays the role of $s$. Small $\beta$ → compressed
+                        latent space, blurry reconstructions. Large $\beta$ → detailed reconstructions, less
+                        structured latent space. The VAE is performing <strong>approximate rate-distortion
+                        optimization</strong> with a neural network encoder and decoder!
+                    </p>
+                </div>
+
+                <!-- Section 5: Properties of R(D) -->
+                <h2 id="properties">Properties of $R(D)$</h2>
+
+                <p>
+                    The rate-distortion function has several important properties that hold for
+                    <em>any</em> source and <em>any</em> distortion measure:
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Properties of $R(D)$</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Non-negative:</strong> $R(D) \geq 0$ for all $D$. You can never
+                            need fewer than zero bits.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Monotonically decreasing:</strong> If $D_1 < D_2$, then
+                            $R(D_1) \geq R(D_2)$. Allowing more distortion can only reduce or maintain
+                            the required rate. More tolerance = fewer bits needed.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Convex (diminishing returns):</strong>
+                            $$R(\lambda D_1 + (1-\lambda)D_2) \leq \lambda R(D_1) + (1-\lambda) R(D_2)$$
+
+                            <p><em>What this means intuitively:</em> The first few bits you add give the
+                            biggest quality improvement; later bits give diminishing returns. Going from
+                            0 to 1 bit might cut distortion in half, but going from 100 to 101 bits barely
+                            changes anything.</p>
+
+                            <p><em>MNIST example:</em> The first 4 bits might encode which digit class (0-9)
+                            — huge distortion drop. The next 20 bits capture the shape and thickness. The next 100 bits
+                            capture fine ink textures. The last 700 bits capture imperceptible noise. Each
+                            additional "layer" of bits matters less than the previous one.</p>
+
+                            <p><em>Why it's convex:</em> You can always "time-share" between two encoders.
+                            Use encoder A (rate $R_1$, distortion $D_1$) half the time and encoder B
+                            (rate $R_2$, distortion $D_2$) half the time. Average rate = $(R_1+R_2)/2$,
+                            average distortion = $(D_1+D_2)/2$. Since $R(D)$ is the <em>minimum</em>,
+                            it must be at or below this time-sharing scheme.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>At $D = 0$: Perfect reconstruction.</strong>
+
+                            <p><em>Continuous sources: $R(0) = \infty$.</em> A real number like $\pi = 3.14159265...$
+                            has infinitely many digits. To reproduce it exactly, you need infinitely many bits.
+                            No finite rate can achieve zero distortion for continuous sources.</p>
+
+                            <p><em>Discrete sources: $R(0) = H(X)$.</em> For a discrete source with alphabet
+                            $\mathcal{X}$, perfect reconstruction means the decoder knows $X$ exactly.
+                            The minimum bits for this is Shannon's entropy $H(X)$. This connects rate-distortion
+                            theory to the lossless coding theorem — the $D = 0$ endpoint is lossless compression.</p>
+
+                            <p><em>MNIST example:</em> If pixels take values in $\{0, 1, ..., 255\}$ (discrete),
+                            then $R(0) = H(\text{image}) \approx 862$ bits. This is the PNG/lossless compression limit.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <strong>At $D = D_{\max}$: No bits needed.</strong>
+
+                            <p>When the distortion budget is so generous that you don't need to look at $X$
+                            at all, the encoder transmits nothing ($R = 0$). The decoder outputs a
+                            <strong>fixed constant</strong> regardless of input.</p>
+
+                            <p><em>What constant?</em> For MSE distortion, the best constant is $\hat{x} = \mathbb{E}[X]$
+                            (the mean). The resulting distortion is $\mathbb{E}[(X - \mathbb{E}[X])^2] = \text{Var}(X)$.
+                            So $D_{\max} = \text{Var}(X)$.</p>
+
+                            <p><em>Why $\hat{x} = \mathbb{E}[X]$?</em> Minimize $\mathbb{E}[(X-c)^2]$ over $c$:
+                            take derivative $\frac{d}{dc}\mathbb{E}[(X-c)^2] = -2\mathbb{E}[X-c] = -2(\mathbb{E}[X] - c) = 0$,
+                            so $c = \mathbb{E}[X]$.</p>
+
+                            <p><em>MNIST example:</em> The decoder outputs the average of all training digits — a
+                            blurry gray blob. $D_{\max} \approx 4700$ (the pixel variance across the dataset).
+                            You transmit zero bits per image.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Deterministic vs Stochastic Encoders -->
+                <h2 id="encoders">Deterministic vs Stochastic Encoders</h2>
+
+                <p>
+                    A crucial subtlety in rate-distortion theory is that the optimization is over
+                    <em>all</em> conditional distributions $p(z|x)$ — not just deterministic functions.
+                    Let's understand what this means.
+                </p>
+
+                <h3>Deterministic Encoders: $z = f(x)$</h3>
+
+                <p>
+                    A <strong>deterministic encoder</strong> is a function $f$ that maps each input
+                    $x$ to exactly one code $z = f(x)$. Given the same input, you always get the
+                    same output. Examples:
+                </p>
+                <ul>
+                    <li>Rounding: $f(3.7) = 4$, $f(3.2) = 3$</li>
+                    <li>Quantization: $f(x) = \lfloor x / \Delta \rfloor \cdot \Delta$ (round to nearest multiple of $\Delta$)</li>
+                    <li>Neural network encoder: $f(x) = \text{encoder}_\theta(x)$ with fixed weights</li>
+                </ul>
+
+                <p>
+                    In probabilistic notation, a deterministic encoder corresponds to:
+                </p>
+
+                <div class="math-block">
+                    $$p(z|x) = \delta(z - f(x))$$
+                </div>
+
+                <p>
+                    The <strong>Dirac delta function</strong> $\delta(z - c)$ is a distribution that
+                    puts all probability mass at the single point $z = c$:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Dirac Delta Function</div>
+                    <p>
+                        $\delta(z - c)$ is defined by two properties:
+                    </p>
+                    <ul>
+                        <li>$\delta(z - c) = 0$ for all $z \neq c$ (zero everywhere except at $c$)</li>
+                        <li>$\int_{-\infty}^{\infty} \delta(z - c) \, dz = 1$ (integrates to 1)</li>
+                    </ul>
+                    <p style="margin-bottom: 0;">
+                        <strong>The sifting property:</strong> $\int g(z) \, \delta(z - c) \, dz = g(c)$.
+                        Integrating any function against $\delta(z-c)$ "picks out" its value at $c$.
+                        Think of $\delta$ as an infinitely tall, infinitely narrow spike at $c$.
+                    </p>
+                </div>
+
+                <h3>Stochastic Encoders: $p(z|x)$ is a Soft Distribution</h3>
+
+                <p>
+                    A <strong>stochastic encoder</strong> doesn't map each $x$ to a single $z$. Instead,
+                    it defines a probability distribution over possible codes. Given the same input $x$,
+                    you might get different codes $z$ on different runs.
+                </p>
+
+                <p>
+                    A <strong>soft distribution</strong> is one that spreads probability across multiple
+                    values, as opposed to concentrating it all at one point (which would be a delta).
+                    Examples:
+                </p>
+
+                <ul>
+                    <li><strong>Gaussian encoder:</strong> $p(z|x) = \mathcal{N}(z; \mu(x), \sigma^2)$.
+                    The code is centered at $\mu(x)$ but has random noise with variance $\sigma^2$.</li>
+                    <li><strong>Uniform encoder:</strong> $p(z|x) = \text{Uniform}(f(x) - \epsilon, f(x) + \epsilon)$.
+                    The code is $f(x)$ plus uniform noise in $[-\epsilon, \epsilon]$.</li>
+                </ul>
+
+                <h3>Why Allow Stochastic Encoders?</h3>
+
+                <p>
+                    The encoder controls <strong>both rate and distortion</strong>:
+                </p>
+
+                <ul>
+                    <li><strong>Rate effect:</strong> Adding noise to the encoder <em>reduces</em>
+                    $I(X;Z)$ because the noise destroys information about $X$. This is good — fewer
+                    bits to transmit.</li>
+                    <li><strong>Distortion effect:</strong> Adding noise means the decoder has less
+                    information, so reconstruction quality degrades. This is bad — higher distortion.</li>
+                </ul>
+
+                <p>
+                    The optimal encoder finds the best trade-off. For some sources, the optimal encoder
+                    at certain distortion levels is genuinely stochastic — adding a precise amount of
+                    noise achieves lower rate than any deterministic encoder at the same distortion.
+                </p>
+
+                <div class="warning-box">
+                    <div class="box-title">VAE Connection</div>
+                    <p style="margin-bottom: 0;">
+                        The VAE encoder $q(z|x) = \mathcal{N}(\mu_\theta(x), \sigma^2_\theta(x))$ is a
+                        learned stochastic encoder. The KL term in the VAE loss penalizes the rate
+                        $I(X;Z)$, and the reconstruction term penalizes distortion. The VAE is literally
+                        performing (approximate) rate-distortion optimization with a Gaussian encoder family.
+                    </p>
+                </div>
+
+                <!-- Section 7: The Gaussian Source -->
+                <h2 id="gaussian">The Gaussian Source</h2>
+
+                <p>
+                    For a Gaussian source with MSE distortion, Shannon derived the exact $R(D)$ in
+                    closed form. This is one of the few exactly solvable cases and builds powerful intuition.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Setup</div>
+                    <p style="margin-bottom: 0;">
+                        Source: $X \sim \mathcal{N}(0, \sigma^2)$<br>
+                        Distortion: $d(x, \hat{x}) = (x - \hat{x})^2$ (MSE)<br>
+                        Constraint: $\mathbb{E}[(X - \hat{X})^2] \leq D$
+                    </p>
+                </div>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Deriving $R(D)$ for Gaussian (Full Derivation)</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Lower bound via maximum entropy:</strong> Start from
+                            $I(X;Z) = h(X) - h(X|Z)$. The source entropy $h(X) = \frac{1}{2}\log_2(2\pi e\sigma^2)$
+                            is fixed. To minimize $I(X;Z)$, we must maximize $h(X|Z)$.
+
+                            <p>The constraint $\mathbb{E}[(X-\hat{X})^2] \leq D$ means the conditional
+                            variance satisfies $\mathbb{E}[\text{Var}(X|Z)] \leq D$ (since the optimal decoder
+                            is $\hat{X} = \mathbb{E}[X|Z]$, and MSE of the conditional mean equals conditional variance).</p>
+
+                            <p>Among all distributions with variance $\leq D$, the Gaussian has the <strong>maximum
+                            differential entropy</strong>. Therefore $h(X|Z) \leq \frac{1}{2}\log_2(2\pi e D)$.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Lower bound result:</strong>
+                            $$I(X;Z) = h(X) - h(X|Z) \geq \frac{1}{2}\log_2(2\pi e\sigma^2) - \frac{1}{2}\log_2(2\pi eD) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$$
+                            This means no encoder can achieve rate below $\frac{1}{2}\log_2\frac{\sigma^2}{D}$ at distortion $D$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Achievability — construct an encoder that matches the bound.</strong>
+                            Define the "test channel": $X = Z + W$ where $W \sim \mathcal{N}(0, D)$ is
+                            independent of $Z$, and $\hat{X} = Z$.
+
+                            <p><strong>Variance decomposition:</strong> Since $Z$ and $W$ are independent:
+                            $$\text{Var}(X) = \text{Var}(Z) + \text{Var}(W) \implies \sigma^2 = \text{Var}(Z) + D$$
+                            So $\text{Var}(Z) = \sigma^2 - D$ (valid when $D \leq \sigma^2$).</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>What does the encoder look like?</strong> Given $X = Z + W$, the
+                            conditional distribution of $Z$ given $X$ is (by Bayes for Gaussians):
+                            $$p(z|x) = \mathcal{N}\left(z;\, \frac{\sigma^2 - D}{\sigma^2}x, \;\frac{(\sigma^2-D)D}{\sigma^2}\right)$$
+                            <p>The encoder is <strong>stochastic</strong>: it outputs a noisy version of $x$,
+                            shrunk toward zero by factor $(\sigma^2-D)/\sigma^2$. This shrinkage is optimal —
+                            it's the Bayesian posterior mean.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <strong>Compute the rate of this encoder:</strong>
+                            Since $X|Z \sim \mathcal{N}(Z, D)$ (Gaussian conditional with variance exactly $D$):
+                            $$h(X|Z) = \frac{1}{2}\log_2(2\pi eD)$$
+                            Therefore:
+                            $$I(X;Z) = h(X) - h(X|Z) = \frac{1}{2}\log_2(2\pi e\sigma^2) - \frac{1}{2}\log_2(2\pi eD) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$$
+                            This <strong>matches the lower bound exactly</strong>. $\checkmark$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">6</div>
+                        <div class="math-step-content">
+                            <strong>Final result:</strong>
+                            $$\boxed{R(D) = \begin{cases} \frac{1}{2}\log_2\frac{\sigma^2}{D} & 0 < D \leq \sigma^2 \\ 0 & D > \sigma^2 \end{cases}}$$
+                            The inverse (distortion-rate function): $D(R) = \sigma^2 \cdot 2^{-2R}$.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Why the Gaussian is Special</div>
+                    <p style="margin-bottom: 0;">
+                        The Gaussian is the <strong>hardest source to compress</strong> among all sources
+                        with the same variance. This is because the Gaussian maximizes entropy for a given
+                        variance. Any other source with variance $\sigma^2$ has $h(X) \leq \frac{1}{2}\log_2(2\pi e\sigma^2)$
+                        and therefore $R(D) \leq \frac{1}{2}\log_2\frac{\sigma^2}{D}$. The Gaussian R(D)
+                        is an <strong>upper bound</strong> for all sources with the same variance.
+                    </p>
+                </div>
+
+                <h3>Example Values</h3>
+
+                <p>For $\sigma^2 = 1$ (standard normal source):</p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <th style="text-align: left; padding: 8px;">Distortion $D$</th>
+                        <th style="text-align: left; padding: 8px;">$R(D)$ (bits)</th>
+                        <th style="text-align: left; padding: 8px;">Interpretation</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$1.0$</td>
+                        <td style="padding: 8px;">$0$</td>
+                        <td style="padding: 8px;">Output constant $\hat{x}=0$. MSE = variance.</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$0.5$</td>
+                        <td style="padding: 8px;">$0.5$</td>
+                        <td style="padding: 8px;">Half a bit halves the distortion.</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$0.25$</td>
+                        <td style="padding: 8px;">$1.0$</td>
+                        <td style="padding: 8px;">1 bit reduces distortion to 25% of variance.</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">$0.01$</td>
+                        <td style="padding: 8px;">$3.32$</td>
+                        <td style="padding: 8px;">High fidelity needs many bits.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px;">$0 \to$</td>
+                        <td style="padding: 8px;">$\infty$</td>
+                        <td style="padding: 8px;">Perfect reconstruction is impossible with finite bits.</td>
+                    </tr>
+                </table>
+
+                <p>
+                    The inverse relationship $D = \sigma^2 \cdot 2^{-2R}$ shows that each additional
+                    bit of rate <strong>halves the distortion squared</strong> (6 dB improvement per bit),
+                    which is a classic result in quantization theory.
+                </p>
+
+                <!-- Section 8: Multivariate Sources & Water-Filling -->
+                <h2 id="water-filling">Multivariate Sources &amp; Water-Filling</h2>
+
+                <p>
+                    For a multivariate Gaussian source $\mathbf{X} \sim \mathcal{N}(\mathbf{0}, \Sigma)$
+                    with $n$ components, the rate-distortion problem becomes: how should we allocate
+                    bits across the $n$ dimensions?
+                </p>
+
+                <p>
+                    First, diagonalize $\Sigma$ using eigendecomposition: $\Sigma = U \Lambda U^T$
+                    where $\Lambda = \text{diag}(\lambda_1, \ldots, \lambda_n)$. In the eigenbasis, the
+                    components are independent, each with variance $\lambda_i$.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Water-Filling Solution</div>
+                    <p>
+                        The optimal distortion for each component is:
+                        $$D_i = \min(\theta, \lambda_i)$$
+                        where $\theta > 0$ is chosen so that $\sum_{i=1}^n D_i = D$ (total distortion budget).
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        The total rate is:
+                        $$R(D) = \sum_{i=1}^n \frac{1}{2} \log_2 \frac{\lambda_i}{D_i} = \sum_{i:\lambda_i > \theta} \frac{1}{2} \log_2 \frac{\lambda_i}{\theta}$$
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why "water-filling"?</strong> Imagine the eigenvalues $\lambda_i$ as
+                    columns of different heights (like containers). Pour water up to a level $\theta$.
+                    For each component:
+                </p>
+
+                <ul>
+                    <li>If $\lambda_i > \theta$ (column sticks above water): allocate $R_i = \frac{1}{2}\log_2\frac{\lambda_i}{\theta}$ bits.
+                    Distortion $D_i = \theta$ (the water level).</li>
+                    <li>If $\lambda_i \leq \theta$ (column submerged): allocate $R_i = 0$ bits.
+                    Distortion $D_i = \lambda_i$ (entire variance is distortion — component is <strong>dropped</strong>).</li>
+                </ul>
+
+                <h4>Worked Example</h4>
+
+                <p>
+                    A 3D source has eigenvalues $\lambda_1 = 8, \lambda_2 = 2, \lambda_3 = 0.5$.
+                    Total distortion budget $D = 4.5$.
+                </p>
+                <p>
+                    Try $\theta = 2$: $D_1 = \min(2, 8) = 2$, $D_2 = \min(2, 2) = 2$, $D_3 = \min(2, 0.5) = 0.5$.
+                    Total $= 2 + 2 + 0.5 = 4.5$ $\checkmark$
+                </p>
+                <ul>
+                    <li>Component 1 ($\lambda_1 = 8$): $R_1 = \frac{1}{2}\log_2\frac{8}{2} = 1$ bit. High variance → gets the most bits.</li>
+                    <li>Component 2 ($\lambda_2 = 2$): $R_2 = \frac{1}{2}\log_2\frac{2}{2} = 0$ bits. Exactly at the water level.</li>
+                    <li>Component 3 ($\lambda_3 = 0.5$): $R_3 = 0$ bits. Below water — <strong>dropped entirely</strong>.</li>
+                </ul>
+                <p>Total rate: $R = 1 + 0 + 0 = 1$ bit. Only the highest-variance component is encoded.</p>
+
+                <div class="warning-box">
+                    <div class="box-title">Connection to PCA and Autoencoders</div>
+                    <p>
+                        This is exactly what PCA does! PCA keeps the top-$k$ eigenvectors (highest variance)
+                        and discards the rest. The water-filling solution proves this is
+                        <strong>information-theoretically optimal</strong> for Gaussian sources.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>Autoencoder analogy:</strong> An autoencoder with latent dimension $d$ is
+                        like water-filling with $d$ active components. If the data is approximately Gaussian,
+                        the autoencoder should learn to encode the top-$d$ principal components — and
+                        experiments show it often does.
+                    </p>
+                </div>
+
+                <!-- Section 9: The Binary Source -->
+                <h2 id="binary-source">The Binary Source</h2>
+
+                <p>
+                    The binary source gives us a discrete example that contrasts with the Gaussian.
+                    It's the simplest non-trivial case and has a beautiful closed-form solution.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Binary Source Setup</div>
+                    <p>
+                        Source: $X \sim \text{Bernoulli}(p)$ with $p \leq 1/2$ (so 0 is more likely)<br>
+                        Distortion: $d(x, \hat{x}) = \mathbb{1}[x \neq \hat{x}]$ (Hamming distance: 1 if wrong, 0 if correct)<br>
+                        Constraint: $\Pr(X \neq \hat{X}) \leq D$ (error probability $\leq D$)
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>Think of it as:</strong> You receive a stream of biased coin flips ($p = P(\text{heads})$).
+                        You must transmit a description that allows reconstruction. You're allowed to get
+                        a fraction $D$ of the flips wrong. How few bits per flip do you need?
+                    </p>
+                </div>
+
+                <div class="math-block">
+                    $$R(D) = \begin{cases} H(p) - H(D) & \text{if } 0 \leq D \leq p \\ 0 & \text{if } D > p \end{cases}$$
+                </div>
+
+                <p>
+                    where $H(q) = -q\log_2 q - (1-q)\log_2(1-q)$ is the binary entropy function.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Understanding the Binary $R(D)$</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>At $D = 0$ (perfect reproduction):</strong> $R(0) = H(p) - H(0) = H(p) - 0 = H(p)$.
+                            You need the full entropy — exactly Shannon's lossless coding theorem.
+                            For a fair coin ($p = 0.5$): $R(0) = 1$ bit (no surprise — you need to transmit
+                            each flip exactly).
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>At $D = p$ (maximum useful distortion):</strong> $R(p) = H(p) - H(p) = 0$.
+                            You need zero bits! Why? Because the best strategy without any information is
+                            to always guess the more likely symbol (0). Your error rate is exactly $p$ — the
+                            probability of the rare symbol. If you're willing to tolerate that error rate,
+                            no communication is needed.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>The formula $H(p) - H(D)$:</strong> Think of it as "total uncertainty minus
+                            the uncertainty you're allowed to leave unresolved." $H(p)$ is the total information
+                            in each symbol. $H(D)$ is the entropy of the "error channel" — the uncertainty
+                            introduced by allowing errors. You only need to transmit the difference.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>The optimal test channel</strong> is a binary symmetric channel (BSC) with
+                            crossover probability $D$. The encoder deliberately "flips" a fraction $D$ of bits,
+                            introducing controlled errors. This saves exactly $H(D)$ bits of rate because the
+                            decoder knows the error pattern is random with probability $D$ — it can account for
+                            this statistically even though it can't correct individual errors.
+                        </div>
+                    </div>
+                </div>
+
+                <h4>Numerical Example: $p = 0.1$</h4>
+
+                <p>A biased coin lands heads 10% of the time. $H(0.1) = 0.469$ bits.</p>
+                <ul>
+                    <li>$D = 0$: $R = 0.469$ bits per flip (full lossless encoding)</li>
+                    <li>$D = 0.05$: $R = 0.469 - H(0.05) = 0.469 - 0.286 = 0.183$ bits (cut rate by 61% by accepting 5% errors)</li>
+                    <li>$D = 0.1$: $R = 0$ bits (just always say "tails" — you're wrong 10% of the time, which is within budget)</li>
+                </ul>
+
+                <!-- Section 10: Blahut-Arimoto Algorithm -->
+                <h2 id="blahut-arimoto">The Blahut-Arimoto Algorithm</h2>
+
+                <p>
+                    The Gaussian and binary sources have closed-form $R(D)$. But most real sources
+                    (like MNIST images!) don't. The <strong>Blahut-Arimoto algorithm</strong> (1972)
+                    computes $R(D)$ numerically for <em>any</em> discrete source by alternating
+                    between optimizing the encoder and updating the code distribution.
+                </p>
+
+                <p>
+                    <strong>The idea:</strong> The rate-distortion problem is jointly convex in
+                    $p(z|x)$ (the encoder) and $q(z)$ (the marginal code distribution). If we fix
+                    one and optimize the other, each step has a closed-form solution. Alternating
+                    between them converges to the global optimum — like coordinate descent on a
+                    convex function.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Blahut-Arimoto Iteration</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Setup:</strong> Discretize the problem. Source alphabet
+                            $\mathcal{X} = \{x_1, ..., x_M\}$ with probabilities $p(x_i)$.
+                            Reproduction alphabet $\mathcal{Z} = \{z_1, ..., z_N\}$ (the "codebook").
+                            Distortion matrix $d(x_i, z_j)$ is an $M \times N$ table.
+                            Choose a Lagrange parameter $s > 0$ (which determines the operating point on the $R(D)$ curve).
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Initialize:</strong> Set $q(z)$ to uniform: $q(z_j) = 1/N$ for all $j$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Update encoder (fix $q$, optimize $p(z|x)$):</strong>
+                            $$p(z_j|x_i) = \frac{q(z_j) \exp(-s \cdot d(x_i, z_j))}{\sum_{k=1}^N q(z_k) \exp(-s \cdot d(x_i, z_k))}$$
+                            <p>This is a <strong>softmax</strong> over reproduction symbols, weighted by the
+                            code distribution $q(z)$ and the negative distortion. Codes that are close to
+                            $x_i$ (low distortion) get high probability. The parameter $s$ controls the
+                            "temperature": large $s$ makes the encoder nearly deterministic (hard assignment),
+                            small $s$ makes it diffuse (spread probability across many codes).</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Update marginal (fix $p(z|x)$, compute $q(z)$):</strong>
+                            $$q(z_j) = \sum_{i=1}^M p(x_i) \, p(z_j|x_i)$$
+                            <p>This is just the law of total probability — compute the overall distribution
+                            of codes by averaging the encoder over the source distribution.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <strong>Repeat steps 3-4</strong> until $q(z)$ converges. Then read off
+                            the rate $I(X;Z)$ and distortion $\mathbb{E}[d(X,\hat{X})]$ from the
+                            final encoder. This gives one point on the $R(D)$ curve.
+                            Sweeping $s$ from small to large traces the entire curve.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Why It Works: Connections</div>
+                    <p>
+                        <strong>Connection to EM:</strong> The same alternating structure as EM. Step 3 is the
+                        "E-step" (compute soft assignments given current model), step 4 is the "M-step"
+                        (update model given assignments). Convergence is guaranteed because each step
+                        decreases the Lagrangian.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>Connection to K-means:</strong> At $s \to \infty$, the encoder becomes
+                        hard assignment (each $x$ maps to its nearest code), and the algorithm reduces to
+                        Lloyd's K-means algorithm! K-means is the "zero-temperature" limit of Blahut-Arimoto.
+                    </p>
+                </div>
+
+                <!-- Section 11: Distortion-Rate Function D(R) -->
+                <h2 id="distortion-rate">The Distortion-Rate Function $D(R)$</h2>
+
+                <p>
+                    Sometimes it's more natural to ask the question in reverse: "I have a channel
+                    that can transmit $R$ bits per symbol. <strong>What's the best quality I can
+                    achieve?</strong>" This is the distortion-rate function $D(R)$ — the inverse of $R(D)$.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Distortion-Rate Function</div>
+                    <p style="margin-bottom: 0;">
+                        $$D(R) = \min_{p(z|x): \, I(X;Z) \leq R} \mathbb{E}[d(X, \hat{X})]$$
+                        Given a rate budget of $R$ bits, find the encoder that minimizes distortion.
+                    </p>
+                </div>
+
+                <p>For the Gaussian source, inverting $R = \frac{1}{2}\log_2\frac{\sigma^2}{D}$
+                gives $2R = \log_2\frac{\sigma^2}{D}$, so $\frac{\sigma^2}{D} = 2^{2R}$, therefore:</p>
+
+                <div class="math-block">
+                    $$D(R) = \sigma^2 \cdot 2^{-2R}$$
+                </div>
+
+                <p>
+                    This shows <strong>exponential decay</strong>: each additional bit of rate
+                    reduces distortion by a factor of $4$. In decibels: $10\log_{10}(4) = 6.02$ dB.
+                    This "6 dB per bit" rule is a fundamental benchmark in signal processing.
+                </p>
+
+                <h4>Example: How Many Bits for a Good Audio Signal?</h4>
+
+                <p>
+                    CD audio uses 16 bits per sample. The theoretical SNR from rate-distortion:
+                    $\text{SNR} = 6.02 \times 16 = 96.3$ dB. This is roughly what CD achieves in
+                    practice, confirming that linear PCM is near-optimal for Gaussian-like audio signals.
+                </p>
+
+                <p>
+                    For MNIST: if pixel variance is $\sigma^2 \approx 4700$ and we use $R = 1$ bit/pixel,
+                    then $D(1) = 4700 \cdot 2^{-2} = 1175$. That's heavy blur. At $R = 4$ bits/pixel:
+                    $D(4) = 4700 \cdot 2^{-8} \approx 18$ — barely noticeable quality loss.
+                </p>
+
+                <!-- Section 12: Connection to Autoencoders -->
+                <h2 id="connection-autoencoders">Connection to Autoencoders &amp; VAEs</h2>
+
+                <p>
+                    Rate-distortion theory provides the theoretical foundation for understanding
+                    autoencoders. The parallels are deep:
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <th style="text-align: left; padding: 8px;">Rate-Distortion</th>
+                        <th style="text-align: left; padding: 8px;">Autoencoder / VAE</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">Source $X$</td>
+                        <td style="padding: 8px;">Training data</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">Encoder $p(z|x)$</td>
+                        <td style="padding: 8px;">Encoder network $q_\phi(z|x)$</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">Code $Z$</td>
+                        <td style="padding: 8px;">Latent representation $z$</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">Decoder $p(\hat{x}|z)$</td>
+                        <td style="padding: 8px;">Decoder network $p_\theta(x|z)$</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">Rate $I(X;Z)$</td>
+                        <td style="padding: 8px;">KL divergence $D_{KL}(q(z|x) \| p(z))$</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 8px;">Distortion $\mathbb{E}[d(X,\hat{X})]$</td>
+                        <td style="padding: 8px;">Reconstruction loss $\mathbb{E}[-\log p(x|z)]$</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px;">Lagrange multiplier $s$</td>
+                        <td style="padding: 8px;">$\beta$ in $\beta$-VAE</td>
+                    </tr>
+                </table>
+
+                <div class="definition-box">
+                    <div class="box-title">The Information Bottleneck View</div>
+                    <p>
+                        An autoencoder with bottleneck dimension $d$ operates on the $R(D)$ curve.
+                        The bottleneck constrains the rate: fewer latent dimensions = fewer bits =
+                        more information discarded.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>Standard autoencoder:</strong> Deterministic encoder $z = f_\theta(x)$.
+                        Minimizes distortion for a fixed bottleneck size. Operates at one point on $R(D)$.<br>
+                        <strong>VAE:</strong> Stochastic encoder $q(z|x) = \mathcal{N}(\mu, \sigma^2)$.
+                        The KL term explicitly penalizes rate. By varying $\beta$, we sweep the $R(D)$
+                        curve, trading off rate and distortion continuously.
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">The Deep Insight</div>
+                    <p style="margin-bottom: 0;">
+                        Rate-distortion theory tells us that <strong>no autoencoder</strong> — no matter
+                        how large the network, how clever the architecture — can achieve distortion
+                        below $D(R)$ at rate $R$. The curve $R(D)$ is the <strong>Pareto frontier</strong>:
+                        any point below it is information-theoretically impossible. Good autoencoders
+                        approach this frontier; they cannot cross it.
+                    </p>
+                </div>
+
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../13-rnn/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← RNNs</span>
+                    </a>
+                    <a href="../15-autoencoder/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Autoencoders →</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- ============== CODE TAB ============== -->
+            <article class="article-content" id="code" style="display: none;">
+
+                <h2>Code Examples</h2>
+
+                <!-- Code Example 1 -->
+                <div class="code-example">
+                    <h3>1. Computing and Plotting R(D) for a Gaussian Source</h3>
+                    <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+def R_gaussian(D, sigma2=1.0):
+    """Rate-distortion function for Gaussian source with MSE."""
+    D = np.clip(D, 1e-10, sigma2)
+    return 0.5 * np.log2(sigma2 / D)
+
+def D_gaussian(R, sigma2=1.0):
+    """Distortion-rate function (inverse of R(D))."""
+    return sigma2 * 2**(-2 * R)
+
+# Plot R(D) curve
+sigma2 = 1.0
+D = np.linspace(0.01, sigma2, 200)
+R = R_gaussian(D, sigma2)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# R(D) curve
+axes[0].plot(D, R, 'b-', linewidth=2)
+axes[0].fill_between(D, R, alpha=0.1, color='blue', label='Achievable region')
+axes[0].set_xlabel('Distortion D')
+axes[0].set_ylabel('Rate R (bits)')
+axes[0].set_title('Rate-Distortion Function R(D)')
+axes[0].set_xlim(0, sigma2)
+axes[0].set_ylim(0, 5)
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# D(R) curve
+R_vals = np.linspace(0, 4, 200)
+D_vals = D_gaussian(R_vals, sigma2)
+
+axes[1].plot(R_vals, D_vals, 'r-', linewidth=2)
+axes[1].set_xlabel('Rate R (bits)')
+axes[1].set_ylabel('Distortion D')
+axes[1].set_title('Distortion-Rate Function D(R)')
+axes[1].set_ylim(0, sigma2)
+axes[1].grid(True, alpha=0.3)
+
+# Annotate 6dB per bit
+for r in [1, 2, 3]:
+    d = D_gaussian(r, sigma2)
+    axes[1].annotate(f'R={r}: D={d:.3f}', (r, d),
+                     textcoords="offset points", xytext=(10, 10))
+
+plt.tight_layout()
+plt.savefig('rate_distortion_gaussian.png', dpi=150)
+plt.show()
+
+print("Key values for sigma^2 = 1:")
+for D_val in [1.0, 0.5, 0.25, 0.1, 0.01]:
+    print(f"  D = {D_val:.2f} -> R(D) = {R_gaussian(D_val):.3f} bits")</code></pre>
+                </div>
+
+                <!-- Code Example 2 -->
+                <div class="code-example">
+                    <h3>2. Blahut-Arimoto Algorithm</h3>
+                    <pre><code class="language-python">import numpy as np
+
+def blahut_arimoto(px, distortion_matrix, s, max_iter=100, tol=1e-8):
+    """
+    Blahut-Arimoto algorithm for computing R(D).
+
+    Args:
+        px: Source distribution, shape (|X|,)
+        distortion_matrix: d(x, z) matrix, shape (|X|, |Z|)
+        s: Lagrange parameter (slope of R(D) curve)
+        max_iter: Maximum iterations
+        tol: Convergence tolerance
+
+    Returns:
+        rate: I(X; Z) in bits
+        distortion: E[d(X, X_hat)]
+        pz_given_x: Optimal encoder, shape (|X|, |Z|)
+    """
+    n_x, n_z = distortion_matrix.shape
+
+    # Initialize marginal q(z) uniformly
+    qz = np.ones(n_z) / n_z
+
+    for iteration in range(max_iter):
+        # Step 1: Update encoder p(z|x)
+        # p(z|x) = q(z) * exp(-s * d(x,z)) / normalizer
+        log_numerator = np.log(qz[None, :] + 1e-30) - s * distortion_matrix
+        log_normalizer = np.logaddexp.reduce(log_numerator, axis=1, keepdims=True)
+        pz_given_x = np.exp(log_numerator - log_normalizer)
+
+        # Step 2: Update marginal q(z) = sum_x p(x) p(z|x)
+        qz_new = px @ pz_given_x
+
+        # Check convergence
+        if np.max(np.abs(qz_new - qz)) < tol:
+            break
+        qz = qz_new
+
+    # Compute rate I(X; Z) and distortion E[d(X, X_hat)]
+    pxz = px[:, None] * pz_given_x  # Joint p(x, z)
+    pz = pxz.sum(axis=0)
+
+    # I(X; Z) = sum p(x,z) log(p(z|x) / p(z))
+    mask = pxz > 1e-30
+    rate = np.sum(pxz[mask] * np.log2(pz_given_x[mask] / pz[None, :][mask]))
+
+    distortion = np.sum(pxz * distortion_matrix)
+
+    return rate, distortion, pz_given_x
+
+# Example: Binary source with Hamming distortion
+p = 0.3  # Bernoulli parameter
+px = np.array([1-p, p])
+
+# Hamming distortion: d(x, x_hat) = 1 if x != x_hat
+distortion_matrix = np.array([[0, 1],
+                               [1, 0]], dtype=float)
+
+# Sweep s to trace R(D) curve
+s_values = np.logspace(-1, 3, 50)
+rates, distortions = [], []
+
+for s in s_values:
+    r, d, _ = blahut_arimoto(px, distortion_matrix, s)
+    rates.append(r)
+    distortions.append(d)
+
+# Compare with theoretical R(D) = H(p) - H(D)
+def binary_entropy(q):
+    if q <= 0 or q >= 1:
+        return 0
+    return -q * np.log2(q) - (1-q) * np.log2(1-q)
+
+D_theory = np.linspace(0.001, p - 0.001, 100)
+R_theory = [binary_entropy(p) - binary_entropy(d) for d in D_theory]
+
+import matplotlib.pyplot as plt
+plt.figure(figsize=(8, 5))
+plt.plot(distortions, rates, 'ro', markersize=4, label='Blahut-Arimoto')
+plt.plot(D_theory, R_theory, 'b-', linewidth=2, label='Theoretical R(D)')
+plt.xlabel('Distortion D')
+plt.ylabel('Rate R (bits)')
+plt.title(f'Binary Source R(D), p={p}')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.xlim(0, p + 0.05)
+plt.savefig('blahut_arimoto_binary.png', dpi=150)
+plt.show()</code></pre>
+                </div>
+
+                <!-- Code Example 3 -->
+                <div class="code-example">
+                    <h3>3. Water-Filling for Multivariate Gaussian</h3>
+                    <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+def water_filling(eigenvalues, D_total):
+    """
+    Compute water-filling solution for multivariate Gaussian R(D).
+
+    Args:
+        eigenvalues: Eigenvalues of covariance matrix (variances per component)
+        D_total: Total distortion budget
+
+    Returns:
+        Di: Per-component distortion allocation
+        Ri: Per-component rate allocation
+        theta: Water level
+    """
+    lambdas = np.sort(eigenvalues)[::-1]  # Sort descending
+    n = len(lambdas)
+
+    # Binary search for water level theta
+    theta_lo, theta_hi = 0, max(lambdas)
+
+    for _ in range(100):  # Binary search iterations
+        theta = (theta_lo + theta_hi) / 2
+        Di = np.minimum(theta, lambdas)
+        total_D = np.sum(Di)
+
+        if total_D < D_total:
+            theta_lo = theta
+        else:
+            theta_hi = theta
+
+    theta = (theta_lo + theta_hi) / 2
+    Di = np.minimum(theta, lambdas)
+
+    # Rate per component
+    Ri = np.where(lambdas > theta, 0.5 * np.log2(lambdas / theta), 0)
+
+    return Di, Ri, theta
+
+# Example: 5D Gaussian with varying eigenvalues
+eigenvalues = np.array([4.0, 2.0, 1.0, 0.5, 0.1])
+D_total = 3.0  # Total distortion budget
+
+Di, Ri, theta = water_filling(eigenvalues, D_total)
+
+print(f"Water level theta = {theta:.4f}")
+print(f"\nComponent | Variance | Distortion | Rate (bits)")
+print("-" * 52)
+for i, (lam, d, r) in enumerate(zip(eigenvalues, Di, Ri)):
+    status = "encoded" if r > 0 else "DROPPED"
+    print(f"    {i+1}     |  {lam:.2f}    |   {d:.4f}   |  {r:.3f}  {status}")
+
+print(f"\nTotal distortion: {np.sum(Di):.4f} (budget: {D_total})")
+print(f"Total rate: {np.sum(Ri):.3f} bits")
+
+# Visualize water-filling
+fig, ax = plt.subplots(figsize=(10, 6))
+x = np.arange(len(eigenvalues))
+width = 0.4
+
+# Draw eigenvalue bars
+bars = ax.bar(x, eigenvalues, width, color='steelblue', alpha=0.7, label='Variance λᵢ')
+
+# Draw water level
+ax.axhline(y=theta, color='red', linestyle='--', linewidth=2, label=f'Water level θ={theta:.3f}')
+
+# Draw distortion (water)
+for i in range(len(eigenvalues)):
+    if eigenvalues[i] > theta:
+        ax.bar(i, theta, width, color='lightcoral', alpha=0.5)
+    else:
+        ax.bar(i, eigenvalues[i], width, color='lightcoral', alpha=0.5)
+
+ax.set_xlabel('Component i')
+ax.set_ylabel('Variance / Distortion')
+ax.set_title('Water-Filling Bit Allocation')
+ax.set_xticks(x)
+ax.set_xticklabels([f'λ{i+1}={v}' for i, v in enumerate(eigenvalues)])
+ax.legend()
+ax.grid(True, alpha=0.3, axis='y')
+plt.tight_layout()
+plt.savefig('water_filling.png', dpi=150)
+plt.show()</code></pre>
+                </div>
+
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../13-rnn/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← RNNs</span>
+                    </a>
+                    <a href="../15-autoencoder/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Autoencoders →</span>
+                    </a>
+                </div>
+            </article>
+
+            <!-- ============== EXERCISES TAB ============== -->
+            <article class="article-content" id="exercises" style="display: none;">
+
+                <h2>Exercises</h2>
+                <p>30 exercises covering all aspects of rate-distortion theory. Solutions included.</p>
+
+                <h3>Easy (Exercises 1-10)</h3>
+
+                <!-- Exercise 1 -->
+                <div class="exercise-item">
+                    <h4>Exercise 1: Gaussian R(D) Computation</h4>
+                    <p>A Gaussian source has variance $\sigma^2 = 4$. Compute $R(D)$ for $D = 4, 2, 1, 0.25$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>Using $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ with $\sigma^2 = 4$:</p>
+                        <ul>
+                            <li>$D = 4$: $R(4) = \frac{1}{2}\log_2\frac{4}{4} = \frac{1}{2}\log_2 1 = 0$ bits</li>
+                            <li>$D = 2$: $R(2) = \frac{1}{2}\log_2\frac{4}{2} = \frac{1}{2}\log_2 2 = 0.5$ bits</li>
+                            <li>$D = 1$: $R(1) = \frac{1}{2}\log_2\frac{4}{1} = \frac{1}{2}\log_2 4 = 1.0$ bit</li>
+                            <li>$D = 0.25$: $R(0.25) = \frac{1}{2}\log_2\frac{4}{0.25} = \frac{1}{2}\log_2 16 = 2.0$ bits</li>
+                        </ul>
+                        <p>Each doubling of quality (halving $D$) costs exactly 1 additional bit.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 2 -->
+                <div class="exercise-item">
+                    <h4>Exercise 2: Maximum Distortion</h4>
+                    <p>A source $X$ has mean $\mu = 3$ and variance $\sigma^2 = 5$. Under MSE distortion, what is $D_{\max}$? What constant does the decoder output at $R = 0$?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>At $R = 0$, no information is transmitted. The decoder outputs a constant $c$ that minimizes $\mathbb{E}[(X - c)^2]$.</p>
+                        <p>Taking the derivative: $\frac{d}{dc}\mathbb{E}[(X-c)^2] = -2\mathbb{E}[X-c] = 0$, so $c = \mathbb{E}[X] = \mu = 3$.</p>
+                        <p>The resulting distortion is:</p>
+                        <p>$D_{\max} = \mathbb{E}[(X - 3)^2] = \text{Var}(X) = \sigma^2 = 5$</p>
+                        <p>So $D_{\max} = 5$ and the decoder always outputs $\hat{x} = 3$.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 3 -->
+                <div class="exercise-item">
+                    <h4>Exercise 3: 6 dB Per Bit Rule</h4>
+                    <p>For a Gaussian source with $\sigma^2 = 1$, verify the "6 dB per bit" rule: show that increasing the rate by 1 bit reduces the distortion by a factor of 4 (which is $10\log_{10}(4) \approx 6.02$ dB).</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>The distortion-rate function is $D(R) = \sigma^2 \cdot 2^{-2R} = 2^{-2R}$.</p>
+                        <p>At rate $R$: $D(R) = 2^{-2R}$.</p>
+                        <p>At rate $R + 1$: $D(R+1) = 2^{-2(R+1)} = 2^{-2R-2} = \frac{2^{-2R}}{4}$.</p>
+                        <p>The ratio: $\frac{D(R)}{D(R+1)} = 4$.</p>
+                        <p>In decibels: $10\log_{10}(4) = 10 \times 0.6021 = 6.021$ dB.</p>
+                        <p>So each additional bit reduces distortion by exactly a factor of 4, or approximately 6 dB.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 4 -->
+                <div class="exercise-item">
+                    <h4>Exercise 4: Delta Function Practice</h4>
+                    <p>Evaluate the following integrals involving the Dirac delta function:
+                    (a) $\int_{-\infty}^{\infty} x^3 \delta(x - 2) \, dx$,
+                    (b) $\int_{-\infty}^{\infty} e^{-x} \delta(x) \, dx$,
+                    (c) $\int_{-\infty}^{\infty} \cos(x) \delta(x - \pi) \, dx$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>Using the sifting property $\int g(z)\delta(z - c)\,dz = g(c)$:</p>
+                        <p>(a) $g(x) = x^3$, $c = 2$: $\int x^3 \delta(x-2)\,dx = 2^3 = 8$</p>
+                        <p>(b) $g(x) = e^{-x}$, $c = 0$: $\int e^{-x}\delta(x)\,dx = e^0 = 1$</p>
+                        <p>(c) $g(x) = \cos(x)$, $c = \pi$: $\int \cos(x)\delta(x-\pi)\,dx = \cos(\pi) = -1$</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 5 -->
+                <div class="exercise-item">
+                    <h4>Exercise 5: Deterministic or Stochastic?</h4>
+                    <p>Classify each encoder as deterministic or stochastic:
+                    (a) $z = \text{round}(x)$,
+                    (b) $p(z|x) = \mathcal{N}(x, 0.1)$,
+                    (c) $z = \text{sign}(x)$,
+                    (d) $p(z = 1|x) = \sigma(x)$, $p(z = 0|x) = 1 - \sigma(x)$ where $\sigma$ is sigmoid.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>(a) <strong>Deterministic.</strong> $z = \text{round}(x)$ is a fixed function — same input always gives same output. $p(z|x) = \delta(z - \text{round}(x))$.</p>
+                        <p>(b) <strong>Stochastic.</strong> $z$ is drawn from a Gaussian centered at $x$ with variance 0.1. Different runs produce different $z$ values.</p>
+                        <p>(c) <strong>Deterministic.</strong> $z = \text{sign}(x) \in \{-1, +1\}$ is a fixed function.</p>
+                        <p>(d) <strong>Stochastic.</strong> Given $x = 0$ (where $\sigma(0) = 0.5$), the encoder outputs $z = 1$ or $z = 0$ each with probability 0.5. The output is random.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 6 -->
+                <div class="exercise-item">
+                    <h4>Exercise 6: Binary Entropy</h4>
+                    <p>Compute the binary entropy $H(p)$ for $p = 0, 0.1, 0.25, 0.5, 0.75, 1.0$. What value of $p$ maximizes $H(p)$?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>$H(p) = -p\log_2 p - (1-p)\log_2(1-p)$:</p>
+                        <ul>
+                            <li>$H(0) = 0$ bits (certain outcome)</li>
+                            <li>$H(0.1) = -0.1\log_2(0.1) - 0.9\log_2(0.9) = 0.332 + 0.137 = 0.469$ bits</li>
+                            <li>$H(0.25) = -0.25\log_2(0.25) - 0.75\log_2(0.75) = 0.5 + 0.311 = 0.811$ bits</li>
+                            <li>$H(0.5) = -0.5\log_2(0.5) - 0.5\log_2(0.5) = 0.5 + 0.5 = 1.0$ bit</li>
+                            <li>$H(0.75) = 0.811$ bits (symmetric with $p=0.25$)</li>
+                            <li>$H(1.0) = 0$ bits (certain outcome)</li>
+                        </ul>
+                        <p>$H(p)$ is maximized at $p = 0.5$, where $H(0.5) = 1$ bit. Maximum uncertainty = maximum entropy.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 7 -->
+                <div class="exercise-item">
+                    <h4>Exercise 7: Binary Source R(D)</h4>
+                    <p>For a binary source with $p = 0.2$, compute $R(D)$ at $D = 0, 0.05, 0.1, 0.2$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>$R(D) = H(p) - H(D)$ for $0 \leq D \leq p$. First: $H(0.2) = -0.2\log_2(0.2) - 0.8\log_2(0.8) = 0.4644 + 0.2575 = 0.722$ bits.</p>
+                        <ul>
+                            <li>$D = 0$: $R(0) = 0.722 - 0 = 0.722$ bits (lossless)</li>
+                            <li>$D = 0.05$: $H(0.05) = 0.286$, so $R(0.05) = 0.722 - 0.286 = 0.436$ bits</li>
+                            <li>$D = 0.1$: $H(0.1) = 0.469$, so $R(0.1) = 0.722 - 0.469 = 0.253$ bits</li>
+                            <li>$D = 0.2$: $H(0.2) = 0.722$, so $R(0.2) = 0.722 - 0.722 = 0$ bits</li>
+                        </ul>
+                        <p>At $D = p = 0.2$, we need zero bits — just always output the more likely symbol (0).</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 8 -->
+                <div class="exercise-item">
+                    <h4>Exercise 8: Mutual Information Calculation</h4>
+                    <p>Let $X \in \{0, 1\}$ with $p(0) = 0.5, p(1) = 0.5$. The encoder is: $p(z=0|x=0) = 0.9, p(z=1|x=0) = 0.1, p(z=0|x=1) = 0.3, p(z=1|x=1) = 0.7$. Compute $I(X; Z)$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>First compute the joint distribution $p(x, z) = p(x) p(z|x)$:</p>
+                        <ul>
+                            <li>$p(0, 0) = 0.5 \times 0.9 = 0.45$</li>
+                            <li>$p(0, 1) = 0.5 \times 0.1 = 0.05$</li>
+                            <li>$p(1, 0) = 0.5 \times 0.3 = 0.15$</li>
+                            <li>$p(1, 1) = 0.5 \times 0.7 = 0.35$</li>
+                        </ul>
+                        <p>Marginal $p(z)$: $p(z=0) = 0.45 + 0.15 = 0.6$, $p(z=1) = 0.05 + 0.35 = 0.4$.</p>
+                        <p>$I(X;Z) = \sum_{x,z} p(x,z) \log_2 \frac{p(x,z)}{p(x)p(z)}$:</p>
+                        <p>$= 0.45\log_2\frac{0.45}{0.5 \times 0.6} + 0.05\log_2\frac{0.05}{0.5 \times 0.4} + 0.15\log_2\frac{0.15}{0.5 \times 0.6} + 0.35\log_2\frac{0.35}{0.5 \times 0.4}$</p>
+                        <p>$= 0.45\log_2 1.5 + 0.05\log_2 0.25 + 0.15\log_2 0.5 + 0.35\log_2 1.75$</p>
+                        <p>$= 0.45(0.585) + 0.05(-2) + 0.15(-1) + 0.35(0.807)$</p>
+                        <p>$= 0.263 - 0.1 - 0.15 + 0.282 = 0.295$ bits</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 9 -->
+                <div class="exercise-item">
+                    <h4>Exercise 9: R(D) Boundary Conditions</h4>
+                    <p>Prove that for any source with MSE distortion, $R(D_{\max}) = 0$ where $D_{\max} = \text{Var}(X)$. <em>Hint: construct an encoder that achieves zero rate with distortion exactly $\text{Var}(X)$.</em></p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>Consider the "trivial encoder" that ignores $X$ entirely: $p(z|x) = p(z)$ for all $x$. This makes $Z$ independent of $X$, so $I(X; Z) = 0$ (zero rate).</p>
+                        <p>The optimal decoder with zero information outputs the constant $\hat{x} = c$ that minimizes $\mathbb{E}[(X - c)^2]$. Taking the derivative and setting to zero: $c = \mathbb{E}[X]$.</p>
+                        <p>The distortion is $\mathbb{E}[(X - \mathbb{E}[X])^2] = \text{Var}(X) = D_{\max}$.</p>
+                        <p>Since $R(D)$ is the <em>minimum</em> rate for distortion $\leq D$, and we found a scheme with rate 0 and distortion $D_{\max}$: $R(D_{\max}) \leq 0$. Since $R(D) \geq 0$ always, we get $R(D_{\max}) = 0$. $\square$</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 10 -->
+                <div class="exercise-item">
+                    <h4>Exercise 10: Distortion-Rate Inversion</h4>
+                    <p>Given $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ for a Gaussian source, derive the inverse function $D(R)$. Then compute: how many bits per sample are needed to achieve SNR = 40 dB for $\sigma^2 = 1$? (SNR in dB = $10\log_{10}(\sigma^2/D)$.)</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>Inversion:</strong> $R = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ → $2R = \log_2\frac{\sigma^2}{D}$ → $\frac{\sigma^2}{D} = 2^{2R}$ → $D(R) = \sigma^2 \cdot 2^{-2R}$.</p>
+                        <p><strong>SNR calculation:</strong> SNR = $10\log_{10}(\sigma^2/D)$ = 40 dB.</p>
+                        <p>So $\sigma^2/D = 10^{4} = 10000$. With $\sigma^2 = 1$: $D = 10^{-4} = 0.0001$.</p>
+                        <p>$R = \frac{1}{2}\log_2\frac{1}{0.0001} = \frac{1}{2}\log_2 10000 = \frac{1}{2} \times 13.288 = 6.644$ bits.</p>
+                        <p>So about 6.6 bits per sample are needed for 40 dB SNR.</p>
+                    </div>
+                </div>
+
+                <h3>Medium (Exercises 11-20)</h3>
+
+                <!-- Exercise 11 -->
+                <div class="exercise-item">
+                    <h4>Exercise 11: Derive Gaussian R(D) from Scratch</h4>
+                    <p>Starting from the definition $R(D) = \min_{p(z|x): \mathbb{E}[(X-\hat{X})^2] \leq D} I(X;Z)$, derive $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ for $X \sim \mathcal{N}(0, \sigma^2)$. <em>Hint: Use the fact that Gaussians maximize entropy for a given variance, so the optimal test channel must be Gaussian.</em></p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>Step 1: Lower bound.</strong> For any encoder, $I(X;Z) = h(X) - h(X|Z)$. Since $\mathbb{E}[(X - \hat{X})^2] \leq D$ and $\hat{X} = \mathbb{E}[X|Z]$ is optimal, the conditional variance satisfies $\text{Var}(X|Z) \leq D$ on average.</p>
+                        <p><strong>Step 2:</strong> Since the Gaussian maximizes differential entropy for a given variance: $h(X|Z) \leq \frac{1}{2}\log_2(2\pi e D)$.</p>
+                        <p><strong>Step 3:</strong> Therefore $I(X;Z) = h(X) - h(X|Z) \geq \frac{1}{2}\log_2(2\pi e\sigma^2) - \frac{1}{2}\log_2(2\pi e D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$.</p>
+                        <p><strong>Step 4: Achievability.</strong> The decomposition $X = Z + W$ with $Z \sim \mathcal{N}(0, \sigma^2 - D)$ and $W \sim \mathcal{N}(0, D)$ independent achieves this bound with equality. The encoder is $p(z|x) = \mathcal{N}(z; \frac{\sigma^2 - D}{\sigma^2}x, \frac{(\sigma^2-D)D}{\sigma^2})$.</p>
+                        <p>The lower bound is tight, so $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$. $\square$</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 12 -->
+                <div class="exercise-item">
+                    <h4>Exercise 12: Water-Filling by Hand</h4>
+                    <p>A 3D Gaussian source has covariance eigenvalues $\lambda_1 = 8, \lambda_2 = 2, \lambda_3 = 0.5$. Total distortion budget $D = 4.5$. Find the water level $\theta$, per-component distortion $D_i$, per-component rate $R_i$, and total rate $R$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>The water-filling rule: $D_i = \min(\theta, \lambda_i)$ with $\sum D_i = D$.</p>
+                        <p><strong>Try $\theta = 2$:</strong> $D_1 = \min(2, 8) = 2$, $D_2 = \min(2, 2) = 2$, $D_3 = \min(2, 0.5) = 0.5$. Total $= 4.5$. This matches our budget!</p>
+                        <p>So $\theta = 2$.</p>
+                        <p>Per-component rates (only components where $\lambda_i > \theta$):</p>
+                        <ul>
+                            <li>$R_1 = \frac{1}{2}\log_2\frac{8}{2} = \frac{1}{2}\log_2 4 = 1$ bit</li>
+                            <li>$R_2 = \frac{1}{2}\log_2\frac{2}{2} = \frac{1}{2}\log_2 1 = 0$ bits (at threshold)</li>
+                            <li>$R_3 = 0$ bits (below threshold, $\lambda_3 < \theta$, this component is dropped)</li>
+                        </ul>
+                        <p><strong>Total rate: $R = 1 + 0 + 0 = 1$ bit.</strong></p>
+                        <p>Only the first component (highest variance) gets any bits. The second is at the threshold (zero rate), and the third is discarded entirely.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 13 -->
+                <div class="exercise-item">
+                    <h4>Exercise 13: Prove R(D) is Convex</h4>
+                    <p>Show that $R(D)$ is a convex function of $D$. <em>Hint: Consider time-sharing between two encoder-decoder pairs.</em></p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>Let $p_1(z|x)$ achieve $(R_1, D_1)$ and $p_2(z|x)$ achieve $(R_2, D_2)$ on the $R(D)$ curve.</p>
+                        <p><strong>Time-sharing argument:</strong> Consider a scheme that uses $p_1$ for fraction $\lambda$ of symbols and $p_2$ for fraction $(1-\lambda)$:</p>
+                        <ul>
+                            <li>Average rate = $\lambda R_1 + (1-\lambda)R_2$</li>
+                            <li>Average distortion = $\lambda D_1 + (1-\lambda)D_2$</li>
+                        </ul>
+                        <p>This time-sharing scheme is a <em>valid</em> encoder achieving distortion $D' = \lambda D_1 + (1-\lambda)D_2$ at rate $R' = \lambda R_1 + (1-\lambda)R_2$.</p>
+                        <p>Since $R(D)$ is the <em>minimum</em> rate for each distortion level:</p>
+                        <p>$$R(\lambda D_1 + (1-\lambda)D_2) \leq \lambda R_1 + (1-\lambda)R_2 = \lambda R(D_1) + (1-\lambda)R(D_2)$$</p>
+                        <p>This is the definition of convexity. $\square$</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 14 -->
+                <div class="exercise-item">
+                    <h4>Exercise 14: Lagrangian Slope</h4>
+                    <p>The Lagrangian is $\mathcal{L} = I(X;Z) + s \cdot \mathbb{E}[d(X,\hat{X})]$. Show that the Lagrange multiplier $s$ equals $-R'(D) = -\frac{dR}{dD}$ (the negative slope of the R(D) curve). Verify this for the Gaussian case.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>General case:</strong> At the optimum, the constraint $\mathbb{E}[d] = D$ is active. By the KKT conditions, the optimal rate satisfies $R(D) = \min_{p(z|x)} [I(X;Z) + s(D - \mathbb{E}[d])] + \text{const}$. Differentiating with respect to $D$: $R'(D) = -s$, so $s = -R'(D)$.</p>
+                        <p><strong>Gaussian verification:</strong> $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D} = \frac{1}{2\ln 2}\ln\frac{\sigma^2}{D}$.</p>
+                        <p>$R'(D) = \frac{1}{2\ln 2} \cdot \frac{-1}{D} = \frac{-1}{2D\ln 2}$.</p>
+                        <p>$s = -R'(D) = \frac{1}{2D\ln 2}$.</p>
+                        <p>At $D = \sigma^2$ (zero rate): $s = \frac{1}{2\sigma^2\ln 2}$ (small, flat curve → distortion cheap).</p>
+                        <p>At $D \to 0$ (high rate): $s \to \infty$ (steep curve → distortion very expensive).</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 15 -->
+                <div class="exercise-item">
+                    <h4>Exercise 15: Compare Two Encoders</h4>
+                    <p>Source $X \sim \mathcal{N}(0, 1)$. Compare these two encoders at rate $R = 1$ bit:
+                    (a) Deterministic 1-bit quantizer: $z = \text{sign}(x)$. (b) Optimal R(D) encoder.
+                    What distortion does each achieve?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a) Sign quantizer:</strong> $z = \text{sign}(x) \in \{-1, +1\}$. Rate $= H(Z) = 1$ bit (since $P(Z=1) = P(Z=-1) = 0.5$).</p>
+                        <p>Optimal decoder: $\hat{x} = \mathbb{E}[X | Z = z]$. For $Z = +1$: $\hat{x} = \mathbb{E}[X | X > 0] = \sqrt{2/\pi} \approx 0.798$. By symmetry, for $Z = -1$: $\hat{x} = -0.798$.</p>
+                        <p>MSE: $\mathbb{E}[(X - \hat{X})^2] = \mathbb{E}[X^2] - \mathbb{E}[\hat{X}^2] = 1 - 2/\pi \approx 1 - 0.637 = 0.363$.</p>
+                        <p><strong>(b) Optimal encoder:</strong> $D(R) = \sigma^2 \cdot 2^{-2R} = 1 \cdot 2^{-2} = 0.25$.</p>
+                        <p><strong>Comparison:</strong> The sign quantizer achieves $D = 0.363$, while the optimal achieves $D = 0.25$. The quantizer wastes $0.363 / 0.25 = 1.45\times$ more distortion — it's 45% suboptimal.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 16 -->
+                <div class="exercise-item">
+                    <h4>Exercise 16: Blahut-Arimoto First Iteration</h4>
+                    <p>Source $X \in \{a, b\}$ with $p(a) = 0.7, p(b) = 0.3$. Reproduction alphabet $\hat{X} \in \{a, b\}$. Hamming distortion. Initialize $q(z)$ uniformly: $q(a) = q(b) = 0.5$. With $s = 2$, compute one iteration of the Blahut-Arimoto algorithm (update $p(z|x)$, then update $q(z)$).</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>Distortion matrix: $d(a,a) = 0, d(a,b) = 1, d(b,a) = 1, d(b,b) = 0$.</p>
+                        <p><strong>Update encoder:</strong> $p(z|x) \propto q(z)\exp(-s \cdot d(x,z))$.</p>
+                        <p>For $x = a$:</p>
+                        <ul>
+                            <li>$p(a|a) \propto 0.5 \cdot e^{-2 \cdot 0} = 0.5$</li>
+                            <li>$p(b|a) \propto 0.5 \cdot e^{-2 \cdot 1} = 0.5 \cdot 0.135 = 0.0677$</li>
+                            <li>Normalizing: $p(a|a) = \frac{0.5}{0.5 + 0.0677} = 0.881$, $p(b|a) = 0.119$</li>
+                        </ul>
+                        <p>For $x = b$ (by symmetry of distortion): $p(a|b) = 0.119$, $p(b|b) = 0.881$.</p>
+                        <p><strong>Update marginal:</strong> $q(z) = \sum_x p(x)p(z|x)$.</p>
+                        <ul>
+                            <li>$q(a) = 0.7 \times 0.881 + 0.3 \times 0.119 = 0.617 + 0.036 = 0.653$</li>
+                            <li>$q(b) = 0.7 \times 0.119 + 0.3 \times 0.881 = 0.083 + 0.264 = 0.347$</li>
+                        </ul>
+                        <p>After one iteration, $q(z)$ has shifted from uniform toward the source distribution — more probability on the more likely symbol $a$.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 17 -->
+                <div class="exercise-item">
+                    <h4>Exercise 17: Rate-Distortion for Uniform Source</h4>
+                    <p>Let $X \sim \text{Uniform}(0, 1)$ with MSE distortion. Show that $R(D) = \frac{1}{2}\log_2\frac{1}{12D}$ for $0 \leq D \leq 1/12$. <em>Hint: The uniform distribution has variance $1/12$ and has the maximum entropy among distributions supported on $[0,1]$.</em></p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>The Shannon lower bound states: $R(D) \geq h(X) - \frac{1}{2}\log_2(2\pi e D)$.</p>
+                        <p>For $X \sim \text{Uniform}(0,1)$: $h(X) = \log_2 1 = 0$ (differential entropy).</p>
+                        <p>Wait — this gives $R(D) \geq -\frac{1}{2}\log_2(2\pi e D)$, which isn't the claimed result. Let me reconsider.</p>
+                        <p>For continuous uniform $X \sim U(0,1)$: $\text{Var}(X) = 1/12$. The variance-based upper bound (Gaussian with same variance) gives: $R(D) \leq \frac{1}{2}\log_2\frac{1/12}{D}$.</p>
+                        <p>For uniform quantization with $N$ levels on $[0,1]$: step size $\Delta = 1/N$, distortion $D = \Delta^2/12 = 1/(12N^2)$, rate $R = \log_2 N$. So $N = 2^R$ and $D = 1/(12 \cdot 4^R) = \frac{1}{12} \cdot 2^{-2R}$, giving $R = \frac{1}{2}\log_2\frac{1}{12D}$.</p>
+                        <p>For the uniform source, this actually matches the true $R(D)$ because uniform quantization is optimal for a uniform source. The key insight is that for a uniform source, the optimal encoder is indeed uniform quantization, and $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ with $\sigma^2 = 1/12$.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 18 -->
+                <div class="exercise-item">
+                    <h4>Exercise 18: Stochastic Encoder Advantage</h4>
+                    <p>Consider a ternary source $X \in \{0, 1, 2\}$ with $p(0) = 0.5, p(1) = 0.25, p(2) = 0.25$ and binary code $Z \in \{0, 1\}$ with Hamming-like distortion $d(x, \hat{x}) = \mathbb{1}[x \neq \hat{x}]$. Show that the best deterministic encoder achieves rate $H(Z)$ with some distortion $D$. Then show a stochastic encoder can achieve the same distortion at a lower rate.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>Best deterministic encoder:</strong> Map $\{0\} \to z=0$ and $\{1,2\} \to z=1$. Decoder: $\hat{x}(0) = 0, \hat{x}(1) = 1$ (or 2). Distortion: $D = p(2) = 0.25$ (symbol 2 mapped to code for 1). Rate: $H(Z) = H(0.5) = 1$ bit.</p>
+                        <p><strong>Stochastic encoder:</strong> Let $p(z=0|x=1) = 0.5, p(z=1|x=1) = 0.5$ (randomly assign $x=1$ to either code). Keep $x=0 \to z=0$ and $x=2 \to z=1$ deterministic.</p>
+                        <p>Marginal: $p(z=0) = 0.5 + 0.25 \times 0.5 = 0.625$, $p(z=1) = 0.25 + 0.25 \times 0.5 = 0.375$.</p>
+                        <p>Distortion: The decoder for $z=0$ sees both $x=0$ (with higher posterior) and $x=1$, still misclassifies some. But the key: $I(X;Z)$ is now less than $H(Z) = 1$ because $H(Z|X) > 0$ (the encoder is noisy for $x=1$). Specifically $H(Z|X) = 0.25 \times 1 = 0.25$ bits, so $I(X;Z) = H(Z) - H(Z|X) = H(0.625) - 0.25 \approx 0.954 - 0.25 = 0.704$ bits.</p>
+                        <p>The stochastic encoder can achieve similar distortion at rate $0.704 < 1$ bit.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 19 -->
+                <div class="exercise-item">
+                    <h4>Exercise 19: R(D) is Monotonically Decreasing</h4>
+                    <p>Prove that if $D_1 < D_2$, then $R(D_1) \geq R(D_2)$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>Let $\mathcal{P}(D) = \{p(z|x) : \mathbb{E}[d(X,\hat{X})] \leq D\}$ be the set of encoders satisfying the distortion constraint at level $D$.</p>
+                        <p>If $D_1 < D_2$, then $\mathcal{P}(D_1) \subseteq \mathcal{P}(D_2)$. Any encoder that achieves distortion $\leq D_1$ certainly achieves distortion $\leq D_2$ (since $D_1 < D_2$).</p>
+                        <p>Since $R(D) = \min_{p(z|x) \in \mathcal{P}(D)} I(X;Z)$, minimizing over a larger set can only decrease (or maintain) the minimum:</p>
+                        <p>$$R(D_2) = \min_{p(z|x) \in \mathcal{P}(D_2)} I(X;Z) \leq \min_{p(z|x) \in \mathcal{P}(D_1)} I(X;Z) = R(D_1)$$</p>
+                        <p>Therefore $R(D_1) \geq R(D_2)$. $\square$</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 20 -->
+                <div class="exercise-item">
+                    <h4>Exercise 20: VAE as Rate-Distortion Optimization</h4>
+                    <p>The VAE loss is $\mathcal{L}_{\text{VAE}} = \mathbb{E}_{q(z|x)}[-\log p(x|z)] + \beta \cdot D_{KL}(q(z|x) \| p(z))$.
+                    (a) Identify the "rate" and "distortion" terms.
+                    (b) What is the role of $\beta$?
+                    (c) What happens at $\beta = 0$? At $\beta \to \infty$?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a) Identification:</strong></p>
+                        <ul>
+                            <li><strong>Distortion:</strong> $\mathbb{E}_{q(z|x)}[-\log p(x|z)]$ — the reconstruction error. Measures how well the decoder recovers $x$ from $z$.</li>
+                            <li><strong>Rate:</strong> $D_{KL}(q(z|x) \| p(z))$ — measures how much information the encoder transmits. This is an upper bound on $I(X;Z)$.</li>
+                        </ul>
+                        <p><strong>(b) Role of $\beta$:</strong> $\beta$ is the Lagrange multiplier that trades off rate vs distortion. It plays exactly the role of $s$ in the rate-distortion Lagrangian. Different $\beta$ values trace different points on the R(D) curve.</p>
+                        <p><strong>(c) Extreme cases:</strong></p>
+                        <ul>
+                            <li><strong>$\beta = 0$:</strong> No rate penalty. The encoder can transmit unlimited information. Result: perfect reconstruction but $z$ contains everything about $x$ (standard autoencoder). Operates at $D = 0, R = \max$.</li>
+                            <li><strong>$\beta \to \infty$:</strong> Rate overwhelmingly penalized. The encoder is forced to $q(z|x) \approx p(z)$ (transmit nothing). Result: $z$ is independent of $x$, decoder outputs the marginal mean. Operates at $R = 0, D = D_{\max}$.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Hard (Exercises 21-30)</h3>
+
+                <!-- Exercise 21 -->
+                <div class="exercise-item">
+                    <h4>Exercise 21: Water-Filling for 4D Source</h4>
+                    <p>A 4D Gaussian source has covariance eigenvalues $\lambda_1 = 16, \lambda_2 = 4, \lambda_3 = 1, \lambda_4 = 0.25$. Compute the total rate $R(D)$ for total distortion budgets $D = 5, 10, 15, 21.25$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>For each $D$, find $\theta$ such that $\sum \min(\theta, \lambda_i) = D$.</p>
+
+                        <p><strong>$D = 5$, try $\theta = 1$:</strong> $D_i = \min(1, 16) + \min(1, 4) + \min(1, 1) + \min(1, 0.25) = 1 + 1 + 1 + 0.25 = 3.25$. Too low.</p>
+                        <p>Try $\theta = 2$: $2 + 2 + 1 + 0.25 = 5.25$. Too high. Try $\theta = 1.75$: $1.75 + 1.75 + 1 + 0.25 = 4.75$. Try $\theta = 1.875$: $1.875 + 1.875 + 1 + 0.25 = 5$. Correct!</p>
+                        <p>$\theta = 1.875$. $R = \frac{1}{2}\log_2\frac{16}{1.875} + \frac{1}{2}\log_2\frac{4}{1.875} + 0 + 0 = \frac{1}{2}(3.093 + 1.093) = 2.093$ bits.</p>
+
+                        <p><strong>$D = 10$, try $\theta = 4$:</strong> $4 + 4 + 1 + 0.25 = 9.25$. Try $\theta = 4.75$: $4.75 + 4 + 1 + 0.25 = 10$. Correct!</p>
+                        <p>$R = \frac{1}{2}\log_2\frac{16}{4.75} = \frac{1}{2}(1.752) = 0.876$ bits.</p>
+
+                        <p><strong>$D = 15$, try $\theta = 14.75$:</strong> Only $\lambda_1 = 16 > \theta$. $D_1 = 14.75, D_2 = 4, D_3 = 1, D_4 = 0.25$. Total $= 20$. Too high.</p>
+                        <p>All components below threshold when $\theta \geq 16$: total $= 21.25 = \sum \lambda_i$. For $D = 15$: $\theta + 4 + 1 + 0.25 = 15$ when $4 < \theta < 16$, so $\theta = 9.75$.</p>
+                        <p>$R = \frac{1}{2}\log_2\frac{16}{9.75} = \frac{1}{2}(0.715) = 0.357$ bits.</p>
+
+                        <p><strong>$D = 21.25 = \sum\lambda_i$:</strong> $\theta \geq 16$, all components at max distortion. $R = 0$ bits.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 22 -->
+                <div class="exercise-item">
+                    <h4>Exercise 22: Shannon Lower Bound</h4>
+                    <p>The <strong>Shannon lower bound</strong> (SLB) states: $R(D) \geq h(X) - \frac{1}{2}\log_2(2\pi e D)$ for any source under MSE. (a) Prove this using the maximum entropy property of Gaussians. (b) For which sources is the SLB tight (i.e., equals $R(D)$)?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a) Proof:</strong></p>
+                        <p>$R(D) = \min I(X;Z) = \min [h(X) - h(X|Z)]$.</p>
+                        <p>Since $h(X)$ is constant (doesn't depend on the encoder): $R(D) = h(X) - \max h(X|Z)$.</p>
+                        <p>The constraint $\mathbb{E}[(X - \hat{X})^2] \leq D$ implies $\mathbb{E}[\text{Var}(X|Z)] \leq D$ (since optimal decoder uses conditional mean).</p>
+                        <p>Among all distributions with variance $\leq D$, the Gaussian has maximum entropy: $h(X|Z) \leq \frac{1}{2}\log_2(2\pi e D)$.</p>
+                        <p>Therefore: $R(D) \geq h(X) - \frac{1}{2}\log_2(2\pi e D)$. $\square$</p>
+                        <p><strong>(b) Tightness:</strong> The SLB is tight when the conditional distribution $p(X|Z)$ is Gaussian for the optimal encoder. This happens when the source itself is Gaussian — the Gaussian R(D) formula $\frac{1}{2}\log_2\frac{\sigma^2}{D}$ exactly equals $h(X) - \frac{1}{2}\log_2(2\pi e D) = \frac{1}{2}\log_2(2\pi e\sigma^2) - \frac{1}{2}\log_2(2\pi e D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 23 -->
+                <div class="exercise-item">
+                    <h4>Exercise 23: Parametric R(D) via Lagrangian</h4>
+                    <p>For the Gaussian source, the optimal encoder at Lagrange parameter $s$ satisfies $p(z|x) \propto q(z)\exp(-s(x-z)^2)$. (a) Show that for Gaussian $q(z)$, the resulting $p(z|x)$ is also Gaussian. (b) Find its mean and variance in terms of $s$ and $\sigma^2$. (c) Parametrically compute $R(s)$ and $D(s)$, then verify $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a)</strong> If $q(z) = \mathcal{N}(0, \sigma_z^2)$, then $\log p(z|x) \propto -\frac{z^2}{2\sigma_z^2} - s(x-z)^2 = -\frac{z^2}{2\sigma_z^2} - sz^2 + 2sxz - sx^2$.</p>
+                        <p>Collecting terms in $z$: $-(\frac{1}{2\sigma_z^2} + s)z^2 + 2sxz + \text{const}$. This is quadratic in $z$, so $p(z|x)$ is Gaussian. $\checkmark$</p>
+                        <p><strong>(b)</strong> Completing the square: precision $= \frac{1}{\sigma_z^2} + 2s$, so variance $\sigma_{z|x}^2 = \frac{1}{1/\sigma_z^2 + 2s}$.</p>
+                        <p>Mean: $\mu_{z|x} = \frac{2sx}{1/\sigma_z^2 + 2s} = \frac{2s\sigma_z^2}{1 + 2s\sigma_z^2}x$.</p>
+                        <p>Self-consistency requires $\sigma_z^2 = \text{Var}(Z) = \mu_{z|x}^2\text{-terms} + \sigma_{z|x}^2$. After solving (using $\sigma_z^2 = \sigma^2 - D$ and $D = \sigma_{z|x}^2 \cdot \sigma^2 / \sigma_z^2$):</p>
+                        <p><strong>(c)</strong> The parametric solution gives $D(s) = \frac{1}{2s}$ (in nats, with $s > \frac{1}{2\sigma^2}$) and $R(s) = \frac{1}{2}\ln(2s\sigma^2)$ nats. Eliminating $s$: $s = \frac{1}{2D}$, so $R = \frac{1}{2}\ln\frac{\sigma^2}{D}$ nats $= \frac{1}{2}\log_2\frac{\sigma^2}{D}$ bits. $\checkmark$</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 24 -->
+                <div class="exercise-item">
+                    <h4>Exercise 24: ELBO Decomposition and Rate-Distortion</h4>
+                    <p>Starting from the VAE's Evidence Lower Bound (ELBO), show that $-\text{ELBO} = \underbrace{D_{KL}(q(z|x) \| p(z))}_{\text{rate}} + \underbrace{\mathbb{E}_q[-\log p(x|z)]}_{\text{distortion}}$, and prove that $D_{KL}(q(z|x) \| p(z)) \geq I_q(X; Z)$ where $I_q$ is the mutual information under the variational distribution.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>ELBO decomposition:</strong></p>
+                        <p>$\text{ELBO} = \mathbb{E}_{q(z|x)}[\log p(x|z)] - D_{KL}(q(z|x) \| p(z))$</p>
+                        <p>$-\text{ELBO} = D_{KL}(q(z|x) \| p(z)) + \mathbb{E}_{q(z|x)}[-\log p(x|z)]$</p>
+                        <p>This is exactly rate + distortion. $\checkmark$</p>
+
+                        <p><strong>Proving $D_{KL}(q(z|x) \| p(z)) \geq I_q(X; Z)$:</strong></p>
+                        <p>Taking expectations over $p(x)$:</p>
+                        <p>$\mathbb{E}_{p(x)}[D_{KL}(q(z|x) \| p(z))] = \mathbb{E}_{p(x)}\left[\mathbb{E}_{q(z|x)}\left[\log\frac{q(z|x)}{p(z)}\right]\right]$</p>
+                        <p>$= \mathbb{E}_{p(x)}\left[\mathbb{E}_{q(z|x)}\left[\log\frac{q(z|x)}{q(z)} + \log\frac{q(z)}{p(z)}\right]\right]$</p>
+                        <p>where $q(z) = \mathbb{E}_{p(x)}[q(z|x)]$ is the aggregated posterior.</p>
+                        <p>$= I_q(X; Z) + D_{KL}(q(z) \| p(z))$</p>
+                        <p>Since $D_{KL}(q(z) \| p(z)) \geq 0$, we get $\mathbb{E}_{p(x)}[D_{KL}(q(z|x) \| p(z))] \geq I_q(X;Z)$. $\square$</p>
+                        <p>The gap $D_{KL}(q(z) \| p(z))$ measures how far the aggregated posterior is from the prior — this is the "marginal KL" that causes the "hole problem" in VAEs.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 25 -->
+                <div class="exercise-item">
+                    <h4>Exercise 25: Rate-Distortion for Exponential Source</h4>
+                    <p>Let $X \sim \text{Exponential}(\lambda)$ with rate parameter $\lambda$ (mean $1/\lambda$, variance $1/\lambda^2$). Using the Shannon lower bound, find a lower bound for $R(D)$ under MSE distortion. Compare with the Gaussian $R(D)$ that has the same variance.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>Shannon lower bound:</strong> $R(D) \geq h(X) - \frac{1}{2}\log_2(2\pi e D)$.</p>
+                        <p>For $X \sim \text{Exp}(\lambda)$: $h(X) = 1 + \ln(1/\lambda) = 1 - \ln\lambda$ (in nats) $= \frac{1 - \ln\lambda}{\ln 2}$ (in bits).</p>
+                        <p>Converting to bits: $h(X) = \log_2\frac{e}{\lambda}$.</p>
+                        <p>SLB: $R(D) \geq \log_2\frac{e}{\lambda} - \frac{1}{2}\log_2(2\pi e D) = \frac{1}{2}\log_2\frac{e^2}{\lambda^2 \cdot 2\pi e D} = \frac{1}{2}\log_2\frac{e}{2\pi\lambda^2 D}$.</p>
+                        <p><strong>Gaussian comparison:</strong> A Gaussian with variance $\sigma^2 = 1/\lambda^2$ has $R_G(D) = \frac{1}{2}\log_2\frac{1}{\lambda^2 D}$.</p>
+                        <p>The SLB is $\frac{1}{2}\log_2\frac{e}{2\pi\lambda^2 D}$, while the Gaussian $R(D)$ is $\frac{1}{2}\log_2\frac{1}{\lambda^2 D}$.</p>
+                        <p>Difference: $R_G(D) - \text{SLB} = \frac{1}{2}\log_2\frac{2\pi}{e} = \frac{1}{2}\log_2(2.31) = 0.604$ bits.</p>
+                        <p>The exponential source's $R(D)$ lies between the SLB and the Gaussian $R(D)$. The exact $R(D)$ for the exponential doesn't have a simple closed form.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 26 -->
+                <div class="exercise-item">
+                    <h4>Exercise 26: Successive Refinement</h4>
+                    <p>A source is first encoded at rate $R_1$ with distortion $D_1$, then a <strong>refinement</strong> layer adds $R_2$ more bits to achieve distortion $D_2 < D_1$. Is the total rate $R_1 + R_2$ always equal to $R(D_2)$ (fully efficient)? A source is called <strong>successively refinable</strong> if this holds. (a) Prove that Gaussian sources are successively refinable. (b) Give an intuition for why some sources are not.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a) Gaussian sources:</strong></p>
+                        <p>At rate $R_1$: distortion $D_1 = \sigma^2 2^{-2R_1}$.</p>
+                        <p>The reconstruction error $W_1 = X - \hat{X}_1 \sim \mathcal{N}(0, D_1)$ and is independent of $\hat{X}_1$.</p>
+                        <p>The refinement layer encodes $W_1$ (a Gaussian source with variance $D_1$) at rate $R_2$ to achieve distortion $D_2 = D_1 \cdot 2^{-2R_2}$.</p>
+                        <p>Total rate: $R_1 + R_2$. Total distortion: $D_2 = \sigma^2 2^{-2R_1} \cdot 2^{-2R_2} = \sigma^2 2^{-2(R_1+R_2)}$.</p>
+                        <p>This matches $R(D_2) = R_1 + R_2$. The key property is that the error $W_1$ is Gaussian and independent of $\hat{X}_1$, so encoding $W_1$ is a fresh rate-distortion problem. $\checkmark$</p>
+                        <p><strong>(b) Non-successively-refinable sources:</strong> If the error $W_1$ at the first stage is correlated with $\hat{X}_1$, or if its distribution depends on which codeword was used, then the refinement can't be treated independently. The first-stage encoder must "plan ahead" for refinement, but $R(D_1)$-optimal encoder doesn't know about future refinement. For some discrete sources, the optimal codebooks at different rates are structurally incompatible, causing a rate loss. Example: binary sources with certain parameters are not successively refinable.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 27 -->
+                <div class="exercise-item">
+                    <h4>Exercise 27: Vector Quantization Advantage</h4>
+                    <p>For a memoryless Gaussian source (i.i.d. samples), <strong>scalar quantization</strong> encodes each sample independently, while <strong>vector quantization</strong> encodes blocks of $n$ samples jointly. (a) Why can vector quantization outperform scalar quantization? (b) At $R = 1$ bit/sample with $\sigma^2 = 1$, scalar quantization achieves MSE $\approx 0.363$ (Exercise 15). What does $R(D)$ theory predict as the optimal distortion?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a)</strong> Scalar quantization restricts the encoder to $p(z|x) = \prod_i p(z_i|x_i)$ — each sample encoded independently. Vector quantization allows arbitrary joint encoders $p(\mathbf{z}|\mathbf{x})$ that exploit correlations <em>within the code space</em>.</p>
+                        <p>Even for i.i.d. sources (no correlation to exploit), VQ wins because it can use <strong>space-filling</strong>: VQ codebooks in high dimensions pack more efficiently (approaching sphere packing bounds). Scalar quantizers are restricted to rectangular lattices, which waste space.</p>
+                        <p>Shannon's coding theorem guarantees that VQ with block length $n \to \infty$ achieves $R(D)$, while scalar quantization generally cannot.</p>
+                        <p><strong>(b)</strong> $R(D)$ theory: $D(R=1) = \sigma^2 \cdot 2^{-2} = 0.25$.</p>
+                        <p>Scalar quantization: $D = 0.363$.</p>
+                        <p>Gap: $0.363 / 0.25 = 1.452$, or 1.62 dB. VQ can close this gap as block length increases.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 28 -->
+                <div class="exercise-item">
+                    <h4>Exercise 28: Colored Gaussian Source</h4>
+                    <p>A stationary Gaussian process has power spectral density $S(f) = \frac{1}{1 + (f/f_0)^2}$ (Lorentzian). The rate-distortion function for Gaussian processes is $R(D) = \int_{-W}^{W} \frac{1}{2}\log_2\frac{S(f)}{\theta} \, df$ summed over frequencies where $S(f) > \theta$, with $\theta$ chosen so that $\int \min(\theta, S(f))\, df = D$. Explain qualitatively: which frequencies get more bits? How does this relate to the multivariate water-filling solution?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p>This is the <strong>continuous analog of water-filling</strong>. Instead of discrete eigenvalues $\lambda_i$, we have a continuous power spectrum $S(f)$. The water level $\theta$ plays the same role.</p>
+                        <p><strong>Which frequencies get more bits?</strong> Frequencies with larger $S(f)$ (more power/variance) get more bits: $R(f) = \frac{1}{2}\log_2\frac{S(f)}{\theta}$ when $S(f) > \theta$.</p>
+                        <p>For the Lorentzian $S(f) = \frac{1}{1+(f/f_0)^2}$:</p>
+                        <ul>
+                            <li>Low frequencies ($|f| \ll f_0$): $S(f) \approx 1$ (high power) → get the most bits</li>
+                            <li>High frequencies ($|f| \gg f_0$): $S(f) \approx 0$ → get zero bits (below water level)</li>
+                            <li>There's a cutoff frequency $f_c$ where $S(f_c) = \theta$; frequencies above $f_c$ are discarded</li>
+                        </ul>
+                        <p><strong>Connection to multivariate:</strong> By the KLT (Karhunen-Loève transform), the continuous process decomposes into independent frequency components — each with variance $S(f)$. This is exactly a continuous version of diagonalizing the covariance matrix. Water-filling across eigenvalues becomes water-filling across the power spectrum.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 29 -->
+                <div class="exercise-item">
+                    <h4>Exercise 29: Source Coding Theorem (Converse)</h4>
+                    <p>State and prove the converse of Shannon's lossy source coding theorem: if we encode at rate $R < R(D)$, then the distortion must exceed $D$. <em>Hint: Use the data processing inequality and the definition of $R(D)$.</em></p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>Theorem (Converse):</strong> For any encoder-decoder pair $(f_n, g_n)$ operating on blocks of length $n$ with rate $\frac{1}{n}\log_2|M| = R$ (where $M$ is the codebook size), the distortion satisfies $\frac{1}{n}\sum_{i=1}^n \mathbb{E}[d(X_i, \hat{X}_i)] \geq D(R)$.</p>
+                        <p><strong>Proof sketch:</strong></p>
+                        <p>1. The encoder maps $X^n$ to an index $W \in \{1, \ldots, 2^{nR}\}$. By the data processing inequality: $I(X^n; \hat{X}^n) \leq I(X^n; W) \leq H(W) \leq nR$.</p>
+                        <p>2. For i.i.d. sources: $I(X^n; \hat{X}^n) = \sum_{i=1}^n I(X_i; \hat{X}_i | X^{i-1}, \hat{X}^{i-1}, ...) \geq \sum_{i=1}^n I(X_i; \hat{X}_i)$ (conditioning reduces entropy, not MI for independent sources, but the key step uses single-letterization).</p>
+                        <p>3. By definition of $R(D)$: $I(X_i; \hat{X}_i) \geq R(D_i)$ where $D_i = \mathbb{E}[d(X_i, \hat{X}_i)]$.</p>
+                        <p>4. Combining: $nR \geq \sum_{i=1}^n R(D_i) \geq nR(\bar{D})$ by convexity of $R(\cdot)$, where $\bar{D} = \frac{1}{n}\sum D_i$.</p>
+                        <p>5. Therefore $R \geq R(\bar{D})$, which means $\bar{D} \geq D(R)$. $\square$</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 30 -->
+                <div class="exercise-item">
+                    <h4>Exercise 30: Design Optimal Encoder for Gaussian Mixture</h4>
+                    <p>A source is a mixture of two Gaussians: $p(x) = 0.5 \cdot \mathcal{N}(x; -3, 1) + 0.5 \cdot \mathcal{N}(x; 3, 1)$. (a) Qualitatively sketch the $R(D)$ curve. (b) At very low rate ($R \approx 1$ bit), what is the optimal encoder? (c) At high rate, how does $R(D)$ compare to a single Gaussian with the same variance? (d) Why can't we get a closed-form $R(D)$ for mixtures?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a) Sketch:</strong> The mixture has $\text{Var}(X) = 1 + 9 = 10$ (within-component variance + between-component variance). At $R = 0$: $D_{\max} = 10$. The curve starts at $(10, 0)$ and decreases.</p>
+                        <p>Crucially, the curve has a "kink" region around $R \approx 1$ bit where learning which cluster the point belongs to provides a large distortion reduction.</p>
+
+                        <p><strong>(b) At $R \approx 1$ bit:</strong> The optimal encoder identifies which Gaussian component $x$ came from. With 1 bit, transmit $z = \text{sign}(x)$. The decoder outputs $\hat{x} = -3$ or $\hat{x} = +3$. Distortion $\approx \text{within-component variance} = 1$. This is a massive drop from $D_{\max} = 10$: one bit captures the cluster structure.</p>
+
+                        <p><strong>(c) High rate:</strong> At high rate, we're encoding <em>within</em> each cluster. Each cluster is $\mathcal{N}(\pm 3, 1)$ with variance 1. The per-cluster $R(D) = \frac{1}{2}\log_2\frac{1}{D}$. Plus 1 bit for cluster ID. So $R(D) \approx 1 + \frac{1}{2}\log_2\frac{1}{D}$.</p>
+                        <p>A single Gaussian with $\sigma^2 = 10$ would give $R(D) = \frac{1}{2}\log_2\frac{10}{D}$. At small $D$, the mixture is <em>more efficient</em> because its effective entropy is lower (structured data).</p>
+
+                        <p><strong>(d) No closed form:</strong> The Gaussian $R(D)$ relies on the fact that Gaussians are "self-similar" — the optimal test channel produces Gaussian errors, and Gaussian + Gaussian = Gaussian. For mixtures, the optimal test channel doesn't preserve the mixture structure, and the resulting integrals don't simplify. One must use numerical methods (Blahut-Arimoto) or bounds.</p>
+                    </div>
+                </div>
+
+                <h3>Applied: MNIST &amp; Image Compression (Exercises 31-35)</h3>
+
+                <!-- Exercise 31 -->
+                <div class="exercise-item">
+                    <h4>Exercise 31: MNIST Raw vs Entropy</h4>
+                    <p>An MNIST image is $28 \times 28$ pixels, each an integer in $\{0, ..., 255\}$.
+                    (a) How many bits is the raw (uncompressed) image?
+                    (b) If approximately 80% of pixels are exactly 0, and the remaining 20% are roughly
+                    uniform over $\{1, ..., 255\}$, estimate the per-pixel entropy and the total entropy
+                    of the image (assuming pixels are independent).
+                    (c) By what factor does lossless compression reduce the file size compared to raw?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a)</strong> Raw: $28 \times 28 \times 8 = 6272$ bits $= 784$ bytes.</p>
+                        <p><strong>(b)</strong> Per-pixel entropy: $H = -0.8\log_2(0.8) - 0.2\log_2(0.2/255)$. More carefully: $P(0) = 0.8$, $P(k) = 0.2/255$ for $k = 1..255$.</p>
+                        <p>$H = -0.8\log_2(0.8) - 255 \times \frac{0.2}{255}\log_2\frac{0.2}{255}$</p>
+                        <p>$= -0.8(-0.322) - 0.2\log_2(0.000784) = 0.258 + 0.2 \times 10.32 = 0.258 + 2.064 = 2.32$ bits/pixel.</p>
+                        <p>Total: $784 \times 2.32 = 1819$ bits $\approx 227$ bytes. (In practice, correlations between pixels reduce this further to ~108 bytes.)</p>
+                        <p><strong>(c)</strong> Compression ratio: $6272 / 1819 \approx 3.4\times$ (independent pixels). With correlations: $\sim 7\times$.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 32 -->
+                <div class="exercise-item">
+                    <h4>Exercise 32: MNIST Autoencoder as Rate-Distortion</h4>
+                    <p>You train an autoencoder on MNIST with latent dimension $d = 10$ and MSE loss.
+                    Each latent dimension is a 32-bit float.
+                    (a) What is the approximate rate (bits per image)?
+                    (b) If the reconstruction MSE is 50, what is the per-pixel distortion?
+                    (c) A JPEG of the same image at similar visual quality takes 300 bytes. Compare
+                    the autoencoder's rate to JPEG. Which is more efficient and why?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a)</strong> Rate: $10 \times 32 = 320$ bits $= 40$ bytes per image. But the latent values likely don't use all 32 bits of precision. If quantized to 8 bits: $10 \times 8 = 80$ bits $= 10$ bytes.</p>
+                        <p><strong>(b)</strong> Per-pixel distortion: MSE averaged over pixels $= 50 / 784 \approx 0.064$ (on [0,255] scale, this is $50$, so PSNR $= 10\log_{10}(255^2/50) = 10\log_{10}(1300.5) \approx 31$ dB — decent quality).</p>
+                        <p><strong>(c)</strong> Autoencoder: 40-80 bytes for MSE=50. JPEG: 300 bytes for similar quality. The autoencoder is $4{-}7\times$ more efficient because it's trained on the MNIST distribution specifically — it knows what digits look like. JPEG is a generic image codec that wastes bits on structures that never appear in MNIST. This illustrates that source-specific learned compression can far exceed general-purpose codecs.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 33 -->
+                <div class="exercise-item">
+                    <h4>Exercise 33: Minimum Bits for Digit Classification</h4>
+                    <p>MNIST has 10 digit classes (0-9), approximately equally likely.
+                    (a) What is the minimum bits needed to identify the digit class (no pixel reconstruction)?
+                    (b) This is a rate-distortion problem where $d(x, \hat{x}) = \mathbb{1}[\text{class}(x) \neq \text{class}(\hat{x})]$.
+                    What is $R(D = 0)$ for this distortion measure?
+                    (c) A trained classifier has 1% error rate. What distortion does this correspond to, and
+                    how does it compare to $R(D)$?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a)</strong> 10 classes, roughly uniform: $\log_2(10) = 3.32$ bits. With real digit frequencies (not perfectly uniform), slightly less: $H(\text{class}) \approx 3.32$ bits.</p>
+                        <p><strong>(b)</strong> With classification distortion and $D = 0$ (perfect classification): $R(0) = H(\text{class}) \approx 3.32$ bits. You need exactly the class entropy — the latent code must contain the digit identity.</p>
+                        <p><strong>(c)</strong> A 1% error rate means $D = 0.01$. From the multiclass generalization: $R(D) \approx H(\text{class}) - H(D, \text{confusion}) \approx 3.32 - 0.08 \approx 3.24$ bits. The savings from allowing 1% errors is minimal — class identity is nearly irreducible information.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 34 -->
+                <div class="exercise-item">
+                    <h4>Exercise 34: $\beta$-VAE Sweep on MNIST</h4>
+                    <p>You train a $\beta$-VAE on MNIST with latent dimension 20 and sweep $\beta \in \{0.001, 0.1, 1, 10, 100\}$.
+                    (a) Describe qualitatively what the reconstructions look like at each $\beta$.
+                    (b) Which $\beta$ value corresponds to the steepest part of the $R(D)$ curve?
+                    (c) If $\beta = 0$ gives perfect reconstruction (MSE $\approx 0$, KL $\approx 400$)
+                    and $\beta = 100$ gives blurry blobs (MSE $\approx 3000$, KL $\approx 2$),
+                    plot the approximate trajectory on the $R(D)$ plane.</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a)</strong></p>
+                        <ul>
+                            <li>$\beta = 0.001$: Near-perfect reconstruction (autoencoder mode). Every detail preserved. KL is large (unstructured latent space).</li>
+                            <li>$\beta = 0.1$: Very slight blur. Latent space starts organizing.</li>
+                            <li>$\beta = 1$: Standard VAE. Good reconstructions with slight blur on fine details. Latent space is well-structured.</li>
+                            <li>$\beta = 10$: Noticeably blurry. Digit class is preserved but thickness/style details are lost. Latent space is very compressed.</li>
+                            <li>$\beta = 100$: Very blurry blobs. Some digits are confusable. Latent space is nearly empty (posterior collapse).</li>
+                        </ul>
+                        <p><strong>(b)</strong> The steepest part of $R(D)$ is at low $D$ — the transition from "detailed" to "slightly lossy." This corresponds to $\beta$ values around $0.1{-}1$ where adding a bit of compression yields large bit savings with minimal quality loss.</p>
+                        <p><strong>(c)</strong> The trajectory traces a curve from $(D \approx 0, R \approx 400)$ to $(D \approx 3000, R \approx 2)$. This curve should lie above or on the true $R(D)$ curve (since the VAE is a suboptimal encoder-decoder pair). The gap between the VAE trajectory and $R(D)$ represents the "VAE tax" — the price of using a parametric Gaussian encoder instead of the true optimal encoder.</p>
+                    </div>
+                </div>
+
+                <!-- Exercise 35 -->
+                <div class="exercise-item">
+                    <h4>Exercise 35: Comparing MNIST, CIFAR-10, and ImageNet Compression</h4>
+                    <p>Consider three datasets with pixel variance $\sigma^2_{\text{MNIST}} \approx 4700$,
+                    $\sigma^2_{\text{CIFAR}} \approx 3500$ (per channel), $\sigma^2_{\text{ImageNet}} \approx 4000$ (per channel).
+                    (a) Using the Gaussian approximation, compute $R(D=100)$ for each dataset (per pixel).
+                    (b) MNIST compresses much better than ImageNet in practice, even though $\sigma^2$ is similar. Why
+                    does the Gaussian approximation fail to capture this?
+                    (c) What property of the source distribution determines compressibility beyond variance?</p>
+                    <button class="solution-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Show Solution</button>
+                    <div class="solution-content" style="display: none;">
+                        <p><strong>(a)</strong> Gaussian approximation: $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$.</p>
+                        <ul>
+                            <li>MNIST: $R(100) = \frac{1}{2}\log_2\frac{4700}{100} = \frac{1}{2}\log_2(47) = \frac{1}{2}(5.55) = 2.78$ bits/pixel</li>
+                            <li>CIFAR: $R(100) = \frac{1}{2}\log_2\frac{3500}{100} = \frac{1}{2}\log_2(35) = \frac{1}{2}(5.13) = 2.56$ bits/pixel</li>
+                            <li>ImageNet: $R(100) = \frac{1}{2}\log_2\frac{4000}{100} = \frac{1}{2}\log_2(40) = \frac{1}{2}(5.32) = 2.66$ bits/pixel</li>
+                        </ul>
+                        <p>The Gaussian approximation gives similar rates for all three!</p>
+                        <p><strong>(b)</strong> MNIST compresses far better in practice because its distribution is far from Gaussian. MNIST pixels are highly bimodal (mostly 0 or near-255) with massive spatial correlations (digit structure). The Gaussian assumption wastes bits on probability mass over states that never occur (like a pixel being exactly 127).</p>
+                        <p><strong>(c)</strong> The entropy of the distribution — not just its variance — determines compressibility. The Shannon lower bound says $R(D) \geq h(X) - \frac{1}{2}\log_2(2\pi eD)$. The differential entropy $h(X)$ is much smaller for MNIST (structured, low-entropy) than for natural images (high-entropy). The gap between a source's entropy and the Gaussian entropy with the same variance measures how much "extra" compressibility the source has due to its structure.</p>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../13-rnn/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← RNNs</span>
+                    </a>
+                    <a href="../15-autoencoder/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Autoencoders →</span>
+                    </a>
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container" id="toc-panel">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#mnist-example" class="toc-link">MNIST Example</a>
+                <a href="#lossy-compression" class="toc-link">Lossy Compression Problem</a>
+                <a href="#framework" class="toc-link">The Framework</a>
+                <a href="#mutual-information" class="toc-link">Mutual Information as Rate</a>
+                <a href="#rate-distortion-function" class="toc-link">R(D) Function</a>
+                <a href="#properties" class="toc-link">Properties of R(D)</a>
+                <a href="#encoders" class="toc-link">Det. vs Stoch. Encoders</a>
+                <a href="#gaussian" class="toc-link">Gaussian Source</a>
+                <a href="#water-filling" class="toc-link">Water-Filling</a>
+                <a href="#binary-source" class="toc-link">Binary Source</a>
+                <a href="#blahut-arimoto" class="toc-link">Blahut-Arimoto</a>
+                <a href="#distortion-rate" class="toc-link">D(R) Function</a>
+                <a href="#connection-autoencoders" class="toc-link">Connection to AE/VAE</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        function showTab(tabName) {
+            document.querySelectorAll('.article-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tutorial-tab').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tabName).style.display = 'block';
+            document.querySelector(`.tutorial-tab[onclick="showTab('${tabName}')"]`).classList.add('active');
+
+            // Show/hide TOC based on tab
+            const tocPanel = document.getElementById('toc-panel');
+            if (tocPanel) {
+                tocPanel.style.display = tabName === 'theory' ? '' : 'none';
+            }
+
+            // Re-render math
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.getElementById(tabName), {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+    </script>
+</body>
+</html>

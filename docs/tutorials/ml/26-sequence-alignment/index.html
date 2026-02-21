@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sequence Alignment Fundamentals | ML Fundamentals</title>
+    <meta name="description" content="Understanding sequence alignment between text and audio: monotonic constraints, alignment matrices, cost functions, dynamic programming, and the spectrum from soft attention to hard alignment.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Sequence Alignment Fundamentals</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../01-logarithms/index.html" class="sidebar-link">01. Why Logarithms?</a>
+                    <a href="../02-combinatorics/index.html" class="sidebar-link">02. Combinatorics</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">03. Normal Distributions</a>
+                    <a href="../04-entropy/index.html" class="sidebar-link">04. Entropy Fundamentals</a>
+                    <a href="../05-cross-entropy/index.html" class="sidebar-link">05. Cross-Entropy</a>
+                    <a href="../06-kl-divergence/index.html" class="sidebar-link">06. KL Divergence</a>
+                    <a href="../07-entropy-connections/index.html" class="sidebar-link">07. Entropy Connections</a>
+                    <a href="../08-backpropagation/index.html" class="sidebar-link">08. Backpropagation</a>
+                    <a href="../09-regularization/index.html" class="sidebar-link">09. Regularization</a>
+                    <a href="../10-batch-normalization/index.html" class="sidebar-link">10. Batch Normalization</a>
+                    <a href="../11-learning-rate/index.html" class="sidebar-link">11. Learning Rate</a>
+                    <a href="../12-cnn/index.html" class="sidebar-link">12. CNNs</a>
+                    <a href="../13-rnn/index.html" class="sidebar-link">13. RNNs</a>
+                    <a href="../14-rate-distortion/index.html" class="sidebar-link">14. Rate-Distortion Theory</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link">15. Autoencoders</a>
+                    <a href="../16-variational-inference/index.html" class="sidebar-link">16. Variational Inference</a>
+                    <a href="../17-vae/index.html" class="sidebar-link">17. VAE</a>
+                    <a href="../18-inductive-bias/index.html" class="sidebar-link">18. Inductive Bias</a>
+                    <a href="../19-architectural-biases/index.html" class="sidebar-link">19. Architectural Biases</a>
+                    <a href="../20-designing-biases/index.html" class="sidebar-link">20. Designing Biases</a>
+                    <a href="../21-fst-fundamentals/index.html" class="sidebar-link">21. FST Fundamentals</a>
+                    <a href="../22-weighted-fsts/index.html" class="sidebar-link">22. Weighted FSTs</a>
+                    <a href="../23-fst-libraries/index.html" class="sidebar-link">23. FST Libraries</a>
+                    <a href="../24-fst-applications/index.html" class="sidebar-link">24. FST Applications</a>
+                    <a href="../25-neural-symbolic/index.html" class="sidebar-link">25. Neural-Symbolic Hybrids</a>
+                    <a href="../26-sequence-alignment/index.html" class="sidebar-link active">26. Sequence Alignment</a>
+                    <a href="../27-mas-algorithm/index.html" class="sidebar-link">27. MAS Algorithm</a>
+                    <a href="../28-forced-alignment/index.html" class="sidebar-link">28. Forced Alignment & MFA</a>
+                    <a href="../29-tts-fundamentals/index.html" class="sidebar-link">29. TTS Fundamentals</a>
+                    <a href="../30-neural-vocoders/index.html" class="sidebar-link">30. Neural Vocoders</a>
+                    <a href="../31-tacotron/index.html" class="sidebar-link">31. Tacotron & Attention TTS</a>
+                    <a href="../32-fastspeech/index.html" class="sidebar-link">32. FastSpeech & Non-AR TTS</a>
+                    <a href="../33-glow-tts/index.html" class="sidebar-link">33. Glow-TTS & Flows</a>
+                    <a href="../34-vits/index.html" class="sidebar-link">34. VITS: End-to-End TTS</a>
+                    <a href="../35-bilingual-tts/index.html" class="sidebar-link">35. Bilingual TTS: RU+KY</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: What Is Sequence Alignment? -->
+                <h2 id="what-is-alignment">What Is Sequence Alignment?</h2>
+
+                <p>
+                    In speech synthesis (text-to-speech, or TTS), the fundamental task is to convert a sequence of text tokens into a sequence of audio frames. The text might be the sentence "hello world," tokenized into subword units like ["hel", "lo", "world"]. The audio is a mel-spectrogram &mdash; a 2D representation of sound where each column (called a <strong>frame</strong>) captures roughly 12.5 milliseconds of audio at 80 Hz sampling rate.
+                </p>
+
+                <p>
+                    The core problem is this: given $T$ text tokens and $N$ audio frames (where typically $N \gg T$), we need to determine which audio frames correspond to which text tokens. This correspondence is called an <strong>alignment</strong>. Without alignment, the model has no way of knowing how long each token should sound, where one token ends and the next begins, or how to pace the generated speech.
+                </p>
+
+                <p>
+                    Consider a concrete example. The phrase "hello world" might be tokenized into $T = 3$ tokens: ["hel", "lo", "world"]. When spoken naturally, this phrase produces roughly $N = 200$ mel-spectrogram frames. The alignment tells us that frames 1&ndash;60 correspond to "hel," frames 61&ndash;110 correspond to "lo," and frames 111&ndash;200 correspond to "world." Each token consumes a different number of frames because syllables have different durations in natural speech.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Sequence Alignment</div>
+                    <p>
+                        An <strong>alignment</strong> between a text sequence of $T$ tokens and an audio sequence of $N$ frames is a mapping:
+                    </p>
+                    $$a: \{1, 2, \ldots, N\} \to \{1, 2, \ldots, T\}$$
+                    <p>
+                        that assigns each audio frame $n$ to a text token $a(n)$. The alignment must satisfy the <strong>coverage constraint</strong>: every token $t \in \{1, \ldots, T\}$ must be assigned at least one frame. That is, for every $t$, there exists at least one $n$ such that $a(n) = t$.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        The number of frames assigned to token $t$ is its <strong>duration</strong>: $d_t = |\{n : a(n) = t\}|$, and the durations must satisfy $\sum_{t=1}^{T} d_t = N$ with $d_t \geq 1$ for all $t$.
+                    </p>
+                </div>
+
+                <p>
+                    The alignment concept is not unique to TTS. It appears in bioinformatics (aligning DNA sequences), machine translation (aligning source and target words), and automatic speech recognition (aligning audio to transcription). What makes TTS alignment special is the <strong>monotonic constraint</strong>, which we examine next.
+                </p>
+
+                <!-- Section 2: Why Monotonic? -->
+                <h2 id="why-monotonic">Why Monotonic?</h2>
+
+                <p>
+                    Speech unfolds in time. When you say "hello world," you pronounce "hello" before "world" &mdash; always. You never articulate a later word before an earlier one. This physical constraint of sequential articulation translates directly into a mathematical constraint on the alignment: <strong>monotonicity</strong>.
+                </p>
+
+                <p>
+                    Formally, an alignment $a$ is <strong>monotonic</strong> if for any two frames $i' > i$:
+                </p>
+                $$a(i') \geq a(i)$$
+                <p>
+                    In words: as we move forward through the audio frames, we can only stay on the same token or advance to the next token. We can never go backward to a previous token. This means the alignment function $a$ is a non-decreasing function.
+                </p>
+
+                <p>
+                    This constraint is profoundly useful because it dramatically reduces the search space. Without monotonicity, any of the $N$ frames could be assigned to any of the $T$ tokens, giving $T^N$ possible assignments (subject to the coverage constraint). With monotonicity, the problem reduces to choosing $T - 1$ boundary points among $N - 1$ possible positions &mdash; a combinatorial reduction from exponential to polynomial.
+                </p>
+
+                <p>
+                    Contrast this with machine translation, where alignments are often <strong>non-monotonic</strong>. In translating from English ("the cat sat on the mat") to Japanese, the verb appears at the end in Japanese, so the word "sat" aligns to a position far from its English counterpart. In translation, alignment lines can cross; in speech, they never do.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Why Monotonicity Matters for TTS</div>
+                    <p>
+                        The monotonic constraint is not merely a simplification &mdash; it is a <strong>hard physical truth</strong> about speech production. Violating it would mean the speaker articulated token 3 before token 2, which is physically impossible. Models that enforce monotonicity (like Monotonic Alignment Search in Glow-TTS) produce more stable and natural-sounding speech than models that rely on soft attention, which can sometimes skip tokens or repeat them. Skipped tokens cause missing words in the output; repeated tokens cause stuttering. Both are common failure modes of non-monotonic attention in autoregressive TTS.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Enforcing monotonicity is therefore not a limitation but a powerful <strong>inductive bias</strong> &mdash; it tells the model something true about the world, reducing the hypothesis space to only physically plausible alignments.
+                    </p>
+                </div>
+
+                <!-- Section 3: The Alignment Matrix -->
+                <h2 id="alignment-matrix">The Alignment Matrix</h2>
+
+                <p>
+                    Rather than thinking of the alignment as a function $a(n)$, it is often more convenient to represent it as a matrix. The <strong>alignment matrix</strong> $A$ has dimensions $T \times N$, where $T$ is the number of text tokens (rows) and $N$ is the number of audio frames (columns).
+                </p>
+
+                <p>
+                    There are two flavors of alignment matrix, corresponding to two fundamentally different approaches:
+                </p>
+
+                <p>
+                    <strong>Hard alignment:</strong> $A \in \{0, 1\}^{T \times N}$, where $A_{t,n} = 1$ means frame $n$ is assigned to token $t$, and $A_{t,n} = 0$ otherwise. Each column has exactly one 1 (every frame is assigned to exactly one token). The sum of row $t$ gives the duration $d_t$ of that token.
+                </p>
+
+                <p>
+                    <strong>Soft alignment:</strong> $A \in [0, 1]^{T \times N}$, where $A_{t,n}$ represents the probability (or attention weight) that frame $n$ is associated with token $t$. Each column sums to 1, forming a probability distribution over tokens. The sum of row $t$ gives the expected duration of that token.
+                </p>
+
+                <p>
+                    When visualized, a monotonic hard alignment matrix displays a characteristic <strong>staircase pattern</strong>: a path of 1s that starts in the top-left corner and descends to the bottom-right, moving only rightward (staying on the same token) or diagonally down-right (advancing to the next token). Each "step" of the staircase corresponds to the duration of one token. The staircase never goes upward, reflecting the monotonic constraint.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Formal Alignment Matrix Definition</div>
+                    <p>
+                        A <strong>hard monotonic alignment matrix</strong> $A \in \{0,1\}^{T \times N}$ satisfies:
+                    </p>
+                    <ol>
+                        <li><strong>Exclusivity:</strong> $\sum_{t=1}^{T} A_{t,n} = 1$ for all $n$ (each frame belongs to exactly one token)</li>
+                        <li><strong>Coverage:</strong> $\sum_{n=1}^{N} A_{t,n} \geq 1$ for all $t$ (every token gets at least one frame)</li>
+                        <li><strong>Completeness:</strong> $\sum_{t=1}^{T} \sum_{n=1}^{N} A_{t,n} = N$ (all frames are accounted for)</li>
+                        <li><strong>Monotonicity:</strong> If $A_{t,n} = 1$ and $A_{t',n'} = 1$ with $n' > n$, then $t' \geq t$ (no backward jumps)</li>
+                    </ol>
+                    <p style="margin-bottom: 0;">
+                        The <strong>duration vector</strong> $\mathbf{d} \in \mathbb{Z}_{+}^{T}$ is recovered as $d_t = \sum_{n=1}^{N} A_{t,n}$, satisfying $\sum_{t} d_t = N$ and $d_t \geq 1$.
+                    </p>
+                </div>
+
+                <p>
+                    A soft alignment matrix relaxes constraints 1 and 4: each column is a probability distribution (sums to 1 but values are continuous), and monotonicity is not strictly enforced. The soft matrix can be thought of as a "blurred" version of the hard matrix &mdash; instead of a crisp staircase, you see a smooth gradient.
+                </p>
+
+                <!-- Section 4: Cost Matrices and Log-Likelihood -->
+                <h2 id="cost-matrices">Cost Matrices and Log-Likelihood</h2>
+
+                <p>
+                    To find the <em>best</em> alignment, we need a way to score how well each token-frame pairing fits. This is captured by a <strong>cost matrix</strong> (or, more precisely, a log-likelihood matrix) $C \in \mathbb{R}^{T \times N}$.
+                </p>
+
+                <p>
+                    Each entry $C_{t,n}$ represents how well audio frame $n$ "matches" text token $t$. In the context of Glow-TTS, this is defined as:
+                </p>
+                $$C_{t,n} = \log p(x_n \mid z_t)$$
+                <p>
+                    where $x_n$ is the mel-spectrogram frame at position $n$, and $z_t$ is the latent representation of text token $t$ produced by the encoder. Higher values of $C_{t,n}$ mean that frame $n$ is more likely to have been generated by token $t$.
+                </p>
+
+                <p>
+                    Given this cost matrix, the <strong>optimal alignment</strong> is the one that maximizes the total log-likelihood across all frames:
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Optimal Alignment as Maximization</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <p>The total score of an alignment $a$ is the sum of log-likelihoods for each frame under its assigned token:</p>
+                            $$S(a) = \sum_{n=1}^{N} C_{a(n), n} = \sum_{n=1}^{N} \log p(x_n \mid z_{a(n)})$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <p>The optimal alignment maximizes this score over all valid monotonic alignments $\mathcal{A}$:</p>
+                            $$a^* = \arg\max_{a \in \mathcal{A}} \sum_{n=1}^{N} C_{a(n), n}$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <p>Equivalently, using the alignment matrix representation:</p>
+                            $$A^* = \arg\max_{A \in \mathcal{A}} \sum_{t=1}^{T} \sum_{n=1}^{N} A_{t,n} \cdot C_{t,n}$$
+                            <p>where $\mathcal{A}$ is the set of all binary matrices satisfying the four constraints (exclusivity, coverage, completeness, monotonicity).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    A naive approach &mdash; enumerating all valid monotonic alignments &mdash; is computationally intractable. The number of valid monotonic alignments for $T$ tokens and $N$ frames (where each token gets at least one frame) is $\binom{N-1}{T-1}$, which is the stars-and-bars formula for distributing $N$ frames into $T$ groups of at least 1. For $T = 100$ tokens and $N = 800$ frames, this is $\binom{799}{99}$, an astronomically large number. We need a smarter approach: <strong>dynamic programming</strong>.
+                </p>
+
+                <!-- Section 5: Dynamic Programming Formulation -->
+                <h2 id="dynamic-programming">Dynamic Programming Formulation</h2>
+
+                <p>
+                    Dynamic programming (DP) exploits a key structural property called <strong>optimal substructure</strong>: the best alignment up to frame $n$ and token $t$ depends only on the best alignment up to the previous step, not on how we got there. This allows us to build the solution incrementally, in $O(T \times N)$ time instead of enumerating $\binom{N-1}{T-1}$ possibilities.
+                </p>
+
+                <p>
+                    Define $Q(t, n)$ as the maximum total log-likelihood achievable by aligning frames $1, \ldots, n$ to tokens $1, \ldots, t$, subject to the monotonic and coverage constraints. We want to compute $Q(T, N)$ &mdash; the score of the best complete alignment.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">DP Recurrence for Monotonic Alignment</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <p><strong>Base case:</strong> The first token must cover all frames from 1 to $n$ (since no other token precedes it and we need coverage of token 1):</p>
+                            $$Q(1, n) = \sum_{j=1}^{n} C_{1,j}$$
+                            <p>This is simply the cumulative sum of the cost matrix's first row. It represents the score when token 1 is responsible for all frames up to $n$.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <p><strong>Recurrence:</strong> For $t > 1$ and $n \geq t$ (since token $t$ needs at least $t$ frames before it &mdash; one for each preceding token):</p>
+                            $$Q(t, n) = C_{t,n} + \max\big(Q(t, n-1),\; Q(t-1, n-1)\big)$$
+                            <p>This says: frame $n$ is assigned to token $t$, and we pay cost $C_{t,n}$. Before this frame, either:</p>
+                            <ul>
+                                <li><strong>Stay:</strong> Frame $n-1$ was also assigned to token $t$ &mdash; we are continuing the same token. Score: $Q(t, n-1)$.</li>
+                                <li><strong>Advance:</strong> Frame $n-1$ was assigned to token $t-1$ &mdash; we just transitioned to a new token. Score: $Q(t-1, n-1)$.</li>
+                            </ul>
+                            <p>We take the maximum because we want the best possible alignment.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <p><strong>Boundary conditions:</strong> Token $t$ cannot start before frame $t$, because each of the preceding $t - 1$ tokens needs at least one frame. Therefore:</p>
+                            $$Q(t, n) = -\infty \quad \text{for } n < t$$
+                            <p>This ensures that we never try to fit more tokens than we have frames for.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <p><strong>Backtracking:</strong> The optimal alignment score is $Q(T, N)$. To recover the actual alignment path, we trace backward from $(T, N)$:</p>
+                            <ul>
+                                <li>Start at $t = T$, $n = N$.</li>
+                                <li>At each step, if $Q(t-1, n-1) \geq Q(t, n-1)$ and $t > 1$, move to $(t-1, n-1)$ (the advance came from the previous token).</li>
+                                <li>Otherwise, move to $(t, n-1)$ (we stayed on the same token).</li>
+                            </ul>
+                            <p>This produces the alignment path in reverse, which we then flip to get the forward alignment.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <p><strong>Complexity:</strong> The forward pass fills a $T \times N$ matrix, doing $O(1)$ work per cell, for a total of $O(T \times N)$ time and space. The backtracking pass is $O(N)$. This is efficient enough for real-time TTS, where $T$ might be 100&ndash;200 tokens and $N$ might be 500&ndash;1000 frames.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    This DP formulation is exactly the <strong>Monotonic Alignment Search (MAS)</strong> algorithm used in Glow-TTS. In the next tutorial, we will implement it in detail, including a critical edge case involving silence tokens. For now, the key insight is that dynamic programming transforms an intractable combinatorial search into a clean, quadratic-time algorithm.
+                </p>
+
+                <!-- Section 6: Soft vs Hard Alignment -->
+                <h2 id="soft-vs-hard">Soft vs Hard Alignment</h2>
+
+                <p>
+                    The distinction between soft and hard alignment is one of the most consequential design decisions in modern TTS. Each approach has fundamental tradeoffs that affect training stability, output quality, and inference speed.
+                </p>
+
+                <p>
+                    <strong>Hard alignment</strong> assigns each frame to exactly one token. The alignment matrix is binary: $A \in \{0, 1\}^{T \times N}$. The operation that produces a hard alignment is $\arg\max$, which is <strong>non-differentiable</strong>. You cannot compute $\frac{\partial}{\partial \theta} \arg\max$, which means you cannot backpropagate gradients through the alignment step. If the alignment is wrong, the model has no gradient signal to correct it.
+                </p>
+
+                <p>
+                    <strong>Soft alignment</strong> is the attention mechanism familiar from Transformers. Each frame attends to all tokens with continuous weights: $A \in [0, 1]^{T \times N}$, with each column summing to 1 via softmax. This is <strong>fully differentiable</strong> &mdash; gradients flow through the attention weights to the encoder. However, soft attention provides no guarantee of monotonicity. The model might learn to skip tokens (causing missing words), repeat tokens (causing stuttering), or attend to distant tokens (causing garbled output). These are well-documented failure modes of attention-based TTS systems like Tacotron.
+                </p>
+
+                <p>
+                    The <strong>Glow-TTS approach</strong> offers an elegant resolution. During training:
+                </p>
+                <ol>
+                    <li>The encoder produces latent representations $z_t$ for each token.</li>
+                    <li>MAS finds the <strong>hard optimal alignment</strong> $A^*$ between $z$ and the ground-truth mel-spectrogram $x$ by solving the DP.</li>
+                    <li>The alignment $A^*$ is treated as a <strong>fixed target</strong> &mdash; gradients do not flow through MAS.</li>
+                    <li>A separate <strong>duration predictor</strong> is trained to predict the durations $d_t$ extracted from $A^*$.</li>
+                    <li>The decoder loss and duration prediction loss are both differentiable.</li>
+                </ol>
+
+                <div class="note-box">
+                    <div class="box-title">Best of Both Worlds</div>
+                    <p>
+                        Glow-TTS achieves the <strong>precision</strong> of hard alignment (no skipping, no repeating, guaranteed monotonicity) while maintaining <strong>differentiable training</strong> (the alignment itself is not differentiated through &mdash; it serves as a supervision signal). At inference time, the duration predictor replaces MAS entirely: it predicts how many frames each token should receive, and the decoder generates accordingly. This is why Glow-TTS can synthesize speech in parallel &mdash; there is no autoregressive attention loop.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        The key insight is that alignment search and gradient-based learning serve different roles: MAS finds the <em>what</em> (which frames go with which tokens), and backpropagation learns the <em>how</em> (how to generate those frames and predict those durations).
+                    </p>
+                </div>
+
+                <!-- Section 7: Connection to Attention Mechanisms -->
+                <h2 id="connection-to-attention">Connection to Attention Mechanisms</h2>
+
+                <p>
+                    Alignment and attention are deeply related concepts. Both determine how information from a source sequence (text tokens) is routed to a target sequence (audio frames). The difference lies in how flexible and how differentiable the routing is. We can organize alignment mechanisms along a spectrum:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Spectrum of Alignment Mechanisms</div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="text-align: left; padding: 0.5rem;">Mechanism</th>
+                                <th style="text-align: left; padding: 0.5rem;">Type</th>
+                                <th style="text-align: left; padding: 0.5rem;">Monotonic</th>
+                                <th style="text-align: left; padding: 0.5rem;">Differentiable</th>
+                                <th style="text-align: left; padding: 0.5rem;">Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;"><strong>Standard Attention</strong></td>
+                                <td style="padding: 0.5rem;">Soft, non-monotonic</td>
+                                <td style="padding: 0.5rem;">No</td>
+                                <td style="padding: 0.5rem;">Yes</td>
+                                <td style="padding: 0.5rem;">Tacotron 2, Transformer TTS</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;"><strong>Location-Sensitive Attention</strong></td>
+                                <td style="padding: 0.5rem;">Soft, semi-monotonic</td>
+                                <td style="padding: 0.5rem;">Encouraged</td>
+                                <td style="padding: 0.5rem;">Yes</td>
+                                <td style="padding: 0.5rem;">Tacotron 2 (with convolutional features)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;"><strong>Monotonic Attention</strong></td>
+                                <td style="padding: 0.5rem;">Soft, monotonic</td>
+                                <td style="padding: 0.5rem;">Yes</td>
+                                <td style="padding: 0.5rem;">Yes (via expected attention)</td>
+                                <td style="padding: 0.5rem;">Raffel et al. (2017)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;"><strong>CTC Alignment</strong></td>
+                                <td style="padding: 0.5rem;">Hard, monotonic</td>
+                                <td style="padding: 0.5rem;">Yes</td>
+                                <td style="padding: 0.5rem;">Yes (marginalizes over paths)</td>
+                                <td style="padding: 0.5rem;">CTC-based ASR, VITS</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem;"><strong>Monotonic Alignment Search</strong></td>
+                                <td style="padding: 0.5rem;">Hard, monotonic</td>
+                                <td style="padding: 0.5rem;">Yes</td>
+                                <td style="padding: 0.5rem;">No (used as fixed target)</td>
+                                <td style="padding: 0.5rem;">Glow-TTS</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    <strong>Standard Transformer attention</strong> computes $\text{softmax}(QK^T / \sqrt{d})V$, where any query can attend to any key. This is maximally flexible but provides no monotonic guarantee. For TTS, this means the model must learn monotonicity from data alone &mdash; which it sometimes fails to do, especially on long utterances.
+                </p>
+
+                <p>
+                    <strong>Monotonic attention</strong> (Raffel et al., 2017) constrains the attention head to move only forward through the source sequence. At each decoder step, the model decides whether to advance to the next source position or stay. This is differentiable (using an expectation over binary advance/stay decisions) and monotonic, but the soft expectations can still be imprecise.
+                </p>
+
+                <p>
+                    <strong>CTC (Connectionist Temporal Classification)</strong> takes a different approach: it introduces a blank symbol $\epsilon$ and marginalizes over all valid monotonic alignments. The forward-backward algorithm makes this differentiable. CTC is widely used in ASR and in VITS (a successor to Glow-TTS), but it requires careful handling of the blank symbol and can struggle with duration modeling.
+                </p>
+
+                <p>
+                    <strong>MAS</strong> sits at the hard end of the spectrum. It finds the single best alignment via DP, with no softness or marginalization. Its strength is precision: the alignment is exact and optimal under the cost matrix. Its limitation is non-differentiability, which Glow-TTS addresses by using MAS as a supervision signal rather than a differentiable layer.
+                </p>
+
+                <p>
+                    The tradeoff across this spectrum is clear: <strong>flexibility vs. precision vs. differentiability</strong>. Standard attention is flexible and differentiable but imprecise. MAS is precise and monotonic but non-differentiable. CTC and monotonic attention attempt to occupy middle ground. The right choice depends on your architecture and training strategy.
+                </p>
+
+                <!-- Section 8: Summary and Preview -->
+                <h2 id="summary-and-preview">Summary and Preview</h2>
+
+                <p>
+                    In this tutorial, we have built a thorough understanding of sequence alignment as it applies to text-to-speech synthesis:
+                </p>
+
+                <ul>
+                    <li><strong>Alignment</strong> is a mapping from audio frames to text tokens, answering "which token does each frame belong to?"</li>
+                    <li>The <strong>monotonic constraint</strong> reflects the physical reality that speech is produced sequentially &mdash; you cannot speak the second word before the first.</li>
+                    <li>The <strong>alignment matrix</strong> $A \in \{0,1\}^{T \times N}$ (hard) or $A \in [0,1]^{T \times N}$ (soft) encodes this mapping, with hard alignments showing a characteristic staircase pattern.</li>
+                    <li>The <strong>cost matrix</strong> $C_{t,n} = \log p(x_n \mid z_t)$ scores how well each frame-token pair fits, and the optimal alignment maximizes the total score.</li>
+                    <li><strong>Dynamic programming</strong> solves this optimization in $O(TN)$ time via a two-choice recurrence: stay on the current token or advance to the next.</li>
+                    <li><strong>Soft alignment</strong> (attention) is differentiable but can produce pathological alignments; <strong>hard alignment</strong> (MAS) is precise but non-differentiable. Glow-TTS combines both by using MAS as a fixed target for differentiable training.</li>
+                    <li>Alignment mechanisms span a spectrum from fully soft (standard attention) to fully hard (MAS), with CTC and monotonic attention in between.</li>
+                </ul>
+
+                <p>
+                    In the <strong>next tutorial</strong>, we will implement the Monotonic Alignment Search (MAS) algorithm in full detail. We will walk through the forward pass, backtracking, and a critical edge case that arises when silence tokens are present at the boundaries. We will also see how MAS integrates into the Glow-TTS training loop and how the extracted durations supervise the duration predictor.
+                </p>
+
+                <!-- Tutorial Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../25-neural-symbolic/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; Neural-Symbolic Hybrids</span>
+                    </a>
+                    <a href="../27-mas-algorithm/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">MAS Algorithm &rarr;</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Python Code Examples</h2>
+                <p>Three code examples demonstrating alignment matrices, the full DP algorithm for monotonic alignment, and a comparison between soft and hard alignment approaches.</p>
+
+                <!-- Code Example 1 -->
+                <h3>1. Build and Visualize an Alignment Matrix</h3>
+                <p>We start by constructing both hard and soft alignment matrices for a simple example: 3 tokens mapped to 200 audio frames. This demonstrates the staircase pattern and the difference between crisp binary assignments and blurred probabilistic ones.</p>
+
+<pre><code class="language-python">import numpy as np
+
+# Sequence alignment: text tokens to audio frames
+# Text: "hello world" -> tokens: ["hel", "lo", "world"]
+# Audio: 200 mel-spectrogram frames at 80 Hz
+
+T = 3   # number of text tokens
+N = 200 # number of audio frames
+tokens = ["hel", "lo", "world"]
+
+# --- Hard alignment example ---
+# Token durations: "hel"=60 frames, "lo"=50 frames, "world"=90 frames
+durations = [60, 50, 90]
+assert sum(durations) == N, "Durations must sum to total frames"
+
+# Build the hard alignment matrix A &isin; {0,1}^{T&times;N}
+A_hard = np.zeros((T, N), dtype=int)
+frame = 0
+for t, dur in enumerate(durations):
+    A_hard[t, frame:frame + dur] = 1
+    frame += dur
+
+print("Hard Alignment Matrix A (T&times;N):")
+print(f"  Shape: {A_hard.shape}")
+print(f"  Token 'hel':   frames 0-{durations[0]-1} ({durations[0]} frames)")
+print(f"  Token 'lo':    frames {durations[0]}-{durations[0]+durations[1]-1} ({durations[1]} frames)")
+print(f"  Token 'world': frames {durations[0]+durations[1]}-{N-1} ({durations[2]} frames)")
+print()
+
+# Verify constraints
+print("Constraint checks:")
+print(f"  Each column sums to 1: {np.all(A_hard.sum(axis=0) == 1)}")
+print(f"  Each row sum (durations): {A_hard.sum(axis=1).tolist()}")
+print(f"  Total frames covered: {A_hard.sum()}")
+print()
+
+# Verify monotonicity: the assignment function a(n) should be non-decreasing
+assignment = A_hard.argmax(axis=0)  # for each frame, which token
+is_monotonic = all(assignment[i] &lt;= assignment[i+1] for i in range(N-1))
+print(f"  Monotonic: {is_monotonic}")
+print(f"  Assignment (first 20 frames): {assignment[:20].tolist()}")
+print(f"  Assignment (last 20 frames):  {assignment[-20:].tolist()}")
+print()
+
+# --- Soft alignment example ---
+# Simulate soft attention weights (each column sums to 1)
+np.random.seed(42)
+# Create a "blurry" version of the hard alignment
+A_soft = np.zeros((T, N))
+frame = 0
+for t, dur in enumerate(durations):
+    for n in range(N):
+        center = frame + dur / 2
+        sigma = dur / 3
+        A_soft[t, n] = np.exp(-0.5 * ((n - center) / sigma) ** 2)
+    frame += dur
+
+# Normalize columns to sum to 1
+A_soft = A_soft / A_soft.sum(axis=0, keepdims=True)
+
+print("Soft Alignment Matrix:")
+print(f"  Shape: {A_soft.shape}")
+print(f"  Column sums (first 5): {A_soft[:, :5].sum(axis=0).round(4).tolist()}")
+print(f"  Max attention at frame 30 (should be 'hel'):  token {A_soft[:, 30].argmax()} = '{tokens[A_soft[:, 30].argmax()]}'")
+print(f"  Max attention at frame 100 (should be 'lo'):   token {A_soft[:, 100].argmax()} = '{tokens[A_soft[:, 100].argmax()]}'")
+print(f"  Max attention at frame 180 (should be 'world'): token {A_soft[:, 180].argmax()} = '{tokens[A_soft[:, 180].argmax()]}'")
+print()
+
+# Show the staircase pattern in ASCII
+print("Alignment pattern (downsampled to 40 columns):")
+step = N // 40
+for t in range(T):
+    row = ""
+    for n in range(0, N, step):
+        if A_hard[t, n] == 1:
+            row += "&block;"
+        elif A_soft[t, n] &gt; 0.1:
+            row += "&blk1;"
+        else:
+            row += "&middot;"
+    print(f"  {tokens[t]:&gt;5s} | {row}")</code></pre>
+
+                <!-- Code Example 2 -->
+                <h3>2. Full DP Alignment Implementation</h3>
+                <p>This implements the complete dynamic programming algorithm for monotonic alignment: forward pass to fill the $Q$ matrix, followed by backtracking to recover the optimal alignment path. This is the core of the MAS algorithm.</p>
+
+<pre><code class="language-python">import numpy as np
+
+def monotonic_alignment_dp(cost_matrix):
+    """
+    Find the optimal monotonic alignment using dynamic programming.
+
+    Args:
+        cost_matrix: C &isin; R^{T&times;N} where C[t,n] = log p(x_n | z_t)
+                     Higher values = better fit
+
+    Returns:
+        alignment: array of length N, where alignment[n] = token index for frame n
+        durations: array of length T, where durations[t] = number of frames for token t
+        total_score: the optimal total log-likelihood
+    """
+    T, N = cost_matrix.shape
+
+    # Forward pass: fill Q matrix
+    # Q[t, n] = maximum log-likelihood of aligning frames 1..n to tokens 1..t
+    Q = np.full((T, N), -np.inf)
+
+    # Base case: first token must cover all frames from 0 to n
+    Q[0, 0] = cost_matrix[0, 0]
+    for n in range(1, N):
+        Q[0, n] = Q[0, n-1] + cost_matrix[0, n]
+
+    # Fill the rest of the Q matrix
+    for t in range(1, T):
+        for n in range(t, N):  # token t needs at least t frames before it
+            # Option 1: stay on same token t (frame n-1 was also on token t)
+            stay = Q[t, n-1] if n &gt; 0 else -np.inf
+
+            # Option 2: advance to token t (frame n-1 was on token t-1)
+            advance = Q[t-1, n-1] if n &gt; 0 else -np.inf
+
+            Q[t, n] = cost_matrix[t, n] + max(stay, advance)
+
+    total_score = Q[T-1, N-1]
+
+    # Backtracking: recover the alignment path
+    alignment = np.zeros(N, dtype=int)
+    t = T - 1
+    alignment[N-1] = t
+
+    for n in range(N-2, -1, -1):
+        if t &gt; 0 and Q[t-1, n] &gt;= Q[t, n]:
+            t -= 1
+        alignment[n] = t
+
+    # Extract durations
+    durations = np.zeros(T, dtype=int)
+    for n in range(N):
+        durations[alignment[n]] += 1
+
+    return alignment, durations, total_score
+
+
+# --- Example: 4 tokens, 12 frames ---
+T, N = 4, 12
+tokens = ["the", "cat", "sat", "down"]
+
+# Create a synthetic cost matrix where each token "likes" certain frames
+np.random.seed(42)
+cost_matrix = np.random.randn(T, N) * 0.5 - 2.0  # base: low likelihood
+
+# Make diagonal-ish pattern: each token prefers its "natural" frames
+for t in range(T):
+    start = int(t * N / T)
+    end = int((t + 1) * N / T)
+    cost_matrix[t, start:end] += 3.0  # boost likelihood in natural region
+
+print("Cost Matrix C (T=4 tokens, N=12 frames):")
+print("  Tokens:", tokens)
+print()
+header = "      " + "".join(f"  f{n:&lt;3d}" for n in range(N))
+print(header)
+for t in range(T):
+    row = f"  {tokens[t]:&gt;4s} " + "".join(f" {cost_matrix[t,n]:5.2f}" for n in range(N))
+    print(row)
+print()
+
+# Run DP alignment
+alignment, durations, score = monotonic_alignment_dp(cost_matrix)
+
+print(f"Optimal alignment (total score: {score:.2f}):")
+print(f"  Frame assignment: {alignment.tolist()}")
+print(f"  Durations: {dict(zip(tokens, durations.tolist()))}")
+print()
+
+# Visualize the alignment
+print("Alignment visualization:")
+for t in range(T):
+    row = ""
+    for n in range(N):
+        row += "&block;" if alignment[n] == t else "&middot;"
+    print(f"  {tokens[t]:&gt;4s} | {row}")
+print(f"  {'frame':&gt;4s} | {''.join(str(n % 10) for n in range(N))}")
+print()
+
+# Verify monotonicity
+is_monotonic = all(alignment[i] &lt;= alignment[i+1] for i in range(N-1))
+print(f"Monotonicity check: {is_monotonic}")
+print(f"Coverage check (all tokens used): {all(d &gt; 0 for d in durations)}")</code></pre>
+
+                <!-- Code Example 3 -->
+                <h3>3. Soft vs Hard Alignment Comparison</h3>
+                <p>This example directly compares soft alignment (attention-based, via column-wise softmax) with hard alignment (DP-based, monotonic). We explore how temperature affects the sharpness of soft attention and why hard alignment guarantees properties that soft alignment cannot.</p>
+
+<pre><code class="language-python">import numpy as np
+
+def soft_attention_alignment(cost_matrix, temperature=1.0):
+    """
+    Soft alignment via column-wise softmax (simulating attention).
+    Each column gives a probability distribution over tokens.
+
+    Args:
+        cost_matrix: C &isin; R^{T&times;N}
+        temperature: lower = sharper attention (approaches hard)
+
+    Returns:
+        A_soft: soft alignment matrix, each column sums to 1
+    """
+    # Softmax along token dimension (axis=0) for each frame
+    scaled = cost_matrix / temperature
+    exp_vals = np.exp(scaled - scaled.max(axis=0, keepdims=True))
+    A_soft = exp_vals / exp_vals.sum(axis=0, keepdims=True)
+    return A_soft
+
+
+def hard_alignment_from_dp(cost_matrix):
+    """Hard alignment via DP (monotonic constraint enforced)."""
+    T, N = cost_matrix.shape
+    Q = np.full((T, N), -np.inf)
+
+    Q[0, 0] = cost_matrix[0, 0]
+    for n in range(1, N):
+        Q[0, n] = Q[0, n-1] + cost_matrix[0, n]
+
+    for t in range(1, T):
+        for n in range(t, N):
+            stay = Q[t, n-1] if n &gt; 0 else -np.inf
+            advance = Q[t-1, n-1] if n &gt; 0 else -np.inf
+            Q[t, n] = cost_matrix[t, n] + max(stay, advance)
+
+    alignment = np.zeros(N, dtype=int)
+    t = T - 1
+    alignment[N-1] = t
+    for n in range(N-2, -1, -1):
+        if t &gt; 0 and Q[t-1, n] &gt;= Q[t, n]:
+            t -= 1
+        alignment[n] = t
+
+    A_hard = np.zeros((T, N), dtype=int)
+    for n in range(N):
+        A_hard[alignment[n], n] = 1
+    return A_hard
+
+
+# Create a cost matrix with clear token preferences
+T, N = 3, 15
+tokens = ["hello", "beautiful", "world"]
+
+np.random.seed(123)
+cost_matrix = np.random.randn(T, N) * 0.3 - 1.5
+
+# Token 0 prefers frames 0-4, token 1 prefers 5-10, token 2 prefers 11-14
+cost_matrix[0, 0:5] += 3.0
+cost_matrix[1, 5:11] += 3.0
+cost_matrix[2, 11:15] += 3.0
+
+print("=" * 60)
+print("SOFT vs HARD ALIGNMENT COMPARISON")
+print("=" * 60)
+print(f"Tokens: {tokens}")
+print(f"Frames: {N}")
+print()
+
+# --- Soft alignment (different temperatures) ---
+print("--- Soft Alignment (attention-based) ---")
+for temp in [2.0, 1.0, 0.3, 0.1]:
+    A_soft = soft_attention_alignment(cost_matrix, temperature=temp)
+
+    # Check: is soft alignment monotonic?
+    peak_positions = A_soft.argmax(axis=1)  # for each token, which frame has max attention
+    is_mono = all(peak_positions[i] &lt;= peak_positions[i+1] for i in range(T-1))
+
+    print(f"\n  Temperature = {temp}:")
+    for t in range(T):
+        weights = A_soft[t]
+        bar = ""
+        for n in range(N):
+            if weights[n] &gt; 0.5:
+                bar += "&block;"
+            elif weights[n] &gt; 0.2:
+                bar += "&blk2;"
+            elif weights[n] &gt; 0.05:
+                bar += "&blk1;"
+            else:
+                bar += "&middot;"
+        peak = weights.argmax()
+        print(f"    {tokens[t]:&gt;9s} | {bar}  (peak at frame {peak}, max={weights.max():.3f})")
+    print(f"    Monotonic peaks: {is_mono}")
+
+    # Key issue: soft alignment is NOT guaranteed monotonic
+    # With high temperature, it smears attention everywhere
+
+# --- Hard alignment (DP-based, monotonic guaranteed) ---
+print("\n--- Hard Alignment (DP-based, monotonic guaranteed) ---")
+A_hard = hard_alignment_from_dp(cost_matrix)
+
+for t in range(T):
+    row = ""
+    for n in range(N):
+        row += "&block;" if A_hard[t, n] else "&middot;"
+    dur = A_hard[t].sum()
+    print(f"  {tokens[t]:&gt;9s} | {row}  (duration: {dur} frames)")
+
+assignment = A_hard.argmax(axis=0)
+is_monotonic = all(assignment[i] &lt;= assignment[i+1] for i in range(N-1))
+print(f"  Monotonic: {is_monotonic}")
+print(f"  Durations: {A_hard.sum(axis=1).tolist()}")
+
+print()
+print("KEY DIFFERENCES:")
+print("  Soft alignment: differentiable but NOT guaranteed monotonic.")
+print("    - Can be non-monotonic (token 2 attends to early frames)")
+print("    - Allows 'soft' sharing (multiple tokens attend to same frame)")
+print("    - Temperature controls sharpness")
+print("  Hard alignment: NOT differentiable but guaranteed monotonic.")
+print("    - Each frame assigned to exactly one token")
+print("    - Optimal under the cost matrix")
+print("    - Used in Glow-TTS (MAS algorithm)")</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of sequence alignment fundamentals. Exercises cover combinatorial counting, DP tracing, the soft/hard alignment tradeoff, and connections to related algorithms. Solutions are provided for self-study.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Counting Monotonic Alignments</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>How many valid monotonic alignments exist for $T = 3$ tokens and $N = 8$ frames, given that each token must receive at least one frame? Express the answer using a combinatorial formula and compute the numerical result.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    A valid monotonic alignment distributes $N = 8$ frames among $T = 3$ tokens, with each token receiving at least 1 frame. This is equivalent to the <strong>stars-and-bars</strong> problem: distributing $N$ identical items into $T$ bins with each bin having at least 1 item.
+                                </p>
+                                <p>
+                                    Let $d_t$ be the duration (number of frames) for token $t$. We need $d_1 + d_2 + d_3 = 8$ with $d_t \geq 1$. Substituting $d_t' = d_t - 1$ (so $d_t' \geq 0$), we get $d_1' + d_2' + d_3' = 5$.
+                                </p>
+                                <p>
+                                    By stars-and-bars, the number of non-negative integer solutions is:
+                                </p>
+                                $$\binom{N - 1}{T - 1} = \binom{8 - 1}{3 - 1} = \binom{7}{2} = \frac{7!}{2! \cdot 5!} = \frac{7 \times 6}{2} = 21$$
+                                <p>
+                                    There are <strong>21</strong> valid monotonic alignments. Each corresponds to a different way of placing 2 boundary points among 7 possible positions (between adjacent frames).
+                                </p>
+                                <p>
+                                    For comparison, without the monotonic constraint, the number of surjective mappings from 8 frames to 3 tokens would be $3! \cdot S(8, 3)$ where $S(8,3)$ is a Stirling number of the second kind &mdash; a far larger number. Monotonicity reduces the search space dramatically.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. DP by Hand</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Given the following $2 \times 4$ cost matrix $C$, trace through the DP algorithm step by step. Show the complete $Q$ matrix and determine the optimal alignment.</p>
+                            $$C = \begin{pmatrix} 3 & 1 & -2 & -4 \\ -1 & 0 & 4 & 2 \end{pmatrix}$$
+                            <p>Here, $T = 2$ tokens and $N = 4$ frames.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Step 1: Base case (first row).</strong> Token 1 covers all frames from 1 to $n$:</p>
+                                <ul>
+                                    <li>$Q(1, 1) = C_{1,1} = 3$</li>
+                                    <li>$Q(1, 2) = Q(1, 1) + C_{1,2} = 3 + 1 = 4$</li>
+                                    <li>$Q(1, 3) = Q(1, 2) + C_{1,3} = 4 + (-2) = 2$</li>
+                                    <li>$Q(1, 4) = Q(1, 3) + C_{1,4} = 2 + (-4) = -2$</li>
+                                </ul>
+                                <p><strong>Step 2: Fill second row.</strong> Token 2 must start at frame 2 or later:</p>
+                                <ul>
+                                    <li>$Q(2, 1) = -\infty$ (token 2 cannot start at frame 1 since token 1 needs at least 1 frame)</li>
+                                    <li>$Q(2, 2) = C_{2,2} + \max(Q(2, 1), Q(1, 1)) = 0 + \max(-\infty, 3) = 3$</li>
+                                    <li>$Q(2, 3) = C_{2,3} + \max(Q(2, 2), Q(1, 2)) = 4 + \max(3, 4) = 4 + 4 = 8$</li>
+                                    <li>$Q(2, 4) = C_{2,4} + \max(Q(2, 3), Q(1, 3)) = 2 + \max(8, 2) = 2 + 8 = 10$</li>
+                                </ul>
+                                <p>The complete $Q$ matrix:</p>
+                                $$Q = \begin{pmatrix} 3 & 4 & 2 & -2 \\ -\infty & 3 & 8 & 10 \end{pmatrix}$$
+                                <p><strong>Step 3: Backtracking from $Q(2, 4) = 10$.</strong></p>
+                                <ul>
+                                    <li>$n = 4$: $t = 2$. Set $a(4) = 2$.</li>
+                                    <li>$n = 3$: Compare $Q(1, 3) = 2$ vs $Q(2, 3) = 8$. Since $Q(2, 3) > Q(1, 3)$, stay at $t = 2$. Set $a(3) = 2$.</li>
+                                    <li>$n = 2$: Compare $Q(1, 2) = 4$ vs $Q(2, 2) = 3$. Since $Q(1, 2) \geq Q(2, 2)$, advance: $t = 1$. Set $a(2) = 1$.</li>
+                                    <li>$n = 1$: $t = 1$. Set $a(1) = 1$.</li>
+                                </ul>
+                                <p><strong>Optimal alignment:</strong> $a = [1, 1, 2, 2]$, meaning token 1 gets frames 1&ndash;2 and token 2 gets frames 3&ndash;4. The total score is $Q(2, 4) = 10$, which equals $C_{1,1} + C_{1,2} + C_{2,3} + C_{2,4} = 3 + 1 + 4 + 2 = 10$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Hard vs Soft: Token Skipping</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Explain why soft attention can skip tokens (leading to missing words in synthesized speech) while hard monotonic alignment prevents this. Give a concrete example with 3 tokens where soft attention fails.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    <strong>Soft attention can skip tokens</strong> because it computes attention weights independently for each output frame. Each frame attends to all tokens via softmax, and the weights depend on the learned compatibility between query (decoder state) and keys (encoder outputs). If the encoder representation for a token is weak or the decoder state happens to be more compatible with surrounding tokens, that token may receive near-zero attention weight across all frames.
+                                </p>
+                                <p>
+                                    <strong>Concrete example:</strong> Consider 3 tokens ["I", "really", "agree"] and 10 frames. Suppose "I" and "agree" have strong encoder representations but "really" has a weak one (perhaps it is a low-frequency word or the encoder struggles with it). Soft attention might produce weights like:
+                                </p>
+                                <ul>
+                                    <li>Frames 1&ndash;4: attend mostly to "I" (weights: 0.8, 0.15, 0.05)</li>
+                                    <li>Frames 5&ndash;10: attend mostly to "agree" (weights: 0.1, 0.05, 0.85)</li>
+                                </ul>
+                                <p>The word "really" is effectively skipped &mdash; no frame pays significant attention to it, so the synthesized audio says "I agree" instead of "I really agree."</p>
+                                <p>
+                                    <strong>Hard monotonic alignment prevents this</strong> because the coverage constraint requires every token to receive at least one frame ($d_t \geq 1$). The DP boundary conditions enforce this: token $t$ cannot start before frame $t$, and the last token must reach frame $N$. There is no valid monotonic alignment that assigns zero frames to any token.
+                                </p>
+                                <p>
+                                    Additionally, the monotonic constraint prevents the attention from "jumping over" a token &mdash; to reach token 3, the alignment must first pass through token 2, guaranteeing it receives at least one frame.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. DTW vs Monotonic Alignment</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Dynamic Time Warping (DTW) is another classic alignment algorithm. Compare DTW with the monotonic alignment used in TTS. What is the key structural difference? In what situations would DTW be preferred, and when is monotonic alignment better?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    <strong>Key structural difference:</strong> DTW allows <strong>many-to-many</strong> alignment, while monotonic alignment in TTS is <strong>many-to-one</strong>.
+                                </p>
+                                <p>
+                                    In DTW, both sequences can "stretch": a single element of sequence A can align to multiple elements of sequence B, and vice versa. The DP recurrence for DTW at position $(i, j)$ considers three predecessors: $(i-1, j)$, $(i, j-1)$, and $(i-1, j-1)$. This means the alignment path can move right (repeat an element of sequence B), down (repeat an element of sequence A), or diagonally (advance both).
+                                </p>
+                                <p>
+                                    In monotonic alignment for TTS, the mapping is many-to-one: multiple frames can map to one token, but each frame maps to exactly one token. The DP recurrence considers only two predecessors: $(t, n-1)$ (stay on same token) and $(t-1, n-1)$ (advance to next token). There is no option to skip a frame or assign a frame to multiple tokens.
+                                </p>
+                                <p><strong>When to use DTW:</strong></p>
+                                <ul>
+                                    <li>Comparing two sequences of the same modality (e.g., two audio recordings of the same phrase at different speeds)</li>
+                                    <li>Time series similarity measurement in data mining</li>
+                                    <li>When both sequences have variable rates and neither is the "reference"</li>
+                                </ul>
+                                <p><strong>When to use monotonic alignment:</strong></p>
+                                <ul>
+                                    <li>Cross-modal alignment (text to audio) where one sequence (text) is the "source" and the other (audio) is the "target"</li>
+                                    <li>When each target element must belong to exactly one source element (the many-to-one constraint)</li>
+                                    <li>TTS duration extraction, where we need a clean mapping from frames to tokens</li>
+                                </ul>
+                                <p>
+                                    DTW's many-to-many flexibility is unnecessary and potentially harmful for TTS: we do not want a single audio frame to "belong" to two tokens simultaneously, which DTW allows but monotonic alignment does not.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Boundary Conditions</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The DP requires that token $t$ starts no earlier than frame $t$ (i.e., $Q(t, n) = -\infty$ for $n &lt; t$). Prove that without this constraint, the algorithm could produce alignments where some tokens receive zero frames, violating the coverage constraint.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    <strong>Proof by counterexample.</strong> Consider $T = 3$ tokens and $N = 3$ frames with the cost matrix:
+                                </p>
+                                $$C = \begin{pmatrix} -10 & -10 & -10 \\ -10 & -10 & -10 \\ 5 & 5 & 5 \end{pmatrix}$$
+                                <p>
+                                    Token 3 strongly dominates. Without the boundary constraint $n \geq t$, the DP could fill:
+                                </p>
+                                <ul>
+                                    <li>$Q(1, 1) = -10$ (base case, must use token 1 for frame 1)</li>
+                                    <li>$Q(3, 2) = C_{3,2} + \max(Q(3, 1), Q(2, 1))$. If we allow $Q(3, 1)$ to be computed from $Q(2, 1)$ and $Q(2, 1)$ from $Q(1, 1)$...</li>
+                                </ul>
+                                <p>
+                                    The issue arises in backtracking. Without the boundary constraint, the DP might find that token 3 should start at frame 2, which means the "advance" path goes $1 \to 3$, skipping token 2 entirely. During backtracking, we would get alignment $[1, 3, 3]$ &mdash; token 2 receives zero frames.
+                                </p>
+                                <p>
+                                    <strong>Why the constraint prevents this:</strong> With $Q(t, n) = -\infty$ for $n &lt; t$, we enforce that token 2 cannot appear before frame 2 and token 3 cannot appear before frame 3. This means:
+                                </p>
+                                <ul>
+                                    <li>Token 1 must cover at least frame 1</li>
+                                    <li>Token 2 can start at earliest at frame 2, getting at least frame 2</li>
+                                    <li>Token 3 can start at earliest at frame 3, getting at least frame 3</li>
+                                </ul>
+                                <p>
+                                    More formally, if the alignment advances from token $t-1$ to token $t$ at frame $n$, then tokens $1, \ldots, t-1$ must share frames $1, \ldots, n-1$. For each to get at least one frame, we need $n - 1 \geq t - 1$, i.e., $n \geq t$. Setting $Q(t, n) = -\infty$ for $n &lt; t$ enforces exactly this, guaranteeing the coverage constraint $d_t \geq 1$ for all $t$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Space Optimization</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The DP uses $O(T \times N)$ space for the $Q$ matrix. Show how to reduce the forward pass to $O(N)$ space. Why can this optimization not be applied if we need to perform backtracking?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    <strong>Space reduction to $O(N)$:</strong> Observe that the recurrence $Q(t, n) = C_{t,n} + \max(Q(t, n-1), Q(t-1, n-1))$ only depends on two rows: the current row $t$ and the previous row $t-1$. Therefore, we only need to store two rows at a time instead of the full $T \times N$ matrix.
+                                </p>
+                                <p>Implementation sketch:</p>
+<pre><code>prev_row = array of size N  # Q[t-1, :]
+curr_row = array of size N  # Q[t, :]
+
+# Base case: fill prev_row for t=1
+prev_row[0] = C[0, 0]
+for n in 1..N-1:
+    prev_row[n] = prev_row[n-1] + C[0, n]
+
+# Fill remaining rows
+for t in 1..T-1:
+    curr_row[0..t-1] = -infinity
+    for n in t..N-1:
+        curr_row[n] = C[t,n] + max(curr_row[n-1], prev_row[n-1])
+    swap(prev_row, curr_row)
+
+# Answer is prev_row[N-1]</code></pre>
+                                <p>
+                                    This uses only $2N$ space instead of $TN$.
+                                </p>
+                                <p>
+                                    <strong>Why backtracking requires $O(TN)$:</strong> Backtracking needs to compare $Q(t-1, n)$ and $Q(t, n)$ at every step to decide whether to stay or advance. This requires knowing the value of $Q$ at arbitrary positions $(t, n)$ in the matrix &mdash; not just the current and previous rows. If we only stored two rows, by the time we reach the backtracking phase, we have overwritten all rows except the last two. We would not know whether $Q(t-1, n)$ or $Q(t, n)$ was larger for $t &lt; T - 1$.
+                                </p>
+                                <p>
+                                    <strong>Practical note:</strong> If you only need the total score $Q(T, N)$ (not the actual alignment path), the $O(N)$ optimization is valid. In MAS for Glow-TTS, we do need the alignment path (to extract durations), so the full $O(TN)$ matrix must be stored. However, since $T$ and $N$ are typically a few hundred, the $O(TN)$ space is manageable in practice.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Non-monotonic Extension</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>How would you modify the DP recurrence to allow non-monotonic alignments (where the alignment can jump backward to a previous token)? What changes in the recurrence, and how does the complexity change? Why is this undesirable for TTS?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    <strong>Modified recurrence for non-monotonic alignment:</strong> Instead of only considering "stay on token $t$" or "advance to token $t$ from $t-1$," we allow jumping to <em>any</em> token:
+                                </p>
+                                $$Q(t, n) = C_{t,n} + \max_{t'=1}^{T} Q(t', n-1)$$
+                                <p>
+                                    At each frame $n$, we choose the token $t$ that maximizes the total score, where the previous frame could have been on <em>any</em> token $t'$, not just $t$ or $t-1$.
+                                </p>
+                                <p>
+                                    <strong>Complexity change:</strong> The monotonic DP is $O(TN)$ because each cell considers only 2 predecessors. The non-monotonic version considers $T$ predecessors per cell, making it $O(T^2 N)$. However, we can precompute $\max_{t'} Q(t', n-1)$ for each $n$ in $O(T)$, so the total remains $O(TN)$ per column and $O(TN)$ overall &mdash; but the alignment itself is fundamentally different.
+                                </p>
+                                <p>
+                                    <strong>More precisely,</strong> the non-monotonic problem with many-to-one mapping (each frame goes to one token) and coverage (each token gets at least one frame) is actually much harder. The coverage constraint makes the non-monotonic case NP-hard in general (it becomes a variant of set cover). The monotonic constraint is what makes the problem tractable.
+                                </p>
+                                <p>
+                                    <strong>Why undesirable for TTS:</strong> Non-monotonic alignment allows physically impossible sequences. Frame 50 could be assigned to "world" while frame 51 is assigned to "hello" &mdash; meaning the speaker said the end of "world" and then jumped back to say "hello." This violates the physics of speech production and would produce nonsensical audio. The monotonic constraint is not a limitation but a <em>necessary</em> inductive bias that reflects reality.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Alignment Entropy</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Define an "alignment entropy" metric that measures how uncertain a soft alignment is. For a soft alignment matrix $A \in [0,1]^{T \times N}$, propose a formula, explain what low and high values mean, and compute the entropy for both a perfect hard alignment and a uniform soft alignment with $T = 3$ and $N = 6$.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    <strong>Definition:</strong> The alignment entropy is the average per-frame entropy of the attention distribution:
+                                </p>
+                                $$H(A) = -\frac{1}{N} \sum_{n=1}^{N} \sum_{t=1}^{T} A_{t,n} \log A_{t,n}$$
+                                <p>
+                                    where we use the convention $0 \log 0 = 0$. This measures, on average, how "spread out" the attention weights are across tokens for each frame.
+                                </p>
+                                <p><strong>Interpretation:</strong></p>
+                                <ul>
+                                    <li><strong>$H(A) = 0$</strong> (minimum): Every frame attends to exactly one token with weight 1 (hard alignment). There is no uncertainty &mdash; the alignment is perfectly crisp.</li>
+                                    <li><strong>$H(A) = \log T$</strong> (maximum): Every frame attends uniformly to all tokens (weight $1/T$ each). The alignment is maximally uncertain &mdash; the model has no idea which token each frame belongs to.</li>
+                                </ul>
+                                <p><strong>Case 1: Perfect hard alignment</strong> with $T = 3$, $N = 6$ (e.g., each token gets 2 frames).</p>
+                                <p>
+                                    For each frame, the attention is concentrated on one token: $A_{t,n} \in \{0, 1\}$. The entropy per frame is $-(1 \cdot \log 1 + 0 \cdot \log 0 + 0 \cdot \log 0) = 0$. Therefore:
+                                </p>
+                                $$H(A_{\text{hard}}) = -\frac{1}{6} \sum_{n=1}^{6} 0 = 0$$
+                                <p><strong>Case 2: Uniform soft alignment</strong> with $T = 3$, $N = 6$.</p>
+                                <p>
+                                    For each frame, $A_{t,n} = 1/3$ for all $t$. The entropy per frame is $-3 \cdot (1/3) \log(1/3) = \log 3 \approx 1.099$. Therefore:
+                                </p>
+                                $$H(A_{\text{uniform}}) = -\frac{1}{6} \sum_{n=1}^{6} \left(-\log 3\right) = \log 3 \approx 1.099$$
+                                <p>
+                                    <strong>Practical use:</strong> Monitoring alignment entropy during training can detect problems. If entropy stays high, the model is not learning a clear alignment. If entropy drops to near zero early in training, the alignment may be collapsing prematurely. A healthy training curve shows entropy decreasing gradually as the model learns to align.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Duration Distribution</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Suppose you extract alignment durations from 1000 utterances using MAS. What probability distribution would you expect the durations to follow? Justify your answer using properties of speech production. What are the implications for the duration predictor's loss function?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>
+                                    <strong>Expected distribution: Log-normal or Gamma.</strong> Both are positive, right-skewed distributions, which match the empirical properties of phoneme/token durations in speech:
+                                </p>
+                                <ul>
+                                    <li><strong>Durations are strictly positive:</strong> Every token must have at least one frame ($d_t \geq 1$), and in practice most tokens span multiple frames. A normal distribution would assign nonzero probability to negative durations, which is unphysical.</li>
+                                    <li><strong>Right skew:</strong> Most tokens are short (1&ndash;5 frames for fast consonants), but some are long (20+ frames for stressed vowels or pauses). The distribution has a long right tail.</li>
+                                    <li><strong>Multiplicative factors:</strong> Duration is influenced by speaking rate, emphasis, position in the sentence, and phonetic identity. These factors combine multiplicatively (e.g., emphasis doubles duration; sentence-final position adds 50%). When multiple factors multiply, the Central Limit Theorem in log-space predicts a log-normal distribution: $\log d_t \sim \mathcal{N}(\mu, \sigma^2)$.</li>
+                                </ul>
+                                <p>
+                                    Empirical studies in phonetics consistently find that phoneme durations are well-modeled by log-normal or gamma distributions.
+                                </p>
+                                <p><strong>Implications for the duration predictor:</strong></p>
+                                <ul>
+                                    <li><strong>Predict in log-domain:</strong> Since durations are log-normally distributed, the duration predictor should predict $\log d_t$ rather than $d_t$ directly. This is exactly what Glow-TTS does: the duration predictor outputs $\log d_t$, and the loss is MSE in log-space.</li>
+                                    <li><strong>MSE in log-space:</strong> Using $\mathcal{L} = \sum_t (\log \hat{d}_t - \log d_t)^2$ is equivalent to assuming a log-normal likelihood for durations, which is well-matched to the data.</li>
+                                    <li><strong>Avoid MSE in linear space:</strong> Using $\mathcal{L} = \sum_t (\hat{d}_t - d_t)^2$ would be dominated by long-duration tokens (because the squared error is much larger for a token with duration 30 predicted as 25 than for a token with duration 3 predicted as 2), leading to poor predictions for short tokens.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Connecting to CTC</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Connectionist Temporal Classification (CTC) uses a blank symbol $\epsilon$ to handle alignment. How does CTC's approach to alignment differ from the explicit monotonic alignment used in MAS? What are the tradeoffs? Consider differentiability, the role of the blank symbol, and how durations are handled.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>CTC's approach:</strong></p>
+                                <p>
+                                    CTC introduces a blank symbol $\epsilon$ and defines a many-to-one mapping from frame-level predictions (including $\epsilon$) to the target sequence. For a target "cat," valid CTC paths include "c-a-t", "cc-aa-t", "c-$\epsilon$-a-$\epsilon$-t", etc. CTC computes the <em>total probability</em> of all valid paths using the forward-backward algorithm:
+                                </p>
+                                $$P(\text{target} \mid X) = \sum_{\pi \in \mathcal{B}^{-1}(\text{target})} P(\pi \mid X)$$
+                                <p>
+                                    where $\mathcal{B}$ is the collapsing function that removes blanks and consecutive duplicates, and $\pi$ ranges over all frame-level sequences that collapse to the target.
+                                </p>
+                                <p><strong>Key differences from MAS:</strong></p>
+                                <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid var(--color-border);">
+                                            <th style="text-align: left; padding: 0.5rem;">Aspect</th>
+                                            <th style="text-align: left; padding: 0.5rem;">CTC</th>
+                                            <th style="text-align: left; padding: 0.5rem;">MAS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Differentiable</strong></td>
+                                            <td style="padding: 0.5rem;">Yes (forward-backward marginalizes over paths)</td>
+                                            <td style="padding: 0.5rem;">No (argmax is not differentiable)</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Blank symbol</strong></td>
+                                            <td style="padding: 0.5rem;">Required ($\epsilon$ absorbs "silence" between tokens)</td>
+                                            <td style="padding: 0.5rem;">Not needed (durations are explicit)</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Alignment type</strong></td>
+                                            <td style="padding: 0.5rem;">Marginalizes over all valid alignments</td>
+                                            <td style="padding: 0.5rem;">Finds the single best (Viterbi) alignment</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);">
+                                            <td style="padding: 0.5rem;"><strong>Duration extraction</strong></td>
+                                            <td style="padding: 0.5rem;">Implicit (must decode to get durations)</td>
+                                            <td style="padding: 0.5rem;">Explicit (durations are a direct output)</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 0.5rem;"><strong>Training signal</strong></td>
+                                            <td style="padding: 0.5rem;">End-to-end gradient through alignment</td>
+                                            <td style="padding: 0.5rem;">Alignment used as fixed supervision target</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p><strong>Tradeoffs:</strong></p>
+                                <ul>
+                                    <li><strong>CTC advantage &mdash; differentiability:</strong> Because CTC marginalizes over alignments, gradients flow through the alignment computation. The model can jointly learn the alignment and the output. MAS requires a separate duration predictor because the alignment itself is not differentiable.</li>
+                                    <li><strong>MAS advantage &mdash; explicit durations:</strong> MAS directly produces a token-to-frame mapping, making duration extraction trivial. CTC's marginalization means there is no single "best" alignment; extracting durations requires either Viterbi decoding (which is an approximation) or taking the most probable token at each frame (which can be noisy).</li>
+                                    <li><strong>CTC challenge &mdash; blank dominance:</strong> CTC models often predict $\epsilon$ for most frames (especially early in training), making the alignment sparse and hard to interpret. The blank symbol can dominate, and the model may struggle to learn precise boundaries.</li>
+                                    <li><strong>MAS advantage &mdash; precision:</strong> MAS finds the globally optimal alignment under the cost matrix. Every frame is assigned to a real token (no blanks), and the coverage constraint is strictly enforced.</li>
+                                </ul>
+                                <p>
+                                    In practice, VITS (a successor to Glow-TTS) uses a CTC-like monotonic alignment, showing that both approaches can work well. The choice often depends on whether end-to-end differentiability (CTC) or explicit duration control (MAS) is more important for the application.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#what-is-alignment" class="toc-link">What Is Sequence Alignment?</a>
+                <a href="#why-monotonic" class="toc-link">Why Monotonic?</a>
+                <a href="#alignment-matrix" class="toc-link">The Alignment Matrix</a>
+                <a href="#cost-matrices" class="toc-link">Cost Matrices</a>
+                <a href="#dynamic-programming" class="toc-link">Dynamic Programming</a>
+                <a href="#soft-vs-hard" class="toc-link">Soft vs Hard Alignment</a>
+                <a href="#connection-to-attention" class="toc-link">Connection to Attention</a>
+                <a href="#summary-and-preview" class="toc-link">Summary</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

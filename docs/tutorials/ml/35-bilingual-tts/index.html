@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilingual TTS: Training VITS on Russian &amp; Kyrgyz | ML Fundamentals</title>
+    <meta name="description" content="Bilingual text-to-speech synthesis training VITS on Russian and Kyrgyz: unified phoneme design, data imbalance strategies, language embeddings, and cross-lingual transfer.">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Bilingual TTS: RU+KY</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../01-logarithms/index.html" class="sidebar-link">01. Why Logarithms?</a>
+                    <a href="../02-combinatorics/index.html" class="sidebar-link">02. Combinatorics</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">03. Normal Distributions</a>
+                    <a href="../04-entropy/index.html" class="sidebar-link">04. Entropy Fundamentals</a>
+                    <a href="../05-cross-entropy/index.html" class="sidebar-link">05. Cross-Entropy</a>
+                    <a href="../06-kl-divergence/index.html" class="sidebar-link">06. KL Divergence</a>
+                    <a href="../07-entropy-connections/index.html" class="sidebar-link">07. Entropy Connections</a>
+                    <a href="../08-backpropagation/index.html" class="sidebar-link">08. Backpropagation</a>
+                    <a href="../09-regularization/index.html" class="sidebar-link">09. Regularization</a>
+                    <a href="../10-batch-normalization/index.html" class="sidebar-link">10. Batch Normalization</a>
+                    <a href="../11-learning-rate/index.html" class="sidebar-link">11. Learning Rate</a>
+                    <a href="../12-cnn/index.html" class="sidebar-link">12. CNNs</a>
+                    <a href="../13-rnn/index.html" class="sidebar-link">13. RNNs</a>
+                    <a href="../14-rate-distortion/index.html" class="sidebar-link">14. Rate-Distortion Theory</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link">15. Autoencoders</a>
+                    <a href="../16-variational-inference/index.html" class="sidebar-link">16. Variational Inference</a>
+                    <a href="../17-vae/index.html" class="sidebar-link">17. VAE</a>
+                    <a href="../18-inductive-bias/index.html" class="sidebar-link">18. Inductive Bias</a>
+                    <a href="../19-architectural-biases/index.html" class="sidebar-link">19. Architectural Biases</a>
+                    <a href="../20-designing-biases/index.html" class="sidebar-link">20. Designing Biases</a>
+                    <a href="../21-fst-fundamentals/index.html" class="sidebar-link">21. FST Fundamentals</a>
+                    <a href="../22-weighted-fsts/index.html" class="sidebar-link">22. Weighted FSTs</a>
+                    <a href="../23-fst-libraries/index.html" class="sidebar-link">23. FST Libraries</a>
+                    <a href="../24-fst-applications/index.html" class="sidebar-link">24. FST Applications</a>
+                    <a href="../25-neural-symbolic/index.html" class="sidebar-link">25. Neural-Symbolic Hybrids</a>
+                    <a href="../26-sequence-alignment/index.html" class="sidebar-link">26. Sequence Alignment</a>
+                    <a href="../27-mas-algorithm/index.html" class="sidebar-link">27. MAS Algorithm</a>
+                    <a href="../28-forced-alignment/index.html" class="sidebar-link">28. Forced Alignment & MFA</a>
+                    <a href="../29-tts-fundamentals/index.html" class="sidebar-link">29. TTS Fundamentals</a>
+                    <a href="../30-neural-vocoders/index.html" class="sidebar-link">30. Neural Vocoders</a>
+                    <a href="../31-tacotron/index.html" class="sidebar-link">31. Tacotron & Attention TTS</a>
+                    <a href="../32-fastspeech/index.html" class="sidebar-link">32. FastSpeech & Non-AR TTS</a>
+                    <a href="../33-glow-tts/index.html" class="sidebar-link">33. Glow-TTS & Flows</a>
+                    <a href="../34-vits/index.html" class="sidebar-link">34. VITS: End-to-End TTS</a>
+                    <a href="../35-bilingual-tts/index.html" class="sidebar-link active">35. Bilingual TTS: RU+KY</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: Why Bilingual TTS? -->
+                <h2 id="bilingual-motivation">Why Bilingual TTS?</h2>
+
+                <p>
+                    In Central Asia, linguistic reality is inherently bilingual. Russian serves as the lingua franca across the region &mdash; a legacy of the Soviet era that persists in government, business, higher education, and media. Kyrgyz, meanwhile, is the national language of the Kyrgyz Republic, spoken by over five million people and central to cultural identity, family life, literature, and an increasing share of public discourse. The two languages coexist not as separate domains but as a tightly interwoven fabric: a single conversation might begin in Kyrgyz, shift to Russian for a technical term, and return to Kyrgyz mid-sentence. This phenomenon &mdash; <strong>code-switching</strong> &mdash; is not an exception but the norm.
+                </p>
+
+                <p>
+                    Building text-to-speech systems for this environment reveals a stark data imbalance. Russian, with over 150 million native speakers and extensive digital presence, has thousands of hours of professionally recorded TTS data &mdash; studio-quality single-speaker corpora, multi-speaker datasets, and emotional speech databases. Kyrgyz, by contrast, has at best tens of hours of usable TTS data. The Common Voice corpus for Kyrgyz contains limited validated hours, and professional single-speaker recordings are scarce. This asymmetry is not unique to Kyrgyz &mdash; it reflects the reality for the majority of the world's 7,000+ languages.
+                </p>
+
+                <p>
+                    Why not simply build two separate monolingual models? Several compelling reasons point toward a single bilingual system:
+                </p>
+
+                <ul>
+                    <li><strong>Code-switching support.</strong> Two separate models cannot handle sentences that mix Russian and Kyrgyz. A bilingual model can seamlessly switch between languages within a single utterance, matching how people actually speak in Bishkek, Osh, and other cities.</li>
+                    <li><strong>Cross-lingual transfer.</strong> A bilingual model trained on abundant Russian data and scarce Kyrgyz data can transfer acoustic knowledge (prosody patterns, speaker characteristics, articulation dynamics) from Russian to Kyrgyz. The shared acoustic space means the model does not need to learn everything about speech production from scratch for Kyrgyz.</li>
+                    <li><strong>Deployment efficiency.</strong> A single model is simpler to deploy, maintain, and update than two separate models. One set of weights, one inference pipeline, one model to monitor.</li>
+                    <li><strong>Speaker consistency.</strong> A bilingual model can produce speech in both languages with the same voice, which is critical for applications like navigation ("Поверну|те направо, андан кийин Манас проспектисине бурулуңуз") or virtual assistants.</li>
+                </ul>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Code-Switching in TTS</div>
+                    <p>
+                        <strong>Code-switching</strong> is the practice of alternating between two or more languages within a single conversation, sentence, or even word. In the context of TTS, a code-switching-capable model must: (1) detect the language of each segment in the input text, (2) apply the correct grapheme-to-phoneme (G2P) rules for each language, and (3) produce natural-sounding speech that transitions smoothly between languages without audible artifacts at language boundaries.
+                    </p>
+                </div>
+
+                <p>
+                    The practical applications are immediate and significant. <strong>Navigation systems</strong> in Bishkek must pronounce Russian street names ("проспект Чуй") and Kyrgyz place names ("Ысык-Көл") within the same route guidance. <strong>Educational platforms</strong> teaching Kyrgyz to Russian speakers (or vice versa) need bilingual synthesis for pronunciation examples. <strong>Government services</strong> operating in both official languages need a unified voice interface. <strong>Accessibility tools</strong> must read mixed-language content aloud naturally. In each case, the bilingual model is not a luxury but a necessity.
+                </p>
+
+                <p>
+                    This tutorial builds on the VITS architecture introduced in <a href="../34-vits/index.html">Tutorial 33: VITS</a> and extends it for bilingual Russian-Kyrgyz synthesis. We will design a unified phoneme set, address the data imbalance problem, modify the architecture for language conditioning, explore training strategies, and evaluate the results.
+                </p>
+
+                <!-- Section 2: Linguistic Analysis: Russian vs Kyrgyz -->
+                <h2 id="linguistic-analysis">Linguistic Analysis: Russian vs Kyrgyz</h2>
+
+                <p>
+                    Before designing a bilingual TTS system, we must understand the two languages at the phonetic and prosodic level. Russian and Kyrgyz share a writing system (Cyrillic) but differ substantially in phonology, morphology, and prosody. These differences &mdash; and the surprising overlaps &mdash; directly inform our phoneme set design and model architecture.
+                </p>
+
+                <p>
+                    <strong>Russian phonology.</strong> Russian uses a 33-letter Cyrillic alphabet and has approximately 42 distinct phonemes: 6 vowels (/a/, /e/, /i/, /o/, /u/, /y/) and 36 consonants (including palatalized and non-palatalized pairs). Russian is a <strong>stress-timed</strong> language where lexical stress is unpredictable and phonemically contrastive &mdash; moving the stress can change meaning (e.g., "замок" with stress on the first syllable means "castle," on the second means "lock"). Unstressed vowels undergo significant <strong>vowel reduction</strong>: unstressed /o/ reduces to [a] or [schwa], unstressed /e/ reduces to [i]. This means the same Cyrillic letter produces different sounds depending on stress position, a major challenge for grapheme-to-phoneme conversion.
+                </p>
+
+                <p>
+                    <strong>Kyrgyz phonology.</strong> Kyrgyz uses a 36-letter Cyrillic alphabet that includes three additional letters not found in Russian: <strong>ң</strong> (velar nasal, /ng/), <strong>ө</strong> (front rounded vowel, similar to German &ouml;), and <strong>ү</strong> (close front rounded vowel, similar to German &uuml;). Kyrgyz has approximately 34 phonemes: 8 vowels (/a/, /e/, /i/, /o/, /u/, /y/, /oe/, /yy/) and 26 consonants. A defining feature is <strong>vowel harmony</strong> &mdash; vowels within a word must agree in frontness/backness (and often rounding), which governs suffix selection in this agglutinative language. Kyrgyz is <strong>syllable-timed</strong>, meaning syllables have roughly equal duration, in contrast to Russian's stress timing.
+                </p>
+
+                <p>
+                    <strong>Shared phonemes.</strong> Despite belonging to different language families (Slavic vs Turkic), Russian and Kyrgyz share approximately 19 IPA phonemes due to historical contact and the shared Cyrillic script. The common consonants include /p/, /b/, /t/, /d/, /k/, /g/, /m/, /n/, /s/, /z/, /l/, /r/, /f/, /v/, /sh/, and /j/. The common vowels include /a/, /i/, /u/, /e/, /o/. These shared phonemes form the basis for cross-lingual transfer &mdash; acoustic knowledge about how to produce /t/ in Russian directly applies to /t/ in Kyrgyz.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Phoneme Inventory Comparison</div>
+                    <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="text-align: left; padding: 0.5rem;">Feature</th>
+                                <th style="text-align: center; padding: 0.5rem;">Russian</th>
+                                <th style="text-align: center; padding: 0.5rem;">Kyrgyz</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Language family</td>
+                                <td style="text-align: center; padding: 0.5rem;">Indo-European (Slavic)</td>
+                                <td style="text-align: center; padding: 0.5rem;">Turkic (Kipchak)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Cyrillic letters</td>
+                                <td style="text-align: center; padding: 0.5rem;">33</td>
+                                <td style="text-align: center; padding: 0.5rem;">36</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Vowel phonemes</td>
+                                <td style="text-align: center; padding: 0.5rem;">6</td>
+                                <td style="text-align: center; padding: 0.5rem;">8 (incl. /oe/, /yy/)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Consonant phonemes</td>
+                                <td style="text-align: center; padding: 0.5rem;">~36 (palatalized pairs)</td>
+                                <td style="text-align: center; padding: 0.5rem;">~26</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Total phonemes</td>
+                                <td style="text-align: center; padding: 0.5rem;">~42</td>
+                                <td style="text-align: center; padding: 0.5rem;">~34</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Unique features</td>
+                                <td style="text-align: center; padding: 0.5rem;">Palatalization, vowel reduction</td>
+                                <td style="text-align: center; padding: 0.5rem;">Vowel harmony, /ng/ nasal</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Prosodic type</td>
+                                <td style="text-align: center; padding: 0.5rem;">Stress-timed</td>
+                                <td style="text-align: center; padding: 0.5rem;">Syllable-timed</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Morphology</td>
+                                <td style="text-align: center; padding: 0.5rem;">Fusional (inflectional)</td>
+                                <td style="text-align: center; padding: 0.5rem;">Agglutinative</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem;">Shared IPA phonemes</td>
+                                <td colspan="2" style="text-align: center; padding: 0.5rem;">~19 (common consonants + vowels)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    <strong>Prosodic differences.</strong> The timing difference between the two languages is critical for TTS. In Russian stress-timed speech, stressed syllables are significantly longer and louder than unstressed ones, creating an uneven rhythmic pattern. The duration ratio between stressed and unstressed vowels can reach 2:1 or even 3:1. In Kyrgyz syllable-timed speech, syllables have more uniform duration, creating a more even, "machine-gun" rhythm. A bilingual model must capture both prosodic patterns &mdash; it cannot simply apply Russian stress timing to Kyrgyz text or Kyrgyz syllable timing to Russian text. This is one of the key motivations for language conditioning in the architecture.
+                </p>
+
+                <p>
+                    <strong>The palatalization challenge.</strong> Russian consonants come in palatalized ("soft") and non-palatalized ("hard") pairs: /t/ vs /tj/, /d/ vs /dj/, /n/ vs /nj/, etc. Palatalization is contrastive &mdash; "мат" (/mat/, "checkmate") vs "мать" (/matj/, "mother"). Kyrgyz does not have phonemic palatalization. A unified phoneme set must include the palatalized variants as separate phonemes used only in Russian contexts, increasing the total inventory but ensuring correct pronunciation.
+                </p>
+
+                <!-- Section 3: Designing the Unified Phoneme Set -->
+                <h2 id="phoneme-design">Designing the Unified Phoneme Set</h2>
+
+                <p>
+                    The phoneme set is the foundation of any TTS system &mdash; it defines the atomic units that the model learns to produce. For a bilingual system, the phoneme set design involves a fundamental trade-off between <strong>sharing</strong> (which enables cross-lingual transfer) and <strong>separation</strong> (which prevents interference between languages). Three approaches span this spectrum.
+                </p>
+
+                <p>
+                    <strong>Approach A: Character-level (maximal sharing).</strong> Use raw Cyrillic characters as input tokens. Since both languages use Cyrillic, many characters are shared automatically. This is the simplest approach &mdash; no phoneme conversion needed &mdash; but it has a critical flaw: the same Cyrillic letter often represents different sounds in Russian and Kyrgyz. The letter "o" is pronounced [o] in stressed Russian syllables but reduces to [a] in unstressed positions, while in Kyrgyz it is always [o]. The letter "е" is [je] word-initially in Russian but [e] in Kyrgyz. Without phonemic disambiguation, the model must implicitly learn these mappings, which is unreliable and degrades quality for both languages.
+                </p>
+
+                <p>
+                    <strong>Approach B: Language-tagged phonemes (maximal separation).</strong> Define completely separate phoneme sets with language prefixes: <code>ru_a</code>, <code>ru_b</code>, <code>ru_t</code>, ... and <code>ky_a</code>, <code>ky_b</code>, <code>ky_t</code>, .... This eliminates all interference &mdash; Russian /a/ and Kyrgyz /a/ are treated as completely different symbols. The downside is equally clear: no sharing whatsoever. The model cannot transfer knowledge about the sound /a/ from Russian (where it has seen thousands of examples) to Kyrgyz (where it has seen tens of examples). This approach essentially trains two independent models that happen to share some parameters, losing the primary benefit of bilingual training.
+                </p>
+
+                <p>
+                    <strong>Approach C: Unified IPA-based (balanced sharing).</strong> Map both languages to the International Phonetic Alphabet (IPA), then merge phonemes that are acoustically identical or near-identical across languages. Russian /a/ and Kyrgyz /a/ map to the same IPA symbol and share a single embedding. Russian-only phonemes (palatalized consonants, reduced vowels) and Kyrgyz-only phonemes (vowel harmony variants, /ng/) get their own unique symbols. This approach maximizes transfer for shared sounds while preserving language-specific distinctions.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Recommended: Unified IPA Phoneme Set</div>
+                    <p>
+                        We recommend <strong>Approach C</strong> with approximately 52 phonemes total, structured as follows:
+                    </p>
+                    <ul>
+                        <li><strong>19 shared phonemes:</strong> /a/, /e/, /i/, /o/, /u/, /p/, /b/, /t/, /d/, /k/, /g/, /m/, /n/, /s/, /z/, /l/, /r/, /f/, /v/ &mdash; sounds that are acoustically equivalent in both languages.</li>
+                        <li><strong>~21 Russian-only phonemes:</strong> Palatalized consonants (/tj/, /dj/, /nj/, /lj/, /rj/, /sj/, /zj/, /pj/, /bj/, /mj/, /fj/, /vj/, /kj/, /gj/), reduced vowels (/schwa/, /i_reduced/), affricates (/ts/, /tsh/), and the palatal approximant /shch/.</li>
+                        <li><strong>~8 Kyrgyz-only phonemes:</strong> Front rounded vowels (/oe/, /yy/), the velar nasal /ng/, long vowels (/aa/, /oo/, /uu/, /ee/), and the uvular stop /q/.</li>
+                        <li><strong>4 special tokens:</strong> <code>[PAD]</code>, <code>[SIL]</code> (silence), <code>[WB]</code> (word boundary), <code>[LANG_RU]</code> / <code>[LANG_KY]</code> (language ID markers).</li>
+                    </ul>
+                </div>
+
+                <p>
+                    The unified IPA approach requires a grapheme-to-phoneme (G2P) frontend for each language. For Russian, robust G2P is available through tools like russian_g2p or Phonemizer with the espeak-ng backend, which handle stress assignment and vowel reduction. For Kyrgyz, G2P is simpler because the orthography is largely phonemic &mdash; each letter maps consistently to a phoneme &mdash; but vowel harmony rules and a few contextual alternations must still be handled. We provide a complete G2P implementation in the Code section.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Phoneme Mapping Examples</div>
+                    <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="text-align: left; padding: 0.5rem;">Word</th>
+                                <th style="text-align: center; padding: 0.5rem;">Language</th>
+                                <th style="text-align: left; padding: 0.5rem;">IPA Phonemes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">молоко (milk)</td>
+                                <td style="text-align: center; padding: 0.5rem;">RU</td>
+                                <td style="padding: 0.5rem;">/m schwa l a k o/</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">сүт (milk)</td>
+                                <td style="text-align: center; padding: 0.5rem;">KY</td>
+                                <td style="padding: 0.5rem;">/s yy t/</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">город (city)</td>
+                                <td style="text-align: center; padding: 0.5rem;">RU</td>
+                                <td style="padding: 0.5rem;">/g o r schwa t/</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">шаар (city)</td>
+                                <td style="text-align: center; padding: 0.5rem;">KY</td>
+                                <td style="padding: 0.5rem;">/sh aa r/</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">день (day)</td>
+                                <td style="text-align: center; padding: 0.5rem;">RU</td>
+                                <td style="padding: 0.5rem;">/dj e nj/</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem;">күн (day)</td>
+                                <td style="text-align: center; padding: 0.5rem;">KY</td>
+                                <td style="padding: 0.5rem;">/k yy n/</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-bottom: 0;">
+                        Notice how shared phonemes (/m/, /s/, /t/, /k/, /n/, /r/) use the same IPA symbols in both languages, while language-specific sounds (/schwa/, /dj/, /nj/ for Russian; /yy/, /aa/ for Kyrgyz) have unique symbols. The word "молоко" demonstrates Russian vowel reduction: the unstressed "o" letters become /schwa/, while only the stressed final "о" retains its full /o/ quality.
+                    </p>
+                </div>
+
+                <!-- Section 4: Data Strategy: Handling Imbalance -->
+                <h2 id="data-strategy">Data Strategy: Handling Imbalance</h2>
+
+                <p>
+                    The central challenge in bilingual TTS for Russian and Kyrgyz is the extreme data imbalance. A realistic scenario might involve 100 hours of high-quality Russian TTS data and 1&ndash;5 hours of Kyrgyz data &mdash; a ratio of 20:1 to 100:1. Naive proportional sampling would expose the model to vastly more Russian than Kyrgyz, effectively making it a Russian model that occasionally sees Kyrgyz. The model would learn excellent Russian synthesis but produce garbled or heavily Russian-accented Kyrgyz. We need a principled sampling strategy.
+                </p>
+
+                <p>
+                    <strong>Temperature-based sampling.</strong> The standard approach for imbalanced multilingual training is temperature-based sampling. Given languages $L_1, \ldots, L_K$ with dataset sizes $|D_1|, \ldots, |D_K|$, the probability of sampling from language $L_i$ in each batch is:
+                </p>
+                $$p(L_i) = \frac{|D_i|^{1/T}}{\sum_{j=1}^{K} |D_j|^{1/T}}$$
+                <p>
+                    where $T$ is the temperature parameter. The temperature controls the interpolation between two extremes:
+                </p>
+                <ul>
+                    <li>$T = 1$ (proportional sampling): $p(L_i) \propto |D_i|$. Russian would dominate with ~99% of batches. Kyrgyz is barely seen.</li>
+                    <li>$T \to \infty$ (uniform sampling): $p(L_i) = 1/K$ regardless of dataset size. Each language gets exactly 50% of batches. Kyrgyz is seen equally often, but Russian data is massively underutilized.</li>
+                </ul>
+
+                <div class="math-derivation">
+                    <div class="box-title">Temperature Sampling: RU/KY Example</div>
+                    <div class="math-step">
+                        <p>Let $|D_{\text{RU}}| = 100$ hours and $|D_{\text{KY}}| = 1$ hour (100:1 ratio).</p>
+                    </div>
+                    <div class="math-step">
+                        <p>At $T = 1$ (proportional): $p(\text{RU}) = \frac{100}{101} = 99.0\%$, $p(\text{KY}) = \frac{1}{101} = 1.0\%$</p>
+                    </div>
+                    <div class="math-step">
+                        <p>At $T = 2$: $p(\text{RU}) = \frac{100^{0.5}}{100^{0.5} + 1^{0.5}} = \frac{10}{11} = 90.9\%$, $p(\text{KY}) = 9.1\%$</p>
+                    </div>
+                    <div class="math-step">
+                        <p>At $T = 5$: $p(\text{RU}) = \frac{100^{0.2}}{100^{0.2} + 1^{0.2}} = \frac{2.51}{3.51} = 71.5\%$, $p(\text{KY}) = 28.5\%$</p>
+                    </div>
+                    <div class="math-step">
+                        <p>At $T = 10$: $p(\text{RU}) = \frac{100^{0.1}}{100^{0.1} + 1^{0.1}} = \frac{1.58}{2.58} = 61.3\%$, $p(\text{KY}) = 38.7\%$</p>
+                    </div>
+                    <div class="math-step">
+                        <p><strong>Recommended: $T \approx 5$</strong>, giving a 70/30 split. This ensures Kyrgyz sees enough data for meaningful learning while still leveraging the larger Russian corpus. The Kyrgyz data will be repeated ~28x per epoch, while Russian is sampled at ~71% of its full rate.</p>
+                    </div>
+                </div>
+
+                <p>
+                    <strong>Data augmentation for Kyrgyz.</strong> Since the Kyrgyz corpus is small, data augmentation can effectively increase its diversity without requiring new recordings. The most effective augmentation techniques for TTS are:
+                </p>
+                <ul>
+                    <li><strong>Speed perturbation:</strong> Resample audio at factors of 0.9, 0.95, 1.05, 1.1, effectively creating 5x the data with slight pitch and duration variations. The phoneme durations in the alignment are scaled accordingly.</li>
+                    <li><strong>Pitch shifting:</strong> Shift the fundamental frequency by &plusmn;10&ndash;20% using PSOLA or phase vocoder methods. This simulates different vocal characteristics without changing the content.</li>
+                    <li><strong>Additive noise:</strong> Add low-level background noise (SNR > 30dB) to simulate realistic recording conditions. This improves robustness but should be used sparingly for TTS to avoid degrading output quality.</li>
+                </ul>
+
+                <p>
+                    <strong>Forced alignment per language.</strong> Each language requires its own alignment procedure. For Russian, the Montreal Forced Aligner (MFA) has pre-trained acoustic models and pronunciation dictionaries that produce reliable phone-level alignments. For Kyrgyz, MFA can be used with a custom pronunciation dictionary (straightforward since Kyrgyz orthography is largely phonemic) and an acoustic model either trained from scratch on the available data or bootstrapped from a related language. Alternatively, if using VITS with internal MAS-based alignment, the alignment is learned jointly with the model, but language-specific phoneme sets ensure that MAS operates correctly for each language.
+                </p>
+
+                <div class="warning-box">
+                    <div class="box-title">Curriculum Training: A Practical Tip</div>
+                    <p>
+                        Starting training with $T = 5$ from the beginning can destabilize early training because the model sees Kyrgyz data frequently before it has learned basic acoustic modeling from the Russian data. A curriculum approach works better: start with $T = 1$ (almost all Russian) for the first 10&ndash;20k steps, then linearly increase $T$ to its target value over the next 50k steps. This allows the model to first learn strong acoustic foundations from Russian data, then gradually adapt to include Kyrgyz. The schedule is:
+                    </p>
+                    $$T(step) = \begin{cases} 1 & \text{if } step < 10\text{k} \\ 1 + \frac{(T_{\text{target}} - 1) \cdot (step - 10\text{k})}{50\text{k}} & \text{if } 10\text{k} \le step < 60\text{k} \\ T_{\text{target}} & \text{if } step \ge 60\text{k} \end{cases}$$
+                </div>
+
+                <!-- Section 5: Extending VITS for Bilingual -->
+                <h2 id="architecture-changes">Extending VITS for Bilingual</h2>
+
+                <p>
+                    The VITS architecture (see <a href="../34-vits/index.html">Tutorial 33: VITS</a>) consists of a text encoder, posterior encoder, flow, duration predictor, and HiFi-GAN decoder. Extending it for bilingual synthesis requires adding <strong>language conditioning</strong> to several of these components. The key design decisions involve where to inject language information and how much of the architecture to share between languages.
+                </p>
+
+                <p>
+                    <strong>Language embedding.</strong> The primary mechanism for language conditioning is a learned language embedding $e_L \in \mathbb{R}^d$, where $L \in \{\text{RU}, \text{KY}\}$. This embedding is a small vector (typically $d = 64$ or $d = 128$) that encodes the "identity" of the language. During training, the model learns what it means to speak Russian vs Kyrgyz, and this information is broadcast to every component that needs it. The embedding is looked up from a table of size $2 \times d$ (one row per language) and added or concatenated to the relevant hidden representations.
+                </p>
+
+                <p>
+                    <strong>Where language conditioning enters:</strong>
+                </p>
+                <ol>
+                    <li><strong>Text encoder.</strong> The language embedding is added to every hidden state in the text encoder. This allows the encoder to produce different prior distributions $(\mu_t, \sigma_t)$ for the same phoneme in different language contexts. For example, the phoneme /a/ might have different duration and spectral expectations in Russian (where it could be stressed or reduced) vs Kyrgyz (where it is always full).</li>
+                    <li><strong>Duration predictor.</strong> The language embedding is concatenated to the input of the duration predictor. Russian and Kyrgyz have different prosodic timing patterns (stress-timed vs syllable-timed), so the duration predictor must know which language it is predicting for.</li>
+                    <li><strong>Flow (posterior encoder to prior).</strong> The language embedding conditions the affine coupling layers in the flow. This allows the flow to learn language-specific transformations between the latent space and the acoustic space.</li>
+                    <li><strong>HiFi-GAN decoder.</strong> Optionally, the language embedding can condition the vocoder, but in practice the vocoder operates on mel-spectrograms that already encode language-specific information, so language conditioning at the vocoder level is less critical.</li>
+                </ol>
+
+                <p>
+                    <strong>Speaker embedding for multi-speaker setup.</strong> In addition to the language embedding, a multi-speaker bilingual model includes a speaker embedding $e_S \in \mathbb{R}^{d_s}$. The speaker embedding captures voice characteristics (pitch range, timbre, speaking rate) independently of language. This separation is important: we want the model to learn that "language" and "speaker" are orthogonal factors. A speaker can speak both languages, and a language can be spoken by many speakers. The speaker embedding enters the same components as the language embedding (encoder, flow, decoder) but is kept as a separate vector.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Shared vs Separate Components</div>
+                    <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="text-align: left; padding: 0.5rem;">Component</th>
+                                <th style="text-align: center; padding: 0.5rem;">Sharing Strategy</th>
+                                <th style="text-align: left; padding: 0.5rem;">Rationale</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Phoneme embedding</td>
+                                <td style="text-align: center; padding: 0.5rem;">Shared (unified IPA)</td>
+                                <td style="padding: 0.5rem;">Same IPA phoneme = same embedding. Transfer for shared sounds.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Text encoder</td>
+                                <td style="text-align: center; padding: 0.5rem;">Shared + language cond.</td>
+                                <td style="padding: 0.5rem;">Shared transformer weights, differentiated by language embedding.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Duration predictor</td>
+                                <td style="text-align: center; padding: 0.5rem;">Shared + language cond.</td>
+                                <td style="padding: 0.5rem;">Different timing patterns per language, but shared architecture.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Flow</td>
+                                <td style="text-align: center; padding: 0.5rem;">Shared + language cond.</td>
+                                <td style="padding: 0.5rem;">Shared acoustic transformation, language-conditioned coupling layers.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Posterior encoder</td>
+                                <td style="text-align: center; padding: 0.5rem;">Fully shared</td>
+                                <td style="padding: 0.5rem;">Operates on mel-spectrograms, which are language-agnostic representations.</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem;">HiFi-GAN decoder</td>
+                                <td style="text-align: center; padding: 0.5rem;">Fully shared</td>
+                                <td style="padding: 0.5rem;">Waveform generation from mel is largely language-independent.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    The architecture diagram below shows where language and speaker conditioning enter the VITS pipeline:
+                </p>
+
+<pre><code>Input text (mixed RU/KY)
+    |
+    v
+[Language Detection] ---> Language ID (RU or KY per segment)
+    |
+    v
+[G2P per language] ---> Unified IPA phoneme sequence
+    |
+    v
+[Phoneme Embedding]  (shared embedding table, 52 phonemes)
+    |
+    +--- [Language Embedding] (e_L, 64-dim)
+    +--- [Speaker Embedding] (e_S, 256-dim)
+    |
+    v
+[Text Encoder]  (shared transformer + language/speaker conditioning)
+    |
+    +--> mu, sigma  (text-conditioned prior)
+    +--> h_text     (encoder hidden states)
+    |
+    v
+[Duration Predictor]  (shared + language/speaker conditioning)
+    |
+    v
+[Length Regulator]  (expand prior to mel-frame rate)
+    |
+    v
+[Flow]  (shared coupling layers + language/speaker conditioning)
+    |
+    v
+[HiFi-GAN Decoder]  (fully shared)
+    |
+    v
+Waveform output</code></pre>
+
+                <!-- Section 6: Joint vs Transfer Training -->
+                <h2 id="training-strategies">Joint vs Transfer Training</h2>
+
+                <p>
+                    Given the data imbalance between Russian and Kyrgyz, the training strategy significantly impacts the quality of both languages. Three main strategies exist, each with distinct advantages depending on the amount of available Kyrgyz data.
+                </p>
+
+                <p>
+                    <strong>Strategy A: Joint training from scratch.</strong> Train the bilingual model on mixed Russian and Kyrgyz data simultaneously from the start, using temperature-based sampling to control the language ratio. The model sees both languages throughout training and learns shared representations from the beginning.
+                </p>
+                <ul>
+                    <li><em>Pros:</em> Simplest to implement. No separate pre-training phase. Shared representations emerge naturally. Code-switching is learned implicitly.</li>
+                    <li><em>Cons:</em> Early training instability when Kyrgyz data is very scarce. The model may converge to a poor local optimum for Kyrgyz if the temperature is not tuned carefully. Kyrgyz quality is limited by the small dataset size.</li>
+                </ul>
+
+                <p>
+                    <strong>Strategy B: Russian pre-train + Kyrgyz fine-tune.</strong> First train a monolingual Russian VITS model to convergence. Then add the language embedding and Kyrgyz phonemes to the model, and fine-tune on mixed data (with heavy Kyrgyz weighting) while using a small learning rate to preserve Russian quality.
+                </p>
+                <ul>
+                    <li><em>Pros:</em> Russian quality is excellent (fully converged before Kyrgyz is introduced). The model has strong acoustic foundations that transfer to Kyrgyz. Works well with very small Kyrgyz datasets (&lt;1 hour).</li>
+                    <li><em>Cons:</em> Risk of <strong>catastrophic forgetting</strong> &mdash; fine-tuning on Kyrgyz may degrade Russian quality. Requires careful learning rate scheduling. Two-phase training pipeline is more complex.</li>
+                </ul>
+
+                <p>
+                    <strong>Strategy C: Progressive training.</strong> Start with mostly Russian data ($T = 1$), then gradually increase the temperature (and thus Kyrgyz proportion) over training. This is a hybrid of strategies A and B &mdash; the model starts as a de facto Russian model and progressively becomes bilingual.
+                </p>
+                <ul>
+                    <li><em>Pros:</em> Smooth transition from monolingual to bilingual. Less risk of catastrophic forgetting than Strategy B (because Russian data is always present). The curriculum matches the model's learning capacity &mdash; it learns Russian basics first, then adapts to Kyrgyz.</li>
+                    <li><em>Cons:</em> More hyperparameters to tune (temperature schedule, transition points). Training is longer than Strategy A because the effective Kyrgyz training starts later.</li>
+                </ul>
+
+                <div class="note-box">
+                    <div class="box-title">Strategy Selection by Kyrgyz Data Size</div>
+                    <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="text-align: left; padding: 0.5rem;">Kyrgyz Data</th>
+                                <th style="text-align: center; padding: 0.5rem;">Recommended Strategy</th>
+                                <th style="text-align: left; padding: 0.5rem;">Rationale</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">&lt; 1 hour</td>
+                                <td style="text-align: center; padding: 0.5rem;">B (pre-train + fine-tune)</td>
+                                <td style="padding: 0.5rem;">Too little data for joint training to converge. Maximum transfer from Russian pre-training.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">1 &ndash; 10 hours</td>
+                                <td style="text-align: center; padding: 0.5rem;">C (progressive)</td>
+                                <td style="padding: 0.5rem;">Enough data for meaningful bilingual learning, but still benefits from Russian-first curriculum.</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem;">&gt; 10 hours</td>
+                                <td style="text-align: center; padding: 0.5rem;">A (joint from scratch)</td>
+                                <td style="padding: 0.5rem;">Sufficient data for both languages. Joint training is simplest and produces good results.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    <strong>Mitigating catastrophic forgetting.</strong> When fine-tuning a pre-trained Russian model on bilingual data (Strategy B), the model risks "forgetting" how to speak Russian well. Two techniques help:
+                </p>
+                <ul>
+                    <li><strong>Elastic Weight Consolidation (EWC):</strong> Add a regularization term that penalizes changes to parameters that were important for Russian: $\mathcal{L}_{\text{EWC}} = \sum_i \frac{\lambda}{2} F_i (\theta_i - \theta_i^*)^2$, where $F_i$ is the Fisher information of parameter $i$ computed on the Russian dataset, $\theta_i^*$ is the pre-trained value, and $\lambda$ controls the regularization strength. Parameters that were critical for Russian quality (high Fisher information) are protected from large changes.</li>
+                    <li><strong>Learning rate scheduling:</strong> Use a small learning rate (1/10th of initial) for shared parameters and a larger learning rate for language-specific parameters (language embedding, new Kyrgyz phoneme embeddings). This allows the model to learn Kyrgyz-specific features without disrupting shared representations.</li>
+                </ul>
+
+                <!-- Section 7: Experiments and Quality Metrics -->
+                <h2 id="experiments">Experiments and Quality Metrics</h2>
+
+                <p>
+                    Evaluating a bilingual TTS system requires more than just overall quality scores &mdash; we need per-language evaluation, cross-lingual comparison, and code-switching assessment. The evaluation protocol must be designed carefully to capture all the dimensions that matter for real-world deployment.
+                </p>
+
+                <p>
+                    <strong>Per-language MOS evaluation.</strong> The primary subjective metric is Mean Opinion Score (MOS), collected separately for each language. Native Russian speakers rate Russian utterances on a 1&ndash;5 scale for naturalness, and native Kyrgyz speakers rate Kyrgyz utterances on the same scale. Critically, the rater pool must include bilingual speakers who can assess both languages and detect cross-lingual artifacts (e.g., Russian-accented Kyrgyz or vice versa). A well-designed evaluation uses 20&ndash;30 test sentences per language, 15&ndash;20 raters per language, and includes both the bilingual model and monolingual baselines for comparison.
+                </p>
+
+                <p>
+                    <strong>Code-switching test sentences.</strong> A unique aspect of bilingual evaluation is testing utterances that mix both languages. Example test sentences include:
+                </p>
+                <ul>
+                    <li>"Мен <em>университетте</em> окуйм, <em>факультет</em> информатики." (I study at the university, informatics faculty.) &mdash; Kyrgyz sentence with Russian loanword.</li>
+                    <li>"Давайте встретимся на <em>Манас проспектиси</em> в три часа." (Let's meet at Manas Avenue at three o'clock.) &mdash; Russian sentence with Kyrgyz place name.</li>
+                    <li>"<em>Саламатсызбы</em>, меня зовут Айдай, я из Бишкека." (Hello, my name is Aiday, I'm from Bishkek.) &mdash; Kyrgyz greeting followed by Russian self-introduction.</li>
+                </ul>
+                <p>
+                    These sentences test the model's ability to transition smoothly between languages at word boundaries, maintain consistent prosody across the switch, and correctly pronounce language-specific phonemes in context.
+                </p>
+
+                <p>
+                    <strong>ABX preference test.</strong> In addition to absolute MOS ratings, an ABX preference test directly compares the bilingual model against monolingual baselines. Listeners hear two versions of the same sentence (one from the bilingual model, one from a monolingual model) and indicate which they prefer. This controls for content effects and provides a direct measure of relative quality. The key comparisons are:
+                </p>
+                <ul>
+                    <li>Bilingual model (Russian) vs Monolingual Russian model</li>
+                    <li>Bilingual model (Kyrgyz) vs Monolingual Kyrgyz model</li>
+                    <li>Bilingual model (code-switching) vs Concatenated monolingual outputs</li>
+                </ul>
+
+                <p>
+                    <strong>Expected results based on literature.</strong> Research on bilingual and multilingual TTS consistently shows the following patterns:
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Expected Quality Trade-offs</div>
+                    <ul>
+                        <li><strong>High-resource language (Russian):</strong> The bilingual model typically achieves MOS within 0.1&ndash;0.3 of the monolingual Russian baseline. The slight degradation comes from sharing model capacity with Kyrgyz. With sufficient model size, the gap can be negligible.</li>
+                        <li><strong>Low-resource language (Kyrgyz):</strong> The bilingual model <em>significantly outperforms</em> a monolingual Kyrgyz model trained on the same limited data. The improvement can be 0.5&ndash;1.0 MOS points, because cross-lingual transfer provides acoustic knowledge that the small Kyrgyz dataset alone cannot supply. This is the primary motivation for bilingual training.</li>
+                        <li><strong>Code-switching:</strong> The bilingual model produces more natural code-switching than concatenating outputs from two monolingual models, because it maintains consistent speaker characteristics and prosody across the language boundary.</li>
+                    </ul>
+                </div>
+
+                <p>
+                    <strong>Objective metrics.</strong> While MOS is the gold standard, objective metrics provide faster, reproducible evaluation during development. The key metrics per language are:
+                </p>
+                <ul>
+                    <li><strong>Mel Cepstral Distortion (MCD):</strong> Measures the spectral distance between generated and reference mel-spectrograms, in dB. Lower is better. Typical values: 5&ndash;7 dB for good TTS systems. Compare MCD separately for Russian and Kyrgyz test sets.</li>
+                    <li><strong>F0 RMSE:</strong> Root mean square error of the fundamental frequency contour, in Hz. Measures pitch accuracy. Important for Kyrgyz (where pitch is less variable) and Russian (where stress creates large pitch excursions).</li>
+                    <li><strong>Duration accuracy:</strong> Mean absolute error between predicted and reference phoneme durations, in milliseconds. Evaluate separately because Russian and Kyrgyz have different duration statistics.</li>
+                    <li><strong>Character Error Rate (CER):</strong> Feed the synthesized audio through an ASR system and compute CER. This measures intelligibility. Use separate ASR models for each language, or a bilingual ASR if available.</li>
+                </ul>
+
+                <!-- Section 8: The Verdict -->
+                <h2 id="verdict">The Verdict</h2>
+
+                <p>
+                    After examining the linguistic foundations, phoneme design, data strategies, architectural modifications, training approaches, and evaluation methods, we can formulate a clear decision framework for when to use a bilingual model versus separate monolingual models for Russian and Kyrgyz TTS.
+                </p>
+
+                <p>
+                    <strong>Use a joint bilingual model when:</strong>
+                </p>
+                <ul>
+                    <li>Kyrgyz data is less than 5 hours &mdash; the cross-lingual transfer benefit is largest in this regime.</li>
+                    <li>Code-switching is needed &mdash; only a bilingual model can handle mixed-language utterances naturally.</li>
+                    <li>Deployment simplicity is a priority &mdash; one model, one inference pipeline, one set of weights.</li>
+                    <li>Speaker consistency across languages is required &mdash; the same voice speaking both languages.</li>
+                </ul>
+
+                <p>
+                    <strong>Use separate monolingual models when:</strong>
+                </p>
+                <ul>
+                    <li>Both languages have more than 20 hours of data &mdash; each language has enough data to train independently.</li>
+                    <li>Maximum quality for each language is the priority and code-switching is not needed.</li>
+                    <li>The languages will be used in strictly separate contexts with no mixing.</li>
+                    <li>Model size is constrained and the additional capacity for bilingual support is not available.</li>
+                </ul>
+
+                <p>
+                    <strong>Transfer benefit formula.</strong> The quality improvement that Kyrgyz gains from bilingual training with Russian follows an approximate relationship:
+                </p>
+                $$\Delta_Q \propto \frac{1}{\sqrt{|D_{\text{KY}}|}}$$
+                <p>
+                    where $\Delta_Q$ is the MOS improvement over a monolingual Kyrgyz model and $|D_{\text{KY}}|$ is the size of the Kyrgyz dataset in hours. This inverse square-root relationship means that the benefit is enormous when Kyrgyz data is very scarce (0.5&ndash;1 hour), substantial when moderate (2&ndash;5 hours), and diminishes as data grows (>10 hours). Beyond ~20 hours of Kyrgyz data, the transfer benefit becomes negligible &mdash; the monolingual model has enough data to learn on its own.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Future Directions: Central Asian Multilingual TTS</div>
+                    <p>
+                        The bilingual Russian-Kyrgyz framework naturally extends to other Central Asian languages. <strong>Kazakh</strong>, a fellow Kipchak Turkic language, shares extensive vocabulary and grammatical structure with Kyrgyz (mutual intelligibility is high), making it the ideal next language to add. The phoneme set expansion is minimal: Kazakh adds a few unique phonemes (e.g., specific vowel length distinctions) while sharing the vast majority with Kyrgyz. <strong>Uzbek</strong>, a Karluk Turkic language, adds more divergence but still shares the Turkic vowel harmony foundation. <strong>Tajik</strong>, an Iranian language written in Cyrillic, would test the framework's ability to handle a non-Turkic language in the same system.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        The broader vision is a <strong>single multilingual TTS model for Central Asia</strong> &mdash; one system that speaks Russian, Kyrgyz, Kazakh, Uzbek, and Tajik with natural code-switching between any pair. This is not just an engineering challenge but a step toward linguistic equity: giving underrepresented languages the same quality of speech technology that major languages enjoy. The techniques developed in this tutorial &mdash; unified phoneme sets, temperature sampling, language conditioning, progressive training &mdash; scale directly to this multilingual setting.
+                    </p>
+                </div>
+
+                <!-- Tutorial Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../34-vits/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; VITS: End-to-End TTS</span>
+                    </a>
+                    <a class="tutorial-nav-link next disabled" style="opacity: 0.4; cursor: default;">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">End of Series</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>Practical implementations of the bilingual TTS components discussed in the theory section. These examples cover phoneme set construction, training configuration, and bilingual inference with code-switching.</p>
+
+                <!-- Code Example 1: Unified Phoneme Set Construction -->
+                <h3>1. Unified Phoneme Set Construction for RU+KY</h3>
+                <p>Defines the phoneme inventories for Russian and Kyrgyz, maps both to IPA, finds shared phonemes, and constructs the unified set with special tokens.</p>
+
+<pre><code>"""
+Unified Phoneme Set Construction for Russian + Kyrgyz TTS
+Approach C: IPA-based merging of shared phonemes
+"""
+from dataclasses import dataclass, field
+from typing import Dict, List, Set, Tuple
+
+
+@dataclass
+class PhonemeInventory:
+    """Phoneme inventory for a single language."""
+    language: str
+    vowels: Dict[str, str]       # grapheme -> IPA
+    consonants: Dict[str, str]   # grapheme -> IPA
+    special: Dict[str, str]      # special graphemes -> IPA
+
+    @property
+    def all_phonemes(self) -&gt; Set[str]:
+        """Return all unique IPA phonemes."""
+        return (set(self.vowels.values()) |
+                set(self.consonants.values()) |
+                set(self.special.values()))
+
+
+# === Russian Phoneme Inventory ===
+russian = PhonemeInventory(
+    language="ru",
+    vowels={
+        # Stressed vowels
+        "a_stressed": "a",
+        "o_stressed": "o",
+        "u_stressed": "u",
+        "e_stressed": "e",
+        "i_stressed": "i",
+        "y_stressed": "y",  # as in "ты"
+        # Unstressed (reduced) vowels
+        "a_unstressed": "schwa",
+        "o_unstressed": "schwa",
+        "e_unstressed": "i_reduced",
+    },
+    consonants={
+        # Hard consonants
+        "p": "p", "b": "b", "t": "t", "d": "d",
+        "k": "k", "g": "g", "f": "f", "v": "v",
+        "s": "s", "z": "z", "m": "m", "n": "n",
+        "l": "l", "r": "r", "sh": "sh", "zh": "zh",
+        "ts": "ts", "ch": "tsh", "kh": "x",
+        # Palatalized (soft) consonants
+        "pj": "pj", "bj": "bj", "tj": "tj", "dj": "dj",
+        "kj": "kj", "gj": "gj", "fj": "fj", "vj": "vj",
+        "sj": "sj", "zj": "zj", "mj": "mj", "nj": "nj",
+        "lj": "lj", "rj": "rj",
+        # Special
+        "shch": "shch", "j": "j",
+    },
+    special={"hard_sign": "HARD", "soft_sign": "SOFT"}
+)
+
+
+# === Kyrgyz Phoneme Inventory ===
+kyrgyz = PhonemeInventory(
+    language="ky",
+    vowels={
+        "a": "a", "e": "e", "i": "i", "o": "o", "u": "u",
+        "y": "y",         # back unrounded (ы)
+        "oe": "oe",       # front rounded (ө)
+        "yy": "yy",       # close front rounded (ү)
+        # Long vowels
+        "aa": "aa", "oo": "oo", "uu": "uu", "ee": "ee",
+    },
+    consonants={
+        "p": "p", "b": "b", "t": "t", "d": "d",
+        "k": "k", "g": "g", "f": "f", "v": "v",
+        "s": "s", "z": "z", "m": "m", "n": "n",
+        "l": "l", "r": "r", "sh": "sh", "zh": "zh",
+        "ch": "tsh", "j": "j",
+        # Kyrgyz-specific
+        "ng": "ng",       # velar nasal (ң)
+        "q": "q",         # uvular stop
+    },
+    special={}
+)
+
+
+def build_unified_phoneme_set(
+    inventories: List[PhonemeInventory]
+) -&gt; Tuple[Dict[str, int], Dict[str, List[str]]]:
+    """
+    Build unified IPA-based phoneme set from multiple languages.
+
+    Returns:
+        phoneme_to_id: mapping from IPA phoneme to integer ID
+        phoneme_sources: mapping from IPA phoneme to list of source languages
+    """
+    # Special tokens (always first)
+    special_tokens = ["[PAD]", "[SIL]", "[WB]", "[LANG_RU]", "[LANG_KY]"]
+
+    # Collect all phonemes and track which languages use them
+    phoneme_sources: Dict[str, List[str]] = {}
+    for inv in inventories:
+        for phoneme in inv.all_phonemes:
+            if phoneme not in phoneme_sources:
+                phoneme_sources[phoneme] = []
+            phoneme_sources[phoneme].append(inv.language)
+
+    # Sort phonemes: shared first, then by language
+    shared = sorted([p for p, langs in phoneme_sources.items() if len(langs) &gt; 1])
+    ru_only = sorted([p for p, langs in phoneme_sources.items()
+                      if langs == ["ru"]])
+    ky_only = sorted([p for p, langs in phoneme_sources.items()
+                      if langs == ["ky"]])
+
+    # Build the phoneme-to-ID mapping
+    all_phonemes = special_tokens + shared + ru_only + ky_only
+    phoneme_to_id = {p: i for i, p in enumerate(all_phonemes)}
+
+    return phoneme_to_id, phoneme_sources
+
+
+# === Build and display the unified set ===
+phoneme_to_id, phoneme_sources = build_unified_phoneme_set([russian, kyrgyz])
+
+# Categorize phonemes
+shared = [p for p, langs in phoneme_sources.items() if len(langs) &gt; 1]
+ru_only = [p for p, langs in phoneme_sources.items() if langs == ["ru"]]
+ky_only = [p for p, langs in phoneme_sources.items() if langs == ["ky"]]
+
+print("=" * 60)
+print("UNIFIED PHONEME SET FOR RUSSIAN + KYRGYZ TTS")
+print("=" * 60)
+print(f"\nTotal phonemes: {len(phoneme_to_id)}")
+print(f"  Special tokens:     {5}")
+print(f"  Shared (RU &amp; KY):   {len(shared)}")
+print(f"  Russian-only:       {len(ru_only)}")
+print(f"  Kyrgyz-only:        {len(ky_only)}")
+
+print(f"\nShared phonemes ({len(shared)}):")
+print(f"  {', '.join(sorted(shared))}")
+
+print(f"\nRussian-only phonemes ({len(ru_only)}):")
+print(f"  {', '.join(sorted(ru_only))}")
+
+print(f"\nKyrgyz-only phonemes ({len(ky_only)}):")
+print(f"  {', '.join(sorted(ky_only))}")
+
+print("\nFull phoneme-to-ID mapping:")
+for phoneme, idx in sorted(phoneme_to_id.items(), key=lambda x: x[1]):
+    source = phoneme_sources.get(phoneme, ["special"])
+    print(f"  {idx:3d}: {phoneme:&lt;15s}  ({', '.join(source)})")</code></pre>
+
+                <!-- Code Example 2: Bilingual VITS Config -->
+                <h3>2. Bilingual VITS Config with Temperature Sampler</h3>
+                <p>Configuration and temperature-based data sampling implementation for bilingual VITS training. Includes language-specific data paths, sampling logic, and training hyperparameters.</p>
+
+<pre><code>"""
+Bilingual VITS Training Configuration and Temperature Sampler
+Supports Russian + Kyrgyz with configurable temperature scheduling.
+"""
+import math
+import random
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
+
+@dataclass
+class LanguageConfig:
+    """Configuration for a single language dataset."""
+    language_id: int
+    name: str
+    data_dir: str
+    filelist: str
+    hours: float
+    sample_rate: int = 22050
+    g2p_backend: str = "espeak"  # or "custom"
+
+
+@dataclass
+class BilingualVITSConfig:
+    """Full configuration for bilingual VITS training."""
+
+    # === Language configs ===
+    languages: Dict[str, LanguageConfig] = field(default_factory=lambda: {
+        "ru": LanguageConfig(
+            language_id=0,
+            name="Russian",
+            data_dir="/data/tts/russian",
+            filelist="/data/tts/russian/filelist_train.txt",
+            hours=100.0,
+            g2p_backend="espeak",
+        ),
+        "ky": LanguageConfig(
+            language_id=1,
+            name="Kyrgyz",
+            data_dir="/data/tts/kyrgyz",
+            filelist="/data/tts/kyrgyz/filelist_train.txt",
+            hours=3.0,
+            g2p_backend="custom",
+        ),
+    })
+
+    # === Model architecture ===
+    n_phonemes: int = 52           # unified IPA phoneme set size
+    hidden_dim: int = 192          # hidden dimension
+    language_embed_dim: int = 64   # language embedding dimension
+    speaker_embed_dim: int = 256   # speaker embedding dimension
+    n_speakers: int = 10           # total speakers across languages
+    n_flow_steps: int = 4          # number of flow steps
+    mel_channels: int = 80         # mel-spectrogram channels
+
+    # === Temperature sampling ===
+    temperature_target: float = 5.0    # target temperature T
+    temperature_warmup_start: int = 10000   # step to begin T warmup
+    temperature_warmup_end: int = 60000     # step to reach target T
+
+    # === Training ===
+    batch_size: int = 32
+    learning_rate: float = 2e-4
+    total_steps: int = 500000
+    grad_clip: float = 5.0
+
+    # === Fine-tuning (Strategy B) ===
+    pretrained_checkpoint: Optional[str] = None
+    shared_lr_scale: float = 0.1   # LR multiplier for shared params
+    ewc_lambda: float = 100.0      # EWC regularization strength
+
+
+class TemperatureSampler:
+    """
+    Temperature-based language sampler for bilingual training.
+
+    Sampling probability: p(L_i) = |D_i|^(1/T) / sum_j |D_j|^(1/T)
+    Temperature schedule: linear warmup from T=1 to T_target.
+    """
+    def __init__(self, config: BilingualVITSConfig):
+        self.config = config
+        self.lang_keys = list(config.languages.keys())
+        self.dataset_sizes = {
+            k: v.hours for k, v in config.languages.items()
+        }
+
+    def get_temperature(self, step: int) -&gt; float:
+        """Compute current temperature based on training step."""
+        cfg = self.config
+        if step &lt; cfg.temperature_warmup_start:
+            return 1.0
+        elif step &lt; cfg.temperature_warmup_end:
+            progress = (step - cfg.temperature_warmup_start) / (
+                cfg.temperature_warmup_end - cfg.temperature_warmup_start
+            )
+            return 1.0 + (cfg.temperature_target - 1.0) * progress
+        else:
+            return cfg.temperature_target
+
+    def get_probabilities(self, step: int) -&gt; Dict[str, float]:
+        """Compute sampling probability for each language."""
+        T = self.get_temperature(step)
+        # p(L_i) = |D_i|^(1/T) / sum_j |D_j|^(1/T)
+        weights = {}
+        for lang, size in self.dataset_sizes.items():
+            weights[lang] = size ** (1.0 / T)
+
+        total = sum(weights.values())
+        probs = {lang: w / total for lang, w in weights.items()}
+        return probs
+
+    def sample_language(self, step: int) -&gt; str:
+        """Sample a language for the current batch."""
+        probs = self.get_probabilities(step)
+        r = random.random()
+        cumulative = 0.0
+        for lang, p in probs.items():
+            cumulative += p
+            if r &lt; cumulative:
+                return lang
+        return self.lang_keys[-1]  # fallback
+
+
+# === Demo: show sampling schedule ===
+config = BilingualVITSConfig()
+sampler = TemperatureSampler(config)
+
+print("=" * 65)
+print("BILINGUAL VITS TEMPERATURE SAMPLING SCHEDULE")
+print("=" * 65)
+print(f"Russian data: {config.languages['ru'].hours}h")
+print(f"Kyrgyz data:  {config.languages['ky'].hours}h")
+print(f"Ratio: {config.languages['ru'].hours / config.languages['ky'].hours:.0f}:1")
+print(f"Target temperature: {config.temperature_target}")
+print()
+
+header = f"{'Step':&gt;8s}  {'Temp':&gt;6s}  {'p(RU)':&gt;8s}  {'p(KY)':&gt;8s}  {'KY oversample':&gt;14s}"
+print(header)
+print("-" * len(header))
+
+for step in [0, 5000, 10000, 20000, 35000, 50000, 60000, 100000, 300000]:
+    T = sampler.get_temperature(step)
+    probs = sampler.get_probabilities(step)
+    # Oversampling factor = p(KY) / proportional_p(KY)
+    prop_ky = config.languages['ky'].hours / (
+        config.languages['ru'].hours + config.languages['ky'].hours
+    )
+    oversample = probs['ky'] / prop_ky if prop_ky &gt; 0 else 0
+
+    print(f"{step:&gt;8d}  {T:&gt;6.2f}  {probs['ru']:&gt;7.1%}  "
+          f"{probs['ky']:&gt;7.1%}  {oversample:&gt;13.1f}x")
+
+print()
+print("Model architecture:")
+print(f"  Phoneme set size:      {config.n_phonemes}")
+print(f"  Hidden dimension:      {config.hidden_dim}")
+print(f"  Language embed dim:    {config.language_embed_dim}")
+print(f"  Speaker embed dim:     {config.speaker_embed_dim}")
+print(f"  Flow steps:            {config.n_flow_steps}")
+print(f"  Mel channels:          {config.mel_channels}")</code></pre>
+
+                <!-- Code Example 3: Bilingual Inference with Code-Switching -->
+                <h3>3. Bilingual Inference with Code-Switching</h3>
+                <p>Inference pipeline that takes mixed Russian/Kyrgyz text, detects the language per segment, applies appropriate G2P, and generates speech through the bilingual VITS model.</p>
+
+<pre><code>"""
+Bilingual Inference with Code-Switching Detection
+Takes mixed RU/KY text, segments by language, and synthesizes speech.
+"""
+import re
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
+
+# === Kyrgyz-specific characters for language detection ===
+KYRGYZ_ONLY_CHARS = set("ңөү")          # Characters unique to Kyrgyz Cyrillic
+RUSSIAN_ONLY_CHARS = set("щъэ")         # Characters rare/absent in Kyrgyz
+SHARED_CYRILLIC = set("абвгдежзийклмнопрстуфхцчшыьюя")
+
+
+@dataclass
+class TextSegment:
+    """A segment of text with its detected language."""
+    text: str
+    language: str   # "ru" or "ky"
+    phonemes: List[str] = None
+
+
+def detect_language_per_word(text: str) -&gt; List[TextSegment]:
+    """
+    Detect language for each word in a mixed RU/KY sentence.
+
+    Heuristic: if a word contains Kyrgyz-only characters (ң, ө, ү),
+    it is Kyrgyz. Otherwise, default to Russian (higher prior due to
+    more training data).
+
+    Returns:
+        List of TextSegment objects, one per contiguous same-language span.
+    """
+    words = text.split()
+    segments = []
+    current_lang = None
+    current_words = []
+
+    for word in words:
+        word_lower = word.lower()
+        chars = set(word_lower)
+
+        if chars &amp; KYRGYZ_ONLY_CHARS:
+            lang = "ky"
+        elif chars &amp; RUSSIAN_ONLY_CHARS:
+            lang = "ru"
+        else:
+            # Ambiguous: use context or default to Russian
+            lang = current_lang if current_lang else "ru"
+
+        if lang == current_lang:
+            current_words.append(word)
+        else:
+            if current_words:
+                segments.append(TextSegment(
+                    text=" ".join(current_words),
+                    language=current_lang
+                ))
+            current_lang = lang
+            current_words = [word]
+
+    if current_words:
+        segments.append(TextSegment(
+            text=" ".join(current_words),
+            language=current_lang
+        ))
+
+    return segments
+
+
+# === Simplified G2P for demonstration ===
+
+# Russian G2P (simplified - real implementation uses stress dictionary)
+RUSSIAN_G2P_MAP = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d",
+    "е": "e", "ж": "zh", "з": "z", "и": "i", "й": "j",
+    "к": "k", "л": "l", "м": "m", "н": "n", "о": "o",
+    "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "x", "ц": "ts", "ч": "tsh", "ш": "sh",
+    "щ": "shch", "ъ": "HARD", "ы": "y", "ь": "SOFT",
+    "э": "e", "ю": "ju", "я": "ja",
+}
+
+# Kyrgyz G2P (largely phonemic orthography)
+KYRGYZ_G2P_MAP = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d",
+    "е": "e", "ж": "zh", "з": "z", "и": "i", "й": "j",
+    "к": "k", "л": "l", "м": "m", "н": "n", "о": "o",
+    "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "x", "ц": "ts", "ч": "tsh", "ш": "sh",
+    "ы": "y", "э": "e", "ю": "ju", "я": "ja",
+    # Kyrgyz-specific
+    "ң": "ng", "ө": "oe", "ү": "yy",
+}
+
+
+def g2p(text: str, language: str) -&gt; List[str]:
+    """Convert text to phoneme sequence using language-appropriate G2P."""
+    g2p_map = RUSSIAN_G2P_MAP if language == "ru" else KYRGYZ_G2P_MAP
+    phonemes = []
+    for char in text.lower():
+        if char in g2p_map:
+            phonemes.append(g2p_map[char])
+        elif char == " ":
+            phonemes.append("[WB]")
+        # Skip unknown characters (punctuation, etc.)
+    return phonemes
+
+
+def prepare_bilingual_input(
+    text: str,
+    phoneme_to_id: Dict[str, int]
+) -&gt; Tuple[List[int], List[int]]:
+    """
+    Full bilingual inference preprocessing pipeline.
+
+    Args:
+        text: mixed RU/KY input text
+        phoneme_to_id: unified phoneme set mapping
+
+    Returns:
+        phoneme_ids: list of integer phoneme IDs
+        language_ids: list of language IDs (0=RU, 1=KY) per phoneme
+    """
+    segments = detect_language_per_word(text)
+    all_phoneme_ids = []
+    all_language_ids = []
+
+    lang_to_id = {"ru": 0, "ky": 1}
+    lang_tokens = {"ru": "[LANG_RU]", "ky": "[LANG_KY]"}
+
+    for i, segment in enumerate(segments):
+        # Add language marker at the start of each segment
+        lang_token = lang_tokens[segment.language]
+        if lang_token in phoneme_to_id:
+            all_phoneme_ids.append(phoneme_to_id[lang_token])
+            all_language_ids.append(lang_to_id[segment.language])
+
+        # Convert text to phonemes
+        phonemes = g2p(segment.text, segment.language)
+        segment.phonemes = phonemes
+
+        for p in phonemes:
+            if p in phoneme_to_id:
+                all_phoneme_ids.append(phoneme_to_id[p])
+                all_language_ids.append(lang_to_id[segment.language])
+
+        # Add word boundary between segments
+        if i &lt; len(segments) - 1 and "[WB]" in phoneme_to_id:
+            all_phoneme_ids.append(phoneme_to_id["[WB]"])
+            all_language_ids.append(lang_to_id[segment.language])
+
+    return all_phoneme_ids, all_language_ids
+
+
+# === Demo: process code-switching sentences ===
+# First build a minimal phoneme_to_id for demonstration
+all_phonemes = (
+    ["[PAD]", "[SIL]", "[WB]", "[LANG_RU]", "[LANG_KY]"] +
+    sorted(set(list(RUSSIAN_G2P_MAP.values()) +
+               list(KYRGYZ_G2P_MAP.values())))
+)
+phoneme_to_id = {p: i for i, p in enumerate(all_phonemes)}
+
+# Test sentences with code-switching
+test_sentences = [
+    "Саламатсызбы, меня зовут Айдай",
+    "Давайте встретимся на Манас проспектиси",
+    "Мен университетте окуйм факультет информатики",
+    "Бүгүн погода жакшы очень тёплый день",
+]
+
+print("=" * 65)
+print("BILINGUAL INFERENCE WITH CODE-SWITCHING")
+print("=" * 65)
+
+for sentence in test_sentences:
+    print(f"\nInput: {sentence}")
+
+    segments = detect_language_per_word(sentence)
+    print("Segments:")
+    for seg in segments:
+        phonemes = g2p(seg.text, seg.language)
+        print(f"  [{seg.language.upper()}] \"{seg.text}\"")
+        print(f"        phonemes: {' '.join(phonemes)}")
+
+    phoneme_ids, lang_ids = prepare_bilingual_input(sentence, phoneme_to_id)
+    print(f"Total phonemes: {len(phoneme_ids)}")
+    print(f"Language IDs:   {lang_ids[:10]}... (0=RU, 1=KY)")
+    print("-" * 65)</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of bilingual TTS design, data imbalance strategies, phoneme set construction, and cross-lingual transfer. Exercises range from basic calculations to advanced system design. Solutions are provided for self-study.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Phoneme Inventory Counting</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Given the phoneme inventories described in this tutorial: (a) How many total unique IPA phonemes are in the unified set (excluding special tokens)? (b) What percentage of phonemes are shared between Russian and Kyrgyz? (c) If we used Approach B (language-tagged, no sharing), how many phonemes would the set contain?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> The unified set contains approximately: 19 shared + 21 Russian-only + 8 Kyrgyz-only = <strong>48 phonemes</strong> (excluding the 4 special tokens, for 52 total with special tokens).</p>
+                                <p><strong>(b)</strong> Shared percentage: $19 / 48 = 39.6\%$. About 40% of the phonemes are shared between languages. This is a substantial overlap that enables meaningful cross-lingual transfer.</p>
+                                <p><strong>(c)</strong> With Approach B (no sharing), every phoneme gets a language prefix. Russian has ~42 phonemes and Kyrgyz has ~34 phonemes, giving $42 + 34 = 76$ phonemes plus special tokens. This is 58% larger than the unified set (48), and none of the transfer benefit between shared sounds would apply. The embedding table would be larger, and the model would need to learn independently that <code>ru_a</code> and <code>ky_a</code> sound identical.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Temperature Sampling Calculation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You have 200 hours of Russian data and 2 hours of Kyrgyz data (100:1 ratio). (a) Compute the sampling probabilities $p(\text{RU})$ and $p(\text{KY})$ for $T = 1, 3, 5, 10$. (b) At $T = 5$, how many times per epoch will the Kyrgyz data be repeated? (c) What temperature $T$ gives exactly 50/50 sampling?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Using $p(L_i) = |D_i|^{1/T} / \sum_j |D_j|^{1/T}$:</p>
+                                <ul>
+                                    <li>$T = 1$: $p(\text{RU}) = 200 / 202 = 99.0\%$, $p(\text{KY}) = 2/202 = 1.0\%$</li>
+                                    <li>$T = 3$: $p(\text{RU}) = 200^{1/3} / (200^{1/3} + 2^{1/3}) = 5.848 / (5.848 + 1.260) = 82.3\%$, $p(\text{KY}) = 17.7\%$</li>
+                                    <li>$T = 5$: $p(\text{RU}) = 200^{0.2} / (200^{0.2} + 2^{0.2}) = 2.885 / (2.885 + 1.149) = 71.5\%$, $p(\text{KY}) = 28.5\%$</li>
+                                    <li>$T = 10$: $p(\text{RU}) = 200^{0.1} / (200^{0.1} + 2^{0.1}) = 1.699 / (1.699 + 1.072) = 61.3\%$, $p(\text{KY}) = 38.7\%$</li>
+                                </ul>
+                                <p><strong>(b)</strong> At $T = 5$, Kyrgyz is sampled 28.5% of the time. In one "epoch" (seeing all Russian data once), the total training batches are proportional to 200 hours at 71.5%, so total effective hours = $200 / 0.715 = 279.7$. Kyrgyz hours sampled = $279.7 \times 0.285 = 79.7$ hours. With 2 hours of Kyrgyz data, this means <strong>~40 repetitions</strong> per epoch.</p>
+                                <p><strong>(c)</strong> For 50/50 sampling: $200^{1/T} = 2^{1/T}$, which requires $200 = 2$, which is impossible. As $T \to \infty$, probabilities approach $1/K = 50\%$ but never exactly equal for finite $T$. In practice, $T > 100$ gives approximately uniform sampling. Alternatively, use $T = \infty$ (uniform sampling) explicitly.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Language Embedding Design</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The language embedding $e_L \in \mathbb{R}^{64}$ is added to every hidden state in the text encoder (dimension 192). (a) How many learnable parameters does the language embedding table add for 2 languages? (b) If we instead concatenated the language embedding (rather than adding), what dimension change would this cause in the encoder? (c) Which approach (add vs concatenate) is better and why?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> The embedding table has shape $2 \times 64 = 128$ learnable parameters. This is negligible compared to the total model size (typically millions of parameters).</p>
+                                <p><strong>(b)</strong> If concatenated, the hidden dimension increases from 192 to $192 + 64 = 256$. This means every subsequent layer (self-attention, feed-forward, projections) must accept 256-dimensional input instead of 192. All weight matrices in the encoder would change shape, adding substantial parameters. For example, the first self-attention layer's Q, K, V projections change from $192 \times 192$ to $256 \times 256$ each, adding $(256^2 - 192^2) \times 3 = 84{,}480$ parameters per attention layer.</p>
+                                <p><strong>(c)</strong> <strong>Addition is better</strong> for this use case. It keeps the hidden dimension unchanged, requires no architectural modifications, and adds minimal parameters. Concatenation would be justified if the language embedding needed to be preserved without interference (as in some multi-task learning settings), but for language conditioning where the embedding simply biases the representations, addition is sufficient and more efficient. The model can learn to project the 64-dim language embedding into the 192-dim space through the additive interaction.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. Kyrgyz Vowel Harmony in G2P</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Kyrgyz vowel harmony requires that all vowels in a word agree in frontness/backness: front vowels (е, и, ө, ү) and back vowels (а, о, у, ы). (a) Write the rule for determining whether a suffix vowel should be front or back. (b) Given the word root "кол" (hand) and the dative suffix "-го/-гө", which form is correct and why? (c) How would you implement vowel harmony detection in a G2P system to improve phoneme accuracy?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> The rule: examine the <em>last vowel</em> in the word root. If it is a back vowel (а, о, у, ы), the suffix takes its back vowel variant. If it is a front vowel (е, и, ө, ү), the suffix takes its front vowel variant. This is progressive vowel harmony &mdash; the root determines the suffix's vowel quality.</p>
+                                <p><strong>(b)</strong> "кол" contains the vowel "о" (a back vowel). Therefore, the dative suffix takes the back variant: <strong>"колго"</strong> (not "колгө"). If the root were "көл" (lake), with "ө" (a front vowel), the dative would be "көлгө".</p>
+                                <p><strong>(c)</strong> Implementation in G2P:</p>
+<pre><code>def apply_vowel_harmony(word: str) -&gt; str:
+    front_vowels = set("еиөүЕИӨҮ")
+    back_vowels = set("аоуыАОУЫ")
+
+    # Find last vowel in root to determine harmony class
+    last_vowel_class = None
+    for char in reversed(word):
+        if char in front_vowels:
+            last_vowel_class = "front"
+            break
+        elif char in back_vowels:
+            last_vowel_class = "back"
+            break
+
+    # This class determines suffix vowel selection
+    return last_vowel_class  # "front" or "back"</code></pre>
+                                <p>In a full G2P system, this harmony class would be used to select the correct allophone for suffix vowels. For TTS, getting vowel harmony wrong produces noticeable pronunciation errors that native speakers immediately detect.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Transfer Learning Schedule Design</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Design a complete training schedule for Strategy C (progressive training) given: 80 hours of Russian data, 4 hours of Kyrgyz data, target 300k total steps. Specify: (a) The temperature schedule (start, transitions, final value). (b) The learning rate schedule. (c) When to start evaluating Kyrgyz quality. (d) Early stopping criteria for both languages.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Temperature schedule:</strong></p>
+                                <ul>
+                                    <li>Steps 0&ndash;15k: $T = 1$ (pure proportional, ~95% Russian). The model learns basic acoustic modeling.</li>
+                                    <li>Steps 15k&ndash;80k: Linear warmup from $T = 1$ to $T = 5$. Kyrgyz proportion gradually increases from ~5% to ~30%.</li>
+                                    <li>Steps 80k&ndash;300k: $T = 5$ (stable). Approximately 70% Russian / 30% Kyrgyz.</li>
+                                </ul>
+                                <p><strong>(b) Learning rate schedule:</strong></p>
+                                <ul>
+                                    <li>Steps 0&ndash;5k: Linear warmup from 0 to $2 \times 10^{-4}$.</li>
+                                    <li>Steps 5k&ndash;200k: Constant at $2 \times 10^{-4}$.</li>
+                                    <li>Steps 200k&ndash;300k: Cosine decay to $1 \times 10^{-5}$.</li>
+                                    <li>For language-specific parameters (language embeddings, new Kyrgyz phoneme embeddings): use $2\times$ the base learning rate throughout training.</li>
+                                </ul>
+                                <p><strong>(c) Kyrgyz evaluation timing:</strong> Start evaluating Kyrgyz quality at step 30k (when $T \approx 2$ and Kyrgyz proportion is ~15%). Evaluating earlier is misleading because the model has barely seen Kyrgyz data. Run evaluation every 10k steps for both languages.</p>
+                                <p><strong>(d) Early stopping criteria:</strong></p>
+                                <ul>
+                                    <li><strong>Russian:</strong> Stop if Russian MCD degrades by more than 0.5 dB compared to its best value for 3 consecutive evaluations. This catches catastrophic forgetting.</li>
+                                    <li><strong>Kyrgyz:</strong> Stop if Kyrgyz MCD has not improved for 50k steps (patience of 5 evaluations at 10k interval). This catches training plateau.</li>
+                                    <li><strong>Joint:</strong> Stop if the weighted metric $0.5 \times \text{MCD}_{\text{RU}} + 0.5 \times \text{MCD}_{\text{KY}}$ has not improved for 50k steps.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Data Imbalance Ablation Study</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Design an ablation study to determine the optimal temperature $T$ for a 50:1 Russian-to-Kyrgyz data ratio. (a) What values of $T$ would you test? (b) What metrics would you compare? (c) How would you determine statistical significance? (d) What is your hypothesis about which $T$ will work best?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Temperature values to test:</strong> $T \in \{1, 2, 3, 5, 7, 10, 20, \infty\}$. This covers proportional sampling ($T=1$), moderate rebalancing ($T=2$&ndash;$5$), aggressive rebalancing ($T=7$&ndash;$20$), and uniform sampling ($T=\infty$). Eight experiments total.</p>
+                                <p><strong>(b) Metrics to compare (per language):</strong></p>
+                                <ul>
+                                    <li>MOS (5 raters minimum, 20 test sentences per language)</li>
+                                    <li>MCD (mel cepstral distortion)</li>
+                                    <li>CER from ASR evaluation</li>
+                                    <li>Training stability (loss variance over last 10k steps)</li>
+                                </ul>
+                                <p><strong>(c) Statistical significance:</strong> Use a Wilcoxon signed-rank test for MOS comparisons (non-parametric, appropriate for ordinal Likert scale data). For MCD and CER, use a paired t-test across test sentences. Report 95% confidence intervals. With 20 test sentences, a MOS difference of ~0.2 is typically significant at $p < 0.05$.</p>
+                                <p><strong>(d) Hypothesis:</strong> $T \approx 3$&ndash;$5$ will work best for the joint metric (average of Russian and Kyrgyz quality). At $T = 1$, Kyrgyz quality will be poor. At $T = \infty$, Russian quality will degrade because the model sees Russian data at only 50% rate despite having 50x more. The optimal $T$ balances these: enough Kyrgyz exposure for good quality without excessive Russian undersampling.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Catastrophic Forgetting Analysis</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A pre-trained Russian VITS model achieves MOS 4.2 on Russian. After fine-tuning for bilingual RU+KY (Strategy B), Russian MOS drops to 3.8 while Kyrgyz achieves MOS 3.5. (a) Is this acceptable? Quantify the trade-off. (b) Estimate the EWC regularization strength $\lambda$ needed to keep Russian MOS above 4.0, assuming the relationship between $\lambda$ and MOS degradation is approximately $\Delta\text{MOS}_{\text{RU}} \approx -\frac{C}{\lambda}$ for some constant $C$. (c) What is the expected effect on Kyrgyz MOS as $\lambda$ increases?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Trade-off analysis:</strong></p>
+                                <p>Russian degradation: $4.2 - 3.8 = 0.4$ MOS points (9.5% relative drop). This is <em>noticeable</em> to listeners and likely <em>not acceptable</em> for production. A 0.1&ndash;0.2 MOS drop is typically acceptable; 0.4 is substantial. The Kyrgyz MOS of 3.5 is reasonable for a low-resource language but not outstanding. Net assessment: the forgetting is too severe; EWC or other mitigation is needed.</p>
+                                <p><strong>(b) EWC strength estimation:</strong></p>
+                                <p>Current (no EWC, $\lambda = 0$): $\Delta\text{MOS}_{\text{RU}} = -0.4$. We want $\Delta\text{MOS}_{\text{RU}} \geq -0.2$ (to keep MOS above 4.0). Using $\Delta\text{MOS}_{\text{RU}} \approx -C/\lambda$:</p>
+                                <p>At $\lambda = 0$ (no regularization), the loss is 0.4, so we need a reference point. More realistically, suppose at some small $\lambda_0 = 10$, $\Delta\text{MOS} = -0.3$. Then $C = 0.3 \times 10 = 3$. For $\Delta\text{MOS} = -0.2$: $\lambda = C / 0.2 = 15$.</p>
+                                <p>In practice, $\lambda$ is tuned empirically in the range $[1, 1000]$. Start with $\lambda = 100$ and adjust based on validation MOS.</p>
+                                <p><strong>(c) Effect on Kyrgyz:</strong> As $\lambda$ increases, the model's shared parameters are increasingly constrained to stay near their Russian-optimized values. This <em>reduces</em> the model's ability to adapt to Kyrgyz, so Kyrgyz MOS will decrease. There is an inherent trade-off: higher $\lambda$ protects Russian but harms Kyrgyz. The optimal $\lambda$ maximizes $\alpha \cdot \text{MOS}_{\text{RU}} + (1-\alpha) \cdot \text{MOS}_{\text{KY}}$ for some application-specific weight $\alpha$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Optimal Phoneme Sharing Ratio</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a continuum between Approach A (full character sharing) and Approach B (zero sharing), parameterized by a sharing ratio $\alpha \in [0, 1]$ where $\alpha = 1$ means full sharing and $\alpha = 0$ means no sharing. (a) Define formally what sharing ratio $\alpha$ means in terms of the phoneme embedding table. (b) Derive how the total number of phoneme embeddings varies with $\alpha$. (c) Argue whether there is a theoretical optimal $\alpha$ or whether it must be determined empirically. (d) How does the optimal $\alpha$ depend on the Kyrgyz data size?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Formal definition:</strong> Let $P_{\text{shared}}$ be the set of phonemes that could potentially be shared (phonemes appearing in both languages with similar IPA). Let $|P_{\text{shared}}| = S$. The sharing ratio $\alpha$ means that $\lfloor \alpha \cdot S \rfloor$ phonemes from this set are actually shared (use a single embedding), while the remaining $(1-\alpha) \cdot S$ are duplicated with language-specific embeddings.</p>
+                                <p><strong>(b) Total embeddings:</strong> Let $R$ = Russian-only phonemes, $K$ = Kyrgyz-only phonemes, $S$ = potentially shared. With sharing ratio $\alpha$:</p>
+                                $$N(\alpha) = R + K + \alpha \cdot S + 2(1-\alpha) \cdot S = R + K + S(2 - \alpha)$$
+                                <p>At $\alpha = 1$ (full sharing): $N = R + K + S$. At $\alpha = 0$ (no sharing): $N = R + K + 2S$. The range is from $R+K+S$ to $R+K+2S$, which for our numbers is approximately 48 to 67.</p>
+                                <p><strong>(c) Theoretical vs empirical:</strong> There is no closed-form optimal $\alpha$ because it depends on multiple factors: (1) the acoustic similarity of the "shared" phonemes across languages (some are truly identical, others are only approximately similar), (2) the data size ratio (with very little Kyrgyz data, sharing is more beneficial), and (3) model capacity (a larger model can handle more separate embeddings). The optimal $\alpha$ <em>must</em> be determined empirically, but theory suggests $\alpha$ should be higher when data is more imbalanced.</p>
+                                <p><strong>(d) Dependence on Kyrgyz data size:</strong> When $|D_{\text{KY}}|$ is very small (&lt;1h), high $\alpha$ (more sharing) is optimal because Kyrgyz phonemes lack enough examples to learn good independent embeddings, and sharing provides initialization from Russian data. As $|D_{\text{KY}}|$ grows (&gt;10h), lower $\alpha$ becomes acceptable because Kyrgyz has enough data to learn its own representations. The relationship is approximately: $\alpha_{\text{optimal}} \approx 1 - c \cdot \log(|D_{\text{KY}}|)$ for some constant $c > 0$, clamped to $[0, 1]$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Extending to Trilingual: Adding Kazakh</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You want to extend the bilingual RU+KY model to a trilingual RU+KY+KK (Kazakh) model. Kazakh is closely related to Kyrgyz (both Kipchak Turkic), uses Cyrillic, has ~10 hours of TTS data, and has 42 letters including special characters (ә, ғ, қ, ң, ө, ұ, ү, һ, і). (a) How would you extend the unified phoneme set? Estimate the new total size. (b) What temperature $T$ would you use for 100h RU / 3h KY / 10h KK? Compute sampling probabilities. (c) Should Kazakh and Kyrgyz share more with each other than with Russian? How would you implement this? (d) What is the expected training time increase vs the bilingual model?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Extended phoneme set:</strong></p>
+                                <p>Kazakh shares the vast majority of phonemes with Kyrgyz (both Kipchak Turkic). The additional Kazakh-specific phonemes are few: /ae/ (ә &mdash; open front vowel), /gh/ (ғ &mdash; voiced velar fricative), /q/ (қ &mdash; voiceless uvular stop, also in Kyrgyz), /uu_kk/ (ұ &mdash; close back rounded, distinct from Kyrgyz ү), /h/ (һ &mdash; glottal fricative), /ii/ (і &mdash; front unrounded close vowel). The /ng/ (ң), /oe/ (ө), /yy/ (ү) are shared with Kyrgyz.</p>
+                                <p>New phonemes to add: ~5 (ә, ғ, ұ, һ, і). New total: $48 + 5 = 53$ phonemes + 1 extra special token [LANG_KK] = ~58 total. The Kyrgyz-Kazakh sharing is very high: ~30 shared phonemes between the two Turkic languages.</p>
+                                <p><strong>(b) Temperature sampling:</strong></p>
+                                <p>With $|D_{\text{RU}}| = 100$, $|D_{\text{KY}}| = 3$, $|D_{\text{KK}}| = 10$ and $T = 5$:</p>
+                                $$p(\text{RU}) = \frac{100^{0.2}}{100^{0.2} + 3^{0.2} + 10^{0.2}} = \frac{2.512}{2.512 + 1.246 + 1.585} = 47.0\%$$
+                                $$p(\text{KY}) = \frac{3^{0.2}}{5.343} = 23.3\%, \quad p(\text{KK}) = \frac{10^{0.2}}{5.343} = 29.7\%$$
+                                <p>This seems reasonable: Russian still gets the most, Kazakh gets more than Kyrgyz (reflecting its larger dataset), but both low-resource languages get substantial exposure.</p>
+                                <p><strong>(c) Intra-Turkic sharing:</strong></p>
+                                <p>Yes, Kazakh and Kyrgyz should share more with each other. Implementation: use a <strong>hierarchical language embedding</strong> with two levels: a language-family embedding (Turkic vs Slavic) and a language-specific embedding. The total conditioning is $e_L = e_{\text{family}} + e_{\text{language}}$. Kazakh and Kyrgyz share $e_{\text{Turkic}}$ while having distinct $e_{\text{KY}}$ and $e_{\text{KK}}$. Russian gets $e_{\text{Slavic}} + e_{\text{RU}}$. This allows the model to share Turkic-specific knowledge (vowel harmony, agglutinative morphology) between KY and KK without involving Russian.</p>
+                                <p><strong>(d) Training time increase:</strong> Approximately 30&ndash;40% longer. The model size increases modestly (5 new phoneme embeddings, 1 language embedding). The main increase is data: $100 + 3 + 10 = 113$ hours vs $100 + 3 = 103$ hours (10% more data). With $T = 5$, each epoch is longer because the effective Kyrgyz and Kazakh repetition rates increase. Total estimate: 1.3&ndash;1.4x the bilingual training time.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Evaluating Code-Switching Quality</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Design a comprehensive evaluation protocol for code-switching quality in bilingual TTS. (a) Define 3 specific dimensions of code-switching quality that should be evaluated separately. (b) For each dimension, propose a subjective listening test design (stimulus type, question phrasing, rating scale). (c) Propose an objective metric for each dimension that could be computed automatically. (d) Create 5 test sentences that specifically target different types of code-switching (word-level, phrase-level, intra-word).</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Three dimensions of code-switching quality:</strong></p>
+                                <ol>
+                                    <li><strong>Transition smoothness:</strong> How natural does the language boundary sound? Is there an audible "seam" or pause at the switch point?</li>
+                                    <li><strong>Phonemic accuracy:</strong> Are the phonemes in each language segment pronounced correctly according to that language's rules?</li>
+                                    <li><strong>Prosodic coherence:</strong> Does the sentence maintain natural rhythm and intonation across the language switch, or does it sound like two separate utterances concatenated?</li>
+                                </ol>
+                                <p><strong>(b) Subjective listening tests:</strong></p>
+                                <ol>
+                                    <li><strong>Transition smoothness:</strong> Play the full utterance. Ask: "Rate the smoothness of the language transition on a scale of 1 (jarring, obvious seam) to 5 (seamless, natural)." Use MUSHRA-style comparison with a hidden reference (real bilingual speaker) and anchor (concatenated monolingual outputs).</li>
+                                    <li><strong>Phonemic accuracy:</strong> Play each language segment separately (extracted from the full utterance). Ask bilingual raters: "Rate the pronunciation accuracy of the [Russian/Kyrgyz] portion on a scale of 1 (many errors, strong foreign accent) to 5 (native-like pronunciation)." This isolates pronunciation from transition quality.</li>
+                                    <li><strong>Prosodic coherence:</strong> Play the full utterance. Ask: "Does this sentence sound like one continuous utterance by a single speaker, or like two separate recordings joined together? Rate from 1 (clearly two separate recordings) to 5 (completely unified)."</li>
+                                </ol>
+                                <p><strong>(c) Objective metrics:</strong></p>
+                                <ol>
+                                    <li><strong>Transition smoothness:</strong> Measure the F0 discontinuity and energy discontinuity at the language boundary. Compute $\Delta F_0 = |F_0(t_{\text{switch}}^+) - F_0(t_{\text{switch}}^-)|$ and $\Delta E = |E(t_{\text{switch}}^+) - E(t_{\text{switch}}^-)|$. Lower values indicate smoother transitions.</li>
+                                    <li><strong>Phonemic accuracy:</strong> Run language-specific ASR on each segment and compute CER. Additionally, compare the synthesized phoneme durations against monolingual reference durations for the same phonemes.</li>
+                                    <li><strong>Prosodic coherence:</strong> Extract the F0 contour and compute its autocorrelation across the language boundary. Natural speech has high autocorrelation (smooth F0 transitions), while concatenated speech has low autocorrelation at the boundary. Also measure speaker embedding consistency: extract x-vectors from each language segment and compute cosine similarity.</li>
+                                </ol>
+                                <p><strong>(d) Five targeted test sentences:</strong></p>
+                                <ol>
+                                    <li><strong>Word-level switch (RU to KY):</strong> "В Бишкеке есть красивое озеро Ысык-Көл." (In Bishkek there is a beautiful lake Issyk-Kul.) &mdash; Russian sentence with Kyrgyz proper noun.</li>
+                                    <li><strong>Word-level switch (KY to RU):</strong> "Биз кечээ университеттин библиотекасына бардык." (We went to the university library yesterday.) &mdash; Kyrgyz sentence with Russian loanword.</li>
+                                    <li><strong>Phrase-level switch:</strong> "Мен бүгүн, честно говоря, очень устал." (I today, honestly speaking, am very tired.) &mdash; Kyrgyz start, Russian phrase insertion, Russian ending.</li>
+                                    <li><strong>Multiple switches:</strong> "Саламатсызбы, я хотел спросить, бул жерде кафе барбы?" (Hello, I wanted to ask, is there a cafe here?) &mdash; KY greeting, RU middle, KY ending.</li>
+                                    <li><strong>Intra-word switch:</strong> "Мы поехали в Бишкек-ский аэропорт Манас." (We went to the Bishkek airport Manas.) &mdash; Russian sentence with Kyrgyz-derived adjective and Kyrgyz proper noun, testing morphological boundary handling.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#bilingual-motivation" class="toc-link">Why Bilingual TTS?</a>
+                <a href="#linguistic-analysis" class="toc-link">Linguistic Analysis: RU vs KY</a>
+                <a href="#phoneme-design" class="toc-link">Unified Phoneme Set</a>
+                <a href="#data-strategy" class="toc-link">Data Strategy</a>
+                <a href="#architecture-changes" class="toc-link">Extending VITS</a>
+                <a href="#training-strategies" class="toc-link">Training Strategies</a>
+                <a href="#experiments" class="toc-link">Experiments &amp; Metrics</a>
+                <a href="#verdict" class="toc-link">The Verdict</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

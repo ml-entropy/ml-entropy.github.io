@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glow-TTS &amp; Flow-Based TTS | ML Fundamentals</title>
+    <meta name="description" content="Glow-TTS architecture, normalizing flows for TTS, flow-based mel-spectrogram generation, MAS integration, temperature-controlled diverse speech synthesis.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link active">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Machine Learning</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Glow-TTS &amp; Flows</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Machine Learning</h3>
+                <nav class="sidebar-nav">
+                        <a href="../00-probability/index.html" class="sidebar-link">00. Probability Foundations</a>
+                    <a href="../01-logarithms/index.html" class="sidebar-link">01. Why Logarithms?</a>
+                    <a href="../02-combinatorics/index.html" class="sidebar-link">02. Combinatorics</a>
+                    <a href="../03-distributions/index.html" class="sidebar-link">03. Normal Distributions</a>
+                    <a href="../04-entropy/index.html" class="sidebar-link">04. Entropy Fundamentals</a>
+                    <a href="../05-cross-entropy/index.html" class="sidebar-link">05. Cross-Entropy</a>
+                    <a href="../06-kl-divergence/index.html" class="sidebar-link">06. KL Divergence</a>
+                    <a href="../07-entropy-connections/index.html" class="sidebar-link">07. Entropy Connections</a>
+                    <a href="../08-backpropagation/index.html" class="sidebar-link">08. Backpropagation</a>
+                    <a href="../09-regularization/index.html" class="sidebar-link">09. Regularization</a>
+                    <a href="../10-batch-normalization/index.html" class="sidebar-link">10. Batch Normalization</a>
+                    <a href="../11-learning-rate/index.html" class="sidebar-link">11. Learning Rate</a>
+                    <a href="../12-cnn/index.html" class="sidebar-link">12. CNNs</a>
+                    <a href="../13-rnn/index.html" class="sidebar-link">13. RNNs</a>
+                    <a href="../14-rate-distortion/index.html" class="sidebar-link">14. Rate-Distortion Theory</a>
+                    <a href="../15-autoencoder/index.html" class="sidebar-link">15. Autoencoders</a>
+                    <a href="../16-variational-inference/index.html" class="sidebar-link">16. Variational Inference</a>
+                    <a href="../17-vae/index.html" class="sidebar-link">17. VAE</a>
+                    <a href="../18-inductive-bias/index.html" class="sidebar-link">18. Inductive Bias</a>
+                    <a href="../19-architectural-biases/index.html" class="sidebar-link">19. Architectural Biases</a>
+                    <a href="../20-designing-biases/index.html" class="sidebar-link">20. Designing Biases</a>
+                    <a href="../21-fst-fundamentals/index.html" class="sidebar-link">21. FST Fundamentals</a>
+                    <a href="../22-weighted-fsts/index.html" class="sidebar-link">22. Weighted FSTs</a>
+                    <a href="../23-fst-libraries/index.html" class="sidebar-link">23. FST Libraries</a>
+                    <a href="../24-fst-applications/index.html" class="sidebar-link">24. FST Applications</a>
+                    <a href="../25-neural-symbolic/index.html" class="sidebar-link">25. Neural-Symbolic Hybrids</a>
+                    <a href="../26-sequence-alignment/index.html" class="sidebar-link">26. Sequence Alignment</a>
+                    <a href="../27-mas-algorithm/index.html" class="sidebar-link">27. MAS Algorithm</a>
+                    <a href="../28-forced-alignment/index.html" class="sidebar-link">28. Forced Alignment & MFA</a>
+                    <a href="../29-tts-fundamentals/index.html" class="sidebar-link">29. TTS Fundamentals</a>
+                    <a href="../30-neural-vocoders/index.html" class="sidebar-link">30. Neural Vocoders</a>
+                    <a href="../31-tacotron/index.html" class="sidebar-link">31. Tacotron & Attention TTS</a>
+                    <a href="../32-fastspeech/index.html" class="sidebar-link">32. FastSpeech & Non-AR TTS</a>
+                    <a href="../33-glow-tts/index.html" class="sidebar-link active">33. Glow-TTS & Flows</a>
+                    <a href="../34-vits/index.html" class="sidebar-link">34. VITS: End-to-End TTS</a>
+                    <a href="../35-bilingual-tts/index.html" class="sidebar-link">35. Bilingual TTS: RU+KY</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: Normalizing Flows Recap -->
+                <h2 id="flows-recap">Normalizing Flows Recap</h2>
+
+                <p>
+                    Before diving into Glow-TTS, we need to revisit normalizing flows &mdash; the generative modeling framework at the heart of this architecture. A normalizing flow is an invertible transformation between a simple base distribution (typically a standard Gaussian) and a complex data distribution. The key mathematical tool is the <strong>change of variables formula</strong>, which relates the densities of the two distributions through the Jacobian of the transformation.
+                </p>
+
+                <p>
+                    Let $f: \mathbb{R}^d \to \mathbb{R}^d$ be an invertible function that maps latent variables $z$ to data $x = f(z)$. The change of variables formula tells us how to compute the density of $x$:
+                </p>
+                $$p_X(x) = p_Z(f^{-1}(x)) \cdot |\det J_{f^{-1}}(x)|$$
+                <p>
+                    where $J_{f^{-1}}(x)$ is the Jacobian matrix of the inverse transformation $f^{-1}$ evaluated at $x$. This formula is exact &mdash; there is no approximation involved, unlike the evidence lower bound (ELBO) used in VAEs (see <a href="../17-vae/index.html">Tutorial 16: VAE</a> for background on VAEs and generative models).
+                </p>
+
+                <p>
+                    The practical challenge is computing the determinant of the Jacobian, which for a general $d \times d$ matrix costs $O(d^3)$. Normalizing flows solve this by using <strong>affine coupling layers</strong>, which have a triangular Jacobian with a determinant that can be computed in $O(d)$ time. An affine coupling layer works as follows:
+                </p>
+                <ol>
+                    <li><strong>Split:</strong> Divide the input $x$ into two halves: $x_a$ and $x_b$.</li>
+                    <li><strong>Transform:</strong> Keep $x_a$ unchanged and transform $x_b$ using scale and shift parameters that are computed from $x_a$: $y_a = x_a$ and $y_b = x_b \odot \exp(s(x_a)) + t(x_a)$, where $s$ and $t$ are arbitrary neural networks.</li>
+                    <li><strong>Merge:</strong> Concatenate $y_a$ and $y_b$ to form the output.</li>
+                </ol>
+
+                <p>
+                    The critical property of this construction is that it is trivially invertible: given $y_a$ and $y_b$, we recover $x_a = y_a$ and $x_b = (y_b - t(x_a)) \odot \exp(-s(x_a))$. The networks $s$ and $t$ can be arbitrarily complex (they do not need to be invertible), because they are only evaluated in the forward direction. The Jacobian of the coupling layer is lower-triangular, so its determinant is simply the product of the diagonal elements, which reduces to $\prod \exp(s(x_a)) = \exp(\sum s(x_a))$.
+                </p>
+
+                <p>
+                    By stacking multiple coupling layers (alternating which half is kept fixed), normalizing flows can learn arbitrarily complex transformations while maintaining exact invertibility and efficient likelihood computation. This is the fundamental advantage over VAEs: flows compute <em>exact</em> log-likelihoods, whereas VAEs only optimize a lower bound.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Normalizing Flow</div>
+                    <p>
+                        A <strong>normalizing flow</strong> is a generative model defined by an invertible, differentiable function $f: \mathbb{R}^d \to \mathbb{R}^d$ that transforms a simple base distribution $p_Z(z)$ (typically $\mathcal{N}(0, I)$) into a complex data distribution $p_X(x)$. The density of $x$ is computed exactly via the change of variables formula:
+                    </p>
+                    $$\log p_X(x) = \log p_Z(f^{-1}(x)) + \log |\det J_{f^{-1}}(x)|$$
+                    <p style="margin-bottom: 0;">
+                        The flow is constructed as a composition of simple invertible transformations $f = f_K \circ f_{K-1} \circ \cdots \circ f_1$, where each $f_k$ is designed so that its Jacobian determinant is cheap to compute (e.g., triangular Jacobian from affine coupling layers).
+                    </p>
+                </div>
+
+                <!-- Section 2: Glow-TTS Architecture -->
+                <h2 id="glow-tts-overview">Glow-TTS Architecture</h2>
+
+                <p>
+                    Glow-TTS (Kim et al., 2020) applies normalizing flows to text-to-speech synthesis. The key insight is that the mel-spectrogram generation problem can be formulated as a flow-based density estimation problem: given text, learn a distribution over mel-spectrograms and sample from it. The architecture consists of four interconnected components that work together during training and inference.
+                </p>
+
+                <p>
+                    <strong>1. Text Encoder (Transformer).</strong> The text encoder takes a sequence of text tokens (characters or phonemes) and produces per-token hidden representations. It uses a transformer architecture with relative position encoding. For each text token $t$, the encoder outputs the parameters of a Gaussian prior distribution: the mean $\mu_t$ and (log) standard deviation $\sigma_t$. These parameters define what the latent representation of each token "should look like" in the flow's latent space.
+                </p>
+
+                <p>
+                    <strong>2. Flow Decoder.</strong> The flow decoder is an invertible neural network (a normalizing flow) that transforms between the mel-spectrogram space and a latent space. In the <strong>inverse direction</strong> (used during training), it maps mel-spectrogram frames $y$ to latent vectors $z = f^{-1}(y; x)$, where $x$ is the text conditioning. In the <strong>forward direction</strong> (used during inference), it maps sampled latent vectors $z$ back to mel-spectrogram frames $y = f(z; x)$. The flow is conditioned on the text encoder output through the coupling layer networks.
+                </p>
+
+                <p>
+                    <strong>3. Monotonic Alignment Search (MAS).</strong> MAS finds the optimal alignment between text tokens and mel-spectrogram frames during training. Given the latent representation $z$ (produced by running the mel through the flow inverse) and the per-token prior parameters $(\mu_t, \sigma_t)$ from the encoder, MAS finds the monotonic alignment that maximizes the likelihood of $z$ under the text-conditioned prior. This alignment tells us which text token each mel frame corresponds to.
+                </p>
+
+                <p>
+                    <strong>4. Duration Predictor.</strong> The duration predictor is a small feedforward network that predicts how many mel frames each text token should produce. During training, it is supervised by the durations extracted from MAS. During inference, it replaces MAS (which cannot be used at inference time because it requires the mel-spectrogram, which is the thing we are trying to generate).
+                </p>
+
+                <p>
+                    <strong>Training flow:</strong> Given a text-mel pair, the training proceeds as: (1) encode text to get prior parameters $(\mu_t, \sigma_t)$ per token; (2) run the mel-spectrogram through the flow inverse to get latent vectors $z$; (3) run MAS to find the optimal alignment between $z$ and the text prior; (4) compute the log-likelihood loss using the aligned prior; (5) train the duration predictor on the MAS-derived durations.
+                </p>
+
+                <p>
+                    <strong>Inference flow:</strong> Given text only: (1) encode text to get $(\mu_t, \sigma_t)$ per token; (2) predict durations with the duration predictor; (3) expand the prior parameters according to the predicted durations; (4) sample $z \sim \mathcal{N}(\mu, \sigma \cdot \tau)$ where $\tau$ is a temperature parameter; (5) run the flow forward to produce the mel-spectrogram $y = f(z; x)$. All operations are parallel &mdash; no autoregressive loop.
+                </p>
+
+                <!-- Section 3: Training: Maximum Likelihood with Flows -->
+                <h2 id="glow-tts-training">Training: Maximum Likelihood with Flows</h2>
+
+                <p>
+                    The training objective of Glow-TTS is maximum likelihood estimation. We want to maximize $\log p(y | x)$, the log-probability of the mel-spectrogram $y$ given the text $x$. Using the change of variables formula, this becomes:
+                </p>
+                $$\log p(y | x) = \log p_Z(f^{-1}(y; x)) + \log |\det J_{f^{-1}}|$$
+                <p>
+                    where $f^{-1}$ is the inverse flow that maps mel frames to latent vectors, and $J_{f^{-1}}$ is its Jacobian. The first term measures how well the latent representation fits the prior distribution; the second term accounts for the volume change induced by the flow transformation.
+                </p>
+
+                <p>
+                    The prior distribution is not a simple standard Gaussian. Instead, it is a <strong>text-conditioned Gaussian</strong> defined by the alignment. Given an alignment $a$ that maps each mel frame index $n$ to a text token index $a(n)$, the prior is:
+                </p>
+                $$p_Z(z | x, a) = \prod_{n=1}^{N} \mathcal{N}(z_n; \mu_{a(n)}, \sigma_{a(n)})$$
+                <p>
+                    Each latent vector $z_n$ is evaluated under the Gaussian defined by the text token it is aligned to. The alignment $a$ is found by MAS:
+                </p>
+                $$\hat{a} = \arg\max_{a \in \mathcal{A}} \log p_Z(z | x, a)$$
+                <p>
+                    where $\mathcal{A}$ is the set of all valid monotonic alignments. MAS solves this efficiently in $O(T \times N)$ time using dynamic programming, where $T$ is the number of text tokens and $N$ is the number of mel frames (see <a href="../27-mas-algorithm/index.html">Tutorial 26: MAS Algorithm</a>).
+                </p>
+
+                <p>
+                    The full training loss combines three terms:
+                </p>
+                $$\mathcal{L} = -\log p_Z(z | x, \hat{a}) - \log |\det J_{f^{-1}}| + \mathcal{L}_{\text{dur}}$$
+                <p>
+                    The first two terms are the negative log-likelihood of the mel-spectrogram under the flow model. The third term is the duration prediction loss, which trains the duration predictor to match the MAS-derived durations:
+                </p>
+                $$\mathcal{L}_{\text{dur}} = \sum_{t=1}^{T} \left( \log d_t^{\text{pred}} - \log d_t^{\text{MAS}} \right)^2$$
+                <p>
+                    where $d_t^{\text{MAS}}$ is the number of mel frames assigned to text token $t$ by MAS, and $d_t^{\text{pred}}$ is the duration predictor's output. The log-domain MSE loss is used because durations are positive and roughly log-normally distributed.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Full Log-Likelihood Derivation</div>
+                    <p>Starting from the change of variables formula and expanding the prior:</p>
+                    $$\log p(y | x) = \log p_Z(z | x, \hat{a}) + \log |\det J_{f^{-1}}|$$
+                    $$= \sum_{n=1}^{N} \log \mathcal{N}(z_n; \mu_{\hat{a}(n)}, \sigma_{\hat{a}(n)}) + \sum_{k=1}^{K} \log |\det J_k|$$
+                    $$= \sum_{n=1}^{N} \left[ -\frac{1}{2} \log(2\pi) - \log \sigma_{\hat{a}(n)} - \frac{(z_n - \mu_{\hat{a}(n)})^2}{2\sigma_{\hat{a}(n)}^2} \right] + \sum_{k=1}^{K} \log |\det J_k|$$
+                    <p style="margin-bottom: 0;">
+                        where $K$ is the number of flow steps. The gradient flows through $z = f^{-1}(y; x)$ to update the flow parameters, through $\mu_t, \sigma_t$ to update the encoder, and through $\hat{a}$ (via stop-gradient) to update the duration predictor. MAS itself is not differentiable, but the alignment it produces is used as a fixed assignment for computing the loss, and the loss gradients update the encoder and flow so that future MAS calls produce better alignments.
+                    </p>
+                </div>
+
+                <!-- Section 4: MAS in Glow-TTS -->
+                <h2 id="mas-in-glow-tts">MAS in Glow-TTS</h2>
+
+                <p>
+                    MAS plays a central role in Glow-TTS, and its use here connects directly to the algorithm we studied in <a href="../27-mas-algorithm/index.html">Tutorial 26: MAS Algorithm</a>. In Glow-TTS, MAS operates on a specific cost matrix derived from the text encoder and flow decoder outputs.
+                </p>
+
+                <p>
+                    <strong>Cost matrix construction.</strong> The cost matrix $C$ has dimensions $T \times N$ where $T$ is the number of text tokens and $N$ is the number of mel frames. Each entry is the log-probability of a latent frame under a text token's Gaussian:
+                </p>
+                $$C_{t,n} = \log \mathcal{N}(z_n; \mu_t, \sigma_t)$$
+                <p>
+                    Intuitively, $C_{t,n}$ measures how well mel frame $n$'s latent representation $z_n$ matches what text token $t$ predicts. If $z_n$ is close to $\mu_t$ (relative to $\sigma_t$), the log-probability is high and the match is good. If $z_n$ is far from $\mu_t$, the log-probability is very negative and the match is poor.
+                </p>
+
+                <p>
+                    MAS finds the monotonic alignment that maximizes the total cost:
+                </p>
+                $$\hat{a} = \arg\max_{a \in \mathcal{A}} \sum_{n=1}^{N} C_{a(n), n}$$
+                <p>
+                    This is solved by the dynamic programming algorithm from Tutorial 26, running in $O(T \times N)$ time. The resulting alignment $a$ assigns each mel frame to a text token, and the number of frames assigned to each token gives the durations.
+                </p>
+
+                <p>
+                    <strong>Silence handling.</strong> The same edge case discussed in <a href="../27-mas-algorithm/index.html">Tutorials 26</a>&ndash;<a href="../28-forced-alignment/index.html">27</a> applies here. If the audio contains trailing silence, MAS will assign those silent frames to the last text token, inflating its duration. In practice, Glow-TTS implementations handle this by: (1) trimming silence with VAD before extracting mel-spectrograms, (2) adding explicit silence tokens to the text sequence, or (3) both. Without such preprocessing, the duration predictor learns incorrect durations for utterance-final tokens.
+                </p>
+
+                <p>
+                    <strong>MAS runs every training step.</strong> Unlike external alignment tools (MFA, CTC), MAS runs on every single training batch. As the encoder and flow improve during training, the latent representations $z$ become more structured and the prior parameters $(\mu_t, \sigma_t)$ become more discriminative, which causes MAS to produce increasingly accurate alignments. This creates a virtuous cycle: better alignments lead to better model training, which leads to better alignments. This is one of the key innovations of Glow-TTS &mdash; the alignment is learned jointly with the model, not obtained from an external tool.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">MAS Eliminates External Alignment Tools</div>
+                    <p style="margin-bottom: 0;">
+                        Glow-TTS was the first parallel TTS model to completely eliminate the need for an external alignment tool. Earlier models like FastSpeech required a pretrained autoregressive teacher (Tacotron 2) to extract alignments, and FastSpeech 2 required Montreal Forced Aligner. By integrating MAS into the training loop, Glow-TTS achieves fully end-to-end training: text and mel-spectrogram pairs go in, and a trained TTS model comes out, with no intermediate alignment step.
+                    </p>
+                </div>
+
+                <!-- Section 5: Inference: Parallel Generation -->
+                <h2 id="glow-tts-inference">Inference: Parallel Generation</h2>
+
+                <p>
+                    At inference time, we have text but no mel-spectrogram. This means MAS cannot be used &mdash; it requires both the text prior and the latent vectors $z$ (which come from running the mel through the flow inverse), and the mel is exactly what we are trying to generate. This is where the duration predictor takes over.
+                </p>
+
+                <p>
+                    The inference pipeline has four steps, all of which are fully parallel (no autoregressive loop):
+                </p>
+
+                <ol>
+                    <li>
+                        <strong>Encode text.</strong> Run the text through the transformer encoder to produce per-token prior parameters $(\mu_t, \sigma_t)$ for $t = 1, \ldots, T$.
+                    </li>
+                    <li>
+                        <strong>Predict durations.</strong> Run the encoder output through the duration predictor to get $d_t^{\text{pred}}$ for each token. Round to integers and compute the total mel length $N = \sum_t d_t^{\text{pred}}$.
+                    </li>
+                    <li>
+                        <strong>Sample latent vectors.</strong> Expand the per-token parameters according to the predicted durations (repeating $(\mu_t, \sigma_t)$ for $d_t$ frames) and sample:
+                        $$z_n \sim \mathcal{N}(\mu_{a(n)}, \sigma_{a(n)} \cdot \tau)$$
+                        where $\tau$ is the temperature parameter controlling diversity. A lower $\tau$ produces more deterministic output (closer to the mean); a higher $\tau$ produces more diverse output.
+                    </li>
+                    <li>
+                        <strong>Flow forward pass.</strong> Run the sampled latent vectors through the flow in the forward direction to produce the mel-spectrogram: $y = f(z; x)$. This is a single forward pass through the stack of flow steps &mdash; no iteration needed.
+                    </li>
+                </ol>
+
+                <p>
+                    The entire inference pipeline runs in parallel across all mel frames simultaneously. The computational cost is dominated by the flow forward pass, which is $O(N \times K)$ where $N$ is the mel length and $K$ is the number of flow steps. In practice, Glow-TTS achieves real-time or faster synthesis on a single GPU, comparable to FastSpeech in speed while offering the additional benefit of diverse output through the temperature parameter.
+                </p>
+
+                <!-- Section 6: Flow Architecture Details -->
+                <h2 id="flow-architecture-details">Flow Architecture Details</h2>
+
+                <p>
+                    The flow decoder in Glow-TTS follows the Glow architecture (Kingma &amp; Dhariwal, 2018) with modifications for conditional generation. Each flow step consists of three sub-layers, and $K$ such steps are stacked to form the complete flow.
+                </p>
+
+                <p>
+                    <strong>Affine coupling layers.</strong> The core of each flow step is an affine coupling layer. The input is split along the channel dimension into two halves $x_a$ and $x_b$. The transformation is:
+                </p>
+                $$y_a = x_a, \quad y_b = x_b \cdot \exp(s(x_a)) + t(x_a)$$
+                <p>
+                    where $s$ and $t$ are neural networks (the "coupling network") that take $x_a$ as input and produce scale and translation parameters. The inverse is trivially computed as:
+                </p>
+                $$x_a = y_a, \quad x_b = (y_b - t(y_a)) \cdot \exp(-s(y_a))$$
+                <p>
+                    The log-determinant of the Jacobian is simply the sum of the scale factors:
+                </p>
+                $$\log |\det J| = \sum \log |\exp(s(x_a))| = \sum s(x_a)$$
+                <p>
+                    This is computationally trivial &mdash; just sum up the scale values. No matrix inversion or determinant computation is needed.
+                </p>
+
+                <p>
+                    <strong>1&times;1 invertible convolution.</strong> Between coupling layers, a 1&times;1 invertible convolution is applied. This is a learned linear transformation applied independently to each time step, parameterized as a $C \times C$ weight matrix $W$ where $C$ is the number of channels. Its purpose is to mix information across channels, ensuring that the fixed split pattern of the coupling layers does not create a bottleneck. The log-determinant contribution is $N \cdot \log |\det W|$ where $N$ is the sequence length. In practice, the LU decomposition $W = PL(U + \text{diag}(s))$ is used for efficient determinant computation: $\log |\det W| = \sum \log |s_i|$.
+                </p>
+
+                <p>
+                    <strong>ActNorm (Activation Normalization).</strong> ActNorm is an affine transformation with per-channel scale and bias parameters, similar to batch normalization but without running statistics. The parameters are initialized using data-dependent initialization: on the first forward pass, the scale and bias are set so that the output has zero mean and unit variance per channel. After initialization, the parameters are treated as regular learnable parameters. The log-determinant is $N \cdot \sum \log |s_c|$ where $s_c$ are the per-channel scale factors.
+                </p>
+
+                <p>
+                    <strong>WaveNet-like coupling network.</strong> The coupling network $s, t = \text{NN}(x_a)$ inside each affine coupling layer uses a WaveNet-like architecture with dilated convolutions. Specifically, it consists of several layers of dilated 1D convolutions with gated activation functions (tanh and sigmoid gates), skip connections, and residual connections. This architecture can model long-range temporal dependencies in the mel-spectrogram while being computationally efficient. Crucially, the coupling network does <em>not</em> need to be invertible &mdash; only the overall coupling layer structure ensures invertibility.
+                </p>
+
+                <p>
+                    <strong>Complete flow step.</strong> Each of the $K$ flow steps consists of:
+                </p>
+                <ol>
+                    <li>ActNorm (per-channel affine normalization)</li>
+                    <li>1&times;1 invertible convolution (channel mixing)</li>
+                    <li>Affine coupling layer (with WaveNet-like coupling network)</li>
+                </ol>
+                <p>
+                    The total log-determinant is the sum of log-determinants from all three sub-layers across all $K$ steps. Typical configurations use $K = 12$ flow steps with 4&ndash;8 layers in the coupling network.
+                </p>
+
+                <!-- Section 7: Diverse Speech Generation -->
+                <h2 id="diversity">Diverse Speech Generation</h2>
+
+                <p>
+                    One of the most significant advantages of Glow-TTS over deterministic models like FastSpeech is its ability to generate <strong>diverse speech</strong> for the same input text. This diversity is controlled by the temperature parameter $\tau$ during sampling.
+                </p>
+
+                <p>
+                    Recall that during inference, latent vectors are sampled from:
+                </p>
+                $$z \sim \mathcal{N}(\mu, \sigma \cdot \tau)$$
+                <p>
+                    The temperature $\tau$ scales the standard deviation of the sampling distribution. Different values of $\tau$ produce qualitatively different results:
+                </p>
+
+                <ul>
+                    <li><strong>$\tau = 0$ (deterministic):</strong> No randomness at all. The latent vectors are set to $z = \mu$ (the mean of the prior). This produces a single, deterministic output for each text input &mdash; always the same mel-spectrogram. The result tends to be "average-sounding" and may lack natural expressiveness.</li>
+                    <li><strong>$\tau = 0.667$ (recommended):</strong> A moderate amount of randomness. This is the default temperature used in the Glow-TTS paper. It provides a good balance between output quality and prosodic variety. Each synthesis will produce slightly different pitch contours, timing, and emphasis, all of which sound natural.</li>
+                    <li><strong>$\tau = 1.0$ (full sampling):</strong> Samples directly from the learned prior distribution. This produces the maximum diversity in prosody and speaking style. However, some samples may sound less natural because the tails of the distribution can produce unusual latent vectors.</li>
+                </ul>
+
+                <p>
+                    Each sample at a given temperature produces a different realization of the same text &mdash; different prosody, different emphasis patterns, different micro-timing. This directly addresses the <strong>one-to-many problem</strong> in TTS: the fact that any given text can be spoken in many valid ways. A deterministic model like FastSpeech can only produce one output per input, which is typically an "average" of all possible realizations and may sound flat or robotic. Glow-TTS, by learning the full distribution over mel-spectrograms, can sample from that distribution to produce natural variation.
+                </p>
+
+                <p>
+                    This is not just a theoretical advantage. In practice, the ability to sample diverse outputs has several concrete benefits: (1) audiobook narration can vary sentence-to-sentence prosody naturally, (2) conversational AI can avoid sounding repetitive, and (3) data augmentation for downstream tasks can leverage diverse TTS outputs.
+                </p>
+
+                <!-- Section 8: Glow-TTS vs FastSpeech -->
+                <h2 id="glow-tts-vs-fastspeech">Glow-TTS vs FastSpeech</h2>
+
+                <p>
+                    Glow-TTS and FastSpeech (including FastSpeech 2) represent two fundamentally different approaches to parallel TTS. Both eliminate the autoregressive bottleneck of Tacotron-style models, but they differ in architecture, training, and capabilities. Understanding these differences is essential for choosing the right model for a given application.
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.5rem;">Aspect</th>
+                            <th style="text-align: left; padding: 0.5rem;">Glow-TTS</th>
+                            <th style="text-align: left; padding: 0.5rem;">FastSpeech / FastSpeech 2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Alignment</strong></td>
+                            <td style="padding: 0.5rem;">MAS (learned, in-training)</td>
+                            <td style="padding: 0.5rem;">Teacher distillation (FS) / MFA external aligner (FS2)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Output diversity</strong></td>
+                            <td style="padding: 0.5rem;">Yes (temperature-controlled sampling)</td>
+                            <td style="padding: 0.5rem;">No (deterministic output)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Training</strong></td>
+                            <td style="padding: 0.5rem;">End-to-end (text + mel only)</td>
+                            <td style="padding: 0.5rem;">Requires pretrained teacher (FS) or external aligner (FS2)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Inference speed</strong></td>
+                            <td style="padding: 0.5rem;">Parallel, fast (flow forward pass)</td>
+                            <td style="padding: 0.5rem;">Parallel, fast (feedforward pass)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Quality</strong></td>
+                            <td style="padding: 0.5rem;">High (diverse, natural prosody)</td>
+                            <td style="padding: 0.5rem;">High (consistent, controllable)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Controllability</strong></td>
+                            <td style="padding: 0.5rem;">Temperature $\tau$ (global diversity)</td>
+                            <td style="padding: 0.5rem;">Duration, pitch, energy (fine-grained)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;"><strong>Model size</strong></td>
+                            <td style="padding: 0.5rem;">Larger (invertible flow layers)</td>
+                            <td style="padding: 0.5rem;">Smaller (standard feedforward)</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;"><strong>Training objective</strong></td>
+                            <td style="padding: 0.5rem;">Maximum likelihood (exact)</td>
+                            <td style="padding: 0.5rem;">MSE reconstruction loss</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    <strong>When to use Glow-TTS:</strong> Choose Glow-TTS when you need diverse speech output (e.g., audiobooks, conversational AI), when you want end-to-end training without external alignment tools, or when you value exact likelihood training. Glow-TTS is also the natural stepping stone toward VITS, which extends its architecture with an end-to-end vocoder.
+                </p>
+
+                <p>
+                    <strong>When to use FastSpeech 2:</strong> Choose FastSpeech 2 when you need fine-grained controllability over prosody (pitch, energy, duration), when model size and inference speed are critical constraints, or when deterministic output is preferred (e.g., production systems that need reproducible outputs). FastSpeech 2 also tends to be easier to train and more stable.
+                </p>
+
+                <p>
+                    In the broader TTS landscape, Glow-TTS occupies a pivotal position: it introduced the idea of flow-based parallel TTS with learned alignment, which directly led to VITS &mdash; arguably the most influential TTS architecture of the early 2020s. We will explore VITS in the <a href="../34-vits/index.html">next tutorial</a>.
+                </p>
+
+                <!-- Tutorial Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../32-fastspeech/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; FastSpeech &amp; Non-AR TTS</span>
+                    </a>
+                    <a href="../34-vits/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">VITS: End-to-End TTS &rarr;</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>Three implementations covering the core components of Glow-TTS: affine coupling layers with invertible transforms, a simplified training step with MAS integration, and temperature-controlled diverse inference.</p>
+
+                <!-- Code Example 1: Affine Coupling Layer for TTS -->
+                <h3>1. Affine Coupling Layer for TTS</h3>
+                <p>A PyTorch implementation of the affine coupling layer used in Glow-TTS, with WaveNet-like transform networks, forward (generation) and inverse (training) methods, and log-determinant computation.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class WaveNetCouplingNetwork(nn.Module):
+    """
+    WaveNet-like network used inside the affine coupling layer.
+    Takes half of the channels as input and produces scale (s) and
+    translation (t) parameters for the other half.
+    """
+    def __init__(self, in_channels: int, hidden_channels: int,
+                 n_layers: int = 4, kernel_size: int = 5):
+        super().__init__()
+        self.n_layers = n_layers
+
+        # Input projection
+        self.input_conv = nn.Conv1d(in_channels, hidden_channels, 1)
+
+        # Dilated convolution layers with gated activation
+        self.dilated_convs = nn.ModuleList()
+        self.skip_convs = nn.ModuleList()
+        for i in range(n_layers):
+            dilation = 2 ** i
+            padding = (kernel_size - 1) * dilation // 2
+            self.dilated_convs.append(
+                nn.Conv1d(hidden_channels, 2 * hidden_channels,
+                          kernel_size, dilation=dilation, padding=padding)
+            )
+            self.skip_convs.append(
+                nn.Conv1d(hidden_channels, hidden_channels, 1)
+            )
+
+        # Output projection: produces both scale and translation
+        self.output_conv = nn.Conv1d(hidden_channels, 2 * in_channels, 1)
+        # Initialize output to zero (identity transform at init)
+        nn.init.zeros_(self.output_conv.weight)
+        nn.init.zeros_(self.output_conv.bias)
+
+    def forward(self, x: torch.Tensor) -&gt; tuple:
+        """
+        Args:
+            x: (batch, in_channels, time) - the "unchanged" half
+
+        Returns:
+            log_s: (batch, in_channels, time) - log scale factors
+            t: (batch, in_channels, time) - translation factors
+        """
+        h = self.input_conv(x)
+        skip_sum = 0
+
+        for i in range(self.n_layers):
+            h_gated = self.dilated_convs[i](h)
+            # Gated activation: tanh(h1) * sigmoid(h2)
+            h1, h2 = h_gated.chunk(2, dim=1)
+            h_activated = torch.tanh(h1) * torch.sigmoid(h2)
+            skip_sum = skip_sum + self.skip_convs[i](h_activated)
+            h = h + h_activated  # Residual connection
+
+        out = self.output_conv(F.relu(skip_sum))
+        log_s, t = out.chunk(2, dim=1)
+        return log_s, t
+
+
+class AffineCouplingLayer(nn.Module):
+    """
+    Affine coupling layer for normalizing flows.
+
+    Forward (generation): x -&gt; y
+        y_a = x_a
+        y_b = x_b * exp(s(x_a)) + t(x_a)
+
+    Inverse (training): y -&gt; x
+        x_a = y_a
+        x_b = (y_b - t(y_a)) * exp(-s(y_a))
+
+    The log-determinant is simply sum(s(x_a)).
+    """
+    def __init__(self, channels: int, hidden_channels: int = 256,
+                 n_layers: int = 4):
+        super().__init__()
+        assert channels % 2 == 0, "Channels must be even for splitting"
+        self.half_channels = channels // 2
+        self.nn = WaveNetCouplingNetwork(
+            self.half_channels, hidden_channels, n_layers
+        )
+
+    def forward(self, x: torch.Tensor) -&gt; tuple:
+        """
+        Forward pass (generation direction): latent z -&gt; mel y.
+
+        Args:
+            x: (batch, channels, time) input tensor
+
+        Returns:
+            y: (batch, channels, time) transformed tensor
+            log_det: (batch,) log-determinant of the Jacobian
+        """
+        x_a, x_b = x.split(self.half_channels, dim=1)
+
+        log_s, t = self.nn(x_a)
+
+        y_a = x_a
+        y_b = x_b * torch.exp(log_s) + t
+
+        y = torch.cat([y_a, y_b], dim=1)
+
+        # Log-determinant: sum of log scale factors
+        log_det = log_s.sum(dim=[1, 2])  # sum over channels and time
+
+        return y, log_det
+
+    def inverse(self, y: torch.Tensor) -&gt; tuple:
+        """
+        Inverse pass (training direction): mel y -&gt; latent z.
+
+        Args:
+            y: (batch, channels, time) input tensor
+
+        Returns:
+            x: (batch, channels, time) inverse-transformed tensor
+            log_det: (batch,) log-determinant (negative of forward)
+        """
+        y_a, y_b = y.split(self.half_channels, dim=1)
+
+        log_s, t = self.nn(y_a)
+
+        x_a = y_a
+        x_b = (y_b - t) * torch.exp(-log_s)
+
+        x = torch.cat([x_a, x_b], dim=1)
+
+        # Log-determinant for inverse is negative of forward
+        log_det = -log_s.sum(dim=[1, 2])
+
+        return x, log_det
+
+
+# === Demo: verify invertibility ===
+torch.manual_seed(42)
+batch, channels, time = 2, 80, 50
+coupling = AffineCouplingLayer(channels=channels, hidden_channels=128, n_layers=4)
+
+# Random input (simulating mel-spectrogram)
+x_original = torch.randn(batch, channels, time)
+
+# Forward pass (generation direction)
+y, log_det_fwd = coupling(x_original)
+print(f"Forward: input shape={x_original.shape}, output shape={y.shape}")
+print(f"  Log-det (forward): {log_det_fwd}")
+
+# Inverse pass (should recover original)
+x_recovered, log_det_inv = coupling.inverse(y)
+print(f"Inverse: recovered shape={x_recovered.shape}")
+print(f"  Log-det (inverse): {log_det_inv}")
+
+# Verify invertibility
+reconstruction_error = (x_original - x_recovered).abs().max().item()
+print(f"  Max reconstruction error: {reconstruction_error:.2e}")
+assert reconstruction_error &lt; 1e-5, "Invertibility check failed!"
+print("  Invertibility verified: forward(inverse(x)) == x")
+
+# Verify log-det consistency
+det_sum = (log_det_fwd + log_det_inv).abs().max().item()
+print(f"  Log-det consistency (fwd + inv should be 0): {det_sum:.2e}")</code></pre>
+
+                <!-- Code Example 2: Glow-TTS Training Step -->
+                <h3>2. Glow-TTS Training Step</h3>
+                <p>A simplified but complete training step for Glow-TTS: text encoding, flow inverse, MAS alignment, log-likelihood loss, and duration predictor update. This demonstrates how all components interact during training.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+
+
+def monotonic_alignment_search(log_prob_matrix: np.ndarray) -&gt; np.ndarray:
+    """
+    MAS: find the monotonic alignment that maximizes total log-probability.
+
+    Args:
+        log_prob_matrix: (T, N) matrix where T = text tokens, N = mel frames
+            Entry [t, n] = log N(z_n; mu_t, sigma_t)
+
+    Returns:
+        alignment: (N,) array where alignment[n] = text token index for frame n
+    """
+    T, N = log_prob_matrix.shape
+    assert N &gt;= T, f"More tokens ({T}) than frames ({N})"
+
+    # DP table: Q[t, n] = max log-prob of aligning tokens 0..t to frames 0..n
+    Q = np.full((T, N), -np.inf)
+    Q[0, 0] = log_prob_matrix[0, 0]
+
+    # Fill first row: token 0 must be assigned to all frames up to some point
+    for n in range(1, N - T + 1):
+        Q[0, n] = Q[0, n - 1] + log_prob_matrix[0, n]
+
+    # Fill remaining rows
+    for t in range(1, T):
+        for n in range(t, N - T + t + 1):
+            # Either extend current token or start new token
+            stay = Q[t, n - 1]        # same token continues
+            advance = Q[t - 1, n - 1]  # new token starts here
+            Q[t, n] = max(stay, advance) + log_prob_matrix[t, n]
+
+    # Backtrack to find alignment
+    alignment = np.zeros(N, dtype=np.int64)
+    t = T - 1
+    alignment[N - 1] = t
+
+    for n in range(N - 2, -1, -1):
+        if t &gt; 0 and Q[t - 1, n] &gt; Q[t, n]:
+            t -= 1
+        alignment[n] = t
+
+    return alignment
+
+
+class SimpleTextEncoder(nn.Module):
+    """Simplified text encoder that outputs prior parameters."""
+    def __init__(self, vocab_size: int, hidden_dim: int, mel_channels: int):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, hidden_dim)
+        self.encoder = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(
+                d_model=hidden_dim, nhead=4, dim_feedforward=512,
+                batch_first=True
+            ),
+            num_layers=2
+        )
+        self.proj_mu = nn.Linear(hidden_dim, mel_channels)
+        self.proj_log_sigma = nn.Linear(hidden_dim, mel_channels)
+
+    def forward(self, text_tokens: torch.Tensor) -&gt; tuple:
+        """
+        Args:
+            text_tokens: (batch, T) integer token IDs
+
+        Returns:
+            mu: (batch, T, mel_channels) prior means
+            log_sigma: (batch, T, mel_channels) prior log-std-devs
+            h_text: (batch, T, hidden_dim) encoder hidden states
+        """
+        h = self.embedding(text_tokens)
+        h_text = self.encoder(h)
+        mu = self.proj_mu(h_text)
+        log_sigma = self.proj_log_sigma(h_text)
+        return mu, log_sigma, h_text
+
+
+class SimpleDurationPredictor(nn.Module):
+    """Predicts duration (number of mel frames) for each text token."""
+    def __init__(self, hidden_dim: int):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(hidden_dim, 256),
+            nn.ReLU(),
+            nn.LayerNorm(256),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.LayerNorm(256),
+            nn.Linear(256, 1)
+        )
+
+    def forward(self, h_text: torch.Tensor) -&gt; torch.Tensor:
+        """
+        Args:
+            h_text: (batch, T, hidden_dim)
+
+        Returns:
+            log_durations: (batch, T) predicted log-durations
+        """
+        return self.net(h_text).squeeze(-1)
+
+
+def simple_flow_inverse(mel: torch.Tensor) -&gt; tuple:
+    """
+    Simplified flow inverse: mel -&gt; latent z.
+    In a real implementation, this would be the full flow network.
+    Here we simulate it with a linear transform for demonstration.
+    """
+    # Simulate flow inverse with identity + small perturbation
+    z = mel + 0.01 * torch.randn_like(mel)
+    # Simulate log-determinant
+    log_det = torch.zeros(mel.shape[0])
+    return z, log_det
+
+
+def glow_tts_training_step(text_tokens, mel_spectrogram, text_encoder,
+                            duration_predictor, optimizer):
+    """
+    One training step of Glow-TTS.
+
+    Args:
+        text_tokens: (batch, T) text token IDs
+        mel_spectrogram: (batch, N, mel_channels) target mel
+        text_encoder: encodes text to prior parameters
+        duration_predictor: predicts durations from encoder output
+        optimizer: optimizer for all parameters
+
+    Returns:
+        total_loss: scalar loss value
+        durations: (batch, T) MAS-derived durations
+    """
+    batch_size = text_tokens.shape[0]
+    T = text_tokens.shape[1]
+    N = mel_spectrogram.shape[1]
+    mel_channels = mel_spectrogram.shape[2]
+
+    # Step 1: Encode text to get prior parameters
+    mu, log_sigma, h_text = text_encoder(text_tokens)
+    sigma = torch.exp(log_sigma)
+
+    # Step 2: Run mel through flow inverse to get latent z
+    z, log_det = simple_flow_inverse(mel_spectrogram)
+    # z shape: (batch, N, mel_channels)
+
+    # Step 3: Run MAS to find optimal alignment
+    all_durations = []
+    total_log_prob = 0.0
+
+    for b in range(batch_size):
+        # Build cost matrix: C[t, n] = log N(z_n; mu_t, sigma_t)
+        z_b = z[b]          # (N, mel_channels)
+        mu_b = mu[b]        # (T, mel_channels)
+        sigma_b = sigma[b]  # (T, mel_channels)
+
+        # Compute log-probability matrix
+        # log N(z; mu, sigma) = -0.5*log(2*pi) - log(sigma) - 0.5*((z-mu)/sigma)^2
+        # Shape: (T, N, mel_channels)
+        z_expanded = z_b.unsqueeze(0).expand(T, -1, -1)       # (T, N, C)
+        mu_expanded = mu_b.unsqueeze(1).expand(-1, N, -1)       # (T, N, C)
+        sigma_expanded = sigma_b.unsqueeze(1).expand(-1, N, -1) # (T, N, C)
+
+        log_prob = (
+            -0.5 * np.log(2 * np.pi)
+            - torch.log(sigma_expanded + 1e-8)
+            - 0.5 * ((z_expanded - mu_expanded) / (sigma_expanded + 1e-8)) ** 2
+        )
+        # Sum over mel channels to get per-token-frame log-prob
+        log_prob_matrix = log_prob.sum(dim=2)  # (T, N)
+
+        # Run MAS (on CPU, numpy)
+        log_prob_np = log_prob_matrix.detach().cpu().numpy()
+        alignment = monotonic_alignment_search(log_prob_np)
+        # alignment[n] = text token index for mel frame n
+
+        # Extract durations from alignment
+        durations = np.zeros(T, dtype=np.int64)
+        for n in range(N):
+            durations[alignment[n]] += 1
+        all_durations.append(torch.from_numpy(durations).float())
+
+        # Compute log-likelihood for this sample
+        for n in range(N):
+            t = alignment[n]
+            total_log_prob += log_prob_matrix[t, n]
+
+    durations_tensor = torch.stack(all_durations)  # (batch, T)
+
+    # Step 4: Compute losses
+    # Negative log-likelihood loss (flow loss)
+    nll_loss = -total_log_prob / (batch_size * N) - log_det.mean()
+
+    # Duration prediction loss (log-domain MSE)
+    log_dur_pred = duration_predictor(h_text.detach())  # stop gradient to encoder
+    log_dur_target = torch.log(durations_tensor.clamp(min=1).float())
+    dur_loss = F.mse_loss(log_dur_pred, log_dur_target)
+
+    # Total loss
+    total_loss = nll_loss + dur_loss
+
+    # Step 5: Backprop and update
+    optimizer.zero_grad()
+    total_loss.backward()
+    optimizer.step()
+
+    return total_loss.item(), durations_tensor
+
+
+# === Demo: run one training step ===
+torch.manual_seed(42)
+
+vocab_size = 50
+hidden_dim = 128
+mel_channels = 80
+batch_size = 2
+T = 8   # text tokens
+N = 40  # mel frames
+
+# Create models
+text_encoder = SimpleTextEncoder(vocab_size, hidden_dim, mel_channels)
+dur_predictor = SimpleDurationPredictor(hidden_dim)
+
+# Create optimizer for all parameters
+all_params = list(text_encoder.parameters()) + list(dur_predictor.parameters())
+optimizer = torch.optim.Adam(all_params, lr=1e-4)
+
+# Synthetic data
+text = torch.randint(1, vocab_size, (batch_size, T))
+mel = torch.randn(batch_size, N, mel_channels)
+
+# Run training step
+loss, durations = glow_tts_training_step(
+    text, mel, text_encoder, dur_predictor, optimizer
+)
+
+print(f"Training step completed:")
+print(f"  Total loss: {loss:.4f}")
+print(f"  MAS durations (sample 0): {durations[0].int().tolist()}")
+print(f"  Duration sum: {durations[0].sum().int().item()} (should be {N})")
+print(f"  Duration range: [{durations.min().int().item()}, {durations.max().int().item()}]")</code></pre>
+
+                <!-- Code Example 3: Temperature-Controlled Inference -->
+                <h3>3. Temperature-Controlled Inference</h3>
+                <p>Inference with Glow-TTS at different temperature settings. Demonstrates how temperature affects the diversity of generated mel-spectrograms for the same input text.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import numpy as np
+
+
+def glow_tts_inference(text_tokens: torch.Tensor,
+                       mu: torch.Tensor,
+                       log_sigma: torch.Tensor,
+                       predicted_durations: torch.Tensor,
+                       temperature: float = 0.667) -&gt; torch.Tensor:
+    """
+    Glow-TTS inference: text -&gt; mel-spectrogram (simplified).
+
+    Args:
+        text_tokens: (batch, T) text token IDs (for reference)
+        mu: (batch, T, mel_channels) prior means from encoder
+        log_sigma: (batch, T, mel_channels) prior log-std-devs from encoder
+        predicted_durations: (batch, T) predicted durations (integer frames)
+        temperature: sampling temperature (0 = deterministic, 1 = full sampling)
+
+    Returns:
+        mel: (batch, N_total, mel_channels) generated mel-spectrogram
+    """
+    batch_size, T, mel_channels = mu.shape
+    sigma = torch.exp(log_sigma)
+
+    all_mels = []
+
+    for b in range(batch_size):
+        # Step 1: Expand prior parameters according to predicted durations
+        expanded_mu = []
+        expanded_sigma = []
+
+        for t in range(T):
+            dur = int(predicted_durations[b, t].item())
+            if dur &gt; 0:
+                expanded_mu.append(mu[b, t].unsqueeze(0).expand(dur, -1))
+                expanded_sigma.append(sigma[b, t].unsqueeze(0).expand(dur, -1))
+
+        if len(expanded_mu) == 0:
+            # Edge case: all durations are 0
+            all_mels.append(torch.zeros(1, mel_channels))
+            continue
+
+        expanded_mu = torch.cat(expanded_mu, dim=0)       # (N, mel_channels)
+        expanded_sigma = torch.cat(expanded_sigma, dim=0)  # (N, mel_channels)
+
+        # Step 2: Sample latent vectors with temperature control
+        if temperature == 0:
+            # Deterministic: use mean
+            z = expanded_mu
+        else:
+            # Stochastic: sample from N(mu, sigma * tau)
+            noise = torch.randn_like(expanded_mu)
+            z = expanded_mu + expanded_sigma * temperature * noise
+
+        # Step 3: Flow forward pass (simplified as identity here)
+        # In a real implementation, this would be the full flow forward pass
+        mel = z  # Placeholder for f(z; x)
+
+        all_mels.append(mel)
+
+    # Pad to same length and stack
+    max_len = max(m.shape[0] for m in all_mels)
+    padded = torch.zeros(batch_size, max_len, mel_channels)
+    for b, m in enumerate(all_mels):
+        padded[b, :m.shape[0]] = m
+
+    return padded
+
+
+def compute_diversity(samples: list) -&gt; dict:
+    """
+    Compute diversity metrics across multiple samples of the same text.
+
+    Args:
+        samples: list of mel-spectrograms (each: (N, mel_channels))
+
+    Returns:
+        dict with diversity metrics
+    """
+    if len(samples) &lt; 2:
+        return {"std_mean": 0.0, "pairwise_dist": 0.0}
+
+    # Stack all samples
+    stacked = torch.stack(samples)  # (num_samples, N, mel_channels)
+
+    # Per-frame standard deviation across samples
+    std_per_frame = stacked.std(dim=0)  # (N, mel_channels)
+    std_mean = std_per_frame.mean().item()
+
+    # Average pairwise L2 distance
+    num_samples = len(samples)
+    total_dist = 0.0
+    count = 0
+    for i in range(num_samples):
+        for j in range(i + 1, num_samples):
+            dist = (samples[i] - samples[j]).pow(2).mean().sqrt().item()
+            total_dist += dist
+            count += 1
+
+    pairwise_dist = total_dist / count if count &gt; 0 else 0.0
+
+    return {"std_mean": std_mean, "pairwise_dist": pairwise_dist}
+
+
+# === Demo: compare different temperatures ===
+torch.manual_seed(0)
+
+batch_size = 1
+T = 5         # text tokens
+mel_channels = 80
+num_samples = 10  # number of samples per temperature
+
+# Simulate encoder output (fixed for all samples)
+mu = torch.randn(batch_size, T, mel_channels) * 0.5
+log_sigma = torch.randn(batch_size, T, mel_channels) * 0.3 - 1.0
+
+# Simulate predicted durations (same for all samples)
+durations = torch.tensor([[8, 12, 6, 10, 4]], dtype=torch.float32)
+total_frames = int(durations.sum().item())
+
+text_tokens = torch.randint(1, 50, (batch_size, T))
+
+# Test different temperatures
+temperatures = [0.0, 0.333, 0.667, 1.0, 1.5]
+
+print(f"Generating {num_samples} samples at each temperature")
+print(f"Text: {T} tokens, Total mel frames: {total_frames}")
+print(f"Durations: {durations[0].int().tolist()}")
+print()
+print(f"{'Temperature':&gt;12s}  {'Std Mean':&gt;10s}  {'Pairwise Dist':&gt;14s}  {'Description'}")
+print("-" * 70)
+
+for tau in temperatures:
+    samples = []
+    for _ in range(num_samples):
+        mel = glow_tts_inference(
+            text_tokens, mu, log_sigma, durations, temperature=tau
+        )
+        samples.append(mel[0])  # take first (only) batch element
+
+    metrics = compute_diversity(samples)
+
+    if tau == 0.0:
+        desc = "deterministic (mean only)"
+    elif tau &lt; 0.5:
+        desc = "low diversity"
+    elif tau &lt; 0.8:
+        desc = "balanced (recommended)"
+    elif tau &lt;= 1.0:
+        desc = "full sampling"
+    else:
+        desc = "high diversity (may degrade)"
+
+    print(f"{tau:&gt;12.3f}  {metrics['std_mean']:&gt;10.4f}  "
+          f"{metrics['pairwise_dist']:&gt;14.4f}  {desc}")
+
+print()
+print("KEY OBSERVATIONS:")
+print("  - tau=0: zero diversity (all samples identical)")
+print("  - tau=0.667: moderate diversity with good quality")
+print("  - tau=1.0: maximum meaningful diversity")
+print("  - tau&gt;1.0: diversity increases but quality may degrade")
+print()
+print("Each sample at tau&gt;0 produces different prosody for the same text.")
+print("This solves the one-to-many problem that deterministic models cannot address.")</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of normalizing flows, Glow-TTS architecture, MAS integration, and temperature-controlled generation. Exercises range from basic conceptual questions to advanced system design challenges. Solutions are provided for self-study.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Flow Direction</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In Glow-TTS, the flow decoder can be run in two directions: forward and inverse. Which direction is used during training and which during inference? Explain why each direction is needed at its respective stage.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Training: inverse direction</strong> (mel &rarr; latent $z$).</p>
+                                <p>During training, we have the ground-truth mel-spectrogram $y$ and need to compute its log-likelihood. The flow inverse maps $y$ to the latent space: $z = f^{-1}(y; x)$. We then evaluate $z$ under the text-conditioned prior $p_Z(z | x, a)$ to compute the likelihood. The inverse direction is necessary because the change of variables formula requires computing $f^{-1}(y)$ to evaluate $p_X(y)$.</p>
+                                <p><strong>Inference: forward direction</strong> (latent $z$ &rarr; mel).</p>
+                                <p>During inference, we do not have the mel-spectrogram &mdash; we are generating it. We sample latent vectors $z$ from the prior and then map them to mel-spectrogram space: $y = f(z; x)$. The forward direction is the generative direction.</p>
+                                <p><strong>Key insight:</strong> The flow is invertible, so both directions use the same parameters. The difference is which direction the data flows through the network. Training needs the inverse because we are computing likelihoods of observed data. Inference needs the forward because we are generating new data from latent samples.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Temperature Effect</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Describe what happens to the generated speech for each of the following temperature values: $\tau = 0$, $\tau = 0.5$, $\tau = 1.0$, and $\tau = 2.0$. For each, discuss the trade-off between quality and diversity. What artifacts might appear at extreme temperatures?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <ul>
+                                    <li>
+                                        <strong>$\tau = 0$ (deterministic):</strong> The sampling reduces to $z = \mu$ (the mean of the prior). Every synthesis of the same text produces the identical mel-spectrogram. The output is "safe" but may sound flat and overly smooth because it represents the average of all possible realizations. No diversity, maximum consistency. No artifacts, but potentially boring prosody.
+                                    </li>
+                                    <li>
+                                        <strong>$\tau = 0.5$ (low temperature):</strong> Mild randomness. Samples cluster near the mean with small perturbations. Speech has subtle variations in pitch and timing between synthesis runs, but overall sounds very consistent. Quality is high because samples stay in the high-density region of the prior. Good for production systems where slight naturalness is desired without risking quality.
+                                    </li>
+                                    <li>
+                                        <strong>$\tau = 1.0$ (full sampling):</strong> Samples from the full learned distribution $\mathcal{N}(\mu, \sigma)$. Maximum meaningful diversity &mdash; each synthesis can have noticeably different prosody, emphasis, and rhythm. Most samples sound natural, but occasional samples from the tails of the distribution may produce slightly unusual intonation patterns. This is the "true" generative distribution.
+                                    </li>
+                                    <li>
+                                        <strong>$\tau = 2.0$ (over-sampling):</strong> The sampling distribution is $\mathcal{N}(\mu, 2\sigma)$, which is wider than the learned distribution. Many samples will come from regions of latent space that the flow was never trained on. This can produce <strong>artifacts</strong>: unnatural pitch jumps, distorted vowels, robotic-sounding segments, or even unintelligible speech. The flow's forward pass maps these out-of-distribution latent vectors to mel-spectrograms that do not correspond to natural speech.
+                                    </li>
+                                </ul>
+                                <p><strong>General principle:</strong> Increasing $\tau$ beyond 1.0 does not produce "more diverse natural speech" &mdash; it produces out-of-distribution samples that degrade quality. The sweet spot is typically $\tau \in [0.5, 0.8]$ for a good balance.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. MAS Cost Matrix</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>An utterance has 3 text tokens and 8 mel frames. (a) What is the shape of the MAS cost matrix? (b) How many possible monotonic alignments exist? (c) If each mel channel contributes independently to the cost, and there are 80 mel channels, how many scalar multiplications are needed to fill the cost matrix?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Shape of the cost matrix:</strong></p>
+                                <p>The cost matrix $C$ has dimensions $T \times N = 3 \times 8$. Each entry $C_{t,n}$ is the log-probability of latent frame $z_n$ under text token $t$'s Gaussian: $C_{t,n} = \log \mathcal{N}(z_n; \mu_t, \sigma_t)$. So the matrix has 24 entries.</p>
+                                <p><strong>(b) Number of possible monotonic alignments:</strong></p>
+                                <p>A monotonic alignment of 8 frames to 3 tokens (where each token gets at least 1 frame) is equivalent to choosing 2 "boundary" positions among the 7 possible positions between frames. This is $\binom{N-1}{T-1} = \binom{7}{2} = 21$ possible alignments.</p>
+                                <p><strong>(c) Scalar multiplications for cost matrix:</strong></p>
+                                <p>Computing $\log \mathcal{N}(z_n; \mu_t, \sigma_t) = -\frac{1}{2}\log(2\pi) - \log\sigma_t - \frac{(z_n - \mu_t)^2}{2\sigma_t^2}$ summed over 80 channels requires, per entry: 80 subtractions ($z_n - \mu_t$), 80 squarings, 80 divisions (by $\sigma_t^2$), and 80 log computations (for $\log \sigma_t$). The dominant cost is approximately $80 \times 3 = 240$ multiplications per entry (subtraction, squaring, division). With 24 entries total: $24 \times 240 = 5{,}760$ scalar multiplications. In practice, this is computed as a batched tensor operation and is extremely fast on GPU.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. Jacobian Computation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a 2D affine coupling layer where $x = (x_1, x_2)$ and the transformation is $y_1 = x_1$, $y_2 = x_2 \cdot \exp(s(x_1)) + t(x_1)$, with $s(x_1) = 2x_1$ and $t(x_1) = x_1^2$. (a) Write out the full $2 \times 2$ Jacobian matrix $\frac{\partial y}{\partial x}$. (b) Compute its determinant. (c) Verify that the log-determinant equals $s(x_1) = 2x_1$. (d) Compute the Jacobian of the inverse transformation and verify that its determinant is $\exp(-2x_1)$.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Jacobian matrix:</strong></p>
+                                <p>The transformation is:</p>
+                                $$y_1 = x_1, \quad y_2 = x_2 \cdot e^{2x_1} + x_1^2$$
+                                <p>The Jacobian is:</p>
+                                $$J = \frac{\partial(y_1, y_2)}{\partial(x_1, x_2)} = \begin{pmatrix} \frac{\partial y_1}{\partial x_1} & \frac{\partial y_1}{\partial x_2} \\ \frac{\partial y_2}{\partial x_1} & \frac{\partial y_2}{\partial x_2} \end{pmatrix} = \begin{pmatrix} 1 & 0 \\ 2x_2 e^{2x_1} + 2x_1 & e^{2x_1} \end{pmatrix}$$
+                                <p><strong>(b) Determinant:</strong></p>
+                                $$\det J = 1 \cdot e^{2x_1} - 0 \cdot (2x_2 e^{2x_1} + 2x_1) = e^{2x_1}$$
+                                <p><strong>(c) Log-determinant verification:</strong></p>
+                                $$\log |\det J| = \log e^{2x_1} = 2x_1 = s(x_1) \quad \checkmark$$
+                                <p>This confirms the general result: for an affine coupling layer, $\log |\det J| = \sum s(x_a)$ (here just $s(x_1)$ since it is 1D).</p>
+                                <p><strong>(d) Inverse Jacobian:</strong></p>
+                                <p>The inverse transformation is $x_1 = y_1$ and $x_2 = (y_2 - y_1^2) \cdot e^{-2y_1}$:</p>
+                                $$J^{-1} = \begin{pmatrix} 1 & 0 \\ -2y_1 e^{-2y_1} - 2(y_2 - y_1^2) e^{-2y_1} & e^{-2y_1} \end{pmatrix}$$
+                                $$\det J^{-1} = e^{-2y_1} = e^{-2x_1}$$
+                                <p>This confirms $\det J^{-1} = (\det J)^{-1} = e^{-2x_1}$, as expected from the inverse function theorem.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. MAS vs MFA Durations</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Suppose you align the same utterance "hello world" using both MAS (from a trained Glow-TTS model) and MFA. MAS produces token-level durations [3, 5, 4, 2, 3, 6, 4, 3, 2] for tokens [h, e, l, l, o, w, o, r, l, d] (at 12.5ms per frame). MFA produces phone-level durations [40ms, 60ms, 50ms, 30ms, 45ms, 70ms, 55ms, 35ms, 25ms] for [HH, EH, L, OW, W, ER, L, D, sil]. (a) Compare the total speech durations. (b) Which alignment is "better" and by what criteria? (c) Why might they differ?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Total speech durations:</strong></p>
+                                <p>MAS: $(3+5+4+2+3+6+4+3+2) \times 12.5\text{ms} = 32 \times 12.5\text{ms} = 400\text{ms}$</p>
+                                <p>MFA: $40+60+50+30+45+70+55+35+25 = 410\text{ms}$ (last 25ms is silence, so speech = 385ms)</p>
+                                <p>The durations are similar but not identical: MAS gives 400ms total, MFA gives 385ms of speech + 25ms of silence.</p>
+                                <p><strong>(b) Which is "better"?</strong></p>
+                                <p>There is no single answer &mdash; it depends on the criterion:</p>
+                                <ul>
+                                    <li><strong>Phone boundary accuracy:</strong> MFA is likely better. MFA uses triphone acoustic models trained on large speech corpora, giving it a strong prior on what each phone sounds like. MAS uses the TTS model's learned representations, which are optimized for generation, not boundary detection.</li>
+                                    <li><strong>TTS quality:</strong> MAS may be better for training a flow-based TTS model. MAS produces alignments that are specifically optimized for the flow's latent space, which may lead to better generation quality even if the boundaries are less precise.</li>
+                                    <li><strong>Silence handling:</strong> MFA is better because it explicitly identifies the trailing silence (25ms "sil" phone). MAS assigns all frames to text tokens, so the trailing silence is absorbed by "d".</li>
+                                </ul>
+                                <p><strong>(c) Why they differ:</strong></p>
+                                <ul>
+                                    <li><strong>Different granularity:</strong> MAS operates on characters, MFA on phones. The mapping between characters and phones is not 1:1 (e.g., "ll" in "hello" is one phone /L/ but two character tokens).</li>
+                                    <li><strong>Different features:</strong> MAS operates on the flow's latent representation of mel-spectrograms; MFA operates on MFCCs with triphone GMMs.</li>
+                                    <li><strong>Different objectives:</strong> MAS maximizes the likelihood of $z$ under the text prior; MFA maximizes the likelihood of acoustic features under phone HMMs.</li>
+                                    <li><strong>Silence:</strong> MFA has an explicit silence model; MAS does not.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Multi-Speaker Extension</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Describe how to extend Glow-TTS for multi-speaker synthesis. Specifically: (a) Where should the speaker embedding be added in the architecture? (b) Should the speaker embedding condition the encoder, the flow, or both? (c) How does speaker conditioning affect MAS? (d) How does it affect the duration predictor?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Where to add speaker embedding:</strong></p>
+                                <p>A speaker embedding table $E_{\text{spk}} \in \mathbb{R}^{S \times d_{\text{spk}}}$ (where $S$ is the number of speakers) maps each speaker ID to a fixed-dimensional vector. This embedding should be injected into multiple components:</p>
+                                <ul>
+                                    <li><strong>Text encoder:</strong> Add the speaker embedding to the encoder's hidden states (typically by broadcasting and adding to each token's representation). This allows the prior parameters $(\mu_t, \sigma_t)$ to be speaker-dependent.</li>
+                                    <li><strong>Flow coupling networks:</strong> Add the speaker embedding as conditioning to the WaveNet-like networks inside each coupling layer. This allows the flow to learn speaker-dependent transformations between latent and mel space.</li>
+                                    <li><strong>Duration predictor:</strong> Concatenate or add the speaker embedding to the input of the duration predictor. Different speakers have different speaking rates.</li>
+                                </ul>
+                                <p><strong>(b) Encoder, flow, or both?</strong></p>
+                                <p>Both. The encoder conditioning makes the prior speaker-dependent (different speakers have different latent distributions). The flow conditioning makes the mel-generation speaker-dependent (different speakers produce different acoustic features from the same latent). Both are necessary for high-quality multi-speaker synthesis.</p>
+                                <p><strong>(c) Effect on MAS:</strong></p>
+                                <p>MAS itself does not change &mdash; it is still the same dynamic programming algorithm. However, because the prior parameters $(\mu_t, \sigma_t)$ and the latent vectors $z$ are both speaker-conditioned, the cost matrix $C_{t,n}$ becomes speaker-dependent. This means MAS will find different alignments for different speakers saying the same text, which is correct &mdash; different speakers have different timing patterns.</p>
+                                <p><strong>(d) Effect on duration predictor:</strong></p>
+                                <p>The duration predictor must learn speaker-dependent durations. A fast speaker will have systematically shorter durations than a slow speaker. By conditioning on the speaker embedding, the predictor can learn these speaker-specific patterns. Without speaker conditioning, the predictor would average across speakers, producing durations that are too fast for slow speakers and too slow for fast speakers.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Flow Depth vs Quality</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The Glow-TTS flow decoder uses $K$ flow steps. (a) What happens if $K = 1$ (a single flow step)? Can the model learn complex distributions? (b) What is the trade-off as $K$ increases? (c) If each flow step takes 2ms on GPU, what is the maximum $K$ for real-time synthesis of 10 seconds of audio (at 80 mel frames per second)? (d) How does $K$ affect the log-determinant computation?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) $K = 1$:</strong></p>
+                                <p>With a single affine coupling layer, the transformation is limited: half of the channels pass through unchanged, and the other half undergo a single affine transformation. This cannot learn complex, multimodal distributions. The resulting mel-spectrograms would sound very poor &mdash; essentially, the model can only learn a simple scaling and shifting of the latent distribution, which is insufficient for natural speech.</p>
+                                <p><strong>(b) Trade-off as $K$ increases:</strong></p>
+                                <ul>
+                                    <li><strong>Quality:</strong> More flow steps allow the model to learn more complex transformations, improving the quality of generated speech. Each additional step adds more expressiveness to the mapping between latent and mel space.</li>
+                                    <li><strong>Speed:</strong> Both training and inference slow down linearly with $K$, because each step requires a full forward (or inverse) pass through the coupling network.</li>
+                                    <li><strong>Memory:</strong> More parameters and more activations to store. Each flow step adds the parameters of the coupling network, ActNorm, and 1&times;1 convolution.</li>
+                                    <li><strong>Diminishing returns:</strong> Beyond a certain point (typically $K = 12$&ndash;$16$), adding more steps provides marginal quality improvement but significant speed and memory costs.</li>
+                                </ul>
+                                <p><strong>(c) Maximum $K$ for real-time:</strong></p>
+                                <p>10 seconds of audio at 80 frames/second = 800 mel frames. Real-time means the total generation time must be &le; 10 seconds. If each of the $K$ flow steps processes all 800 frames in 2ms, then total flow time = $K \times 2\text{ms}$. For real-time: $K \times 2\text{ms} \le 10{,}000\text{ms}$, so $K \le 5{,}000$. In practice, other components (encoder, duration predictor, vocoder) consume significant time, so $K$ would need to be much smaller. With a typical 50% budget for the flow: $K \le 2{,}500$. But the standard $K = 12$ is far below this limit, so real-time is easily achievable.</p>
+                                <p><strong>(d) Effect on log-determinant:</strong></p>
+                                <p>The total log-determinant is the sum of log-determinants from all $K$ steps: $\log |\det J_{\text{total}}| = \sum_{k=1}^{K} \log |\det J_k|$. Each step contributes three terms (ActNorm, 1&times;1 conv, coupling layer). The computation is $O(K)$ in the number of steps, and each individual term is cheap (no matrix determinants &mdash; just sums of scale factors). So the log-determinant computation scales linearly with $K$ and is never the bottleneck.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Tonal Language Adaptation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You want to adapt Glow-TTS for Mandarin Chinese, a tonal language where the same syllable with different tones has different meanings (e.g., "ma" can mean "mother," "hemp," "horse," or "scold" depending on tone). (a) Where does tone information enter the Glow-TTS architecture? (b) How should the text representation be modified? (c) How does tone affect the prior distribution and MAS? (d) What challenges arise that do not exist in non-tonal languages?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Where tone information enters:</strong></p>
+                                <p>Tone information must be present in the <strong>text encoder input</strong>. It affects the prior parameters $(\mu_t, \sigma_t)$, which must encode not just the phonemic identity but also the tonal pattern. Additionally, tone influences the flow decoder through the conditioning signal, because different tones produce different pitch contours in the mel-spectrogram.</p>
+                                <p><strong>(b) Text representation modifications:</strong></p>
+                                <p>Several approaches:</p>
+                                <ul>
+                                    <li><strong>Tone-annotated pinyin:</strong> Use pinyin syllables with explicit tone markers as tokens: "ma1", "ma2", "ma3", "ma4", "ma5" (5th = neutral tone). Each syllable+tone combination is a separate token.</li>
+                                    <li><strong>Separate tone embedding:</strong> Use a two-stream input: phoneme tokens + tone tokens. The encoder combines them via addition or concatenation. This allows the model to share phonemic representations across tones.</li>
+                                    <li><strong>Character-level with tone from text:</strong> Use Chinese characters directly (each character has an inherent tone). The model must learn tone information implicitly from the character embeddings.</li>
+                                </ul>
+                                <p>The recommended approach is separate tone embedding, because it explicitly represents tone while allowing phonemic weight sharing.</p>
+                                <p><strong>(c) Effect on prior and MAS:</strong></p>
+                                <p>The prior parameters $(\mu_t, \sigma_t)$ must encode the expected pitch contour for each tone. For example, Tone 1 (high flat) would have prior parameters that correspond to high, steady F0 values, while Tone 4 (falling) would correspond to a falling F0 pattern. MAS would then find alignments that match the observed pitch patterns to the expected tonal patterns, effectively learning tone-duration interactions (e.g., Tone 3 syllables are typically longer than Tone 4 syllables).</p>
+                                <p><strong>(d) Challenges specific to tonal languages:</strong></p>
+                                <ul>
+                                    <li><strong>Tone sandhi:</strong> In Mandarin, consecutive Tone 3 syllables undergo tone sandhi (the first one changes to Tone 2). The model must learn these contextual tone modifications, which depend on multi-syllable context.</li>
+                                    <li><strong>Prosodic phrasing:</strong> Tonal languages have complex interactions between word-level tones and sentence-level intonation. The prior must capture both local tone patterns and global prosodic contours.</li>
+                                    <li><strong>Neutral tone:</strong> Tone 5 (neutral/unstressed) is highly variable and context-dependent, making it harder for MAS to find consistent alignments for neutral-tone syllables.</li>
+                                    <li><strong>Pitch range:</strong> Different speakers have different pitch ranges, so the prior's pitch-related dimensions must be normalized or speaker-conditioned to work across speakers.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Glow-TTS + HiFi-GAN Pipeline</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Design the full inference pipeline from text to waveform using Glow-TTS (mel generation) and HiFi-GAN (vocoder). (a) Draw the complete pipeline with all intermediate representations and their shapes. (b) Identify the computational bottleneck. (c) What is the total latency for synthesizing "Hello, how are you?" assuming: text encoding = 5ms, duration prediction = 1ms, flow forward (12 steps) = 24ms, HiFi-GAN = 15ms. (d) How would you optimize this pipeline for streaming applications?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Complete pipeline:</strong></p>
+<pre><code>Text: "Hello, how are you?"
+  |
+  v  [Text Encoder: Transformer]
+Per-token representations: (1, T=5, hidden=256)
+  |
+  +--&gt; Prior parameters: mu (1, 5, 80), log_sigma (1, 5, 80)
+  |
+  +--&gt; [Duration Predictor]
+       Durations: (1, 5) = e.g., [12, 8, 6, 10, 7]
+       Total frames: N = 43
+  |
+  v  [Expand + Sample]
+Latent z: (1, 43, 80)   (sampled from N(mu_expanded, sigma*tau))
+  |
+  v  [Flow Forward: 12 steps of ActNorm + 1x1 Conv + Coupling]
+Mel-spectrogram: (1, 43, 80)   (~0.54 seconds at 80 fps)
+  |
+  v  [HiFi-GAN Vocoder]
+Waveform: (1, 1, 12000)   (43 frames * ~256 samples/frame at 22050 Hz)</code></pre>
+                                <p><strong>(b) Computational bottleneck:</strong></p>
+                                <p>The flow forward pass (24ms for 12 steps) is the bottleneck in the acoustic model. However, the HiFi-GAN vocoder (15ms) is a close second and may become the bottleneck for longer utterances because its cost scales linearly with the waveform length. For short utterances like this one, the flow dominates. For longer utterances (10+ seconds), the vocoder may dominate.</p>
+                                <p><strong>(c) Total latency:</strong></p>
+                                <p>All components are sequential (each depends on the previous output):</p>
+                                $$\text{Total} = 5\text{ms} + 1\text{ms} + 24\text{ms} + 15\text{ms} = 45\text{ms}$$
+                                <p>This is well under real-time (the audio is ~540ms long), giving a real-time factor of $45/540 \approx 0.08\times$ (about 12x faster than real-time).</p>
+                                <p><strong>(d) Streaming optimization:</strong></p>
+                                <ul>
+                                    <li><strong>Chunked processing:</strong> Split the mel-spectrogram into chunks of 10&ndash;20 frames. Run the flow and vocoder on each chunk independently, streaming the audio output as each chunk is ready. This reduces first-byte latency from 45ms to ~15ms (one chunk through the full pipeline).</li>
+                                    <li><strong>Pipeline parallelism:</strong> While the vocoder processes chunk $k$, the flow processes chunk $k+1$. This hides the flow latency behind the vocoder latency.</li>
+                                    <li><strong>Causal flow:</strong> Modify the flow's coupling networks to use causal convolutions, enabling frame-by-frame generation without waiting for future frames.</li>
+                                    <li><strong>Vocoder optimization:</strong> Use a smaller HiFi-GAN variant or replace with a faster vocoder (e.g., MB-MelGAN) at a small quality cost.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Improving MAS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Propose three improvements to the MAS algorithm as used in Glow-TTS. For each improvement, describe: (a) the modification to the algorithm or architecture, (b) the expected benefit, (c) the potential drawbacks, and (d) how you would evaluate whether the improvement actually helps. Consider the following directions: soft/differentiable MAS, MAS with explicit silence handling, and a learned cost function.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>Improvement 1: Soft MAS (differentiable alignment)</strong></p>
+                                <p><strong>(a) Modification:</strong> Replace the hard (argmax) MAS with a soft version that computes a soft alignment matrix using the forward-backward algorithm. Instead of assigning each frame to exactly one token, compute posterior probabilities $\gamma_{t,n} = P(\text{frame } n \text{ aligned to token } t | z, x)$ using a forward-backward pass on the same cost matrix. The soft alignment is used in the loss computation: $\mathcal{L} = -\sum_{t,n} \gamma_{t,n} \cdot C_{t,n}$.</p>
+                                <p><strong>(b) Benefit:</strong> The alignment becomes differentiable, allowing gradients to flow through the alignment to the encoder. This could lead to faster and more stable training, especially in early epochs when the hard alignment may be very wrong and the model receives misleading gradient signals.</p>
+                                <p><strong>(c) Drawbacks:</strong> Soft alignment is more expensive ($O(T \times N)$ forward + backward passes). The soft assignments may be too diffuse early in training, providing weak supervision to the duration predictor. The model may converge to local optima where the alignment is "smeared" rather than crisp.</p>
+                                <p><strong>(d) Evaluation:</strong> Compare MOS (Mean Opinion Score) of synthesized speech, alignment sharpness (entropy of $\gamma_{t,n}$), and convergence speed (number of epochs to reach a target loss). Also compare the learned durations against MFA durations for the same corpus.</p>
+
+                                <p><strong>Improvement 2: MAS with explicit silence handling</strong></p>
+                                <p><strong>(a) Modification:</strong> Add a dedicated silence token to the text sequence (either at the beginning and end, or between words). The silence token has its own prior parameters $(\mu_{\text{sil}}, \sigma_{\text{sil}})$ that are initialized to match silence acoustics (low energy, flat spectrum). The MAS algorithm remains unchanged &mdash; it naturally assigns silence frames to the silence token because the cost matrix entries will be highest for silence-silence matches.</p>
+                                <p><strong>(b) Benefit:</strong> Silence frames are no longer assigned to the last (or first) speech token, preventing duration inflation. The duration predictor learns correct speech durations. The model can also learn to <em>generate</em> appropriate silence at sentence boundaries and pauses.</p>
+                                <p><strong>(c) Drawbacks:</strong> Requires modifying the text preprocessing to insert silence tokens. The optimal placement of silence tokens (only at utterance boundaries? between words? between phrases?) is not obvious and may require tuning. The silence token's prior must be carefully initialized.</p>
+                                <p><strong>(d) Evaluation:</strong> Compare durations of utterance-final tokens with and without silence tokens. Measure the standard deviation of final-token durations across the corpus (high std indicates silence absorption). Listen for unnatural pauses or missing pauses in synthesized speech.</p>
+
+                                <p><strong>Improvement 3: Learned cost function</strong></p>
+                                <p><strong>(a) Modification:</strong> Instead of using the Gaussian log-probability $\log \mathcal{N}(z_n; \mu_t, \sigma_t)$ as the cost matrix, use a learned scoring function $C_{t,n} = \text{Score}(h_t, z_n; \theta)$ where $h_t$ is the encoder hidden state for token $t$, $z_n$ is the latent vector for frame $n$, and $\theta$ are learned parameters. The scoring function could be a small MLP or a bilinear attention mechanism: $C_{t,n} = h_t^T W z_n$.</p>
+                                <p><strong>(b) Benefit:</strong> A learned cost function can capture alignment patterns that the Gaussian assumption misses. For example, it could learn that certain phone pairs have characteristic transition patterns that affect alignment, or that some tokens have inherently longer/shorter durations regardless of the latent representation.</p>
+                                <p><strong>(c) Drawbacks:</strong> The cost function is no longer a proper log-probability, so the training objective is no longer maximum likelihood. This may lead to mode collapse or training instability. The learned cost function may overfit to the training data, producing poor alignments on novel text.</p>
+                                <p><strong>(d) Evaluation:</strong> Compare alignment quality using frame-level accuracy against MFA reference alignments. Measure TTS quality via MOS. Check for training stability by monitoring the alignment entropy across epochs (should decrease monotonically). Test generalization by evaluating on out-of-domain text.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#flows-recap" class="toc-link">Normalizing Flows Recap</a>
+                <a href="#glow-tts-overview" class="toc-link">Glow-TTS Architecture</a>
+                <a href="#glow-tts-training" class="toc-link">Training with Flows</a>
+                <a href="#mas-in-glow-tts" class="toc-link">MAS in Glow-TTS</a>
+                <a href="#glow-tts-inference" class="toc-link">Parallel Inference</a>
+                <a href="#flow-architecture-details" class="toc-link">Flow Architecture Details</a>
+                <a href="#diversity" class="toc-link">Diverse Speech Generation</a>
+                <a href="#glow-tts-vs-fastspeech" class="toc-link">Glow-TTS vs FastSpeech</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>
