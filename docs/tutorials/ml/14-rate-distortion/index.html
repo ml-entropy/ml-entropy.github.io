@@ -322,6 +322,85 @@
                     </p>
                 </div>
 
+                <!-- Entropy Scope Clarification -->
+                <h3 id="entropy-scope">Entropy: Pixel, Image, or Dataset?</h3>
+
+                <p>
+                    A common confusion: <em>"Is entropy a property of a single pixel, a single image, or the
+                    entire MNIST dataset?"</em> The answer is: <strong>it depends on what random variable you define</strong>.
+                    Entropy is always a property of a <strong>probability distribution</strong>, not of a specific
+                    data point. Here are three meaningful levels:
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Three Levels of Entropy in MNIST</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Per-pixel entropy $H(X_{\text{pixel}}) \approx 1.1$ bits.</strong>
+                            This is what we computed above. The random variable $X_{\text{pixel}}$ is
+                            "a randomly chosen pixel from a randomly chosen MNIST image." It takes values
+                            in $\{0, 1, \ldots, 255\}$. The distribution is the empirical frequency of
+                            all 47 million pixel values. This entropy answers: <em>"How many bits does
+                            a typical pixel carry?"</em>
+
+                            <p><strong>Key point:</strong> Per-pixel entropy is a property of the <strong>dataset-wide
+                            pixel distribution</strong> — it averages over all images and all pixel positions.
+                            It is <em>not</em> the entropy of one specific pixel in one specific image.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Per-image entropy $H(\mathbf{X}_{\text{image}})$: much harder to compute.</strong>
+                            The random variable $\mathbf{X}_{\text{image}}$ is a full $28 \times 28$ image — a
+                            784-dimensional vector. Its entropy answers: <em>"How many bits does a typical
+                            MNIST image carry?"</em>
+
+                            <p>If pixels were independent: $H(\mathbf{X}_{\text{image}}) = 784 \times H(X_{\text{pixel}})
+                            \approx 862$ bits. But pixels are <strong>correlated</strong> (nearby pixels in a stroke
+                            are similar), so the true image entropy is <strong>lower</strong>:</p>
+
+                            <p>$$H(\mathbf{X}_{\text{image}}) = \sum_{i=1}^{784} H(X_i | X_1, \ldots, X_{i-1}) \leq \sum_{i=1}^{784} H(X_i)$$</p>
+
+                            <p>The inequality is the <strong>chain rule of entropy</strong> combined with the fact that
+                            conditioning reduces entropy. Empirically (based on lossless compression benchmarks),
+                            $H(\mathbf{X}_{\text{image}}) \approx 640{-}800$ bits — less than the
+                            independent-pixel estimate of 862.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Dataset entropy $H(\text{dataset})$: not a useful concept.</strong>
+                            The MNIST training set has exactly 60,000 images. If you treat the "dataset" as
+                            a single fixed object, it has no randomness — entropy is zero. If you treat it as
+                            60,000 i.i.d. draws, the dataset entropy is just $60{,}000 \times H(\mathbf{X}_{\text{image}})$.
+                            This isn't a useful quantity for compression — we compress <em>one image at a time</em>.
+
+                            <p><strong>Bottom line:</strong> When we say "the entropy of MNIST," we almost always
+                            mean the per-image entropy $H(\mathbf{X}_{\text{image}})$ or the per-pixel entropy
+                            $H(X_{\text{pixel}})$. The dataset is the <em>source of the distribution</em>, not
+                            the random variable itself.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Why We Used Per-Pixel Entropy</div>
+                    <p style="margin-bottom: 0;">
+                        In the calculation above, we used per-pixel entropy because (a) it's easy to compute
+                        from data, (b) it gives an <strong>upper bound</strong> on the true per-pixel rate
+                        (since assuming independence overestimates entropy), and (c) it connects directly to
+                        rate-distortion theory where the source is often modeled as a single random variable.
+                        The true image entropy — accounting for pixel correlations — would require modeling
+                        the full 784-dimensional joint distribution, which is exactly what autoencoders learn to do.
+                    </p>
+                </div>
+
                 <h3>What is the "Distortion Budget" $D$?</h3>
 
                 <p>
@@ -525,9 +604,12 @@
                 <h2 id="lossy-compression">The Lossy Compression Problem</h2>
 
                 <p>
-                    The MNIST example illustrates a universal problem. Whether compressing images,
-                    audio, video, or neural network representations, we face the same trade-off:
-                    <strong>quality versus size</strong>. Shannon formalized this in 1959.
+                    The MNIST example gave us concrete numbers: 6,272 bits raw, ~862 bits lossless,
+                    and as few as ~80 bits with lossy compression. But MNIST is just one dataset. Whether
+                    compressing images, audio, video, or neural network representations, we face the same
+                    fundamental trade-off: <strong>quality versus size</strong>. Shannon formalized this
+                    universally in 1959, giving us a mathematical framework that applies to <em>any</em>
+                    source and <em>any</em> notion of quality.
                 </p>
 
                 <p>
@@ -559,8 +641,10 @@
                 <h2 id="framework">The Rate-Distortion Framework</h2>
 
                 <p>
-                    Rate-distortion theory has four ingredients. Understanding each one clearly is
-                    essential before we can state the main result.
+                    Now that we understand <em>what</em> the lossy compression problem is, let's formalize
+                    <em>how</em> Shannon modeled it. The framework has four ingredients. Understanding
+                    each one clearly is essential before we can state the main result — the rate-distortion
+                    function $R(D)$.
                 </p>
 
                 <div class="definition-box">
@@ -596,8 +680,14 @@
                 <h2 id="mutual-information">Mutual Information as Rate</h2>
 
                 <p>
-                    Why does mutual information $I(X; Z)$ measure the rate? Because it quantifies
-                    exactly how much information $Z$ carries about $X$:
+                    In the framework above, we said the <strong>rate</strong> is the mutual information
+                    $I(X; Z)$. But why? Why not use $H(Z)$ (the entropy of the code) or the bottleneck
+                    dimension directly? The answer reveals a deep insight about what "information transmitted"
+                    really means.
+                </p>
+
+                <p>
+                    Mutual information $I(X; Z)$ quantifies exactly how much information $Z$ carries about $X$:
                 </p>
 
                 <div class="math-block">
@@ -624,10 +714,29 @@
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            <strong>Minimum description length:</strong> Shannon's source coding theorem
-                            says you need at least $H(Z)$ bits to losslessly represent $Z$. But
-                            $H(Z|X)$ bits of $Z$ are "noise" (randomness from the stochastic encoder
-                            that doesn't depend on $X$). The useful information is $H(Z) - H(Z|X) = I(X;Z)$.
+                            <strong>Minimum description length (the $H(Z) - H(Z|X)$ perspective):</strong>
+
+                            <p>This is the second way to understand mutual information, and it deserves
+                            careful unpacking because it confuses many students.</p>
+
+                            <p><strong>$H(Z)$: total bits to describe the code.</strong>
+                            Shannon's source coding theorem says you need at least $H(Z)$ bits to
+                            losslessly represent the code $Z$. This is the <em>total</em> cost of
+                            transmitting $Z$ — including both useful signal and useless noise.</p>
+
+                            <p><strong>$H(Z|X)$: the "wasted" bits (encoder noise).</strong>
+                            If the encoder is stochastic, then even if you <em>know</em> the input $X$,
+                            you still can't predict $Z$ perfectly — there's randomness left. $H(Z|X)$
+                            measures this leftover randomness. These are bits you must transmit but that
+                            carry <strong>zero information about $X$</strong> — they're pure encoder noise.</p>
+
+                            <p><strong>$I(X;Z) = H(Z) - H(Z|X)$: the useful bits.</strong>
+                            Subtract the noise from the total, and what remains is the information
+                            that $Z$ actually carries about $X$. This is the <em>useful</em> rate.</p>
+
+                            <p><em>Analogy:</em> Imagine sending a letter. $H(Z)$ is the total number of
+                            characters you write. $H(Z|X)$ is how many characters are random scribbles
+                            (noise). $I(X;Z)$ is how many characters actually convey your message.</p>
                         </div>
                     </div>
 
@@ -639,6 +748,83 @@
                             sequence with the encoder $p(z|x)$. This is the <em>operational</em> rate.
                         </div>
                     </div>
+                </div>
+
+                <!-- Why the two forms of MI are equivalent -->
+                <h3 id="mi-equivalence">Why $I(X;Z) = H(X) - H(X|Z) = H(Z) - H(Z|X)$</h3>
+
+                <p>
+                    Students often ask: <em>"You first wrote $I(X;Z) = H(X) - H(X|Z)$, then
+                    later used $I(X;Z) = H(Z) - H(Z|X)$. Are these really the same thing?"</em>
+                    Yes — and understanding <strong>why</strong> they're equal deepens your understanding
+                    of what mutual information really captures.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Proving the Two Forms Are Equivalent</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Start from the definition.</strong> Mutual information is defined via
+                            the joint distribution:
+                            $$I(X;Z) = \sum_{x,z} p(x,z) \log_2 \frac{p(x,z)}{p(x) \, p(z)}$$
+                            This is a single, symmetric formula. It measures how far the joint distribution
+                            $p(x,z)$ is from the product of marginals $p(x)p(z)$ — i.e., how far $X$ and $Z$
+                            are from being independent.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Rewrite using $p(x,z) = p(x) \cdot p(z|x)$:</strong>
+                            $$I(X;Z) = \sum_{x,z} p(x,z) \left[\log_2 p(z|x) - \log_2 p(z)\right]$$
+                            $$= -\sum_{x,z} p(x,z) \log_2 p(z) + \sum_{x,z} p(x,z) \log_2 p(z|x)$$
+                            $$= H(Z) - H(Z|X) \quad \checkmark$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Rewrite using $p(x,z) = p(z) \cdot p(x|z)$:</strong>
+                            $$I(X;Z) = \sum_{x,z} p(x,z) \left[\log_2 p(x|z) - \log_2 p(x)\right]$$
+                            $$= -\sum_{x,z} p(x,z) \log_2 p(x) + \sum_{x,z} p(x,z) \log_2 p(x|z)$$
+                            $$= H(X) - H(X|Z) \quad \checkmark$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Both decompositions are valid simultaneously.</strong> They give two
+                            complementary perspectives on the same quantity:
+
+                            <ul>
+                                <li><strong>$H(X) - H(X|Z)$:</strong> "How much does $Z$ tell me about $X$?"
+                                (Decoder's perspective — uncertainty about the input reduced by seeing the code.)</li>
+                                <li><strong>$H(Z) - H(Z|X)$:</strong> "How much useful information does $Z$ carry?"
+                                (Encoder's perspective — total code complexity minus wasted noise.)</li>
+                            </ul>
+
+                            <p>Both equal $I(X;Z)$ because mutual information is <strong>symmetric</strong>:
+                            $I(X;Z) = I(Z;X)$. The information $X$ reveals about $Z$ is exactly the information
+                            $Z$ reveals about $X$.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Which Form to Use When?</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>Use $H(X) - H(X|Z)$</strong> when you want to think about <em>decoding</em>:
+                        "How much can I learn about the input from the code?" This form appears naturally in
+                        the R(D) derivation because we want to minimize uncertainty about $X$ given $Z$.<br>
+                        <strong>Use $H(Z) - H(Z|X)$</strong> when you want to think about <em>encoding cost</em>:
+                        "How many bits do I actually need to transmit?" This form is useful for understanding
+                        why deterministic encoders have $I(X;Z) = H(Z)$ (because $H(Z|X) = 0$).
+                    </p>
                 </div>
 
                 <!-- New: What Does Rate Measure? Clarification -->
@@ -743,8 +929,10 @@
                 <h2 id="rate-distortion-function">The Rate-Distortion Function $R(D)$</h2>
 
                 <p>
-                    We now have all the pieces. The rate-distortion function answers: for a given
-                    distortion budget $D$, what is the minimum rate?
+                    We now have all the pieces: a source $X$, an encoder-decoder pair, a distortion
+                    measure, and mutual information as the rate metric. The central object of the theory
+                    ties them all together: the <strong>rate-distortion function</strong> $R(D)$, which
+                    answers the question: for a given distortion budget $D$, what is the minimum rate?
                 </p>
 
                 <div class="definition-box">
@@ -901,8 +1089,10 @@
                 <h2 id="properties">Properties of $R(D)$</h2>
 
                 <p>
-                    The rate-distortion function has several important properties that hold for
-                    <em>any</em> source and <em>any</em> distortion measure:
+                    Before computing $R(D)$ for specific sources, let's understand what the function
+                    looks like <em>in general</em>. These properties hold for <strong>any</strong>
+                    source and <strong>any</strong> distortion measure — they're universal truths about
+                    the rate-distortion trade-off:
                 </p>
 
                 <div class="math-derivation">
@@ -996,9 +1186,11 @@
                 <h2 id="encoders">Deterministic vs Stochastic Encoders</h2>
 
                 <p>
-                    A crucial subtlety in rate-distortion theory is that the optimization is over
-                    <em>all</em> conditional distributions $p(z|x)$ — not just deterministic functions.
-                    Let's understand what this means.
+                    We've established that $R(D)$ minimizes over all encoders $p(z|x)$. But what
+                    kinds of encoders are "allowed"? A crucial subtlety: the optimization searches over
+                    <em>all</em> conditional distributions $p(z|x)$ — not just deterministic functions
+                    like $z = f(x)$. This distinction matters deeply for understanding both the theory
+                    and its connection to VAEs.
                 </p>
 
                 <h3>Deterministic Encoders: $z = f(x)$</h3>
@@ -1098,81 +1290,214 @@
                 <h2 id="gaussian">The Gaussian Source</h2>
 
                 <p>
-                    For a Gaussian source with MSE distortion, Shannon derived the exact $R(D)$ in
-                    closed form. This is one of the few exactly solvable cases and builds powerful intuition.
+                    So far, we've defined the rate-distortion framework, explained what rate and distortion
+                    measure, and established the properties of $R(D)$. But we haven't computed $R(D)$ for any
+                    specific source. The Gaussian source is the first concrete example — and arguably the most
+                    important one, because it gives us a closed-form formula and deep intuition that carries
+                    over to all other sources.
                 </p>
 
-                <div class="definition-box">
-                    <div class="box-title">Setup</div>
-                    <p style="margin-bottom: 0;">
-                        Source: $X \sim \mathcal{N}(0, \sigma^2)$<br>
-                        Distortion: $d(x, \hat{x}) = (x - \hat{x})^2$ (MSE)<br>
-                        Constraint: $\mathbb{E}[(X - \hat{X})^2] \leq D$
-                    </p>
-                </div>
+                <!-- Why N(0, σ²)? -->
+                <h3 id="why-gaussian-setup">Why $\mathcal{N}(0, \sigma^2)$? (Not $\mathcal{N}(0,1)$ or $\mathcal{N}(\mu, \sigma^2)$)</h3>
+
+                <p>
+                    Before diving into the math, let's address a natural question: <em>Why do we model the
+                    source as $X \sim \mathcal{N}(0, \sigma^2)$ specifically?</em>
+                </p>
 
                 <div class="math-derivation">
-                    <div class="math-derivation-title">Deriving $R(D)$ for Gaussian (Full Derivation)</div>
+                    <div class="math-derivation-title">Why This Specific Gaussian?</div>
 
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
-                            <strong>Lower bound via maximum entropy:</strong> Start from
-                            $I(X;Z) = h(X) - h(X|Z)$. The source entropy $h(X) = \frac{1}{2}\log_2(2\pi e\sigma^2)$
-                            is fixed. To minimize $I(X;Z)$, we must maximize $h(X|Z)$.
-
-                            <p>The constraint $\mathbb{E}[(X-\hat{X})^2] \leq D$ means the conditional
-                            variance satisfies $\mathbb{E}[\text{Var}(X|Z)] \leq D$ (since the optimal decoder
-                            is $\hat{X} = \mathbb{E}[X|Z]$, and MSE of the conditional mean equals conditional variance).</p>
-
-                            <p>Among all distributions with variance $\leq D$, the Gaussian has the <strong>maximum
-                            differential entropy</strong>. Therefore $h(X|Z) \leq \frac{1}{2}\log_2(2\pi e D)$.</p>
+                            <strong>Why not $\mathcal{N}(0, 1)$ (standard normal)?</strong>
+                            The standard normal has $\sigma^2 = 1$, which is just one specific variance. We want
+                            the general formula that works for <em>any</em> variance $\sigma^2$. Real data has
+                            different variances: MNIST pixels have $\sigma^2 \approx 4700$, audio samples might have
+                            $\sigma^2 = 0.01$. The parameter $\sigma^2$ controls how "spread out" the data is,
+                            which directly affects how many bits you need. The formula
+                            $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ shows that rate depends on the
+                            <em>ratio</em> $\sigma^2/D$ — higher variance means more bits needed for the same
+                            distortion level.
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            <strong>Lower bound result:</strong>
-                            $$I(X;Z) = h(X) - h(X|Z) \geq \frac{1}{2}\log_2(2\pi e\sigma^2) - \frac{1}{2}\log_2(2\pi eD) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$$
-                            This means no encoder can achieve rate below $\frac{1}{2}\log_2\frac{\sigma^2}{D}$ at distortion $D$.
+                            <strong>Why not $\mathcal{N}(\mu, \sigma^2)$ (non-zero mean)?</strong>
+                            The mean $\mu$ is irrelevant for rate-distortion! Here's why: shifting all values
+                            by a constant doesn't change how hard they are to compress. If $X \sim \mathcal{N}(\mu, \sigma^2)$,
+                            define $\tilde{X} = X - \mu \sim \mathcal{N}(0, \sigma^2)$. Compressing $X$ is equivalent
+                            to transmitting $\mu$ once (a negligible cost) and then compressing $\tilde{X}$.
+                            Since MSE is shift-invariant — $(x - \hat{x})^2 = ((x-\mu) - (\hat{x}-\mu))^2$ — the
+                            rate-distortion function depends only on the variance, not the mean:
+                            $$R(D) \text{ for } \mathcal{N}(\mu, \sigma^2) = R(D) \text{ for } \mathcal{N}(0, \sigma^2)$$
+                            So setting $\mu = 0$ loses no generality and keeps the math clean.
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            <strong>Achievability — construct an encoder that matches the bound.</strong>
-                            Define the "test channel": $X = Z + W$ where $W \sim \mathcal{N}(0, D)$ is
-                            independent of $Z$, and $\hat{X} = Z$.
+                            <strong>Why Gaussian at all?</strong>
+                            Three reasons: (a) Many real signals (audio, sensor noise, pixel values in natural images)
+                            are approximately Gaussian by the central limit theorem.
+                            (b) The Gaussian is the <strong>hardest to compress</strong> among all distributions with
+                            the same variance (it maximizes entropy). So the Gaussian $R(D)$ gives an
+                            <strong>upper bound</strong> for any other source — a worst-case benchmark.
+                            (c) It's one of the few sources with a <strong>closed-form</strong> $R(D)$,
+                            making it the ideal teaching example.
+                        </div>
+                    </div>
+                </div>
 
-                            <p><strong>Variance decomposition:</strong> Since $Z$ and $W$ are independent:
-                            $$\text{Var}(X) = \text{Var}(Z) + \text{Var}(W) \implies \sigma^2 = \text{Var}(Z) + D$$
-                            So $\text{Var}(Z) = \sigma^2 - D$ (valid when $D \leq \sigma^2$).</p>
+                <!-- What is a lower bound? -->
+                <h3 id="lower-bound-concept">What Does "Lower Bound" Mean Here?</h3>
+
+                <p>
+                    The derivation below uses the concept of a "lower bound" in a specific way that
+                    deserves clarification, since it's central to how information-theoretic proofs work.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Lower Bound on Rate</div>
+                    <p>
+                        A <strong>lower bound</strong> on $R(D)$ is a value $L$ such that $R(D) \geq L$.
+                        It says: <em>"No matter what encoder you design, you cannot achieve a rate below $L$
+                        at distortion $D$."</em> It's a <strong>fundamental limit</strong> — a floor that
+                        no algorithm can break through.
+                    </p>
+                    <p>
+                        <strong>Analogy:</strong> The speed of light is a lower bound on how fast light travels
+                        through any medium — actually, it's an <em>upper</em> bound on speed. Better analogy:
+                        the theoretical fuel efficiency of a Carnot engine is an <strong>upper bound</strong>
+                        on any real engine's efficiency. Similarly, $R(D)$ is a <strong>lower bound</strong>
+                        on any real encoder's rate. You can always do worse (use more bits), but never better.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>The proof strategy:</strong> (1) First, prove a lower bound: show that
+                        $I(X;Z) \geq \frac{1}{2}\log_2\frac{\sigma^2}{D}$ for <em>any</em> encoder
+                        achieving distortion $\leq D$. (2) Then, prove <em>achievability</em>: construct
+                        a specific encoder that actually hits this bound. If the lower bound is achievable,
+                        it must be the exact answer: $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$.
+                    </p>
+                </div>
+
+                <h3>The Setup and Derivation</h3>
+
+                <div class="definition-box">
+                    <div class="box-title">Setup</div>
+                    <p style="margin-bottom: 0;">
+                        Source: $X \sim \mathcal{N}(0, \sigma^2)$<br>
+                        Distortion: $d(x, \hat{x}) = (x - \hat{x})^2$ (MSE)<br>
+                        Constraint: $\mathbb{E}[(X - \hat{X})^2] \leq D$<br>
+                        <strong>Goal:</strong> Find the minimum rate $R(D) = \min I(X;Z)$ subject to this constraint.
+                    </p>
+                </div>
+
+                <p>
+                    The derivation has two parts: establishing a floor (lower bound), then showing we can
+                    actually reach that floor (achievability). When the floor is reachable, we've found $R(D)$ exactly.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Deriving $R(D)$ for the Gaussian Source</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Part A: The Lower Bound — "You can't do better than this."</strong>
+
+                            <p>Start from $I(X;Z) = h(X) - h(X|Z)$. The source entropy
+                            $h(X) = \frac{1}{2}\log_2(2\pi e\sigma^2)$ is a fixed number (it depends only on
+                            the source, not on the encoder). So to minimize $I(X;Z)$, we must maximize $h(X|Z)$ —
+                            make the residual uncertainty as large as possible.</p>
+
+                            <p><strong>Key insight:</strong> The distortion constraint $\mathbb{E}[(X-\hat{X})^2] \leq D$ limits how large
+                            $h(X|Z)$ can be. Since the optimal decoder is $\hat{X} = \mathbb{E}[X|Z]$ (the
+                            conditional mean), the MSE equals the average conditional variance:
+                            $\mathbb{E}[\text{Var}(X|Z)] \leq D$.</p>
+
+                            <p><strong>The Gaussian maximizes entropy for a given variance.</strong> This is a
+                            fundamental fact: among all distributions with variance $\leq D$, the Gaussian
+                            $\mathcal{N}(0, D)$ has the largest differential entropy. Therefore:
+                            $h(X|Z) \leq \frac{1}{2}\log_2(2\pi e D)$.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Combining: the lower bound.</strong>
+                            $$I(X;Z) = \underbrace{h(X)}_{\text{fixed}} - \underbrace{h(X|Z)}_{\leq \frac{1}{2}\log_2(2\pi eD)} \geq \frac{1}{2}\log_2(2\pi e\sigma^2) - \frac{1}{2}\log_2(2\pi eD) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$$
+
+                            <p><strong>In plain English:</strong> No matter how cleverly you design your encoder,
+                            you cannot transmit fewer than $\frac{1}{2}\log_2\frac{\sigma^2}{D}$ bits while
+                            keeping the MSE at or below $D$. This is a law of information theory.</p>
+
+                            <p><em>Sanity check:</em> When $D = \sigma^2$: $R \geq \frac{1}{2}\log_2(1) = 0$ bits.
+                            Makes sense — if distortion equals the variance, just output zero (the mean) and
+                            send nothing. When $D \to 0$: $R \to \infty$. Makes sense — perfect reconstruction
+                            of a continuous source requires infinite bits.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Part B: Achievability — "Here's an encoder that actually hits the bound."</strong>
+                            <p>A lower bound alone doesn't tell us $R(D)$ — maybe the bound is too loose.
+                            We need to <em>construct</em> a specific encoder that achieves rate exactly
+                            $\frac{1}{2}\log_2\frac{\sigma^2}{D}$ at distortion $D$. If such an encoder exists,
+                            the lower bound is tight and we've found the exact $R(D)$.</p>
+                            <p>Define the "test channel": imagine the source $X$ as a sum of two independent parts:
+                            $$X = Z + W, \quad Z \sim \mathcal{N}(0, \sigma^2 - D), \quad W \sim \mathcal{N}(0, D)$$
+                            Here, $Z$ is the "signal" (what we want to keep) and $W$ is the "noise" (what we're
+                            willing to lose). The decoder simply outputs $\hat{X} = Z$.</p>
+
+                            <p><strong>Why does this work?</strong> Since $Z$ and $W$ are independent Gaussians:
+                            $$\text{Var}(X) = \text{Var}(Z) + \text{Var}(W) = (\sigma^2 - D) + D = \sigma^2 \quad \checkmark$$
+                            And the distortion is: $\mathbb{E}[(X - \hat{X})^2] = \mathbb{E}[W^2] = D \quad \checkmark$</p>
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">4</div>
                         <div class="math-step-content">
-                            <strong>What does the encoder look like?</strong> Given $X = Z + W$, the
-                            conditional distribution of $Z$ given $X$ is (by Bayes for Gaussians):
-                            $$p(z|x) = \mathcal{N}\left(z;\, \frac{\sigma^2 - D}{\sigma^2}x, \;\frac{(\sigma^2-D)D}{\sigma^2}\right)$$
-                            <p>The encoder is <strong>stochastic</strong>: it outputs a noisy version of $x$,
-                            shrunk toward zero by factor $(\sigma^2-D)/\sigma^2$. This shrinkage is optimal —
-                            it's the Bayesian posterior mean.</p>
+                            <strong>What does the encoder look like?</strong> Given the model $X = Z + W$, the
+                            encoder must compute $Z$ from $X$. Since both $Z$ and $W$ are Gaussian, the conditional
+                            distribution of $Z$ given $X$ is also Gaussian (by Bayes' rule for Gaussians):
+                            $$p(z|x) = \mathcal{N}\left(z;\, \underbrace{\frac{\sigma^2 - D}{\sigma^2}}_{\text{shrinkage factor}} \cdot x, \;\frac{(\sigma^2-D) \cdot D}{\sigma^2}\right)$$
+
+                            <p><strong>Intuition:</strong> The encoder doesn't just pass $x$ through — it
+                            <em>shrinks</em> it toward zero by a factor $(\sigma^2-D)/\sigma^2 < 1$ and adds
+                            some noise. This shrinkage is the <strong>Bayesian posterior mean</strong> — it's
+                            the optimal way to estimate the "signal" $Z$ from the noisy observation $X$.
+                            The encoder is <strong>stochastic</strong>, which is crucial for achieving the
+                            minimum rate.</p>
                         </div>
                     </div>
 
                     <div class="math-step">
                         <div class="math-step-number">5</div>
                         <div class="math-step-content">
-                            <strong>Compute the rate of this encoder:</strong>
-                            Since $X|Z \sim \mathcal{N}(Z, D)$ (Gaussian conditional with variance exactly $D$):
-                            $$h(X|Z) = \frac{1}{2}\log_2(2\pi eD)$$
-                            Therefore:
+                            <strong>Compute the rate of this encoder and verify it matches the lower bound:</strong>
+
+                            <p>In our construction, $X = Z + W$ with $W \sim \mathcal{N}(0, D)$ independent of $Z$.
+                            So the conditional distribution of $X$ given $Z$ is:
+                            $X|Z \sim \mathcal{N}(Z, D)$ — Gaussian with variance exactly $D$.</p>
+
+                            <p>The conditional entropy is:
+                            $h(X|Z) = \frac{1}{2}\log_2(2\pi eD)$</p>
+
+                            <p>Therefore the mutual information is:</p>
                             $$I(X;Z) = h(X) - h(X|Z) = \frac{1}{2}\log_2(2\pi e\sigma^2) - \frac{1}{2}\log_2(2\pi eD) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$$
-                            This <strong>matches the lower bound exactly</strong>. $\checkmark$
+
+                            <p>This <strong>matches the lower bound from Step 2 exactly</strong>! $\checkmark$
+                            Since we found an encoder whose rate equals the lower bound, the lower bound must
+                            be tight. Therefore $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$.</p>
                         </div>
                     </div>
 
@@ -1184,6 +1509,26 @@
                             The inverse (distortion-rate function): $D(R) = \sigma^2 \cdot 2^{-2R}$.
                         </div>
                     </div>
+                </div>
+
+                <div class="definition-box">
+                    <div class="box-title">Reading the Formula: What Does $R(D) = \frac{1}{2}\log_2\frac{\sigma^2}{D}$ Tell Us?</div>
+                    <p>
+                        <strong>The ratio $\sigma^2/D$ is the signal-to-noise ratio (SNR).</strong>
+                        $\sigma^2$ is the total variance (how spread out the data is), and $D$ is the
+                        distortion (the noise you accept in reconstruction). The formula says:
+                        <em>rate is half the log of the SNR.</em>
+                    </p>
+                    <ul>
+                        <li>$\sigma^2/D = 1$ (SNR = 1, distortion equals variance): $R = 0$ bits. No point sending anything.</li>
+                        <li>$\sigma^2/D = 4$ (SNR = 4): $R = 1$ bit. One bit gives you 4x noise reduction.</li>
+                        <li>$\sigma^2/D = 1000$ (SNR = 1000): $R \approx 5$ bits. Modest rate for excellent quality.</li>
+                    </ul>
+                    <p style="margin-bottom: 0;">
+                        <strong>Each additional bit doubles the SNR</strong> (equivalently, cuts distortion by
+                        a factor of 4, or improves quality by 6 dB). This is the "6 dB per bit" rule —
+                        a cornerstone of signal processing and quantization theory.
+                    </p>
                 </div>
 
                 <div class="note-box">
@@ -1242,6 +1587,13 @@
 
                 <!-- Section 8: Multivariate Sources & Water-Filling -->
                 <h2 id="water-filling">Multivariate Sources &amp; Water-Filling</h2>
+
+                <p>
+                    The Gaussian $R(D)$ above handles a <em>single</em> scalar variable. But real data
+                    is high-dimensional: an MNIST image has 784 pixels, each a separate source. How do
+                    we extend rate-distortion theory to vectors? The answer — the <strong>water-filling
+                    algorithm</strong> — reveals why PCA and autoencoders work the way they do.
+                </p>
 
                 <p>
                     For a multivariate Gaussian source $\mathbf{X} \sim \mathcal{N}(\mathbf{0}, \Sigma)$
@@ -1317,8 +1669,11 @@
                 <h2 id="binary-source">The Binary Source</h2>
 
                 <p>
-                    The binary source gives us a discrete example that contrasts with the Gaussian.
-                    It's the simplest non-trivial case and has a beautiful closed-form solution.
+                    So far we've focused on continuous (Gaussian) sources. Let's now turn to the simplest
+                    <strong>discrete</strong> source — a biased coin flip. This gives a contrasting example
+                    with a beautiful closed-form solution and different intuitions. Where the Gaussian source
+                    teaches us about SNR and bit allocation, the binary source teaches us about error
+                    tolerance and the value of knowing what to ignore.
                 </p>
 
                 <div class="definition-box">
@@ -1402,10 +1757,12 @@
                 <h2 id="blahut-arimoto">The Blahut-Arimoto Algorithm</h2>
 
                 <p>
-                    The Gaussian and binary sources have closed-form $R(D)$. But most real sources
-                    (like MNIST images!) don't. The <strong>Blahut-Arimoto algorithm</strong> (1972)
-                    computes $R(D)$ numerically for <em>any</em> discrete source by alternating
-                    between optimizing the encoder and updating the code distribution.
+                    We've now seen two beautiful closed-form solutions: the Gaussian and binary $R(D)$.
+                    But most real sources — including MNIST images, audio signals, and natural language —
+                    don't have closed-form solutions. We need a <strong>computational tool</strong>.
+                    The <strong>Blahut-Arimoto algorithm</strong> (1972) fills this gap: it computes
+                    $R(D)$ numerically for <em>any</em> discrete source by alternating between
+                    optimizing the encoder and updating the code distribution.
                 </p>
 
                 <p>
@@ -1490,9 +1847,11 @@
                 <h2 id="distortion-rate">The Distortion-Rate Function $D(R)$</h2>
 
                 <p>
-                    Sometimes it's more natural to ask the question in reverse: "I have a channel
-                    that can transmit $R$ bits per symbol. <strong>What's the best quality I can
-                    achieve?</strong>" This is the distortion-rate function $D(R)$ — the inverse of $R(D)$.
+                    Throughout this tutorial, we've asked: <em>"Given a quality target, how many bits
+                    do I need?"</em> But in practice, the question often goes the other way: "I have a channel
+                    that can transmit $R$ bits per symbol (e.g., bandwidth-limited network, fixed-size
+                    latent space). <strong>What's the best quality I can achieve?</strong>" This is the
+                    distortion-rate function $D(R)$ — simply the inverse of $R(D)$.
                 </p>
 
                 <div class="definition-box">
@@ -1534,8 +1893,12 @@
                 <h2 id="connection-autoencoders">Connection to Autoencoders &amp; VAEs</h2>
 
                 <p>
-                    Rate-distortion theory provides the theoretical foundation for understanding
-                    autoencoders. The parallels are deep:
+                    We've built the complete theory: from the MNIST motivating example, through the
+                    framework, properties, and specific solutions, to computational tools. Now let's
+                    close the loop and connect everything back to <strong>deep learning</strong>. It
+                    turns out that autoencoders and VAEs are doing rate-distortion optimization — they're
+                    practical, learnable implementations of the abstract encoder-decoder framework
+                    we've been studying. The parallels are deep:
                 </p>
 
                 <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
@@ -2582,16 +2945,20 @@ plt.show()</code></pre>
             <nav class="toc-list">
                 <a href="#mnist-example" class="toc-link">MNIST Example</a>
                 <a href="#mnist-entropy" class="toc-link toc-h3">Entropy Calculation</a>
+                <a href="#entropy-scope" class="toc-link toc-h3">Pixel vs Image vs Dataset</a>
                 <a href="#mse-intuition" class="toc-link toc-h3">MSE as Distortion</a>
                 <a href="#lossy-compression" class="toc-link">Lossy Compression Problem</a>
                 <a href="#framework" class="toc-link">The Framework</a>
                 <a href="#mutual-information" class="toc-link">Mutual Information as Rate</a>
+                <a href="#mi-equivalence" class="toc-link toc-h3">Two Forms of MI</a>
                 <a href="#rate-clarification" class="toc-link toc-h3">What Rate Measures</a>
                 <a href="#rate-distortion-function" class="toc-link">R(D) Function</a>
                 <a href="#rate-vs-rd" class="toc-link toc-h3">Rate vs R(D)</a>
                 <a href="#properties" class="toc-link">Properties of R(D)</a>
                 <a href="#encoders" class="toc-link">Det. vs Stoch. Encoders</a>
                 <a href="#gaussian" class="toc-link">Gaussian Source</a>
+                <a href="#why-gaussian-setup" class="toc-link toc-h3">Why N(0, σ²)?</a>
+                <a href="#lower-bound-concept" class="toc-link toc-h3">Lower Bounds</a>
                 <a href="#water-filling" class="toc-link">Water-Filling</a>
                 <a href="#binary-source" class="toc-link">Binary Source</a>
                 <a href="#blahut-arimoto" class="toc-link">Blahut-Arimoto</a>
