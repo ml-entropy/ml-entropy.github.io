@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parsing Algorithms | Computational Linguistics</title>
+    <meta name="description" content="Constituency and dependency parsing algorithms: CYK, Earley, transition-based, graph-based methods, treebanks, and evaluation metrics.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../../index.html" class="nav-logo"><span class="logo-symbol">&nabla;</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link active">Linguistics</a>
+                    <a href="../../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../../index.html">Home</a><span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Linguistics</a><span class="breadcrumb-separator">&rarr;</span>
+                <span>Parsing Algorithms</span>
+            </nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a></div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Computational Linguistics</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-levels/index.html" class="sidebar-link">01. Levels of Analysis</a>
+                    <a href="../02-writing-systems/index.html" class="sidebar-link">02. Writing Systems</a>
+                    <a href="../03-tokenization/index.html" class="sidebar-link">03. Tokenization</a>
+                    <a href="../04-ngrams/index.html" class="sidebar-link">04. N-gram Models</a>
+                    <a href="../05-entropy-language/index.html" class="sidebar-link">05. Entropy of Language</a>
+                    <a href="../06-information-theory/index.html" class="sidebar-link">06. Information Theory</a>
+                    <a href="../07-formal-grammars/index.html" class="sidebar-link">07. Formal Grammars</a>
+                    <a href="../08-parsing/index.html" class="sidebar-link active">08. Parsing Algorithms</a>
+                    <a href="../09-morphology/index.html" class="sidebar-link">09. Morphology &amp; FSTs</a>
+                    <a href="../10-distributional-semantics/index.html" class="sidebar-link">10. Distributional Semantics</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h1>Parsing Algorithms</h1>
+
+                <p>Parsing is the process of recovering the hidden structure of a sentence from its flat, linear surface form. Every NLP system that needs to understand grammatical relationships &mdash; from machine translation to question answering &mdash; relies on parsing, whether explicitly or implicitly. In this tutorial, we cover the two major paradigms (constituency and dependency parsing) and the key algorithms for each.</p>
+
+                <!-- Section 1: What is Parsing? -->
+                <h2>1. What is Parsing?</h2>
+
+                <p>A parser takes a sentence (a sequence of words) and produces a structural description. There are two main formalisms:</p>
+
+                <ul>
+                    <li><strong>Constituency parsing</strong>: Groups words into nested phrases (NP, VP, PP). The output is a <em>phrase structure tree</em>.</li>
+                    <li><strong>Dependency parsing</strong>: Connects each word to its syntactic head. The output is a <em>dependency tree</em>.</li>
+                </ul>
+
+                <div class="example-box">
+                    <h4>Two Views of "The cat sat on the mat"</h4>
+                    <p><strong>Constituency</strong>:</p>
+                    <p>[<sub>S</sub> [<sub>NP</sub> [<sub>Det</sub> The] [<sub>N</sub> cat]] [<sub>VP</sub> [<sub>V</sub> sat] [<sub>PP</sub> [<sub>P</sub> on] [<sub>NP</sub> [<sub>Det</sub> the] [<sub>N</sub> mat]]]]]</p>
+                    <p><strong>Dependency</strong>:</p>
+                    <p>sat &larr;<sub>nsubj</sub> cat &larr;<sub>det</sub> The<br>
+                    sat &rarr;<sub>obl</sub> mat &larr;<sub>det</sub> the<br>
+                    mat &larr;<sub>case</sub> on</p>
+                    <p>Both capture "The cat" as subject of "sat" and "on the mat" as a locative modifier, but in different structural representations.</p>
+                </div>
+
+                <!-- Section 2: Constituency Parsing -->
+                <h2>2. Constituency Parsing</h2>
+
+                <p>Constituency parsing builds a tree where internal nodes are phrase labels (S, NP, VP) and leaves are words. The tree is defined by a context-free grammar (see Tutorial 07).</p>
+
+                <h3>Chomsky Normal Form</h3>
+
+                <p>Many parsing algorithms require the grammar to be in <strong>Chomsky Normal Form (CNF)</strong>, where every rule has one of two forms:</p>
+
+                $$A \to B \; C \quad \text{or} \quad A \to a$$
+
+                <p>where $A, B, C$ are non-terminals and $a$ is a terminal. Any CFG can be converted to CNF without changing the language it generates.</p>
+
+                <h3>Ambiguity</h3>
+
+                <p>A sentence is <strong>structurally ambiguous</strong> if the grammar assigns it multiple parse trees. Real grammars for English produce enormous numbers of parses: a 20-word sentence can easily have thousands of valid trees. The parser must either enumerate all of them or find the best one (using a probabilistic model).</p>
+
+                <!-- Section 3: The CYK Algorithm -->
+                <h2>3. The CYK Algorithm</h2>
+
+                <div class="definition-box">
+                    <h4>CYK (Cocke-Younger-Kasami) Algorithm</h4>
+                    <p>A dynamic programming algorithm for parsing with CFGs in Chomsky Normal Form. It fills a triangular chart $\text{table}[i][j]$ where each cell contains the set of non-terminals that can generate the substring $w_i \ldots w_j$.</p>
+                    <p><strong>Complexity</strong>: $O(n^3 \cdot |G|)$ where $n$ is the sentence length and $|G|$ is the grammar size.</p>
+                </div>
+
+                <h3>Algorithm Outline</h3>
+
+                <ol>
+                    <li><strong>Initialize</strong>: For each word $w_i$, set $\text{table}[i][i] = \{A \mid A \to w_i \in R\}$</li>
+                    <li><strong>Fill</strong>: For each span length $\ell = 2, 3, \ldots, n$:
+                        <br>For each start position $i$:
+                        <br>&emsp;For each split point $k$ between $i$ and $i + \ell - 1$:
+                        <br>&emsp;&emsp;If $B \in \text{table}[i][k]$ and $C \in \text{table}[k+1][i+\ell-1]$ and $A \to BC \in R$:
+                        <br>&emsp;&emsp;&emsp;Add $A$ to $\text{table}[i][i+\ell-1]$
+                    </li>
+                    <li><strong>Accept</strong>: $S \in \text{table}[1][n]$ iff the sentence is in the language</li>
+                </ol>
+
+                <div class="example-box">
+                    <h4>CYK Example</h4>
+                    <p>Grammar (in CNF):</p>
+                    <p>$S \to NP \; VP$, $NP \to Det \; N$, $VP \to V \; NP$<br>
+                    $Det \to \text{the}$, $N \to \text{cat} \mid \text{fish}$, $V \to \text{ate}$</p>
+                    <p>Sentence: "the cat ate the fish"</p>
+                    <table>
+                        <thead>
+                            <tr><th></th><th>the</th><th>cat</th><th>ate</th><th>the</th><th>fish</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>1</strong></td><td>{Det}</td><td>{NP}</td><td>&mdash;</td><td>&mdash;</td><td>{S}</td></tr>
+                            <tr><td><strong>2</strong></td><td></td><td>{N}</td><td>&mdash;</td><td>&mdash;</td><td>{VP}</td></tr>
+                            <tr><td><strong>3</strong></td><td></td><td></td><td>{V}</td><td>&mdash;</td><td>{VP}</td></tr>
+                            <tr><td><strong>4</strong></td><td></td><td></td><td></td><td>{Det}</td><td>{NP}</td></tr>
+                            <tr><td><strong>5</strong></td><td></td><td></td><td></td><td></td><td>{N}</td></tr>
+                        </tbody>
+                    </table>
+                    <p>$S$ appears in $\text{table}[1][5]$, confirming the sentence is grammatical.</p>
+                </div>
+
+                <div class="note-box">
+                    <h4>Probabilistic CYK</h4>
+                    <p>For PCFGs, the algorithm is modified to store the <em>highest-probability</em> non-terminal in each cell (Viterbi parsing). Instead of sets, each cell stores $\max_T P(T)$ and backpointers to reconstruct the best tree. The complexity remains $O(n^3 |G|)$.</p>
+                </div>
+
+                <!-- Section 4: Earley Parser -->
+                <h2>4. The Earley Parser</h2>
+
+                <p>While CYK requires CNF conversion, the <strong>Earley parser</strong> (Earley, 1970) handles arbitrary CFGs directly using a top-down strategy with bottom-up confirmation.</p>
+
+                <div class="definition-box">
+                    <h4>Earley Parser</h4>
+                    <p>Maintains a chart of <strong>Earley states</strong>, each of the form $[A \to \alpha \bullet \beta, i]$, meaning:</p>
+                    <ul>
+                        <li>We are trying to build an $A$</li>
+                        <li>We have matched $\alpha$ so far</li>
+                        <li>We still need to match $\beta$</li>
+                        <li>This rule application began at position $i$</li>
+                    </ul>
+                    <p>Three operations build the chart: <strong>prediction</strong>, <strong>scanning</strong>, and <strong>completion</strong>.</p>
+                </div>
+
+                <h3>The Three Operations</h3>
+
+                <ul>
+                    <li><strong>Prediction</strong>: If the dot is before a non-terminal $B$ in state $[A \to \alpha \bullet B \beta, i]$ at position $j$, add $[B \to \bullet \gamma, j]$ for every rule $B \to \gamma$</li>
+                    <li><strong>Scanning</strong>: If the dot is before terminal $a$ in $[A \to \alpha \bullet a \beta, i]$ at position $j$ and $w_{j+1} = a$, add $[A \to \alpha a \bullet \beta, i]$ to position $j+1$</li>
+                    <li><strong>Completion</strong>: If a state $[B \to \gamma \bullet, j]$ is complete at position $k$, find all states $[A \to \alpha \bullet B \beta, i]$ at position $j$ and add $[A \to \alpha B \bullet \beta, i]$ at position $k$</li>
+                </ul>
+
+                <h3>Complexity</h3>
+
+                <table>
+                    <thead>
+                        <tr><th>Grammar Type</th><th>Earley Complexity</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>General CFG</td><td>$O(n^3)$</td></tr>
+                        <tr><td>Unambiguous CFG</td><td>$O(n^2)$</td></tr>
+                        <tr><td>Deterministic CFG (LR)</td><td>$O(n)$</td></tr>
+                    </tbody>
+                </table>
+
+                <p>The Earley parser's ability to handle any CFG without transformation, combined with its adaptive complexity, makes it theoretically elegant, though in practice specialized parsers are often faster.</p>
+
+                <!-- Section 5: Dependency Parsing -->
+                <h2>5. Dependency Parsing</h2>
+
+                <p>Dependency parsing connects each word to its syntactic <strong>head</strong> (governor). The result is a tree where words are nodes and directed arcs represent grammatical relations.</p>
+
+                <div class="definition-box">
+                    <h4>Dependency Tree</h4>
+                    <p>A dependency tree for sentence $w_1, \ldots, w_n$ is a directed tree where:</p>
+                    <ul>
+                        <li>Each word $w_i$ has exactly one head (parent), except the <strong>root</strong></li>
+                        <li>Each arc $(w_i, w_j)$ is labeled with a <strong>dependency relation</strong> (e.g., nsubj, dobj, amod)</li>
+                        <li>The tree is <strong>connected</strong> and <strong>acyclic</strong></li>
+                    </ul>
+                </div>
+
+                <h3>Common Dependency Relations</h3>
+
+                <table>
+                    <thead>
+                        <tr><th>Relation</th><th>Description</th><th>Example</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>nsubj</td><td>Nominal subject</td><td><em>cat</em> &rarr; sat</td></tr>
+                        <tr><td>obj</td><td>Direct object</td><td>ate &rarr; <em>fish</em></td></tr>
+                        <tr><td>amod</td><td>Adjectival modifier</td><td><em>big</em> &rarr; cat</td></tr>
+                        <tr><td>det</td><td>Determiner</td><td><em>the</em> &rarr; cat</td></tr>
+                        <tr><td>advmod</td><td>Adverbial modifier</td><td><em>quickly</em> &rarr; ran</td></tr>
+                        <tr><td>case</td><td>Case marker / preposition</td><td><em>on</em> &rarr; mat</td></tr>
+                        <tr><td>obl</td><td>Oblique nominal</td><td>sat &rarr; <em>mat</em></td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Projectivity</h3>
+
+                <p>A dependency tree is <strong>projective</strong> if no arcs cross when drawn above the sentence. Most English sentences are projective, but free word order languages frequently produce <strong>non-projective</strong> trees:</p>
+
+                <div class="example-box">
+                    <h4>Non-Projective Dependencies</h4>
+                    <p>Czech: "Kontrolu <strong>z&aacute;v&ecirc;re&#269;nou</strong> provedl <strong>v&#253;bor</strong>"</p>
+                    <p>(Final inspection carried-out committee)</p>
+                    <p>The adjective "z&aacute;v&ecirc;re&#269;nou" modifies "kontrolu" but is separated by the verb, creating crossing arcs. Projective parsers cannot handle this; non-projective algorithms are needed.</p>
+                </div>
+
+                <!-- Section 6: Transition-Based Dependency Parsing -->
+                <h2>6. Transition-Based Dependency Parsing</h2>
+
+                <p>Transition-based parsers process the sentence left-to-right using a <strong>stack</strong> and a <strong>buffer</strong>, making a sequence of local decisions.</p>
+
+                <div class="definition-box">
+                    <h4>Arc-Standard System</h4>
+                    <p>Configuration: $(\sigma, \beta, A)$ where $\sigma$ is a stack, $\beta$ is a buffer (remaining words), and $A$ is the set of created arcs.</p>
+                    <p>Three transitions:</p>
+                    <ul>
+                        <li><strong>Shift</strong>: Move the first word of $\beta$ onto $\sigma$</li>
+                        <li><strong>Left-Arc$(r)$</strong>: Create arc $\sigma_1 \xrightarrow{r} \sigma_2$ and remove $\sigma_2$ from stack</li>
+                        <li><strong>Right-Arc$(r)$</strong>: Create arc $\sigma_2 \xrightarrow{r} \sigma_1$ and remove $\sigma_1$ from stack</li>
+                    </ul>
+                </div>
+
+                <div class="example-box">
+                    <h4>Parsing "The cat sat"</h4>
+                    <table>
+                        <thead>
+                            <tr><th>Step</th><th>Stack</th><th>Buffer</th><th>Action</th><th>Arc</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>0</td><td>[ROOT]</td><td>[The, cat, sat]</td><td>Shift</td><td>&mdash;</td></tr>
+                            <tr><td>1</td><td>[ROOT, The]</td><td>[cat, sat]</td><td>Shift</td><td>&mdash;</td></tr>
+                            <tr><td>2</td><td>[ROOT, The, cat]</td><td>[sat]</td><td>Left-Arc(det)</td><td>cat &rarr; The</td></tr>
+                            <tr><td>3</td><td>[ROOT, cat]</td><td>[sat]</td><td>Shift</td><td>&mdash;</td></tr>
+                            <tr><td>4</td><td>[ROOT, cat, sat]</td><td>[]</td><td>Left-Arc(nsubj)</td><td>sat &rarr; cat</td></tr>
+                            <tr><td>5</td><td>[ROOT, sat]</td><td>[]</td><td>Right-Arc(root)</td><td>ROOT &rarr; sat</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p><strong>Complexity</strong>: $O(n)$ &mdash; exactly $2n$ transitions for a sentence of length $n$ (each word is shifted once and reduced once). This linear complexity makes transition-based parsers extremely fast.</p>
+
+                <h3>Oracle and Training</h3>
+
+                <p>An <strong>oracle</strong> is a function that determines the correct transition at each step given the gold-standard tree. Training data is generated by running the oracle on treebank sentences. A classifier (originally SVM, now typically a neural network) learns to predict transitions from features of the current configuration.</p>
+
+                <div class="note-box">
+                    <h4>Error Propagation</h4>
+                    <p>The greedy, left-to-right nature of transition-based parsing means that early errors cascade: a wrong attachment decision cannot be corrected later. <strong>Beam search</strong> (maintaining the top-$k$ configurations) partially addresses this at the cost of $O(kn)$ complexity. Global training methods (structured perceptron, globally normalized models) also help.</p>
+                </div>
+
+                <!-- Section 7: Graph-Based Dependency Parsing -->
+                <h2>7. Graph-Based Dependency Parsing</h2>
+
+                <p>Graph-based parsers take a global approach: they score all possible arcs and find the tree with the highest total score.</p>
+
+                <div class="definition-box">
+                    <h4>Maximum Spanning Tree Parsing</h4>
+                    <p>Given a sentence $w_1, \ldots, w_n$, construct a complete directed graph where the weight of arc $(i, j)$ is $\text{score}(i, j, r)$ &mdash; the score of $w_i$ being the head of $w_j$ with relation $r$. The best parse is the <strong>maximum spanning arborescence</strong> of this graph.</p>
+                </div>
+
+                <h3>Eisner's Algorithm (Projective)</h3>
+
+                <p>For projective trees, Eisner's algorithm (1996) uses dynamic programming with $O(n^3)$ complexity. It builds the tree bottom-up by combining half-spans:</p>
+
+                <ul>
+                    <li>An <strong>incomplete span</strong> $[i, j]$ represents a partial structure where $i$ is the head of $j$ (or vice versa) but $j$ has not yet collected all its dependents</li>
+                    <li>A <strong>complete span</strong> $[i, j]$ represents a word that has collected all dependents on one side</li>
+                </ul>
+
+                <h3>Chu-Liu-Edmonds (Non-Projective)</h3>
+
+                <p>For non-projective trees, the <strong>Chu-Liu-Edmonds</strong> algorithm finds the maximum spanning arborescence in $O(n^2)$ time:</p>
+
+                <ol>
+                    <li>For each node, select the highest-scoring incoming arc</li>
+                    <li>If no cycle exists, we're done</li>
+                    <li>If a cycle exists, contract it into a single node, adjust arc weights, and recurse</li>
+                </ol>
+
+                <h3>Comparison</h3>
+
+                <table>
+                    <thead>
+                        <tr><th>Property</th><th>Transition-Based</th><th>Graph-Based</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Complexity</td><td>$O(n)$</td><td>$O(n^2)$ or $O(n^3)$</td></tr>
+                        <tr><td>Search</td><td>Greedy / beam</td><td>Exact (MST)</td></tr>
+                        <tr><td>Non-projective</td><td>With swap operation</td><td>Native (CLE)</td></tr>
+                        <tr><td>Speed</td><td>Very fast</td><td>Moderate</td></tr>
+                        <tr><td>Long dependencies</td><td>Weaker (error cascade)</td><td>Stronger (global)</td></tr>
+                        <tr><td>Accuracy (typical)</td><td>~93% UAS</td><td>~93% UAS</td></tr>
+                    </tbody>
+                </table>
+
+                <p>In practice, modern neural parsers of both types achieve very similar accuracy, with transition-based parsers being faster and graph-based parsers being more robust on long sentences.</p>
+
+                <!-- Section 8: Treebanks and Evaluation -->
+                <h2>8. Treebanks and Evaluation</h2>
+
+                <h3>Major Treebanks</h3>
+
+                <table>
+                    <thead>
+                        <tr><th>Treebank</th><th>Type</th><th>Languages</th><th>Size</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Penn Treebank (PTB)</td><td>Constituency</td><td>English</td><td>~40K sentences</td></tr>
+                        <tr><td>Universal Dependencies (UD)</td><td>Dependency</td><td>100+ languages</td><td>Varies</td></tr>
+                        <tr><td>OntoNotes</td><td>Both</td><td>English, Chinese, Arabic</td><td>~63K sentences</td></tr>
+                        <tr><td>Prague Dependency Treebank</td><td>Dependency</td><td>Czech</td><td>~87K sentences</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Evaluation Metrics</h3>
+
+                <div class="definition-box">
+                    <h4>Constituency Parsing: Bracket F1</h4>
+                    <p>A bracket is a tuple $(i, j, A)$ representing a constituent of type $A$ spanning words $i$ to $j$.</p>
+                    $$\text{Precision} = \frac{|\text{predicted brackets} \cap \text{gold brackets}|}{|\text{predicted brackets}|}$$
+                    $$\text{Recall} = \frac{|\text{predicted brackets} \cap \text{gold brackets}|}{|\text{gold brackets}|}$$
+                    $$F_1 = \frac{2 \cdot P \cdot R}{P + R}$$
+                </div>
+
+                <div class="definition-box">
+                    <h4>Dependency Parsing: Attachment Scores</h4>
+                    <ul>
+                        <li><strong>UAS</strong> (Unlabeled Attachment Score): % of words attached to the correct head</li>
+                        <li><strong>LAS</strong> (Labeled Attachment Score): % of words attached to the correct head with the correct relation label</li>
+                    </ul>
+                    $$\text{UAS} = \frac{\text{correct heads}}{n}, \quad \text{LAS} = \frac{\text{correct heads with correct labels}}{n}$$
+                </div>
+
+                <h3>State of the Art</h3>
+
+                <table>
+                    <thead>
+                        <tr><th>Task</th><th>Dataset</th><th>Best Accuracy</th><th>Method</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Constituency (English)</td><td>PTB</td><td>~96% F1</td><td>Neural chart parser</td></tr>
+                        <tr><td>Dependency (English)</td><td>PTB-SD</td><td>~97% UAS, ~95% LAS</td><td>Biaffine attention</td></tr>
+                        <tr><td>Dependency (multilingual)</td><td>UD</td><td>~90% LAS (avg)</td><td>Multilingual BERT + biaffine</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="note-box">
+                    <h4>The Neural Revolution in Parsing</h4>
+                    <p>Modern parsers use neural networks to score arcs (graph-based) or predict transitions. The key innovation is <strong>contextual word representations</strong>: pre-trained language models like BERT provide embeddings that encode syntactic information, dramatically improving parsing accuracy. The biaffine attention parser (Dozat &amp; Manning, 2017) uses separate MLPs for heads and dependents, then combines them with a biaffine scoring function, achieving near-human accuracy on English.</p>
+                </div>
+
+                <hr>
+
+                <p>Parsing algorithms bridge the gap between formal grammar theory and practical language processing. The CYK and Earley algorithms provide exact solutions for constituency parsing, while transition-based and graph-based methods offer efficient dependency parsing. Modern neural approaches have pushed accuracy to remarkable levels, but the fundamental algorithmic ideas &mdash; dynamic programming, greedy search, and maximum spanning trees &mdash; remain at the core of every parser built today.</p>
+
+            </article>
+        </main>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content"><div class="footer-brand"><span class="logo-symbol">&nabla;</span><span>ML Fundamentals</span></div><p class="footer-tagline">Deep understanding through first principles.</p></div>
+            <div class="footer-links"><a href="../../../../index.html">Home</a><a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a></div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

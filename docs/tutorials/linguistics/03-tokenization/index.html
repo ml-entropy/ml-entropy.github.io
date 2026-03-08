@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokenization & Subword Models | ML Fundamentals</title>
+    <meta name="description" content="Word, character, and subword tokenization. BPE, WordPiece, Unigram, SentencePiece. Why modern LLMs don't see words.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link active">Linguistics</a>
+                    <a href="../../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Linguistics</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Tokenization</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Linguistics</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-levels/index.html" class="sidebar-link">01. Levels of Linguistic Analysis</a>
+                    <a href="../02-writing-systems/index.html" class="sidebar-link">02. Writing Systems &amp; Unicode</a>
+                    <a href="../03-tokenization/index.html" class="sidebar-link active">03. Tokenization &amp; Subword Models</a>
+                    <a href="../04-ngrams/index.html" class="sidebar-link">04. N-gram Language Models</a>
+                    <a href="../05-entropy-language/index.html" class="sidebar-link">05. Entropy of Natural Language</a>
+                    <a href="../06-information-theory/index.html" class="sidebar-link">06. Information Theory in Linguistics</a>
+                    <a href="../07-formal-grammars/index.html" class="sidebar-link">07. Formal Grammars &amp; Chomsky Hierarchy</a>
+                    <a href="../08-parsing/index.html" class="sidebar-link">08. Parsing Algorithms</a>
+                    <a href="../09-morphology/index.html" class="sidebar-link">09. Morphological Analysis &amp; FSTs</a>
+                    <a href="../10-distributional-semantics/index.html" class="sidebar-link">10. Distributional Semantics</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Sections</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h1>Tokenization &amp; Subword Models</h1>
+
+                <p>
+                    Before a language model can process text, it must answer a deceptively simple question:
+                    <strong>what is a "word"?</strong> The answer turns out to be surprisingly deep. This tutorial
+                    walks through the evolution from naive whitespace splitting to the subword algorithms that
+                    power every modern LLM &mdash; and reveals the information-theoretic principles hiding
+                    beneath the surface.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Prerequisites</div>
+                    <p style="margin-bottom: 0;">
+                        Familiarity with basic probability and the concept of entropy ($H = -\sum p_i \log p_i$) is helpful.
+                        See <a href="../01-levels/index.html">Tutorial 01: Levels of Linguistic Analysis</a> for
+                        background on morphology and <a href="../02-writing-systems/index.html">Tutorial 02: Writing Systems &amp; Unicode</a>
+                        for how text is encoded in bytes.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 1: WHY TOKENIZATION MATTERS -->
+                <!-- ============================================================ -->
+                <h2 id="why-tokenization">1. Why Tokenization Matters</h2>
+
+                <p>
+                    Tokenization is the <strong>first step</strong> in any NLP pipeline. It converts a raw string of
+                    characters into a sequence of discrete tokens &mdash; the atomic units that a model sees, embeds,
+                    and predicts. Every architectural decision downstream depends on this choice.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Vocabulary Problem</div>
+                    <p>
+                        English has over <strong>170,000</strong> word forms in common use. Most are rare. If we treat
+                        each unique word as a token, we face:
+                    </p>
+                    <ul style="margin-bottom: 0;">
+                        <li><strong>Sparsity:</strong> Most words appear only a handful of times in any corpus</li>
+                        <li><strong>No parameter sharing:</strong> "walk", "walks", "walking", "walked" get separate embeddings despite shared meaning</li>
+                        <li><strong>OOV (out-of-vocabulary):</strong> New words like "COVID-19" or "ChatGPT" cannot be represented at all</li>
+                    </ul>
+                </div>
+
+                <p>
+                    The distribution of words follows <strong>Zipf's law</strong>: the $r$-th most frequent word has
+                    frequency proportional to $1/r$. This means a few words dominate (the, of, and...) while the vast
+                    majority are extremely rare:
+                </p>
+
+                $$f(r) \propto \frac{1}{r^{\alpha}}, \quad \alpha \approx 1$$
+
+                <p>
+                    In a corpus of 1 billion words, roughly half of all unique word types appear only once
+                    (these are called <em>hapax legomena</em>). No amount of data fully solves the long tail.
+                </p>
+
+                <div class="example-box">
+                    <div class="box-title">The OOV Problem in Practice</div>
+                    <p style="margin-bottom: 0;">
+                        A model trained on pre-2020 text has never seen "COVID-19", "mRNA", or "Omicron".
+                        With word-level tokenization, these all map to a single <code>&lt;UNK&gt;</code> token,
+                        destroying all information. With subword tokenization, "COVID-19" might become
+                        <code>["CO", "VID", "-", "19"]</code> &mdash; not perfect, but recoverable.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 2: WORD-LEVEL TOKENIZATION -->
+                <!-- ============================================================ -->
+                <h2 id="word-level">2. Word-Level Tokenization</h2>
+
+                <p>
+                    The simplest approach: split text on whitespace and punctuation.
+                </p>
+
+                <pre><code style="font-family: 'JetBrains Mono', monospace;"># Naive whitespace tokenization
+text = "Don't rock-climb in New York!"
+tokens = text.split()
+# ["Don't", "rock-climb", "in", "New", "York!"]
+# Problems: "Don't" should be "Do" + "n't"?
+#           "rock-climb" is one concept or two?
+#           "New York" is one entity split into two tokens
+#           "York!" has punctuation attached</code></pre>
+
+                <p>
+                    <strong>Rule-based tokenizers</strong> like the Penn Treebank tokenizer apply language-specific
+                    rules: split contractions ("don't" &rarr; "do" + "n't"), separate punctuation, handle
+                    abbreviations. But these rules are brittle and language-dependent.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Languages Without Spaces</div>
+                    <p style="margin-bottom: 0;">
+                        Chinese, Japanese, and Thai have <strong>no whitespace</strong> between words. Tokenization
+                        requires dedicated segmentation algorithms: <strong>jieba</strong> (Chinese),
+                        <strong>MeCab</strong> (Japanese), <strong>ICU</strong> (Thai/Khmer/Myanmar). These use
+                        dictionaries and statistical models to find word boundaries &mdash; a much harder problem
+                        than splitting on spaces.
+                    </p>
+                </div>
+
+                <p>
+                    The fundamental limitation of word-level tokenization is the vocabulary size. With $|V| = 100{,}000$
+                    words, the embedding matrix alone has $|V| \times d$ parameters (e.g., 100K &times; 768 = 76.8M
+                    parameters just for embeddings). And there is zero parameter sharing between morphological variants.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 3: CHARACTER-LEVEL TOKENIZATION -->
+                <!-- ============================================================ -->
+                <h2 id="character-level">3. Character-Level Tokenization</h2>
+
+                <p>
+                    The opposite extreme: make each character a token. The vocabulary becomes tiny &mdash; roughly
+                    100&ndash;300 tokens for most languages (letters, digits, punctuation, common symbols).
+                </p>
+
+                <pre><code style="font-family: 'JetBrains Mono', monospace;"># Character-level tokenization
+text = "cat"
+tokens = list(text)
+# ["c", "a", "t"]
+
+# No OOV problem! Any string can be represented.
+# But sequences are very long:
+text = "The quick brown fox"
+tokens = list(text)
+# ["T","h","e"," ","q","u","i","c","k"," ","b","r","o","w","n"," ","f","o","x"]
+# 19 tokens instead of 4 words</code></pre>
+
+                <div class="definition-box">
+                    <div class="box-title">Character-Level Trade-offs</div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="text-align: left; padding: 0.5rem;">Pros</th>
+                                <th style="text-align: left; padding: 0.5rem;">Cons</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">No OOV tokens ever</td>
+                                <td style="padding: 0.5rem;">Very long sequences (5&ndash;7x longer)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Tiny vocabulary (~100&ndash;300)</td>
+                                <td style="padding: 0.5rem;">Hard to capture word-level semantics</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.5rem;">Works for any language</td>
+                                <td style="padding: 0.5rem;">Quadratic attention cost in Transformers</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem;">Handles typos and neologisms</td>
+                                <td style="padding: 0.5rem;">Low entropy per token</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    From an information-theoretic perspective: the entropy per character in English is about
+                    $H \approx 1.3$ bits/character (Shannon, 1951), while the entropy per word is about
+                    $H \approx 11$ bits/word. The total information is the same &mdash; you just spread it
+                    across more tokens. But for models with fixed context windows, longer sequences mean
+                    less content per forward pass.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 4: BPE -->
+                <!-- ============================================================ -->
+                <h2 id="bpe">4. Byte Pair Encoding (BPE) &mdash; The Breakthrough</h2>
+
+                <p>
+                    <strong>Byte Pair Encoding</strong> (Sennrich et al., 2016; originally a data compression
+                    algorithm by Gage, 1994) finds a middle ground between words and characters. The idea is
+                    elegant: start with characters, then <em>iteratively merge</em> the most frequent adjacent pair.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">BPE Algorithm</div>
+                    <ol style="margin-bottom: 0;">
+                        <li>Initialize vocabulary with all individual characters (plus an end-of-word symbol)</li>
+                        <li>Count the frequency of every adjacent symbol pair in the corpus</li>
+                        <li>Merge the most frequent pair into a single new symbol; add it to the vocabulary</li>
+                        <li>Repeat steps 2&ndash;3 for $K$ merges (hyperparameter: desired vocabulary size)</li>
+                    </ol>
+                </div>
+
+                <div class="example-box">
+                    <div class="box-title">Worked Example: BPE on a Tiny Corpus</div>
+                    <p>Corpus (with word frequencies): <code>"low" (5), "lower" (2), "lowest" (1), "newer" (6), "wider" (3)</code></p>
+                    <p><strong>Initial vocabulary:</strong> {l, o, w, e, r, s, t, n, i, d, &lt;/w&gt;}</p>
+
+                    <pre><code style="font-family: 'JetBrains Mono', monospace;">Step 0 (character-split with frequencies):
+  l o w &lt;/w&gt;       (5)
+  l o w e r &lt;/w&gt;   (2)
+  l o w e s t &lt;/w&gt; (1)
+  n e w e r &lt;/w&gt;   (6)
+  w i d e r &lt;/w&gt;   (3)
+
+Step 1: Most frequent pair = (e, r) count=11
+  Merge "e"+"r" -> "er"
+  l o w &lt;/w&gt;       (5)
+  l o w er &lt;/w&gt;    (2)
+  l o w e s t &lt;/w&gt; (1)
+  n e w er &lt;/w&gt;    (6)
+  w i d er &lt;/w&gt;    (3)
+
+Step 2: Most frequent pair = (er, &lt;/w&gt;) count=11
+  Merge "er"+"&lt;/w&gt;" -> "er&lt;/w&gt;"
+  l o w &lt;/w&gt;       (5)
+  l o w er&lt;/w&gt;     (2)
+  l o w e s t &lt;/w&gt; (1)
+  n e w er&lt;/w&gt;     (6)
+  w i d er&lt;/w&gt;     (3)
+
+Step 3: Most frequent pair = (l, o) count=8
+  Merge "l"+"o" -> "lo"
+  lo w &lt;/w&gt;        (5)
+  lo w er&lt;/w&gt;      (2)
+  lo w e s t &lt;/w&gt;  (1)
+  n e w er&lt;/w&gt;     (6)
+  w i d er&lt;/w&gt;     (3)
+
+Step 4: Most frequent pair = (lo, w) count=8
+  Merge "lo"+"w" -> "low"
+  low &lt;/w&gt;         (5)
+  low er&lt;/w&gt;       (2)
+  low e s t &lt;/w&gt;   (1)
+  n e w er&lt;/w&gt;     (6)
+  w i d er&lt;/w&gt;     (3)
+
+... and so on.</code></pre>
+                    <p style="margin-bottom: 0;">
+                        After $K$ merges, common words like "low" become single tokens, while rare words
+                        are split into known subword pieces. At inference time, we apply the same merge
+                        rules in the same priority order.
+                    </p>
+                </div>
+
+                <p>
+                    BPE has a deep connection to <strong>information theory</strong>. By merging frequent pairs,
+                    it implicitly performs a form of <em>minimum description length</em> (MDL) compression.
+                    The total description length of the corpus is:
+                </p>
+
+                $$L = |V| \cdot C_{\text{vocab}} + \sum_{i} |T(x_i)| \cdot C_{\text{token}}$$
+
+                <p>
+                    where $|V|$ is the vocabulary size (cost of storing the codebook), $|T(x_i)|$ is the number
+                    of tokens in the $i$-th sequence (cost of encoding the data), and $C_{\text{vocab}}$,
+                    $C_{\text{token}}$ are the per-entry costs. BPE greedily reduces the second term while
+                    incrementally growing the first.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Connection to Entropy</div>
+                    <p style="margin-bottom: 0;">
+                        BPE discovers frequent substrings &mdash; these correspond to character sequences with
+                        <strong>high mutual information</strong> at their boundaries. When "e" and "r" almost always
+                        appear together, the mutual information $I(e; r)$ is high, and merging them into "er"
+                        reduces the entropy of the token sequence. BPE is, in effect, a greedy algorithm for
+                        finding entropy-optimal subword units.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 5: WORDPIECE -->
+                <!-- ============================================================ -->
+                <h2 id="wordpiece">5. WordPiece (Google / BERT)</h2>
+
+                <p>
+                    <strong>WordPiece</strong> (Schuster &amp; Nakajima, 2012) looks similar to BPE but makes a
+                    crucial change: instead of merging the most <em>frequent</em> pair, it merges the pair that
+                    maximizes the <em>likelihood</em> of the training data under a unigram language model.
+                </p>
+
+                <p>
+                    The merge score for a candidate pair $(a, b)$ is:
+                </p>
+
+                $$\text{score}(a, b) = \frac{P(ab)}{P(a) \cdot P(b)}$$
+
+                <div class="definition-box">
+                    <div class="box-title">This is Pointwise Mutual Information!</div>
+                    <p>
+                        The WordPiece merge criterion is exactly the <strong>pointwise mutual information</strong> (PMI)
+                        of the two tokens:
+                    </p>
+                    $$\text{PMI}(a, b) = \log \frac{P(ab)}{P(a) \cdot P(b)}$$
+                    <p style="margin-bottom: 0;">
+                        High PMI means $a$ and $b$ co-occur much more often than chance would predict &mdash; they
+                        "want" to be a single unit. WordPiece merges the pair with the highest PMI at each step.
+                        This is more principled than raw frequency: a rare but highly cohesive pair (like "qu")
+                        may be merged before a frequent but independent pair.
+                    </p>
+                </div>
+
+                <p>
+                    WordPiece uses a special <code>##</code> prefix to mark continuation tokens (tokens that are
+                    not at the start of a word):
+                </p>
+
+                <pre><code style="font-family: 'JetBrains Mono', monospace;"># WordPiece tokenization (BERT-style)
+"unbelievable" -> ["un", "##believ", "##able"]
+"tokenization" -> ["token", "##ization"]
+"COVID"        -> ["CO", "##VI", "##D"]</code></pre>
+
+                <p>
+                    WordPiece is used in <strong>BERT</strong>, <strong>DistilBERT</strong>, <strong>ELECTRA</strong>,
+                    and other models in the BERT family. BERT's vocabulary has 30,522 tokens.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 6: UNIGRAM LM -->
+                <!-- ============================================================ -->
+                <h2 id="unigram">6. Unigram Language Model (SentencePiece)</h2>
+
+                <p>
+                    The <strong>Unigram</strong> model (Kudo, 2018) takes the opposite approach to BPE. Instead of
+                    starting small and building up, it starts with a <em>large</em> vocabulary and <em>prunes down</em>.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Unigram Model</div>
+                    <p>
+                        Assume each subword token $x_i$ is generated independently with probability $P(x_i)$.
+                        The probability of a segmentation $\mathbf{x} = (x_1, x_2, \ldots, x_n)$ of a sentence is:
+                    </p>
+                    $$P(\mathbf{x}) = \prod_{i=1}^{n} P(x_i)$$
+                    <p style="margin-bottom: 0;">
+                        The algorithm uses the <strong>EM algorithm</strong> to estimate the probabilities $P(x_i)$
+                        for each candidate subword, then prunes the vocabulary by removing tokens whose removal
+                        causes the smallest increase in corpus likelihood.
+                    </p>
+                </div>
+
+                <p><strong>Algorithm outline:</strong></p>
+                <ol>
+                    <li>Start with a large seed vocabulary (e.g., all substrings up to a maximum length, or all frequent substrings)</li>
+                    <li><strong>E-step:</strong> For each sentence, find the best segmentation using the <strong>Viterbi algorithm</strong> (dynamic programming to find the highest-probability tokenization)</li>
+                    <li><strong>M-step:</strong> Re-estimate token probabilities from the segmented corpus</li>
+                    <li>Compute the loss (negative log-likelihood) for each token if it were removed</li>
+                    <li>Remove the bottom $p\%$ of tokens (those whose removal hurts least)</li>
+                    <li>Repeat until vocabulary reaches the target size $K$</li>
+                </ol>
+
+                <pre><code style="font-family: 'JetBrains Mono', monospace;"># Viterbi segmentation for Unigram model
+# Given token probabilities, find best segmentation of "unbelievable"
+#
+# Dynamic programming: for each position j, find
+#   best_score[j] = max over all tokens ending at j
+#                   of best_score[start] + log P(token)
+#
+# Example (simplified log-probabilities):
+# P("un") = -2.1,  P("un##b") = -5.3
+# P("believe") = -3.2, P("believ") = -3.8
+# P("able") = -2.5, P("##able") = -2.9
+#
+# Best path: "un" + "believe" + "able" = -2.1 + -3.2 + -2.5 = -7.8
+# vs.        "un" + "believ"  + "able" = -2.1 + -3.8 + -2.5 = -8.4
+# Winner: "un" + "believe" + "able"</code></pre>
+
+                <div class="note-box">
+                    <div class="box-title">Advantage of Unigram</div>
+                    <p style="margin-bottom: 0;">
+                        Unlike BPE (which produces a single deterministic segmentation), the Unigram model can
+                        assign <strong>probabilities to different segmentations</strong>. This allows
+                        <em>subword regularization</em> &mdash; sampling different segmentations during training
+                        to improve robustness. For example, "international" might be tokenized as
+                        ["inter", "national"] or ["in", "ter", "national"] with different probabilities.
+                    </p>
+                </div>
+
+                <p>
+                    The Unigram model is used in <strong>T5</strong>, <strong>ALBERT</strong>,
+                    <strong>XLNet</strong>, and <strong>mBART</strong>.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 7: SENTENCEPIECE -->
+                <!-- ============================================================ -->
+                <h2 id="sentencepiece">7. SentencePiece: Language-Agnostic Tokenization</h2>
+
+                <p>
+                    <strong>SentencePiece</strong> (Kudo &amp; Richardson, 2018) is not a new algorithm &mdash;
+                    it is a <em>framework</em> that implements both BPE and Unigram. Its key innovation is treating
+                    the input as a <strong>raw byte stream</strong> with no language-specific pre-processing.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Key Design Principles</div>
+                    <ul style="margin-bottom: 0;">
+                        <li><strong>No pre-tokenization:</strong> No whitespace splitting, no language-specific rules. The raw Unicode string is the input.</li>
+                        <li><strong>Whitespace as a character:</strong> Spaces are treated like any other character, represented by the special symbol <code>&#x2581;</code> (U+2581, "Lower One Eighth Block")</li>
+                        <li><strong>Reversible:</strong> You can perfectly reconstruct the original text from tokens (including spaces)</li>
+                        <li><strong>Language-agnostic:</strong> Works identically for English, Chinese, Arabic, or any language</li>
+                    </ul>
+                </div>
+
+                <pre><code style="font-family: 'JetBrains Mono', monospace;"># SentencePiece tokenization
+import sentencepiece as spm
+
+sp = spm.SentencePieceProcessor()
+sp.load('model.model')
+
+tokens = sp.encode_as_pieces("Hello world")
+# ['▁Hello', '▁world']
+# Note: ▁ marks word boundaries (start of word after space)
+
+tokens = sp.encode_as_pieces("New York is great")
+# ['▁New', '▁York', '▁is', '▁great']
+
+# Detokenization is lossless:
+text = sp.decode_pieces(tokens)
+# "New York is great"  (original string perfectly recovered)</code></pre>
+
+                <p>
+                    The <code>&#x2581;</code> prefix convention is crucial: it encodes whitespace information
+                    <em>within</em> the tokens, so the tokenization is fully reversible. Without it,
+                    we could not distinguish "New York" from "Newyork" after tokenization.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 8: BYTE-LEVEL BPE -->
+                <!-- ============================================================ -->
+                <h2 id="byte-bpe">8. Byte-Level BPE (GPT-2 / GPT-4)</h2>
+
+                <p>
+                    <strong>Byte-level BPE</strong> (Radford et al., 2019) pushes the idea further: instead of
+                    starting from Unicode characters, start from the <strong>256 raw bytes</strong>. This
+                    guarantees that any byte sequence can be tokenized &mdash; there are literally no unknown tokens.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Byte-Level BPE</div>
+                    <p>
+                        <strong>Base vocabulary:</strong> 256 byte values (0x00 through 0xFF)
+                    </p>
+                    <p>
+                        <strong>Merge process:</strong> Same as standard BPE, but operating on bytes instead of characters
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        <strong>Key property:</strong> Any UTF-8 encoded string is a valid byte sequence, so
+                        every possible input can be tokenized without any <code>&lt;UNK&gt;</code> token.
+                    </p>
+                </div>
+
+                <pre><code style="font-family: 'JetBrains Mono', monospace;"># Byte-level BPE (GPT-2 style)
+from transformers import GPT2Tokenizer
+
+tok = GPT2Tokenizer.from_pretrained("gpt2")
+
+# English: efficient encoding
+tok.tokenize("Hello world")
+# ['Hello', ' world']  (2 tokens)
+
+# Chinese: less efficient (UTF-8 = 3 bytes per character)
+tok.tokenize("你好世界")
+# Multiple byte-level tokens per character
+
+# Emoji: works! (UTF-8 = 4 bytes)
+tok.tokenize("🎉")
+# Byte-level tokens that represent the UTF-8 encoding
+
+# Code: works for any programming language
+tok.tokenize("def foo(x):")
+# ['def', ' foo', '(', 'x', '):']</code></pre>
+
+                <div class="note-box">
+                    <div class="box-title">The Multi-Byte Trade-off</div>
+                    <p style="margin-bottom: 0;">
+                        Byte-level BPE is <strong>universal</strong> but not equally efficient for all scripts.
+                        ASCII characters (Latin alphabet, digits) are 1 byte each, so they tend to form large
+                        merged tokens quickly. CJK characters are 3 bytes in UTF-8, and emoji are 4 bytes,
+                        so they require more tokens for the same semantic content. This creates an inherent
+                        <strong>bias toward Latin-script languages</strong> in token efficiency &mdash; a
+                        significant fairness consideration.
+                    </p>
+                </div>
+
+                <p>
+                    Byte-level BPE is used in <strong>GPT-2</strong>, <strong>GPT-3</strong>,
+                    <strong>GPT-4</strong>, <strong>LLaMA</strong>, and <strong>Mistral</strong>.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 9: VOCABULARY SIZE TRADE-OFFS -->
+                <!-- ============================================================ -->
+                <h2 id="vocab-size">9. How Many Tokens? Vocabulary Size Trade-offs</h2>
+
+                <p>
+                    The vocabulary size $|V|$ is a critical hyperparameter. It controls the trade-off between
+                    sequence length and embedding sparsity:
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.75rem;">Vocab Size</th>
+                            <th style="text-align: left; padding: 0.75rem;">Characteristics</th>
+                            <th style="text-align: left; padding: 0.75rem;">Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>~256</strong></td>
+                            <td style="padding: 0.75rem;">Byte-level. Very long sequences. No compression.</td>
+                            <td style="padding: 0.75rem;">ByT5</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>~1K</strong></td>
+                            <td style="padding: 0.75rem;">Near-character-level. Long sequences, slow inference.</td>
+                            <td style="padding: 0.75rem;">CANINE</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>~32K</strong></td>
+                            <td style="padding: 0.75rem;">Good balance. Standard for most modern LLMs.</td>
+                            <td style="padding: 0.75rem;">LLaMA (32K), BERT (30K)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>~50K</strong></td>
+                            <td style="padding: 0.75rem;">Slightly shorter sequences. GPT-2's choice.</td>
+                            <td style="padding: 0.75rem;">GPT-2 (50,257)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>~100K+</strong></td>
+                            <td style="padding: 0.75rem;">Short sequences but large embedding table. Better multilingual coverage.</td>
+                            <td style="padding: 0.75rem;">GPT-4 (100K), Gemini (256K)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="definition-box">
+                    <div class="box-title">The Entropy-Optimal Vocabulary</div>
+                    <p>
+                        From an information-theoretic perspective, the optimal vocabulary minimizes the
+                        <strong>total description length</strong>:
+                    </p>
+                    $$L_{\text{total}} = \underbrace{|V| \cdot \log|V|}_{\text{codebook cost}} + \underbrace{N_{\text{tokens}} \cdot H_{\text{tokens}}}_{\text{encoding cost}}$$
+                    <p style="margin-bottom: 0;">
+                        Increasing $|V|$ decreases $N_{\text{tokens}}$ (shorter sequences) and increases $H_{\text{tokens}}$
+                        (more entropy per token since tokens carry more information), but increases the codebook cost.
+                        The optimum depends on corpus size, language diversity, and downstream task. In practice,
+                        32K&ndash;100K tokens is the sweet spot for large-scale language models.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 10: ARTIFACTS AND GOTCHAS -->
+                <!-- ============================================================ -->
+                <h2 id="gotchas">10. Tokenization Artifacts and Gotchas</h2>
+
+                <p>
+                    Tokenization is deterministic but not intuitive. The boundaries it creates can have
+                    surprising effects on model behavior.
+                </p>
+
+                <div class="example-box">
+                    <div class="box-title">Morphological Boundaries vs. Token Boundaries</div>
+                    <pre><code style="font-family: 'JetBrains Mono', monospace;"># GPT-2 tokenizer
+"Unsupervised"  -> ["Uns", "uper", "vised"]    # NOT "Un" + "supervised"!
+"supervised"    -> ["super", "vised"]
+"Supervised"    -> ["Super", "vised"]
+
+# The prefix "Un-" is split across token boundaries.
+# The model cannot easily learn that "Un-" negates the meaning.</code></pre>
+                    <p style="margin-bottom: 0;">
+                        BPE merges are learned from corpus statistics, not from morphological rules. The
+                        segmentation of "Unsupervised" differs from "unsupervised" because capital "U" changes
+                        the byte pair frequencies. This is a fundamental limitation: <strong>tokenization is
+                        morphology-unaware</strong>.
+                    </p>
+                </div>
+
+                <div class="example-box">
+                    <div class="box-title">Leading Spaces Matter</div>
+                    <pre><code style="font-family: 'JetBrains Mono', monospace;"># In many tokenizers, " hello" and "hello" produce DIFFERENT tokens
+tokenize(" hello")  # [" hello"]  -- with leading space, single token
+tokenize("hello")   # ["hello"]   -- different token ID!
+
+# This means the model sees a different embedding depending on
+# whether a word appears at the start of text or after a space.</code></pre>
+                </div>
+
+                <div class="example-box">
+                    <div class="box-title">Number Tokenization</div>
+                    <pre><code style="font-family: 'JetBrains Mono', monospace;"># Numbers are tokenized inconsistently
+tokenize("1000")    # ["1000"]           -- single token (common number)
+tokenize("1729")    # ["17", "29"]       -- two tokens (rarer number)
+tokenize("123456")  # ["123", "456"]     -- split at arbitrary point
+
+# This makes arithmetic very difficult for LLMs:
+# "1729" is not seen as a single number but as "17" next to "29"
+# The model must learn that 17*100 + 29 = 1729</code></pre>
+                </div>
+
+                <div class="example-box">
+                    <div class="box-title">Code Tokenization</div>
+                    <pre><code style="font-family: 'JetBrains Mono', monospace;"># Python indentation: 4 spaces might be 1, 2, or 4 tokens
+tokenize("    x = 1")   # ["    ", "x", " =", " 1"]  or
+                         # ["   ", " x", " =", " 1"]  depending on tokenizer
+
+# This is why some models (Codex, CodeLlama) train tokenizers
+# specifically on code corpora, where indentation patterns
+# are merged into efficient single tokens.</code></pre>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Glitch Tokens</div>
+                    <p style="margin-bottom: 0;">
+                        "Glitch tokens" are vocabulary entries that exist in the tokenizer but were barely seen
+                        during model training. They arise when the tokenizer is trained on a different (or larger)
+                        corpus than the model. Because the corresponding embedding is essentially random
+                        (never updated by gradient descent), feeding these tokens to the model can produce
+                        bizarre outputs. The most famous example is GPT-2's <code>" SolidGoldMagikarp"</code>
+                        token &mdash; a Reddit username that was frequent enough to earn its own BPE merge but
+                        rare enough in the training data that the model never learned a meaningful embedding for it.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SUMMARY -->
+                <!-- ============================================================ -->
+                <h2 id="summary">Summary</h2>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.75rem;">Method</th>
+                            <th style="text-align: left; padding: 0.75rem;">Direction</th>
+                            <th style="text-align: left; padding: 0.75rem;">Merge Criterion</th>
+                            <th style="text-align: left; padding: 0.75rem;">Used In</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>BPE</strong></td>
+                            <td style="padding: 0.75rem;">Bottom-up</td>
+                            <td style="padding: 0.75rem;">Most frequent pair</td>
+                            <td style="padding: 0.75rem;">GPT-2, GPT-4, LLaMA, Mistral</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>WordPiece</strong></td>
+                            <td style="padding: 0.75rem;">Bottom-up</td>
+                            <td style="padding: 0.75rem;">Max likelihood (PMI)</td>
+                            <td style="padding: 0.75rem;">BERT, DistilBERT, ELECTRA</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>Unigram</strong></td>
+                            <td style="padding: 0.75rem;">Top-down (prune)</td>
+                            <td style="padding: 0.75rem;">Min likelihood loss</td>
+                            <td style="padding: 0.75rem;">T5, ALBERT, XLNet</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.75rem;"><strong>Byte-level BPE</strong></td>
+                            <td style="padding: 0.75rem;">Bottom-up (bytes)</td>
+                            <td style="padding: 0.75rem;">Most frequent pair</td>
+                            <td style="padding: 0.75rem;">GPT-2, GPT-3, GPT-4, LLaMA</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="definition-box">
+                    <div class="box-title">The Big Picture</div>
+                    <p style="margin-bottom: 0;">
+                        Tokenization is not just preprocessing &mdash; it is a <strong>lossy compression</strong>
+                        step that determines what information the model can access. The evolution from
+                        word &rarr; character &rarr; subword tokenization mirrors a central idea from information theory:
+                        the best encoding is the one that matches the <strong>statistical structure</strong>
+                        of the source. BPE, WordPiece, and Unigram are all different algorithms for discovering
+                        that structure, and they all converge on the same insight: the right units are not
+                        words, not characters, but something in between &mdash; determined by the data.
+                    </p>
+                </div>
+
+                <!-- Navigation -->
+                <div class="tutorial-nav" style="margin-top: 3rem; display: flex; justify-content: space-between;">
+                    <a href="../02-writing-systems/index.html" class="btn btn-secondary">&larr; Previous: Writing Systems &amp; Unicode</a>
+                    <a href="../04-ngrams/index.html" class="btn btn-secondary">Next: N-gram Language Models &rarr;</a>
+                </div>
+            </article>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

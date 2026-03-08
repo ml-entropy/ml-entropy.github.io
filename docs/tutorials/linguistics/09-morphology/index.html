@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morphological Analysis &amp; FSTs | Computational Linguistics</title>
+    <meta name="description" content="Inflection, derivation, compounding, stemming, lemmatization, finite-state transducers, two-level morphology, and morphological complexity across languages.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../../index.html" class="nav-logo"><span class="logo-symbol">&nabla;</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link active">Linguistics</a>
+                    <a href="../../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../../index.html">Home</a><span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Linguistics</a><span class="breadcrumb-separator">&rarr;</span>
+                <span>Morphology &amp; FSTs</span>
+            </nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a></div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Computational Linguistics</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-levels/index.html" class="sidebar-link">01. Levels of Analysis</a>
+                    <a href="../02-writing-systems/index.html" class="sidebar-link">02. Writing Systems</a>
+                    <a href="../03-tokenization/index.html" class="sidebar-link">03. Tokenization</a>
+                    <a href="../04-ngrams/index.html" class="sidebar-link">04. N-gram Models</a>
+                    <a href="../05-entropy-language/index.html" class="sidebar-link">05. Entropy of Language</a>
+                    <a href="../06-information-theory/index.html" class="sidebar-link">06. Information Theory</a>
+                    <a href="../07-formal-grammars/index.html" class="sidebar-link">07. Formal Grammars</a>
+                    <a href="../08-parsing/index.html" class="sidebar-link">08. Parsing Algorithms</a>
+                    <a href="../09-morphology/index.html" class="sidebar-link active">09. Morphology &amp; FSTs</a>
+                    <a href="../10-distributional-semantics/index.html" class="sidebar-link">10. Distributional Semantics</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h1>Morphological Analysis &amp; FSTs</h1>
+
+                <p>Words are not atoms. They have internal structure &mdash; prefixes, roots, suffixes, infixes &mdash; that carries meaning and grammatical information. Morphology, the study of word structure, is essential for processing languages like Turkish, Finnish, or Arabic where a single word can encode what English requires an entire clause to express. The computational tool of choice for morphological analysis is the <strong>finite-state transducer</strong> (FST), which maps between surface forms and their underlying analyses.</p>
+
+                <!-- Section 1: What is Morphology? -->
+                <h2>1. What is Morphology?</h2>
+
+                <div class="definition-box">
+                    <h4>Morpheme</h4>
+                    <p>A <strong>morpheme</strong> is the smallest meaningful unit of language. Morphemes come in two types:</p>
+                    <ul>
+                        <li><strong>Free morphemes</strong>: Can stand alone as words (cat, run, happy)</li>
+                        <li><strong>Bound morphemes</strong>: Must attach to another morpheme (un-, -ing, -ness, -s)</li>
+                    </ul>
+                </div>
+
+                <div class="example-box">
+                    <h4>Morphological Decomposition</h4>
+                    <table>
+                        <thead>
+                            <tr><th>Word</th><th>Morphemes</th><th>Analysis</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>cats</td><td>cat + s</td><td>noun + plural</td></tr>
+                            <tr><td>unhappiness</td><td>un + happy + ness</td><td>prefix + adjective + nominalizer</td></tr>
+                            <tr><td>unbelievable</td><td>un + believe + able</td><td>prefix + verb + adjectivalizer</td></tr>
+                            <tr><td>rethinking</td><td>re + think + ing</td><td>prefix + verb + progressive</td></tr>
+                            <tr><td>antidisestablishmentarianism</td><td>anti + dis + establish + ment + arian + ism</td><td>6 morphemes</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Section 2: Inflection vs Derivation -->
+                <h2>2. Inflection vs Derivation</h2>
+
+                <h3>Inflection</h3>
+
+                <p>Inflection modifies a word's grammatical properties without changing its core meaning or part of speech:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Process</th><th>Example</th><th>Feature Changed</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Plural</td><td>cat &rarr; cats</td><td>Number</td></tr>
+                        <tr><td>Past tense</td><td>walk &rarr; walked</td><td>Tense</td></tr>
+                        <tr><td>3rd person</td><td>walk &rarr; walks</td><td>Person/Number</td></tr>
+                        <tr><td>Comparative</td><td>tall &rarr; taller</td><td>Degree</td></tr>
+                        <tr><td>Case (Russian)</td><td>dom &rarr; doma</td><td>Case (genitive)</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Derivation</h3>
+
+                <p>Derivation creates new words, often changing the part of speech:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Process</th><th>Example</th><th>Category Change</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>-ness</td><td>happy (Adj) &rarr; happiness (N)</td><td>Adj &rarr; Noun</td></tr>
+                        <tr><td>-ize</td><td>modern (Adj) &rarr; modernize (V)</td><td>Adj &rarr; Verb</td></tr>
+                        <tr><td>un-</td><td>happy (Adj) &rarr; unhappy (Adj)</td><td>Adj &rarr; Adj (negation)</td></tr>
+                        <tr><td>-er</td><td>teach (V) &rarr; teacher (N)</td><td>Verb &rarr; Noun</td></tr>
+                        <tr><td>-ly</td><td>quick (Adj) &rarr; quickly (Adv)</td><td>Adj &rarr; Adverb</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Compounding</h3>
+
+                <p>Compounding combines free morphemes into new words: <em>blackbird</em>, <em>toothpaste</em>, <em>software</em>, <em>firefighter</em>. German is famous for productive compounding: <em>Donaudampfschifffahrtsgesellschaft</em> (Danube steamship transport company).</p>
+
+                <div class="note-box">
+                    <h4>Ordering: Derivation Before Inflection</h4>
+                    <p>A near-universal rule: derivational morphology applies before inflectional morphology. We say "moderniz<strong>ation</strong><strong>s</strong>" (derive first, inflect last), never *"modern<strong>s</strong>ization". This is because derivation creates new lexemes, while inflection creates forms of existing lexemes.</p>
+                </div>
+
+                <!-- Section 3: Morphological Typology -->
+                <h2>3. Morphological Typology</h2>
+
+                <p>Languages differ dramatically in how much information they pack into single words. Linguists classify languages along a spectrum:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Type</th><th>Characteristics</th><th>Examples</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><strong>Isolating</strong></td><td>One morpheme per word, little or no affixation</td><td>Mandarin, Vietnamese, Thai</td></tr>
+                        <tr><td><strong>Agglutinative</strong></td><td>Many morphemes per word, each clearly segmentable with one meaning</td><td>Turkish, Finnish, Swahili, Japanese</td></tr>
+                        <tr><td><strong>Fusional</strong></td><td>Affixes encode multiple features simultaneously, boundaries often unclear</td><td>Russian, Spanish, Latin, Arabic</td></tr>
+                        <tr><td><strong>Polysynthetic</strong></td><td>Entire sentences expressed as single complex words</td><td>Inuktitut, Mohawk, Yupik</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="example-box">
+                    <h4>The Same Meaning Across Types</h4>
+                    <p><strong>English</strong> (analytic): "I will not be able to go"</p>
+                    <p><strong>Turkish</strong> (agglutinative): "gid-e-me-yecek-im" (go-ABIL-NEG-FUT-1SG)</p>
+                    <p><strong>Inuktitut</strong> (polysynthetic): "tusaa-tsia-runna-nngit-tu-alu-u-junga" (hear-well-can-NEG-DOER-very-be-1SG) = "I can't hear very well"</p>
+                    <p>The morpheme-to-word ratio varies from ~1:1 (English) to ~8:1 (Inuktitut), but the information per sentence is comparable.</p>
+                </div>
+
+                <div class="note-box">
+                    <h4>Information-Theoretic View</h4>
+                    <p>From an entropy perspective, isolating languages have high per-word entropy (each word is relatively unpredictable) but low word complexity. Agglutinative languages have lower per-word entropy (the morphological structure is predictable) but vastly more unique word forms. The entropy rate per unit of meaning transmitted is roughly constant across types &mdash; another manifestation of the 39 bits/second universal (Tutorial 05).</p>
+                </div>
+
+                <!-- Section 4: Stemming and Lemmatization -->
+                <h2>4. Stemming and Lemmatization</h2>
+
+                <p>Reducing words to their base forms is a fundamental preprocessing step in NLP.</p>
+
+                <h3>Stemming</h3>
+
+                <p>Stemming applies crude rules to strip affixes, producing a <em>stem</em> that may not be a real word:</p>
+
+                <div class="definition-box">
+                    <h4>Porter Stemmer (Selected Rules)</h4>
+                    <p>Step 1a: SSES &rarr; SS, IES &rarr; I, SS &rarr; SS, S &rarr; &epsilon;<br>
+                    Step 1b: (m&gt;0) EED &rarr; EE, (*v*) ED &rarr; &epsilon;, (*v*) ING &rarr; &epsilon;<br>
+                    Step 2: (m&gt;0) ATIONAL &rarr; ATE, IZATION &rarr; IZE, ...</p>
+                    <p>where (m&gt;0) means the stem must have at least one vowel-consonant sequence, and (*v*) means the stem must contain a vowel.</p>
+                </div>
+
+                <div class="example-box">
+                    <h4>Stemming Examples</h4>
+                    <table>
+                        <thead>
+                            <tr><th>Word</th><th>Porter Stem</th><th>Correct?</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>running</td><td>run</td><td>Yes</td></tr>
+                            <tr><td>generalization</td><td>gener</td><td>Aggressive</td></tr>
+                            <tr><td>university</td><td>univers</td><td>Over-stemmed</td></tr>
+                            <tr><td>organization</td><td>organ</td><td>Over-stemmed (conflates with "organ")</td></tr>
+                            <tr><td>better</td><td>better</td><td>Under-stemmed (should &rarr; good)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Lemmatization</h3>
+
+                <p>Lemmatization uses a dictionary and morphological analysis to return the <strong>lemma</strong> (dictionary form):</p>
+
+                <ul>
+                    <li>"better" &rarr; "good" (requires knowing it's the comparative of "good")</li>
+                    <li>"went" &rarr; "go" (requires an irregular form table)</li>
+                    <li>"am", "are", "is", "was", "were" &rarr; "be"</li>
+                    <li>"mice" &rarr; "mouse"</li>
+                </ul>
+
+                <p>Lemmatization is more accurate but slower and requires language-specific resources.</p>
+
+                <!-- Section 5: Finite-State Transducers -->
+                <h2>5. Finite-State Transducers</h2>
+
+                <p>The computational workhorse of morphological analysis is the <strong>finite-state transducer</strong> (FST) &mdash; a finite automaton that reads an input tape and writes to an output tape.</p>
+
+                <div class="definition-box">
+                    <h4>Finite-State Transducer</h4>
+                    <p>An FST is a 6-tuple $(Q, \Sigma, \Gamma, \delta, q_0, F)$ where:</p>
+                    <ul>
+                        <li>$Q$: finite set of states</li>
+                        <li>$\Sigma$: input alphabet</li>
+                        <li>$\Gamma$: output alphabet</li>
+                        <li>$\delta \subseteq Q \times (\Sigma \cup \{\epsilon\}) \times (\Gamma \cup \{\epsilon\}) \times Q$: transition relation</li>
+                        <li>$q_0 \in Q$: start state</li>
+                        <li>$F \subseteq Q$: accepting states</li>
+                    </ul>
+                    <p>Each transition reads a symbol from the input and writes a symbol to the output (either may be $\epsilon$).</p>
+                </div>
+
+                <h3>Morphological Analysis as Transduction</h3>
+
+                <p>A morphological analyzer maps surface forms to their analyses:</p>
+
+                <div class="example-box">
+                    <h4>FST Morphological Analysis</h4>
+                    <table>
+                        <thead>
+                            <tr><th>Input (surface)</th><th>Output (analysis)</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>cats</td><td>cat+N+PL</td></tr>
+                            <tr><td>running</td><td>run+V+PROG</td></tr>
+                            <tr><td>geese</td><td>goose+N+PL</td></tr>
+                            <tr><td>bigger</td><td>big+ADJ+COMP</td></tr>
+                            <tr><td>foxes</td><td>fox+N+PL</td></tr>
+                        </tbody>
+                    </table>
+                    <p>The FST handles regular patterns (cat+s) and irregular patterns (goose&rarr;geese) through different paths in the automaton.</p>
+                </div>
+
+                <h3>Composition</h3>
+
+                <p>A key advantage of FSTs is <strong>composition</strong>: if FST $T_1$ maps $A \to B$ and FST $T_2$ maps $B \to C$, then $T_1 \circ T_2$ maps $A \to C$. This allows building complex morphological systems by composing simple components:</p>
+
+                $$\text{Lexicon} \circ \text{Rules}_1 \circ \text{Rules}_2 \circ \cdots \circ \text{Rules}_n = \text{Analyzer}$$
+
+                <p>For example: a lexicon FST maps stems to feature bundles, a plural rule FST adds "-s" for regular nouns, and an orthographic rule FST handles spelling changes (e.g., "fox" + "s" &rarr; "foxes" with epenthetic 'e').</p>
+
+                <!-- Section 6: Two-Level Morphology -->
+                <h2>6. Two-Level Morphology</h2>
+
+                <p>Koskenniemi's (1983) two-level model represents morphological processes as parallel rules relating a <strong>lexical level</strong> (underlying form) to a <strong>surface level</strong> (actual spelling).</p>
+
+                <div class="definition-box">
+                    <h4>Two-Level Rules</h4>
+                    <p>Each rule specifies a correspondence between lexical and surface characters in a particular context. Rule types:</p>
+                    <ul>
+                        <li>$a$:$b$ &rArr; $L$ _ $R$ &mdash; $a$ must surface as $b$ in context $L$_$R$ (obligatory)</li>
+                        <li>$a$:$b$ &lArr; $L$ _ $R$ &mdash; $b$ on surface implies $a$ in lexical form in this context</li>
+                        <li>$a$:$b$ &hArr; $L$ _ $R$ &mdash; both directions (if and only if)</li>
+                    </ul>
+                </div>
+
+                <div class="example-box">
+                    <h4>English Consonant Doubling</h4>
+                    <p>When adding "-ing" to "run," the 'n' doubles: "running" (not *"runing").</p>
+                    <p><strong>Lexical</strong>: r u n + i n g</p>
+                    <p><strong>Surface</strong>: r u n n i n g</p>
+                    <p>The two-level rule: $+$:$n$ &hArr; $[C]$ _ $[V]$ (the morpheme boundary '+' surfaces as a copy of the preceding consonant before a vowel-initial suffix, when the stem has the pattern CVC with a short vowel).</p>
+                    <p>Similarly:</p>
+                    <ul>
+                        <li>stop + ing &rarr; stopping (p doubles)</li>
+                        <li>sit + ing &rarr; sitting (t doubles)</li>
+                        <li>jump + ing &rarr; jumping (no doubling: mp is a cluster, not single C)</li>
+                        <li>read + ing &rarr; reading (no doubling: ea is a long vowel)</li>
+                    </ul>
+                </div>
+
+                <p>Each two-level rule compiles into an FST. The complete morphological system is the <strong>intersection</strong> of all rule transducers &mdash; a string is well-formed only if it satisfies all rules simultaneously.</p>
+
+                <div class="note-box">
+                    <h4>Intersection vs Composition</h4>
+                    <p>Two-level rules apply <em>in parallel</em> (intersection), not <em>sequentially</em> (composition). This is a key theoretical distinction: in the ordered-rule approach, rules can feed or bleed each other; in the two-level approach, all rules must be simultaneously satisfied. Both approaches have been shown to be equivalent in expressive power for morphological phenomena.</p>
+                </div>
+
+                <!-- Section 7: Morphological Complexity Across Languages -->
+                <h2>7. Morphological Complexity Across Languages</h2>
+
+                <p>Languages vary enormously in morphological complexity, and this has profound implications for NLP.</p>
+
+                <h3>Type-Token Ratio</h3>
+
+                <p>The <strong>type-token ratio (TTR)</strong> measures vocabulary diversity: $\text{TTR} = |V| / N$ where $|V|$ is the number of unique word types and $N$ is the total number of tokens. Morphologically rich languages have much higher TTRs:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Language</th><th>TTR (per 10K tokens)</th><th>Type</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Mandarin</td><td>~0.15</td><td>Isolating</td></tr>
+                        <tr><td>English</td><td>~0.35</td><td>Weakly fusional</td></tr>
+                        <tr><td>Russian</td><td>~0.50</td><td>Fusional</td></tr>
+                        <tr><td>Turkish</td><td>~0.65</td><td>Agglutinative</td></tr>
+                        <tr><td>Finnish</td><td>~0.70</td><td>Agglutinative</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Implications for NLP</h3>
+
+                <div class="example-box">
+                    <h4>Why Turkish NLP Needs Morphology</h4>
+                    <p>A Turkish verb can have thousands of inflected forms:</p>
+                    <ul>
+                        <li>"gel" (come)</li>
+                        <li>"geliyorum" (I am coming)</li>
+                        <li>"gelebilecekmiydim" (was I going to be able to come?)</li>
+                        <li>"gelememekten" (from not being able to come)</li>
+                    </ul>
+                    <p>A word-level language model for Turkish would need an impossibly large vocabulary. Morphological analysis or subword tokenization (BPE, see Tutorial 03) is essential.</p>
+                </div>
+
+                <h3>Entropy of Word Forms</h3>
+
+                <p>The entropy of the word form distribution reflects morphological complexity:</p>
+
+                $$H(\text{words}) = -\sum_{w \in V} P(w) \log_2 P(w)$$
+
+                <p>For a corpus of equal size:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Language</th><th>$H(\text{words})$ (bits)</th><th>Vocabulary Size (100K tokens)</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>English</td><td>~11.8</td><td>~8,000 types</td></tr>
+                        <tr><td>Spanish</td><td>~12.5</td><td>~12,000 types</td></tr>
+                        <tr><td>Russian</td><td>~13.4</td><td>~22,000 types</td></tr>
+                        <tr><td>Turkish</td><td>~14.6</td><td>~35,000 types</td></tr>
+                        <tr><td>Finnish</td><td>~15.1</td><td>~42,000 types</td></tr>
+                    </tbody>
+                </table>
+
+                <p>Higher morphological complexity means higher word-level entropy, more data sparsity, and greater need for morphological decomposition or subword methods.</p>
+
+                <div class="note-box">
+                    <h4>Connection to Subword Tokenization</h4>
+                    <p>BPE and other subword tokenizers (Tutorial 03) can be seen as <em>data-driven morphological analyzers</em>. They discover morpheme-like units from raw text, often recovering linguistic morphemes: BPE trained on English frequently learns "un", "ing", "tion", "ment" as subword units. For agglutinative languages, subword tokenization is even more critical, as it provides a consistent way to handle the combinatorial explosion of word forms without language-specific morphological rules.</p>
+                </div>
+
+                <hr>
+
+                <p>Morphology sits at the intersection of lexicon and grammar. Understanding word-internal structure is essential for processing the world's languages, most of which are morphologically richer than English. Finite-state transducers provide an elegant and efficient computational framework, while modern subword methods offer a data-driven alternative. Both approaches grapple with the same fundamental challenge: how to handle the vast space of possible word forms while capturing the systematic patterns that make morphology learnable.</p>
+
+            </article>
+        </main>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content"><div class="footer-brand"><span class="logo-symbol">&nabla;</span><span>ML Fundamentals</span></div><p class="footer-tagline">Deep understanding through first principles.</p></div>
+            <div class="footer-links"><a href="../../../../index.html">Home</a><a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a></div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

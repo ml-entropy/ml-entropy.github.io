@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N-gram Language Models | Computational Linguistics</title>
+    <meta name="description" content="The Markov assumption for language. Bigrams, trigrams, smoothing techniques, backoff, interpolation, perplexity, and the bridge to neural language models.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link active">Linguistics</a>
+                    <a href="../../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Linguistics</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>N-gram Models</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Linguistics</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-levels/index.html" class="sidebar-link">01. Levels of Linguistic Analysis</a>
+                    <a href="../02-writing-systems/index.html" class="sidebar-link">02. Writing Systems &amp; Unicode</a>
+                    <a href="../03-tokenization/index.html" class="sidebar-link">03. Tokenization &amp; Subword Models</a>
+                    <a href="../04-ngrams/index.html" class="sidebar-link active">04. N-gram Language Models</a>
+                    <a href="../05-entropy-language/index.html" class="sidebar-link">05. Entropy of Natural Language</a>
+                    <a href="../06-information-theory/index.html" class="sidebar-link">06. Information Theory in Linguistics</a>
+                    <a href="../07-formal-grammars/index.html" class="sidebar-link">07. Formal Grammars &amp; Chomsky Hierarchy</a>
+                    <a href="../08-parsing/index.html" class="sidebar-link">08. Parsing Algorithms</a>
+                    <a href="../09-morphology/index.html" class="sidebar-link">09. Morphological Analysis &amp; FSTs</a>
+                    <a href="../10-distributional-semantics/index.html" class="sidebar-link">10. Distributional Semantics &amp; Word Vectors</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h1>N-gram Language Models</h1>
+
+                <p>
+                    Language models are the foundation of modern NLP. Before neural networks dominated the field,
+                    <strong>n-gram models</strong> were the workhorses of speech recognition, machine translation,
+                    and text generation. They remain essential for understanding how statistical models capture
+                    linguistic structure &mdash; and they connect directly to information theory through
+                    <strong>perplexity</strong> and <strong>cross-entropy</strong>.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 1: WHAT IS A LANGUAGE MODEL? -->
+                <!-- ============================================================ -->
+                <h2 id="language-model">1. What is a Language Model?</h2>
+
+                <p>
+                    A <strong>language model</strong> assigns probabilities to sequences of words. Given a sequence
+                    $w_1, w_2, \ldots, w_n$, the model computes:
+                </p>
+
+                <div class="math-block">
+                    $$P(w_1, w_2, \ldots, w_n)$$
+                </div>
+
+                <p>
+                    Using the <strong>chain rule of probability</strong>, we can decompose this joint probability
+                    into a product of conditional probabilities:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Chain Rule Decomposition</div>
+                    $$P(w_1, \ldots, w_n) = \prod_{i=1}^{n} P(w_i \mid w_1, \ldots, w_{i-1})$$
+                    <p style="margin-bottom: 0;">
+                        Each word is predicted given the entire preceding context. This is exact &mdash; no
+                        approximation has been made yet. The challenge is estimating each conditional probability.
+                    </p>
+                </div>
+
+                <p>
+                    This formulation is powerful but impractical: to compute $P(w_i \mid w_1, \ldots, w_{i-1})$
+                    for arbitrary-length histories, we would need to observe every possible prefix in our training
+                    data. For a vocabulary of size $|V|$, the number of possible histories of length $k$ is $|V|^k$
+                    &mdash; an astronomical number even for modest $k$.
+                </p>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 2: THE MARKOV ASSUMPTION -->
+                <!-- ============================================================ -->
+                <h2 id="markov-assumption">2. The Markov Assumption</h2>
+
+                <p>
+                    Computing $P(w_i \mid w_1, \ldots, w_{i-1})$ exactly requires too much data. The key insight
+                    of n-gram models is to <strong>truncate the history</strong> using the Markov assumption:
+                    approximate the full history with only the last $n-1$ words.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The N-gram Approximation</div>
+                    $$P(w_i \mid w_1, \ldots, w_{i-1}) \approx P(w_i \mid w_{i-n+1}, \ldots, w_{i-1})$$
+                    <p style="margin-bottom: 0;">
+                        An n-gram model conditions on the previous $n-1$ words only.
+                    </p>
+                </div>
+
+                <p>This gives us a family of models with increasing context:</p>
+
+                <ul>
+                    <li><strong>Unigram</strong> ($n=1$): $P(w_i)$ &mdash; no context at all. Each word is independent.</li>
+                    <li><strong>Bigram</strong> ($n=2$): $P(w_i \mid w_{i-1})$ &mdash; one word of context.</li>
+                    <li><strong>Trigram</strong> ($n=3$): $P(w_i \mid w_{i-2}, w_{i-1})$ &mdash; two words of context.</li>
+                    <li><strong>4-gram, 5-gram, ...</strong>: $P(w_i \mid w_{i-n+1}, \ldots, w_{i-1})$ &mdash; diminishing returns beyond trigrams for most corpora.</li>
+                </ul>
+
+                <div class="note-box">
+                    <div class="box-title">Why "Markov"?</div>
+                    <p style="margin-bottom: 0;">
+                        This is called the <strong>Markov assumption</strong> because the future (next word) depends
+                        only on a fixed window of the recent past, not the entire history. A bigram model is a
+                        first-order Markov chain over words; a trigram is second-order.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 3: ESTIMATING N-GRAM PROBABILITIES -->
+                <!-- ============================================================ -->
+                <h2 id="mle">3. Estimating N-gram Probabilities (MLE)</h2>
+
+                <p>
+                    The simplest way to estimate n-gram probabilities is <strong>maximum likelihood estimation</strong>
+                    (MLE): count occurrences in a training corpus and normalize.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Bigram MLE</div>
+                    $$P_{\text{MLE}}(w_i \mid w_{i-1}) = \frac{C(w_{i-1}, w_i)}{C(w_{i-1})}$$
+                    <p style="margin-bottom: 0;">
+                        where $C(w_{i-1}, w_i)$ is the count of the bigram $(w_{i-1}, w_i)$ in the training corpus,
+                        and $C(w_{i-1})$ is the count of the unigram $w_{i-1}$.
+                    </p>
+                </div>
+
+                <p>More generally, for an n-gram:</p>
+
+                <div class="math-block">
+                    $$P_{\text{MLE}}(w_i \mid w_{i-n+1}, \ldots, w_{i-1}) = \frac{C(w_{i-n+1}, \ldots, w_i)}{C(w_{i-n+1}, \ldots, w_{i-1})}$$
+                </div>
+
+                <div class="example-box">
+                    <div class="box-title">Worked Example: Bigram Counts</div>
+                    <p>Consider the tiny corpus (with sentence boundaries &lt;s&gt; and &lt;/s&gt;):</p>
+                    <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;">
+                        &lt;s&gt; the cat sat &lt;/s&gt;<br>
+                        &lt;s&gt; the cat ate &lt;/s&gt;<br>
+                        &lt;s&gt; the dog sat &lt;/s&gt;
+                    </p>
+                    <p><strong>Bigram counts:</strong></p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 1rem 0;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border, #e2e8f0);">
+                                <th style="padding: 0.5rem; text-align: left;">Bigram</th>
+                                <th style="padding: 0.5rem; text-align: center;">Count</th>
+                                <th style="padding: 0.5rem; text-align: left;">Bigram</th>
+                                <th style="padding: 0.5rem; text-align: center;">Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">&lt;s&gt; the</td>
+                                <td style="padding: 0.5rem; text-align: center;">3</td>
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">cat sat</td>
+                                <td style="padding: 0.5rem; text-align: center;">1</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">the cat</td>
+                                <td style="padding: 0.5rem; text-align: center;">2</td>
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">cat ate</td>
+                                <td style="padding: 0.5rem; text-align: center;">1</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">the dog</td>
+                                <td style="padding: 0.5rem; text-align: center;">1</td>
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">dog sat</td>
+                                <td style="padding: 0.5rem; text-align: center;">1</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">sat &lt;/s&gt;</td>
+                                <td style="padding: 0.5rem; text-align: center;">2</td>
+                                <td style="padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">ate &lt;/s&gt;</td>
+                                <td style="padding: 0.5rem; text-align: center;">1</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p><strong>Computing probabilities:</strong></p>
+                    <p>
+                        $P(\text{cat} \mid \text{the}) = \frac{C(\text{the, cat})}{C(\text{the})} = \frac{2}{3} \approx 0.667$
+                    </p>
+                    <p>
+                        $P(\text{dog} \mid \text{the}) = \frac{C(\text{the, dog})}{C(\text{the})} = \frac{1}{3} \approx 0.333$
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        $P(\text{sat} \mid \text{cat}) = \frac{C(\text{cat, sat})}{C(\text{cat})} = \frac{1}{2} = 0.5$
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 4: THE ZERO-FREQUENCY PROBLEM -->
+                <!-- ============================================================ -->
+                <h2 id="zero-frequency">4. The Zero-Frequency Problem</h2>
+
+                <p>
+                    MLE has a fatal flaw: <strong>many valid n-grams will never appear in the training data</strong>.
+                    If an n-gram has count 0, MLE assigns it probability 0:
+                </p>
+
+                <div class="math-block">
+                    $$C(w_{i-1}, w_i) = 0 \implies P_{\text{MLE}}(w_i \mid w_{i-1}) = 0$$
+                </div>
+
+                <p>
+                    This is catastrophic. Because language model probabilities multiply together, a
+                    <em>single</em> zero-probability n-gram makes the probability of the entire sentence zero:
+                </p>
+
+                <div class="math-block">
+                    $$P(w_1, \ldots, w_n) = \prod_{i=1}^{n} P(w_i \mid w_{i-1}) = 0$$
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">How Severe is the Problem?</div>
+                    <p style="margin-bottom: 0;">
+                        Consider a vocabulary of $|V| = 50{,}000$ words. The number of possible bigrams is
+                        $|V|^2 = 2.5 \times 10^9$. Even a corpus of 1 billion words will only contain a tiny
+                        fraction of these. For trigrams ($|V|^3 = 1.25 \times 10^{14}$), the situation is far worse.
+                        Most valid n-grams will have count zero regardless of corpus size.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 5: SMOOTHING TECHNIQUES -->
+                <!-- ============================================================ -->
+                <h2 id="smoothing">5. Smoothing Techniques</h2>
+
+                <p>
+                    Smoothing (also called discounting) addresses the zero-frequency problem by redistributing
+                    probability mass from seen n-grams to unseen ones.
+                </p>
+
+                <h3 id="laplace-smoothing">Laplace (Add-1) Smoothing</h3>
+
+                <p>
+                    The simplest approach: add 1 to every count. This ensures no n-gram has probability zero.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Laplace Smoothing</div>
+                    $$P_{\text{Laplace}}(w_i \mid w_{i-1}) = \frac{C(w_{i-1}, w_i) + 1}{C(w_{i-1}) + |V|}$$
+                    <p style="margin-bottom: 0;">
+                        where $|V|$ is the vocabulary size. The denominator adds $|V|$ to keep the distribution
+                        normalized: each of the $|V|$ possible next words gets +1, so the denominator increases by $|V|$.
+                    </p>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Problem with Add-1</div>
+                    <p style="margin-bottom: 0;">
+                        Laplace smoothing is too aggressive. It shifts far too much probability mass to unseen events.
+                        For a vocabulary of 50,000 words, adding 1 to every bigram count dramatically distorts the
+                        distribution. In practice, add-1 smoothing is almost never used for n-grams (though it
+                        works reasonably for text classification).
+                    </p>
+                </div>
+
+                <h3 id="add-k-smoothing">Add-k Smoothing</h3>
+
+                <p>A natural refinement: add a fractional count $k$ instead of 1:</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Add-k Smoothing</div>
+                    $$P_{\text{add-}k}(w_i \mid w_{i-1}) = \frac{C(w_{i-1}, w_i) + k}{C(w_{i-1}) + k|V|}$$
+                    <p style="margin-bottom: 0;">
+                        Typical values are $k = 0.5$, $k = 0.1$, or $k = 0.01$. The optimal $k$ can be tuned
+                        on a held-out development set.
+                    </p>
+                </div>
+
+                <h3 id="good-turing">Good-Turing Smoothing</h3>
+
+                <p>
+                    Good-Turing smoothing uses a clever insight: re-estimate counts using the
+                    <strong>frequency of frequencies</strong>. Let $N_c$ be the number of n-grams that appear
+                    exactly $c$ times in the corpus.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Good-Turing Adjusted Count</div>
+                    $$c^* = (c+1) \frac{N_{c+1}}{N_c}$$
+                    <p style="margin-bottom: 0;">
+                        The adjusted count $c^*$ replaces the raw count $c$. Crucially, n-grams with count 0
+                        get the adjusted count $c^* = N_1 / N_0$, where $N_1$ is the number of n-grams seen
+                        once (hapax legomena) and $N_0$ is the number of unseen n-grams.
+                    </p>
+                </div>
+
+                <div class="example-box">
+                    <div class="box-title">Intuition Behind Good-Turing</div>
+                    <p style="margin-bottom: 0;">
+                        Imagine fishing in a lake. You've caught 10 species of fish. The number of species you
+                        caught <em>exactly once</em> tells you something about how many species you haven't caught
+                        at all. If many species appear only once, there are likely many more unseen species.
+                        Good-Turing formalizes this intuition.
+                    </p>
+                </div>
+
+                <h3 id="kneser-ney">Kneser-Ney Smoothing</h3>
+
+                <p>
+                    <strong>Kneser-Ney smoothing</strong> is widely considered the gold standard for n-gram models.
+                    It combines two ideas: <strong>absolute discounting</strong> and a clever
+                    <strong>backoff distribution</strong> based on continuation probability.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Kneser-Ney Smoothing</div>
+                    $$P_{\text{KN}}(w_i \mid w_{i-1}) = \frac{\max(C(w_{i-1}, w_i) - d, 0)}{C(w_{i-1})} + \lambda(w_{i-1})\, P_{\text{continuation}}(w_i)$$
+                    <p>where:</p>
+                    <ul style="margin-bottom: 0;">
+                        <li>$d$ is the <strong>discount</strong> (typically $d \approx 0.75$), subtracted from each non-zero count</li>
+                        <li>$\lambda(w_{i-1})$ is a normalizing factor that distributes the discounted mass</li>
+                        <li>$P_{\text{continuation}}(w_i)$ is the <strong>continuation probability</strong>: the proportion
+                            of unique contexts in which $w_i$ appears</li>
+                    </ul>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Why Continuation Probability?</div>
+                    <p>
+                        Standard backoff uses the unigram probability $P(w_i)$ as the lower-order distribution.
+                        But this is wrong. Consider: "Francisco" has a high unigram count (because of "San Francisco"),
+                        but it should have <em>low</em> probability as a novel continuation &mdash; it almost always
+                        follows "San".
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Continuation probability fixes this by asking: "In how many different contexts does $w_i$
+                        appear?" A word like "the" appears after thousands of different words, so it gets high
+                        continuation probability. "Francisco" appears after essentially one word, so it gets low
+                        continuation probability.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 6: BACKOFF VS INTERPOLATION -->
+                <!-- ============================================================ -->
+                <h2 id="backoff-interpolation">6. Backoff vs Interpolation</h2>
+
+                <p>
+                    When an n-gram has zero count (even after discounting), we need a strategy for falling back
+                    to lower-order models. There are two main approaches.
+                </p>
+
+                <h3 id="backoff">Backoff (Katz)</h3>
+
+                <p>
+                    <strong>Backoff</strong> uses the highest-order n-gram that has a non-zero count. We only
+                    "back off" to a lower-order model when the higher-order count is zero:
+                </p>
+
+                <div class="math-block">
+                    $$P_{\text{backoff}}(w_i \mid w_{i-2}, w_{i-1}) = \begin{cases}
+                    P^*(w_i \mid w_{i-2}, w_{i-1}) & \text{if } C(w_{i-2}, w_{i-1}, w_i) > 0 \\
+                    \alpha(w_{i-2}, w_{i-1}) \cdot P_{\text{backoff}}(w_i \mid w_{i-1}) & \text{otherwise}
+                    \end{cases}$$
+                </div>
+
+                <p>where $\alpha$ is a backoff weight ensuring the distribution sums to 1.</p>
+
+                <h3 id="interpolation">Interpolation</h3>
+
+                <p>
+                    <strong>Interpolation</strong> always combines all orders of n-gram, even when higher-order
+                    counts are available:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Linear Interpolation</div>
+                    $$P(w_i \mid w_{i-2}, w_{i-1}) = \lambda_3\, P_3(w_i \mid w_{i-2}, w_{i-1}) + \lambda_2\, P_2(w_i \mid w_{i-1}) + \lambda_1\, P_1(w_i)$$
+                    <p style="margin-bottom: 0;">
+                        where $\lambda_1 + \lambda_2 + \lambda_3 = 1$ and all $\lambda_i \geq 0$. The weights
+                        are typically learned on a held-out set using the EM algorithm.
+                    </p>
+                </div>
+
+                <div class="example-box">
+                    <div class="box-title">Backoff vs Interpolation in Practice</div>
+                    <p style="margin-bottom: 0;">
+                        Interpolation generally outperforms backoff because it always benefits from lower-order
+                        statistics, even when higher-order counts are non-zero. Modified Kneser-Ney with interpolation
+                        is the standard choice and consistently achieves the best perplexity among n-gram methods.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 7: PERPLEXITY -->
+                <!-- ============================================================ -->
+                <h2 id="perplexity">7. Perplexity: Evaluating Language Models</h2>
+
+                <p>
+                    How do we measure how good a language model is? The standard metric is
+                    <strong>perplexity</strong> &mdash; a direct connection to information theory.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Perplexity</div>
+                    $$\text{PP}(W) = P(w_1, \ldots, w_N)^{-1/N} = 2^{H(W)}$$
+                    <p style="margin-bottom: 0;">
+                        where $H(W)$ is the cross-entropy of the model on the test data. Lower perplexity means
+                        the model assigns higher probability to the test data &mdash; it is less "surprised"
+                        by what it sees.
+                    </p>
+                </div>
+
+                <p>
+                    The connection to entropy is direct. The cross-entropy is:
+                </p>
+
+                <div class="math-block">
+                    $$H(W) = -\frac{1}{N} \sum_{i=1}^{N} \log_2 P(w_i \mid w_1, \ldots, w_{i-1})$$
+                </div>
+
+                <p>
+                    Perplexity can be interpreted as the <strong>weighted average branching factor</strong>:
+                    if a model has perplexity 100, it is as uncertain as if it had to choose uniformly among
+                    100 words at each step.
+                </p>
+
+                <div class="example-box">
+                    <div class="box-title">Example: Computing Perplexity</div>
+                    <p>
+                        Suppose our bigram model assigns these probabilities to a test sentence
+                        "&lt;s&gt; the cat sat &lt;/s&gt;":
+                    </p>
+                    <p>
+                        $P(\text{the} \mid \text{&lt;s&gt;}) = 0.5$, $P(\text{cat} \mid \text{the}) = 0.4$,
+                        $P(\text{sat} \mid \text{cat}) = 0.3$, $P(\text{&lt;/s&gt;} \mid \text{sat}) = 0.6$
+                    </p>
+                    <p>
+                        Cross-entropy: $H = -\frac{1}{4}[\log_2(0.5) + \log_2(0.4) + \log_2(0.3) + \log_2(0.6)]$
+                    </p>
+                    <p>
+                        $H = -\frac{1}{4}[-1.0 + (-1.322) + (-1.737) + (-0.737)] = -\frac{1}{4}(-4.796) = 1.199$
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Perplexity: $\text{PP} = 2^{1.199} \approx 2.30$
+                    </p>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Connection to Entropy</div>
+                    <p style="margin-bottom: 0;">
+                        For a perfect model that matches the true distribution of language, the cross-entropy equals
+                        the true entropy of the language. Shannon estimated the entropy of English at roughly
+                        $1.0$&ndash;$1.5$ bits per character, or about $7$&ndash;$10$ bits per word. This means
+                        the best possible word-level perplexity for English is around $2^{7}$&ndash;$2^{10}$, i.e.,
+                        roughly 128&ndash;1024. See <a href="../05-entropy-language/index.html">Tutorial 05</a>
+                        for a deep dive.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 8: PRACTICAL CONSIDERATIONS -->
+                <!-- ============================================================ -->
+                <h2 id="practical">8. Practical Considerations</h2>
+
+                <h3>Start and End Tokens</h3>
+                <p>
+                    Every sentence is padded with special tokens: <strong>&lt;s&gt;</strong> (start) and
+                    <strong>&lt;/s&gt;</strong> (end). This lets the model learn which words begin and end sentences.
+                    For a trigram model, we pad with two start tokens: &lt;s&gt; &lt;s&gt;.
+                </p>
+
+                <h3>Unknown Words</h3>
+                <p>
+                    Words not in the vocabulary are mapped to a special <strong>&lt;UNK&gt;</strong> token.
+                    Common strategies: replace all words appearing fewer than $k$ times in training with &lt;UNK&gt;,
+                    or fix the vocabulary in advance and map out-of-vocabulary words.
+                </p>
+
+                <h3>Log Probabilities</h3>
+                <p>
+                    In practice, we always work in <strong>log space</strong> to avoid numerical underflow.
+                    Multiplying many small probabilities produces numbers too small for floating-point
+                    representation. Instead:
+                </p>
+
+                <div class="math-block">
+                    $$\log P(w_1, \ldots, w_n) = \sum_{i=1}^{n} \log P(w_i \mid w_{i-n+1}, \ldots, w_{i-1})$$
+                </div>
+
+                <h3>Typical Perplexities</h3>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border, #e2e8f0);">
+                            <th style="padding: 0.5rem; text-align: left;">Model</th>
+                            <th style="padding: 0.5rem; text-align: center;">Typical PP</th>
+                            <th style="padding: 0.5rem; text-align: center;">Parameters</th>
+                            <th style="padding: 0.5rem; text-align: left;">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">Unigram</td>
+                            <td style="padding: 0.5rem; text-align: center;">~1000</td>
+                            <td style="padding: 0.5rem; text-align: center;">$|V|$</td>
+                            <td style="padding: 0.5rem;">No context</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">Bigram</td>
+                            <td style="padding: 0.5rem; text-align: center;">~200</td>
+                            <td style="padding: 0.5rem; text-align: center;">$|V|^2$</td>
+                            <td style="padding: 0.5rem;">1-word context</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">Trigram</td>
+                            <td style="padding: 0.5rem; text-align: center;">~100</td>
+                            <td style="padding: 0.5rem; text-align: center;">$|V|^3$</td>
+                            <td style="padding: 0.5rem;">2-word context, sweet spot for many tasks</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">5-gram</td>
+                            <td style="padding: 0.5rem; text-align: center;">~80</td>
+                            <td style="padding: 0.5rem; text-align: center;">$|V|^5$</td>
+                            <td style="padding: 0.5rem;">Diminishing returns, huge memory</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;">GPT-4 (neural)</td>
+                            <td style="padding: 0.5rem; text-align: center;">~10&ndash;15</td>
+                            <td style="padding: 0.5rem; text-align: center;">~1.8T</td>
+                            <td style="padding: 0.5rem;">Full context window, learned representations</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 9: FROM N-GRAMS TO NEURAL LMS -->
+                <!-- ============================================================ -->
+                <h2 id="neural-lms">9. From N-grams to Neural Language Models</h2>
+
+                <p>
+                    N-gram models were the dominant approach to language modeling for decades (1980s&ndash;2010s).
+                    Their limitations motivated the development of neural language models:
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border, #e2e8f0);">
+                            <th style="padding: 0.5rem; text-align: left;">Property</th>
+                            <th style="padding: 0.5rem; text-align: left;">N-gram Models</th>
+                            <th style="padding: 0.5rem; text-align: left;">Neural LMs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;"><strong>Representations</strong></td>
+                            <td style="padding: 0.5rem;">Sparse (exact counts)</td>
+                            <td style="padding: 0.5rem;">Dense (learned embeddings)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;"><strong>Context</strong></td>
+                            <td style="padding: 0.5rem;">Fixed window ($n-1$ words)</td>
+                            <td style="padding: 0.5rem;">Arbitrary length (RNNs, Transformers)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;"><strong>Generalization</strong></td>
+                            <td style="padding: 0.5rem;">No sharing between similar words</td>
+                            <td style="padding: 0.5rem;">Similar words share representations</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;"><strong>Memory</strong></td>
+                            <td style="padding: 0.5rem;">Grows exponentially with $n$</td>
+                            <td style="padding: 0.5rem;">Fixed model size</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;"><strong>Training</strong></td>
+                            <td style="padding: 0.5rem;">Simple counting</td>
+                            <td style="padding: 0.5rem;">Gradient descent (expensive)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="note-box">
+                    <div class="box-title">N-grams Are Not Dead</div>
+                    <p style="margin-bottom: 0;">
+                        Despite the dominance of neural models, n-grams remain widely used in practice:
+                        <strong>speech recognition</strong> (as a decoding-time language model),
+                        <strong>keyboard prediction</strong> (on-device, low latency),
+                        <strong>spelling correction</strong>, and as <strong>baselines</strong> for evaluating
+                        new models. Their simplicity, speed, and interpretability are genuine advantages.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- SECTION 10: SUMMARY -->
+                <!-- ============================================================ -->
+                <h2 id="summary">10. Summary</h2>
+
+                <p>
+                    N-gram language models are the simplest approach to the fundamental problem of assigning
+                    probabilities to word sequences. They make language modeling tractable through the Markov
+                    assumption, but this creates the zero-frequency problem that demands smoothing.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Key Takeaways</div>
+                    <ul style="margin-bottom: 0;">
+                        <li><strong>Language models</strong> assign $P(w_1, \ldots, w_n)$ using the chain rule</li>
+                        <li>The <strong>Markov assumption</strong> truncates history to $n-1$ words</li>
+                        <li><strong>MLE</strong> estimates probabilities by counting, but assigns zero to unseen n-grams</li>
+                        <li><strong>Smoothing</strong> redistributes mass: Laplace (too aggressive), Good-Turing (frequency of frequencies), Kneser-Ney (gold standard)</li>
+                        <li><strong>Interpolation</strong> outperforms backoff by always combining all n-gram orders</li>
+                        <li><strong>Perplexity</strong> $= 2^{H(W)}$ measures model quality via cross-entropy</li>
+                        <li>N-grams are limited by sparse counts and fixed context, motivating <strong>neural language models</strong></li>
+                    </ul>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 2rem 0;">
+                    <caption style="font-weight: 600; margin-bottom: 0.75rem; font-size: 1rem;">
+                        N-gram Model Comparison
+                    </caption>
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border, #e2e8f0);">
+                            <th style="padding: 0.5rem; text-align: left;">Model</th>
+                            <th style="padding: 0.5rem; text-align: center;">Context</th>
+                            <th style="padding: 0.5rem; text-align: center;">Perplexity</th>
+                            <th style="padding: 0.5rem; text-align: center;">Memory</th>
+                            <th style="padding: 0.5rem; text-align: left;">Best For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">Unigram</td>
+                            <td style="padding: 0.5rem; text-align: center;">0 words</td>
+                            <td style="padding: 0.5rem; text-align: center;">~1000</td>
+                            <td style="padding: 0.5rem; text-align: center;">$O(|V|)$</td>
+                            <td style="padding: 0.5rem;">Baselines, bag-of-words</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">Bigram</td>
+                            <td style="padding: 0.5rem; text-align: center;">1 word</td>
+                            <td style="padding: 0.5rem; text-align: center;">~200</td>
+                            <td style="padding: 0.5rem; text-align: center;">$O(|V|^2)$</td>
+                            <td style="padding: 0.5rem;">Keyboard prediction, simple tasks</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">Trigram</td>
+                            <td style="padding: 0.5rem; text-align: center;">2 words</td>
+                            <td style="padding: 0.5rem; text-align: center;">~100</td>
+                            <td style="padding: 0.5rem; text-align: center;">$O(|V|^3)$</td>
+                            <td style="padding: 0.5rem;">Speech recognition, MT decoding</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border, #e2e8f0);">
+                            <td style="padding: 0.5rem;">4-gram</td>
+                            <td style="padding: 0.5rem; text-align: center;">3 words</td>
+                            <td style="padding: 0.5rem; text-align: center;">~85</td>
+                            <td style="padding: 0.5rem; text-align: center;">$O(|V|^4)$</td>
+                            <td style="padding: 0.5rem;">Large-scale LM, web search</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;">5-gram</td>
+                            <td style="padding: 0.5rem; text-align: center;">4 words</td>
+                            <td style="padding: 0.5rem; text-align: center;">~80</td>
+                            <td style="padding: 0.5rem; text-align: center;">$O(|V|^5)$</td>
+                            <td style="padding: 0.5rem;">Diminishing returns for most tasks</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </article>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributional Semantics &amp; Word Vectors | Computational Linguistics</title>
+    <meta name="description" content="The distributional hypothesis, co-occurrence matrices, PMI, word2vec, GloVe, fastText, and the road from count-based to contextual embeddings.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../../index.html" class="nav-logo"><span class="logo-symbol">&nabla;</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link active">Linguistics</a>
+                    <a href="../../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../../index.html">Home</a><span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Linguistics</a><span class="breadcrumb-separator">&rarr;</span>
+                <span>Distributional Semantics</span>
+            </nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a></div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Computational Linguistics</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-levels/index.html" class="sidebar-link">01. Levels of Analysis</a>
+                    <a href="../02-writing-systems/index.html" class="sidebar-link">02. Writing Systems</a>
+                    <a href="../03-tokenization/index.html" class="sidebar-link">03. Tokenization</a>
+                    <a href="../04-ngrams/index.html" class="sidebar-link">04. N-gram Models</a>
+                    <a href="../05-entropy-language/index.html" class="sidebar-link">05. Entropy of Language</a>
+                    <a href="../06-information-theory/index.html" class="sidebar-link">06. Information Theory</a>
+                    <a href="../07-formal-grammars/index.html" class="sidebar-link">07. Formal Grammars</a>
+                    <a href="../08-parsing/index.html" class="sidebar-link">08. Parsing Algorithms</a>
+                    <a href="../09-morphology/index.html" class="sidebar-link">09. Morphology &amp; FSTs</a>
+                    <a href="../10-distributional-semantics/index.html" class="sidebar-link active">10. Distributional Semantics</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h1>Distributional Semantics &amp; Word Vectors</h1>
+
+                <p>How can a machine learn the meaning of words? The distributional hypothesis offers a surprisingly powerful answer: <em>meaning is use</em>. Words that appear in similar contexts have similar meanings. This insight, formalized through co-occurrence statistics and neural prediction tasks, gave rise to word vectors &mdash; dense numerical representations that capture semantic relationships through geometry. Word vectors are the foundation on which all modern NLP is built.</p>
+
+                <!-- Section 1: The Distributional Hypothesis -->
+                <h2>1. The Distributional Hypothesis</h2>
+
+                <div class="definition-box">
+                    <h4>The Distributional Hypothesis</h4>
+                    <p>"You shall know a word by the company it keeps." &mdash; J.R. Firth (1957)</p>
+                    <p>Words that occur in similar linguistic contexts tend to have similar meanings. More precisely: the meaning of a word can be approximated by the distribution of contexts in which it appears.</p>
+                </div>
+
+                <div class="example-box">
+                    <h4>Distributional Similarity in Action</h4>
+                    <p>Consider the words "dog" and "cat":</p>
+                    <ul>
+                        <li>"The ___ sat on the mat"</li>
+                        <li>"She fed the ___"</li>
+                        <li>"The ___ chased the ball"</li>
+                        <li>"A cute little ___"</li>
+                    </ul>
+                    <p>Both words fit naturally in these contexts. In contrast, "democracy" or "refrigerator" would not. The overlap in contexts signals semantic similarity.</p>
+                    <p>Now compare "dog" and "puppy" &mdash; even more similar contexts. And "dog" and "bark" &mdash; related but different contexts (one fills noun slots, the other verb slots).</p>
+                </div>
+
+                <div class="note-box">
+                    <h4>Information-Theoretic Justification</h4>
+                    <p>Why does the distributional hypothesis work? From an information-theoretic perspective, words that are substitutable in many contexts have high <strong>mutual information</strong> with similar sets of context words. If $I(w_1; c) \approx I(w_2; c)$ for most context words $c$, then $w_1$ and $w_2$ carry similar information about their environments &mdash; which is a reasonable operational definition of "similar meaning."</p>
+                </div>
+
+                <!-- Section 2: Co-occurrence Matrices -->
+                <h2>2. Co-occurrence Matrices</h2>
+
+                <p>The simplest implementation of the distributional hypothesis: count how often each word appears near each other word.</p>
+
+                <h3>Term-Context Matrix</h3>
+
+                <p>Given a corpus and a window size $k$, build a matrix $\mathbf{M}$ where $M_{ij}$ = number of times word $i$ appears within $k$ words of word $j$.</p>
+
+                <div class="example-box">
+                    <h4>Building a Co-occurrence Matrix</h4>
+                    <p>Corpus: "the cat sat on the mat . the dog sat on the rug ."</p>
+                    <p>Window size $k = 1$ (immediate neighbors):</p>
+                    <table>
+                        <thead>
+                            <tr><th></th><th>the</th><th>cat</th><th>dog</th><th>sat</th><th>on</th><th>mat</th><th>rug</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>the</strong></td><td>0</td><td>1</td><td>1</td><td>0</td><td>2</td><td>1</td><td>1</td></tr>
+                            <tr><td><strong>cat</strong></td><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+                            <tr><td><strong>dog</strong></td><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+                            <tr><td><strong>sat</strong></td><td>0</td><td>1</td><td>1</td><td>0</td><td>2</td><td>0</td><td>0</td></tr>
+                            <tr><td><strong>on</strong></td><td>2</td><td>0</td><td>0</td><td>2</td><td>0</td><td>0</td><td>0</td></tr>
+                            <tr><td><strong>mat</strong></td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+                            <tr><td><strong>rug</strong></td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+                        </tbody>
+                    </table>
+                    <p>Notice: "cat" and "dog" have identical row vectors &mdash; they appear in the same contexts. "mat" and "rug" also have identical vectors. The matrix captures semantic similarity through distributional overlap.</p>
+                </div>
+
+                <p>These raw co-occurrence vectors are <strong>sparse</strong> (mostly zeros) and <strong>high-dimensional</strong> (dimension = vocabulary size, typically 50K&ndash;500K). Two improvements address these issues: PMI weighting and dimensionality reduction.</p>
+
+                <!-- Section 3: PMI and PPMI Weighting -->
+                <h2>3. PMI and PPMI Weighting</h2>
+
+                <p>Raw counts are dominated by frequent words. "the" co-occurs with everything, but this tells us nothing about meaning. <strong>Pointwise Mutual Information</strong> (see Tutorial 06) corrects for frequency:</p>
+
+                $$\text{PMI}(w, c) = \log_2 \frac{P(w, c)}{P(w) \cdot P(c)} = \log_2 \frac{M_{wc} \cdot N}{\sum_j M_{wj} \cdot \sum_i M_{ic}}$$
+
+                <p>where $N = \sum_{i,j} M_{ij}$ is the total count.</p>
+
+                <p>High PMI means the word-context pair occurs much more than expected by chance &mdash; a genuine association. Low or negative PMI means less than expected &mdash; the words avoid each other.</p>
+
+                <div class="definition-box">
+                    <h4>Positive PMI (PPMI)</h4>
+                    $$\text{PPMI}(w, c) = \max(0, \text{PMI}(w, c))$$
+                    <p>Negative PMI values are unreliable (driven by data sparsity for word pairs that simply haven't been observed together). Setting them to zero produces more robust word vectors.</p>
+                </div>
+
+                <p>PPMI-weighted co-occurrence matrices are a strong baseline for word similarity, often competitive with neural methods on standard benchmarks.</p>
+
+                <!-- Section 4: Dimensionality Reduction: SVD -->
+                <h2>4. Dimensionality Reduction: SVD</h2>
+
+                <p>A PPMI matrix with 50K words has 50K-dimensional vectors. <strong>Singular Value Decomposition</strong> (SVD) compresses these to dense, low-dimensional vectors while preserving the most important structure.</p>
+
+                <div class="definition-box">
+                    <h4>Truncated SVD (LSA/LSI)</h4>
+                    <p>Given the $|V| \times |V|$ PPMI matrix $\mathbf{M}$, compute:</p>
+                    $$\mathbf{M} \approx \mathbf{U}_k \boldsymbol{\Sigma}_k \mathbf{V}_k^T$$
+                    <p>where $k \ll |V|$ (typically $k = 100$&ndash;$500$). The rows of $\mathbf{U}_k \boldsymbol{\Sigma}_k$ give $k$-dimensional word vectors.</p>
+                </div>
+
+                <p>Why does dimensionality reduction help?</p>
+
+                <ul>
+                    <li><strong>Noise reduction</strong>: Small singular values correspond to noise; discarding them smooths the representation</li>
+                    <li><strong>Generalization</strong>: Words that never co-occurred directly but share contexts become similar in the reduced space</li>
+                    <li><strong>Efficiency</strong>: 300-dimensional vectors are far cheaper to store and compute with than 50K-dimensional sparse vectors</li>
+                </ul>
+
+                <p>This approach, known as <strong>Latent Semantic Analysis</strong> (LSA; Deerwester et al., 1990), was the dominant word representation method for two decades before neural approaches.</p>
+
+                <!-- Section 5: Word2Vec -->
+                <h2>5. Word2Vec</h2>
+
+                <p>Mikolov et al. (2013) proposed <strong>word2vec</strong>, which learns word vectors through a prediction task rather than matrix factorization. Despite the different training procedure, the resulting vectors capture similar distributional information.</p>
+
+                <h3>Two Architectures</h3>
+
+                <div class="definition-box">
+                    <h4>CBOW (Continuous Bag of Words)</h4>
+                    <p>Predict the center word from its context:</p>
+                    $$P(w_t \mid w_{t-k}, \ldots, w_{t-1}, w_{t+1}, \ldots, w_{t+k})$$
+                    <p>The context is represented as the average of the context word vectors.</p>
+                </div>
+
+                <div class="definition-box">
+                    <h4>Skip-gram</h4>
+                    <p>Predict each context word from the center word:</p>
+                    $$P(w_{t+j} \mid w_t) = \frac{\exp(\mathbf{v}_{w_{t+j}}' \cdot \mathbf{v}_{w_t})}{\sum_{w \in V} \exp(\mathbf{v}_w' \cdot \mathbf{v}_{w_t})}$$
+                    <p>Each word has two vectors: $\mathbf{v}_w$ (as center) and $\mathbf{v}_w'$ (as context). Skip-gram tends to work better for rare words.</p>
+                </div>
+
+                <h3>Negative Sampling</h3>
+
+                <p>The full softmax over vocabulary is expensive ($O(|V|)$ per update). <strong>Negative sampling</strong> approximates it by training a binary classifier to distinguish real context pairs from random ones:</p>
+
+                $$\mathcal{L} = \log \sigma(\mathbf{v}_c' \cdot \mathbf{v}_w) + \sum_{i=1}^{k} \mathbb{E}_{n_i \sim P_n} [\log \sigma(-\mathbf{v}_{n_i}' \cdot \mathbf{v}_w)]$$
+
+                <p>where $k$ negative samples are drawn from a noise distribution $P_n(w) \propto f(w)^{3/4}$ (the 3/4 power smooths the frequency distribution).</p>
+
+                <h3>The Famous Analogy</h3>
+
+                <div class="example-box">
+                    <h4>king - man + woman &asymp; queen</h4>
+                    <p>Word2vec vectors encode semantic relationships as <em>vector offsets</em>:</p>
+                    <ul>
+                        <li>$\mathbf{v}_{\text{king}} - \mathbf{v}_{\text{man}} + \mathbf{v}_{\text{woman}} \approx \mathbf{v}_{\text{queen}}$</li>
+                        <li>$\mathbf{v}_{\text{Paris}} - \mathbf{v}_{\text{France}} + \mathbf{v}_{\text{Italy}} \approx \mathbf{v}_{\text{Rome}}$</li>
+                        <li>$\mathbf{v}_{\text{bigger}} - \mathbf{v}_{\text{big}} + \mathbf{v}_{\text{small}} \approx \mathbf{v}_{\text{smaller}}$</li>
+                    </ul>
+                    <p>The "gender" direction $\mathbf{v}_{\text{king}} - \mathbf{v}_{\text{man}}$ is approximately the same as $\mathbf{v}_{\text{queen}} - \mathbf{v}_{\text{woman}}$. The vector space has learned a linear subspace encoding gender.</p>
+                </div>
+
+                <div class="note-box">
+                    <h4>Why Does Skip-gram with Negative Sampling &asymp; PMI?</h4>
+                    <p>Levy &amp; Goldberg (2014) proved that skip-gram with negative sampling implicitly factorizes a shifted PMI matrix:</p>
+                    $$\mathbf{v}_w \cdot \mathbf{v}_c' = \text{PMI}(w, c) - \log k$$
+                    <p>This deep connection shows that neural and count-based methods are not fundamentally different &mdash; they optimize related objectives. The practical differences arise from hyperparameter choices, not from the underlying mathematics.</p>
+                </div>
+
+                <!-- Section 6: GloVe -->
+                <h2>6. GloVe</h2>
+
+                <p>Pennington et al. (2014) proposed <strong>GloVe</strong> (Global Vectors), which explicitly combines the advantages of count-based and prediction-based methods.</p>
+
+                <div class="definition-box">
+                    <h4>GloVe Objective</h4>
+                    <p>Minimize the weighted least-squares objective:</p>
+                    $$J = \sum_{i,j=1}^{|V|} f(X_{ij}) \left( \mathbf{w}_i^T \mathbf{\tilde{w}}_j + b_i + \tilde{b}_j - \log X_{ij} \right)^2$$
+                    <p>where $X_{ij}$ is the co-occurrence count, $\mathbf{w}_i$ and $\mathbf{\tilde{w}}_j$ are word vectors, $b_i$ and $\tilde{b}_j$ are biases, and $f$ is a weighting function that caps the influence of very frequent pairs:</p>
+                    $$f(x) = \begin{cases} (x/x_{\max})^{0.75} & \text{if } x < x_{\max} \\ 1 & \text{otherwise} \end{cases}$$
+                </div>
+
+                <p>The key insight: the log co-occurrence $\log X_{ij}$ is related to PMI, so GloVe is directly learning a low-rank factorization of a (transformed) co-occurrence matrix. By operating on the global co-occurrence statistics rather than local windows, GloVe often converges faster and uses data more efficiently than word2vec.</p>
+
+                <h3>GloVe vs Word2Vec</h3>
+
+                <table>
+                    <thead>
+                        <tr><th>Property</th><th>Word2Vec</th><th>GloVe</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Training signal</td><td>Local context windows</td><td>Global co-occurrence matrix</td></tr>
+                        <tr><td>Objective</td><td>Prediction (softmax/NS)</td><td>Weighted least squares</td></tr>
+                        <tr><td>Implicit factorization</td><td>Shifted PMI matrix</td><td>Log co-occurrence matrix</td></tr>
+                        <tr><td>Performance</td><td>Comparable</td><td>Comparable</td></tr>
+                    </tbody>
+                </table>
+
+                <p>In practice, word2vec and GloVe produce vectors of similar quality. The choice often comes down to implementation convenience and corpus size.</p>
+
+                <!-- Section 7: FastText and Subword Embeddings -->
+                <h2>7. FastText and Subword Embeddings</h2>
+
+                <p>A limitation of word2vec and GloVe: they assign a single vector per word type. Out-of-vocabulary (OOV) words get no representation at all. <strong>FastText</strong> (Bojanowski et al., 2017) addresses this by learning embeddings for character n-grams.</p>
+
+                <div class="definition-box">
+                    <h4>FastText Model</h4>
+                    <p>Each word is represented as a bag of character n-grams (typically $n = 3$&ndash;$6$), plus the word itself. The word vector is the sum of its n-gram vectors:</p>
+                    $$\mathbf{v}_w = \mathbf{z}_w + \sum_{g \in G(w)} \mathbf{z}_g$$
+                    <p>where $G(w)$ is the set of character n-grams in word $w$ (with boundary markers &lt; and &gt;).</p>
+                </div>
+
+                <div class="example-box">
+                    <h4>FastText for "unhappiness"</h4>
+                    <p>Character trigrams of "&lt;unhappiness&gt;":</p>
+                    <p>&lt;un, unh, nha, hap, app, ppi, pin, ine, nes, ess, ss&gt;</p>
+                    <p>Even if "unhappiness" never appeared in training, its n-grams overlap with "unhappy," "happiness," "sadness," etc. The resulting vector captures the word's meaning through morphological similarity.</p>
+                    <p>This is especially valuable for:</p>
+                    <ul>
+                        <li>Morphologically rich languages (Turkish, Finnish)</li>
+                        <li>Misspellings ("teh" shares n-grams with "the")</li>
+                        <li>Rare technical terms and neologisms</li>
+                    </ul>
+                </div>
+
+                <!-- Section 8: Evaluation and Applications -->
+                <h2>8. Evaluation and Applications</h2>
+
+                <h3>Intrinsic Evaluation</h3>
+
+                <table>
+                    <thead>
+                        <tr><th>Task</th><th>Dataset</th><th>Method</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Word similarity</td><td>SimLex-999, WordSim-353</td><td>Cosine similarity vs. human ratings</td></tr>
+                        <tr><td>Analogy</td><td>Google analogy dataset</td><td>$\mathbf{a} - \mathbf{b} + \mathbf{c} \approx \mathbf{d}$</td></tr>
+                        <tr><td>Categorization</td><td>AP, BLESS</td><td>Clustering vectors, measuring purity</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="example-box">
+                    <h4>Word Similarity Evaluation</h4>
+                    <p>SimLex-999 contains 999 word pairs rated by humans for similarity (0&ndash;10):</p>
+                    <table>
+                        <thead>
+                            <tr><th>Pair</th><th>Human Score</th><th>Cosine Sim (word2vec)</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>happy, cheerful</td><td>9.55</td><td>0.74</td></tr>
+                            <tr><td>car, automobile</td><td>8.94</td><td>0.83</td></tr>
+                            <tr><td>smart, intelligent</td><td>9.20</td><td>0.68</td></tr>
+                            <tr><td>old, new</td><td>1.58</td><td>0.52 (too high!)</td></tr>
+                            <tr><td>cup, coffee</td><td>3.47</td><td>0.56 (related but not similar)</td></tr>
+                        </tbody>
+                    </table>
+                    <p>Note: word vectors conflate <strong>similarity</strong> ("happy/cheerful") with <strong>relatedness</strong> ("cup/coffee") and even <strong>antonymy</strong> ("old/new"). Antonyms appear in similar contexts and thus get similar vectors despite opposite meanings.</p>
+                </div>
+
+                <h3>Bias in Word Vectors</h3>
+
+                <div class="note-box">
+                    <h4>Social Bias in Embeddings</h4>
+                    <p>Word vectors trained on human text inevitably absorb human biases:</p>
+                    <ul>
+                        <li>$\mathbf{v}_{\text{man}} - \mathbf{v}_{\text{woman}} \approx \mathbf{v}_{\text{computer programmer}} - \mathbf{v}_{\text{homemaker}}$ (Bolukbasi et al., 2016)</li>
+                        <li>Names associated with different ethnicities cluster with different sentiment words</li>
+                        <li>These biases propagate to downstream systems: biased embeddings produce biased classifiers</li>
+                    </ul>
+                    <p>Debiasing techniques modify the vector space to reduce these associations, but the problem highlights a fundamental tension: distributional semantics captures <em>all</em> patterns in text, including ones we'd rather not propagate.</p>
+                </div>
+
+                <h3>The Road to Contextual Embeddings</h3>
+
+                <p>Static word vectors assign a single representation per word type. But words are polysemous: "bank" means different things in "river bank" and "bank account." <strong>Contextual embeddings</strong> assign different vectors to the same word in different contexts:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Model</th><th>Year</th><th>Key Innovation</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Word2Vec/GloVe</td><td>2013-14</td><td>Static vectors from co-occurrence</td></tr>
+                        <tr><td>ELMo</td><td>2018</td><td>Context-dependent vectors from bidirectional LSTMs</td></tr>
+                        <tr><td>BERT</td><td>2018</td><td>Transformer-based masked language model</td></tr>
+                        <tr><td>GPT series</td><td>2018+</td><td>Autoregressive transformers, scaling</td></tr>
+                    </tbody>
+                </table>
+
+                <p>The progression follows a clear information-theoretic logic: static vectors capture <em>average</em> word meaning (marginal information $I(w; \text{contexts})$), while contextual embeddings capture <em>instance-specific</em> meaning (conditional information $I(w; \text{meaning} \mid \text{specific context})$). Each step reduces the entropy of the representation.</p>
+
+                <hr>
+
+                <p>Distributional semantics transformed our ability to work with meaning computationally. The key insight &mdash; that meaning lives in patterns of usage &mdash; is both a linguistic hypothesis and a practical engineering principle. From co-occurrence matrices to word2vec to contextual embeddings, the field has progressively captured more of the information that context provides about meaning. The mathematical connections between these approaches (PMI, matrix factorization, neural prediction) reveal that they are different views of the same underlying structure: the statistical regularities of language use.</p>
+
+            </article>
+        </main>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content"><div class="footer-brand"><span class="logo-symbol">&nabla;</span><span>ML Fundamentals</span></div><p class="footer-tagline">Deep understanding through first principles.</p></div>
+            <div class="footer-links"><a href="../../../../index.html">Home</a><a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a></div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>
