@@ -6,6 +6,10 @@ CSS_LINK = '<link rel="stylesheet" href="../../../css/sidebar.css">'
 
 # Updated to match actual file system structure
 NAV_LINKS = {
+    "tts": [
+        ("01-f5-tts", "01. F5-TTS: Flow Matching"),
+        ("02-qwen-tts", "02. Qwen-TTS: LLM-based Audio"),
+    ],
     "cs": [
         ("01-floating-point", "01. Floating-Point Representation"),
     ],
@@ -75,6 +79,7 @@ NAV_LINKS = {
 }
 
 TITLES = {
+    "tts": "Text-to-Speech",
     "cs": "Computer Science",
     "ml": "Machine Learning",
     "linear-algebra": "Linear Algebra",
@@ -106,6 +111,8 @@ def generate_sidebar(category, current_folder):
     '''
     
     # Add cross links
+    if category != 'tts':
+        html += '                    <a href="../../tts/index.html" class="sidebar-link">Text-to-Speech</a>\n'
     if category != 'cs':
         html += '                    <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>\n'
     if category != 'ml':

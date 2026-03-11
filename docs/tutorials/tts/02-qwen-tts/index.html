@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen-TTS: LLM-based Audio | Text-to-Speech</title>
+    <meta name="description" content="Understanding Qwen-TTS, token-based synthesis, dual-track architectures, and Multi-Token Prediction (MTP).">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">Text-to-Speech</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">Computer Science</a>
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Qwen-TTS: LLM Audio</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar placeholder -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Text-to-Speech</h3>
+                <nav class="sidebar-nav">
+                        <a href="../01-f5-tts/index.html" class="sidebar-link">01. F5-TTS: Flow Matching</a>
+                    <a href="../02-qwen-tts/index.html" class="sidebar-link active">02. Qwen-TTS: LLM-based Audio</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article: Theory -->
+        <main class="tutorial-main">
+
+            <article class="article-content" id="theory">
+
+                <h2 id="shift">The Shift to Token-Based Synthesis</h2>
+
+                <p>
+                    Traditional Text-to-Speech pipelines rely on intermediate representations like mel-spectrograms. A model predicts the spectrogram, and then a separate <em>vocoder</em> (like HiFi-GAN) converts that spectrogram into a waveform. 
+                </p>
+
+                <p>
+                    The <strong>Qwen-TTS</strong> architecture represents a paradigm shift toward a <strong>token-based, end-to-end language modeling approach</strong>. Instead of the conventional pipeline, Qwen-TTS treats speech generation as a sequential token prediction problem, identical to how a Large Language Model (LLM) generates text.
+                </p>
+
+                <h2 id="core">Core Philosophy</h2>
+
+                <p>
+                    Qwen-TTS eliminates the intermediate spectrogram stage, which often acts as an information bottleneck. By predicting discrete audio tokens directly (using audio codecs), the model avoids cascading errors, achieves higher fidelity, and maintains natural, expressive prosody. The LLM simply outputs a sequence of integers, which the codec decoder turns back into audio.
+                </p>
+
+                <h2 id="dual-track">The Dual-Track Architecture</h2>
+
+                <p>
+                    To balance the competing demands of high-quality generation (which is slow) and ultra-low latency streaming (which requires speed), Qwen-TTS introduces a "dual-track" framework:
+                </p>
+
+                <ol>
+                    <li><strong>Semantic Track (25Hz):</strong> Captures rich semantic, emotional, and linguistic details. Uses a chunk-wise Diffusion Transformer (DiT) for high-fidelity waveform reconstruction. Used for non-streaming batch generation.</li>
+                    <li><strong>Latency Track (12.5Hz):</strong> Optimized for speed and extreme bitrate reduction, perfect for real-time conversational agents. Uses a lightweight causal Convolutional Network (ConvNet) achieving a first-packet latency of less than 100ms.</li>
+                </ol>
+
+                <h2 id="mtp">Multi-Token Prediction (MTP)</h2>
+
+                <div class="warning-box">
+                    <div class="box-title">The Bottleneck</div>
+                    <p style="margin-bottom: 0;">
+                        Audio codecs often compress audio into multiple "layers" or "codebooks" (e.g., 16 codebooks per frame). Predicting 16 codebooks sequentially for every single time step is computationally devastating for an LLM.
+                    </p>
+                </div>
+
+                <p>To solve this, Qwen-TTS introduces a <strong>Multi-Token Prediction (MTP)</strong> module:</p>
+                <ul>
+                    <li><strong>The Conductor (Main LLM):</strong> Predicts the text and the <em>primary</em> semantic speech token.</li>
+                    <li><strong>Parallel Fleshing (MTP Module):</strong> A specialized sub-network generates the remaining 15 residual acoustic codebooks <strong>simultaneously</strong>.</li>
+                </ul>
+                <p>
+                    This decouples the "intelligence" of the sentence structure (handled by the deep LLM) from the "texture" of the audio (handled by the fast, parallel MTP module).
+                </p>
+
+                <h2 id="advanced">Advanced Capabilities</h2>
+
+                <p>
+                    Because Qwen-TTS is essentially a powerful LLM that speaks, it inherits LLM-like zero-shot capabilities:
+                </p>
+                <ul>
+                    <li><strong>Prompt-based Voice Design:</strong> "A gravelly, middle-aged male voice with a slight Southern accent."</li>
+                    <li><strong>Zero-Shot Voice Cloning:</strong> Clone a speaker from just a 3-second reference clip.</li>
+                    <li><strong>Instruction Following:</strong> "Speak in an incredulous tone with a hint of panic." The model changes its tone without needing specialized emotion-labeled datasets.</li>
+                </ul>
+
+            </article>
+
+            <!-- Exercises Article -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <div class="exercise-list">
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Dual-Track Inference Trade-offs</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In which scenario would you force the model to use the Semantic Track? In which scenario would the Latency Track be necessary?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Semantic Track (DiT):</strong> Use for non-streaming, high-quality batch generation (audiobooks, podcasts) where latency is acceptable but fidelity must be perfect. <br><br><strong>Latency Track (ConvNet):</strong> Use for real-time conversational AI (voice assistants, live translators) where ultra-low "first-packet latency" (under 100ms) is critical.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Multi-Token Prediction (MTP) Bottleneck</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>How does the MTP module alleviate the computational burden of predicting 16 audio codec layers?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Instead of the main LLM sequentially computing 16 forward passes per frame, the massive LLM only predicts the primary semantic token. The much smaller MTP module then processes that semantic token to predict the remaining 15 acoustic codebooks in parallel simultaneously, preserving quality while slashing inference time.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. The Power of Text Prompts</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Explain how a token-based, LLM-style architecture supports capabilities like "prompt-based voice design" compared to traditional systems.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Traditional TTS requires explicitly trained parameters or separate speaker embedding networks. Qwen-TTS, being an LLM trained on text-to-audio-token sequences, naturally inherits zero-shot generalization. It simply learns the semantic mapping between descriptive text (the prompt) and the acoustic sequences that match that description, requiring no explicit emotion-labeled datasets.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#shift" class="toc-link">Token-Based Synthesis</a>
+                <a href="#core" class="toc-link">Core Philosophy</a>
+                <a href="#dual-track" class="toc-link">Dual-Track</a>
+                <a href="#mtp" class="toc-link">Multi-Token Prediction</a>
+                <a href="#advanced" class="toc-link">Advanced Capabilities</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+            }
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => tab.classList.toggle('active', tab.getAttribute('href') === targetId));
+                articles.forEach(article => article.style.display = ('#' + article.id === targetId) ? 'block' : 'none');
+            }
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    history.pushState(null, null, tab.getAttribute('href'));
+                    switchTab(tab.getAttribute('href'));
+                });
+            });
+            switchTab(window.location.hash);
+            
+            document.querySelectorAll('.solution-toggle').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const content = btn.nextElementSibling;
+                    const isHidden = content.style.display === 'none' || content.style.display === '';
+                    content.style.display = isHidden ? 'block' : 'none';
+                    btn.textContent = isHidden ? 'Hide Solution' : 'Show Solution';
+                });
+            });
+            
+            document.querySelectorAll('.exercise-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const body = header.nextElementSibling;
+                    const toggle = header.querySelector('.exercise-toggle');
+                    const isVisible = body.style.display === 'block';
+                    body.style.display = isVisible ? 'none' : 'block';
+                    toggle.innerHTML = isVisible ? '&darr;' : '&uarr;';
+                });
+            });
+        });
+    </script>
+</body>
+</html>

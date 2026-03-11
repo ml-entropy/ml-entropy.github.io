@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F5-TTS: Flow Matching | Text-to-Speech</title>
+    <meta name="description" content="Understanding F5-TTS, non-autoregressive speech synthesis, swaying flow, and zero-shot voice cloning.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">Text-to-Speech</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">Computer Science</a>
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>F5-TTS: Flow Matching</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar placeholder -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Text-to-Speech</h3>
+                <nav class="sidebar-nav">
+                        <a href="../01-f5-tts/index.html" class="sidebar-link active">01. F5-TTS: Flow Matching</a>
+                    <a href="../02-qwen-tts/index.html" class="sidebar-link">02. Qwen-TTS: LLM-based Audio</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article: Theory -->
+        <main class="tutorial-main">
+
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: Intro -->
+                <h2 id="evolution">The Evolution of Text-to-Speech</h2>
+
+                <p>
+                    Text-to-Speech (TTS) models have evolved through several paradigms:
+                </p>
+                <ol>
+                    <li><strong>Concatenative:</strong> Splicing together tiny snippets of recorded audio. Robotic but highly intelligible.</li>
+                    <li><strong>Parametric (e.g., HMMs):</strong> Statistically modeling acoustic parameters. Smoother but often muffled.</li>
+                    <li><strong>Autoregressive Neural (e.g., VALL-E):</strong> Predicting audio tokens one by one, similar to how an LLM predicts text. Very natural, but suffers from slow inference (because it generates tokens sequentially) and occasional robustness issues (word skipping).</li>
+                    <li><strong>Non-Autoregressive Diffusion/Flow (e.g., F5-TTS):</strong> Generating the entire audio sequence simultaneously by gradually refining pure noise into speech.</li>
+                </ol>
+
+                <div class="note-box">
+                    <div class="box-title">What is F5-TTS?</div>
+                    <p style="margin-bottom: 0;">
+                        <strong>F5-TTS</strong> (Fully Non-Autoregressive TTS based on Flow Matching) is a state-of-the-art zero-shot speech synthesis model. Unlike traditional models that use intermediate features like mel-spectrograms, F5-TTS operates directly on continuous latent spaces using <strong>Flow Matching</strong>, a mathematical framework closely related to Diffusion models.
+                    </p>
+                </div>
+
+                <!-- Section 2: Flow Matching vs Diffusion -->
+                <h2 id="flow-matching">Flow Matching vs. Diffusion</h2>
+
+                <p>
+                    While both Diffusion and Flow Matching solve the same problem—transforming a simple prior distribution (like Gaussian noise) into a complex data distribution (like human speech)—they approach the math differently.
+                </p>
+                <ul>
+                    <li><strong>Diffusion Models:</strong> Think of a drop of ink diffusing into water. The model learns to reverse this specific, physically-inspired noise-adding process step-by-step.</li>
+                    <li><strong>Flow Matching:</strong> Instead of reversing a specific noise schedule, Flow Matching directly learns a <strong>vector field</strong> that transports probability mass from the noise distribution to the data distribution. It defines straight-line paths (Optimal Transport) between the noise and the target audio.</li>
+                </ul>
+
+                <p>
+                    Because the paths are straighter, the model can take much larger steps during inference, reducing the number of evaluation steps (NFE) required to generate high-quality audio.
+                </p>
+
+                <!-- Section 3: Swaying Flow -->
+                <h2 id="swaying-flow">Swaying Flow</h2>
+
+                <p>
+                    One of F5-TTS's major contributions is <strong>Swaying Flow</strong>. In standard flow matching, the inference steps from $t=0$ (noise) to $t=1$ (data) are often taken uniformly. However, the model needs to make larger adjustments early in the generation process (when the audio is mostly noise) and finer adjustments towards the end (when resolving high-frequency details).
+                </p>
+
+                <div class="definition-box" style="border-left-color: #3B82F6;">
+                    <div class="box-title" style="color: #2563EB;">Swaying Flow Scheduling</div>
+                    <p style="margin-bottom: 0;">
+                        Swaying flow is a mathematical trick that allocates more inference steps to the regions of the flow where the vector field is most complex, effectively "swaying" the step sizes. This allows F5-TTS to achieve state-of-the-art audio quality with as few as 20-30 neural network evaluations.
+                    </p>
+                </div>
+
+                <!-- Section 4: Zero-Shot Conditioning -->
+                <h2 id="zero-shot">Zero-Shot Conditioning</h2>
+
+                <p>
+                    F5-TTS achieves zero-shot cloning through <strong>prefix conditioning</strong>. 
+                </p>
+                <p>
+                    Instead of training a separate "speaker embedding" module, F5-TTS simply concatenates the reference audio and the text.
+                </p>
+                <ol>
+                    <li><strong>Input:</strong> <code>[Reference Audio Latents] + [Noisy Target Audio Latents]</code></li>
+                    <li><strong>Condition:</strong> <code>[Reference Text] + [Target Text]</code></li>
+                </ol>
+                <p>
+                    The DiT uses self-attention across the entire sequence. Because it can "see" the reference audio and text, it naturally deduces the speaker's voice, pacing, and acoustic conditions (like background room tone) and applies them to the target audio generation.
+                </p>
+
+            </article>
+
+            <!-- Exercises Article -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <div class="exercise-list">
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Flow Matching vs. Autoregressive TTS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Explain the fundamental difference in how F5-TTS generates a 5-second audio clip compared to an Autoregressive TTS model like VALL-E. What are the pros and cons?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <ul>
+                                    <li><strong>Autoregressive:</strong> Generates tokens sequentially, left-to-right. Slower inference, prone to repeating/skipping.</li>
+                                    <li><strong>Flow Matching:</strong> Generates all audio frames simultaneously from pure noise. Faster inference, extremely robust, sees global context for better prosody, but harder to stream with ultra-low latency.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Swaying Flow Analogy</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Use an everyday analogy to explain Swaying Flow.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Imagine sculpting a statue. Uniform steps mean spending 1 hour carving massive chunks, and 1 hour carving eyelashes. Swaying Flow means taking large, fast steps early on to hack away bulk marble (when the path is obvious), and allocating the majority of smaller, careful steps to the very end to carve the complex eyelashes and details.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Zero-Shot Voice Cloning</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Describe the mechanism by which F5-TTS achieves zero-shot cloning without a speaker embedding module.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>It uses <strong>prefix conditioning</strong>. By concatenating the reference audio/text to the target audio/text inputs, the Diffusion Transformer uses self-attention across the whole sequence. It inherently "looks back" at the reference prefix to deduce and replicate the speaker's voice and environmental acoustics organically.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#evolution" class="toc-link">Evolution of TTS</a>
+                <a href="#flow-matching" class="toc-link">Flow Matching</a>
+                <a href="#swaying-flow" class="toc-link">Swaying Flow</a>
+                <a href="#zero-shot" class="toc-link">Zero-Shot Cloning</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+            }
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => tab.classList.toggle('active', tab.getAttribute('href') === targetId));
+                articles.forEach(article => article.style.display = ('#' + article.id === targetId) ? 'block' : 'none');
+            }
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    history.pushState(null, null, tab.getAttribute('href'));
+                    switchTab(tab.getAttribute('href'));
+                });
+            });
+            switchTab(window.location.hash);
+            
+            document.querySelectorAll('.solution-toggle').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const content = btn.nextElementSibling;
+                    const isHidden = content.style.display === 'none' || content.style.display === '';
+                    content.style.display = isHidden ? 'block' : 'none';
+                    btn.textContent = isHidden ? 'Hide Solution' : 'Show Solution';
+                });
+            });
+            
+            document.querySelectorAll('.exercise-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const body = header.nextElementSibling;
+                    const toggle = header.querySelector('.exercise-toggle');
+                    const isVisible = body.style.display === 'block';
+                    body.style.display = isVisible ? 'none' : 'block';
+                    toggle.innerHTML = isVisible ? '&darr;' : '&uarr;';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
