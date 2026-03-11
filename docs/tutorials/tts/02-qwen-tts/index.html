@@ -117,7 +117,7 @@
                 </p>
 
                 <p>
-                    The <strong>Qwen-TTS</strong> architecture represents a paradigm shift toward a <strong>token-based, end-to-end language modeling approach</strong>. Instead of the conventional pipeline, Qwen-TTS treats speech generation as a sequential token prediction problem, identical to how a Large Language Model (LLM) generates text.
+                    The <strong>Qwen3-TTS</strong> architecture (introduced in early 2026) represents a paradigm shift toward a <strong>token-based, end-to-end language modeling approach</strong>. Instead of the conventional pipeline, Qwen-TTS treats speech generation as a sequential token prediction problem, identical to how a Large Language Model (LLM) generates text.
                 </p>
 
                 <h2 id="core">Core Philosophy</h2>
@@ -133,8 +133,20 @@
                 </p>
 
                 <ol>
-                    <li><strong>Semantic Track (25Hz):</strong> Captures rich semantic, emotional, and linguistic details. Uses a chunk-wise Diffusion Transformer (DiT) for high-fidelity waveform reconstruction. Used for non-streaming batch generation.</li>
-                    <li><strong>Latency Track (12.5Hz):</strong> Optimized for speed and extreme bitrate reduction, perfect for real-time conversational agents. Uses a lightweight causal Convolutional Network (ConvNet) achieving a first-packet latency of less than 100ms.</li>
+                    <li><strong>Semantic Track (25Hz):</strong>
+                        <ul>
+                            <li><strong>Tokenizer:</strong> Uses a single-codebook codec (25Hz) designed to compress audio aggressively into core meanings.</li>
+                            <li><strong>Focus:</strong> Captures rich semantic, emotional, and linguistic details. It builds the structure of the speech.</li>
+                            <li><strong>Reconstruction:</strong> Uses a <strong>chunk-wise Diffusion Transformer (DiT)</strong> for high-fidelity waveform reconstruction. This track is typically used for non-streaming, high-quality batch generation where a bit of delay is acceptable.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Latency Track (12.5Hz):</strong>
+                        <ul>
+                            <li><strong>Tokenizer:</strong> Uses a multi-codebook codec (16 layers) running at 12.5Hz.</li>
+                            <li><strong>Focus:</strong> Optimized for speed and extreme bitrate reduction, perfect for real-time conversational agents.</li>
+                            <li><strong>Reconstruction:</strong> Uses a <strong>lightweight causal Convolutional Network (ConvNet)</strong>. Because it is causal (meaning it doesn't need to "look ahead" at future tokens), it can emit audio as soon as the first few tokens are generated, achieving a first-packet latency of under 100ms.</li>
+                        </ul>
+                    </li>
                 </ol>
 
                 <h2 id="mtp">Multi-Token Prediction (MTP)</h2>
@@ -142,13 +154,13 @@
                 <div class="warning-box">
                     <div class="box-title">The Bottleneck</div>
                     <p style="margin-bottom: 0;">
-                        Audio codecs often compress audio into multiple "layers" or "codebooks" (e.g., 16 codebooks per frame). Predicting 16 codebooks sequentially for every single time step is computationally devastating for an LLM.
+                        Audio codecs often compress audio into multiple "layers" or "codebooks" (e.g., 16 codebooks per frame in the Latency Track). Predicting 16 codebooks sequentially for every single time step is computationally devastating for an LLM.
                     </p>
                 </div>
 
                 <p>To solve this, Qwen-TTS introduces a <strong>Multi-Token Prediction (MTP)</strong> module:</p>
                 <ul>
-                    <li><strong>The Conductor (Main LLM):</strong> Predicts the text and the <em>primary</em> semantic speech token.</li>
+                    <li><strong>The Conductor (Main LLM):</strong> Predicts the text and the <em>primary</em> semantic speech token. This massive LLM does the "heavy lifting" of deciding what the voice should sound like and what emotions to convey.</li>
                     <li><strong>Parallel Fleshing (MTP Module):</strong> A specialized sub-network generates the remaining 15 residual acoustic codebooks <strong>simultaneously</strong>.</li>
                 </ul>
                 <p>
@@ -161,9 +173,10 @@
                     Because Qwen-TTS is essentially a powerful LLM that speaks, it inherits LLM-like zero-shot capabilities:
                 </p>
                 <ul>
-                    <li><strong>Prompt-based Voice Design:</strong> "A gravelly, middle-aged male voice with a slight Southern accent."</li>
-                    <li><strong>Zero-Shot Voice Cloning:</strong> Clone a speaker from just a 3-second reference clip.</li>
-                    <li><strong>Instruction Following:</strong> "Speak in an incredulous tone with a hint of panic." The model changes its tone without needing specialized emotion-labeled datasets.</li>
+                    <li><strong>Prompt-based Voice Design:</strong> Users can create entirely new voices using natural language prompts (e.g., <em>"a gravelly, middle-aged male voice with a slight Southern accent"</em>).</li>
+                    <li><strong>Zero-Shot Voice Cloning:</strong> Can clone a target speaker's voice using as little as 3 seconds of reference audio.</li>
+                    <li><strong>Instruction Following:</strong> Supports "style instructions" to modify tone, emotion, and pacing (e.g., <em>"speak in an incredulous tone with a hint of panic"</em>) without retraining.</li>
+                    <li><strong>Multilingual Support:</strong> Native support for over 10 languages with high cross-lingual stability.</li>
                 </ul>
 
             </article>

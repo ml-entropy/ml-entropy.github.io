@@ -27,6 +27,15 @@ While both Diffusion and Flow Matching solve the same problem—transforming a s
 
 Because the paths are straighter, the model can take much larger steps during inference, reducing the number of evaluation steps (NFE) required to generate high-quality audio.
 
+## The Diffusion Transformer (DiT) Architecture
+
+Most early diffusion models relied on U-Net architectures, which use convolutional layers to downsample and upsample features. F5-TTS completely discards the U-Net in favor of a **Diffusion Transformer (DiT)**.
+
+Why a Transformer?
+*   **Global Context:** Convolutional layers have local receptive fields (they only "see" a small chunk of audio at a time). Transformers use Self-Attention, meaning every frame of audio can look at every other frame, no matter how far apart they are. This is crucial for maintaining consistent prosody, tone, and pacing over a long sentence.
+*   **Scalability:** Transformers scale incredibly well with more data and compute, as proven by the success of LLMs.
+*   **Prefix Conditioning:** Because of self-attention, conditioning the model on a reference voice is as simple as concatenating the reference audio features to the target noise features. The attention mechanism naturally learns to copy the vocal characteristics from the reference prefix.
+
 ## Swaying Flow
 
 One of F5-TTS's major contributions is **Swaying Flow**. In standard flow matching, the inference steps from $t=0$ (noise) to $t=1$ (data) are often taken uniformly. However, the model needs to make larger adjustments early in the generation process (when the audio is mostly noise) and finer adjustments towards the end (when resolving high-frequency details).
