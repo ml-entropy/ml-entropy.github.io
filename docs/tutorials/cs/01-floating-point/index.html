@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floating-Point Representation | Computer Science</title>
+    <meta name="description" content="Understanding how numbers are stored in computers: IEEE 754, float32, float16, and bfloat16 for machine learning.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/cs/index.html" class="nav-link active">Computer Science</a>
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Computer Science</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Floating-Point Representation</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar placeholder; will be injected by update_sidebars.py -->
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Computer Science</h3>
+                <nav class="sidebar-nav">
+                        <a href="../01-floating-point/index.html" class="sidebar-link active">01. Floating-Point Representation</a>
+                </nav>
+            </div>
+            
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                        <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article: Theory -->
+        <main class="tutorial-main">
+
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: Intro -->
+                <h2 id="intuition">How Computers Think About Numbers</h2>
+
+                <p>
+                    In pure mathematics, the real number line is continuous. Between any two numbers, no matter how close, there are infinitely many other numbers. However, computers have finite memory. They must represent infinite continuous values using a finite number of bits.
+                </p>
+
+                <p>
+                    How do we cram an infinite number line into a fixed box of 32 bits (or 16 bits)? The answer is <strong>Floating-Point Representation</strong>, primarily defined by the IEEE 754 standard. Floating-point math is a clever trade-off: it sacrifices exact precision to provide an enormous <em>dynamic range</em>.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">The Scientific Notation Analogy</div>
+                    <p style="margin-bottom: 0;">
+                        Think of scientific notation: $ -1.234 \times 10^5 $. We have a <strong>sign</strong> ($-$), a <strong>significand or mantissa</strong> ($1.234$), and an <strong>exponent</strong> ($5$). Floating-point uses the exact same concept, just in base 2 (binary).
+                    </p>
+                </div>
+
+                <!-- Section 2: Structure -->
+                <h2 id="structure">The Anatomy of a Floating-Point Number</h2>
+
+                <p>
+                    A floating-point number is partitioned into three segments:
+                </p>
+                <ul>
+                    <li><strong>Sign bit ($S$):</strong> 1 bit. 0 for positive, 1 for negative.</li>
+                    <li><strong>Exponent ($E$):</strong> Determines the scale (magnitude) of the number. It's stored with a <em>bias</em> to allow for negative exponents without using a sign bit just for the exponent.</li>
+                    <li><strong>Mantissa / Fraction ($M$):</strong> Determines the precision (significant digits) of the number.</li>
+                </ul>
+
+                <div class="math-block">
+                    $$ \text{Value} = (-1)^S \times (1 + M) \times 2^{E - \text{bias}} $$
+                </div>
+
+                <p>
+                    Notice the "1 + M". Because the leading bit of a binary number in scientific notation is almost always 1 (e.g., $1.xxxxx \times 2^E$), we don't even bother storing the leading 1. It is <em>implicit</em>.
+                </p>
+
+                <!-- Section 3: Float32 -->
+                <h2 id="float32">Single Precision: float32</h2>
+
+                <p>
+                    <strong>float32</strong> (IEEE 754 single precision) has been the gold standard for graphics and standard numerical computing for decades.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">float32 Structure (32 bits)</div>
+                    <ul>
+                        <li><strong>Sign:</strong> 1 bit</li>
+                        <li><strong>Exponent:</strong> 8 bits (Bias = 127)</li>
+                        <li><strong>Mantissa:</strong> 23 bits</li>
+                    </ul>
+                    <p><strong>Range:</strong> $\approx 1.4 \times 10^{-45}$ to $\approx 3.4 \times 10^{38}$</p>
+                    <p><strong>Precision:</strong> $\approx 7$ decimal digits</p>
+                </div>
+
+                <!-- Section 4: Modern ML Formats -->
+                <h2 id="ml-formats">The Deep Learning Revolution: float16 and bfloat16</h2>
+
+                <p>
+                    For years, training neural networks relied on float32. But around 2017, the AI community realized a profound truth: <em>neural networks are surprisingly robust to noise and low precision.</em>
+                </p>
+                <p>
+                    Moving from 32 bits to 16 bits halves the memory requirements, allowing for double the batch size or model size. It also dramatically speeds up matrix multiplications on modern hardware (like Tensor Cores). The problem is: <em>which 16 bits do you keep?</em>
+                </p>
+
+                <h3>1. IEEE float16 (Half Precision)</h3>
+                <div class="definition-box">
+                    <div class="box-title">float16 Structure (16 bits)</div>
+                    <ul>
+                        <li><strong>Sign:</strong> 1 bit</li>
+                        <li><strong>Exponent:</strong> 5 bits (Bias = 15)</li>
+                        <li><strong>Mantissa:</strong> 10 bits</li>
+                    </ul>
+                    <p><strong>Range:</strong> $\approx 5.96 \times 10^{-8}$ to $65,504$</p>
+                </div>
+                <p>
+                    <strong>The Problem:</strong> The maximum value is only $65,504$. In deep learning, gradients and activations can easily overflow this limit, leading to <code>NaN</code> (Not a Number) errors. Training with float16 requires careful <em>loss scaling</em> to keep values within this narrow window.
+                </p>
+
+                <h3>2. The Google Brain Solution: bfloat16</h3>
+                <p>
+                    To fix the narrow range of float16, Google introduced <strong>Brain Floating Point (bfloat16)</strong> for its TPUs (now widely supported on GPUs too). The idea was brutally simple: take a standard float32, keep the exponent exactly the same, and just chop off the last 16 bits of the mantissa.
+                </p>
+
+                <div class="definition-box" style="border-left-color: #A855F7;">
+                    <div class="box-title" style="color: #9333EA;">bfloat16 Structure (16 bits)</div>
+                    <ul>
+                        <li><strong>Sign:</strong> 1 bit</li>
+                        <li><strong>Exponent:</strong> 8 bits (Same as float32!)</li>
+                        <li><strong>Mantissa:</strong> 7 bits</li>
+                    </ul>
+                    <p><strong>Range:</strong> Same as float32 ($\approx 3.4 \times 10^{38}$)</p>
+                    <p><strong>Precision:</strong> $\approx 2$ to 3 decimal digits</p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Why bfloat16 wins for Deep Learning</div>
+                    <p style="margin-bottom: 0;">
+                        In ML, having a large <strong>dynamic range</strong> (avoiding <code>NaN</code> overflow) is far more important than having high <strong>precision</strong>. Neural nets act as statistical engines—they don't care if a weight is $0.1234567$ instead of $0.123$. The noise from dropping precision actually acts as a mild regularizer. Because bfloat16 has the same exponent as float32, you can seamlessly swap float32 for bfloat16 with zero code changes and no loss scaling needed!
+                    </p>
+                </div>
+
+                <!-- Section 5: The Math of Precision -->
+                <h2 id="machine-epsilon">Machine Epsilon and Catastrophic Cancellation</h2>
+
+                <p>
+                    Because precision is finite, floating-point numbers have "gaps" between them. The gap between $1.0$ and the next representable number is called <strong>Machine Epsilon ($\epsilon$)</strong>.
+                </p>
+                <ul>
+                    <li>float32 $\epsilon \approx 1.19 \times 10^{-7}$</li>
+                    <li>float16 $\epsilon \approx 9.77 \times 10^{-4}$</li>
+                    <li>bfloat16 $\epsilon \approx 7.81 \times 10^{-3}$</li>
+                </ul>
+
+                <p>
+                    This leads to a terrifying phenomenon called <strong>Catastrophic Cancellation</strong>. If you subtract two very large, nearly identical numbers, the significant digits cancel out, leaving only the "garbage" noise at the end of the mantissa. In algorithms like variance calculation or softmax, if you write the math naively, catastrophic cancellation will destroy your gradients. This is why we use mathematically equivalent but numerically stable alternatives (like <code>logsumexp</code>).
+                </p>
+
+            </article>
+
+            <!-- Exercises Article -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <div class="exercise-list">
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Decimal to Binary Float</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Suppose you have a tiny 8-bit floating point format (1 sign bit, 3 exponent bits, bias=3, 4 mantissa bits). Convert the decimal number <code>-6.5</code> to this format.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>1. Sign:</strong> Negative, so S = 1.</p>
+                                <p><strong>2. Binary conversion:</strong> 6 = 110, 0.5 = 1/2 = .1. So 6.5 = 110.1 in binary.</p>
+                                <p><strong>3. Normalize:</strong> 110.1 = $1.101 \times 2^2$.</p>
+                                <p><strong>4. Exponent:</strong> True exponent = 2. Stored exponent = True exponent + Bias = 2 + 3 = 5. In 3 bits, 5 is 101.</p>
+                                <p><strong>5. Mantissa:</strong> The fractional part is 101. We pad with zeros to get 4 bits: 1010.</p>
+                                <p><strong>Final 8-bit representation:</strong> 1 | 101 | 1010</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Analyzing bfloat16 Limits</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Explain why attempting to add `1.0 + 0.001` in pure bfloat16 arithmetic results in exactly `1.0`.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>bfloat16 has 7 bits of mantissa. Its machine epsilon is $2^{-7} \approx 0.00781$.</p>
+                                <p>Machine epsilon is the smallest number $x$ such that $1.0 + x > 1.0$. Because $0.001$ is smaller than $0.00781$, the hardware shifts the mantissa of 0.001 so far to the right to align the exponents that it completely falls off the edge of the 7-bit register. It rounds to 0. Thus, $1.0 + 0.001 = 1.0$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#intuition" class="toc-link">Intro to Floats</a>
+                <a href="#structure" class="toc-link">Anatomy</a>
+                <a href="#float32" class="toc-link">float32</a>
+                <a href="#ml-formats" class="toc-link">float16 & bfloat16</a>
+                <a href="#machine-epsilon" class="toc-link">Machine Epsilon</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // KaTeX Rendering
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            // Tab Switching Logic
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            switchTab(window.location.hash);
+            
+            // Solution toggles
+            const solutionToggles = document.querySelectorAll('.solution-toggle');
+            solutionToggles.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const content = btn.nextElementSibling;
+                    if (content.style.display === 'block') {
+                        content.style.display = 'none';
+                        btn.textContent = 'Show Solution';
+                    } else {
+                        content.style.display = 'block';
+                        btn.textContent = 'Hide Solution';
+                    }
+                });
+            });
+            
+            // Exercise toggles
+            const exerciseHeaders = document.querySelectorAll('.exercise-header');
+            exerciseHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const body = header.nextElementSibling;
+                    const toggle = header.querySelector('.exercise-toggle');
+                    if (body.style.display === 'block' || body.style.display === '') {
+                        body.style.display = 'none';
+                        toggle.innerHTML = '&uarr;';
+                    } else {
+                        body.style.display = 'block';
+                        toggle.innerHTML = '&darr;';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -6,7 +6,10 @@ CSS_LINK = '<link rel="stylesheet" href="../../../css/sidebar.css">'
 
 # Updated to match actual file system structure
 NAV_LINKS = {
-        "ml": [
+    "cs": [
+        ("01-floating-point", "01. Floating-Point Representation"),
+    ],
+    "ml": [
         ("00-probability", "00. Probability Foundations"),
         ("01-logarithms", "01. Why Logarithms?"),
         ("02-combinatorics", "02. Combinatorics"),
@@ -43,6 +46,10 @@ NAV_LINKS = {
         ("33-glow-tts", "33. Glow-TTS & Flows"),
         ("34-vits", "34. VITS: End-to-End TTS"),
         ("35-bilingual-tts", "35. Bilingual TTS: RU+KY"),
+        ("36-gans", "36. GANs"),
+        ("37-normalizing-flows", "37. Normalizing Flows"),
+        ("38-flow-matching", "38. Flow Matching"),
+        ("39-diffusion-models", "39. Diffusion Models"),
     ],
     "linear-algebra": [
         ("01-vectors", "01. Vectors and Spaces"),
@@ -68,6 +75,7 @@ NAV_LINKS = {
 }
 
 TITLES = {
+    "cs": "Computer Science",
     "ml": "Machine Learning",
     "linear-algebra": "Linear Algebra",
     "calculus": "Calculus",
@@ -98,6 +106,8 @@ def generate_sidebar(category, current_folder):
     '''
     
     # Add cross links
+    if category != 'cs':
+        html += '                    <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>\n'
     if category != 'ml':
         html += '                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>\n'
     if category != 'linear-algebra':
