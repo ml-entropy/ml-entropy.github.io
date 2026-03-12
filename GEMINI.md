@@ -59,6 +59,42 @@ pip install -r requirements.txt
 *   **Math Rendering:** Uses KaTeX for rendering mathematical notation (configured in the HTML headers).
 *   **Difficulty Badges:** Exercises are categorized as Easy (🟢), Medium (🟡), or Hard (🔴).
 
+## ✍️ Tutorial Writing Style
+
+**This is critical.** When asked to write or expand a tutorial, you must produce **comprehensive, in-depth educational content** — not summaries or bullet-point outlines. Treat every tutorial as a university-level lecture that a student will read from start to finish.
+
+### Length and Depth Requirements
+
+- **Minimum 800–1200 lines of HTML** for a full tutorial page. Never produce a short, skeletal page.
+- Each section must contain **multiple paragraphs** of explanation, not just one or two sentences.
+- Explain the **"why"** behind every concept, not just the "what." Why does this formula look like this? What would go wrong with a different choice? What historical alternatives existed?
+- Include **step-by-step mathematical derivations** with intermediate steps explained in words (use `<div class="math-derivation">` blocks).
+- Build **intuition before formalism**: start each concept with a concrete analogy, real-world example, or thought experiment, then transition to the math.
+- After a derivation, add a **"What does this mean?"** paragraph connecting the result back to intuition.
+
+### Structure for Each Section
+
+1. **Motivating question or scenario** — hook the reader with a concrete problem or paradox.
+2. **Intuitive explanation** — explain the concept as you would to a curious non-expert, using analogies and examples.
+3. **Formal definition / derivation** — present the math rigorously, with every step justified.
+4. **Worked examples** — at least one concrete numerical example per major concept.
+5. **Common misconceptions** — address what students typically get wrong.
+6. **Connection to the bigger picture** — how does this relate to the information-theoretic thread of the project?
+
+### What NOT to Do
+
+- **Never** write one-sentence paragraphs for conceptual explanations. Each paragraph should be 3–6 sentences minimum.
+- **Never** skip "obvious" steps in derivations — what's obvious to you is not obvious to the reader.
+- **Never** list facts without explaining their significance.
+- **Never** produce a skeleton/outline and call it done. The tutorial should be **publication-ready** as written.
+- **Never** sacrifice depth for brevity. When in doubt, explain more, not less.
+
+### Tone
+
+- Conversational but rigorous — like a great professor who respects the reader's intelligence.
+- Use rhetorical questions to guide thinking: "But wait — why should we use log and not some other function?"
+- Refer to the reader directly: "Notice that...", "You might wonder...", "Let's verify this..."
+
 ## 🚀 Common Tasks
 
 **Adding a New Tutorial:**
