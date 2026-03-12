@@ -27,6 +27,35 @@ While both Diffusion and Flow Matching solve the same fundamental problem—tran
 
 Because the paths are mathematically straighter, the model doesn't have to navigate tight curves during generation. This means it can take **much larger steps** during inference, radically reducing the Number of Function Evaluations (NFEs) required to generate high-quality audio.
 
+<div style="text-align: center; margin: 2rem 0; padding: 1rem; background: var(--color-bg-tertiary); border-radius: 8px;">
+    <svg viewBox="0 0 600 250" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto;">
+        <!-- Diffusion Curve -->
+        <path d="M 100 200 Q 200 50 500 50" fill="none" stroke="#EF4444" stroke-width="3" stroke-dasharray="5,5" />
+        <circle cx="100" cy="200" r="8" fill="#9CA3AF" />
+        <circle cx="500" cy="50" r="8" fill="#3B82F6" />
+        <text x="70" y="225" font-family="monospace" fill="currentColor">Noise (t=0)</text>
+        <text x="480" y="35" font-family="monospace" fill="currentColor">Audio (t=1)</text>
+        <text x="250" y="100" font-family="monospace" fill="#EF4444" font-size="12">Standard Diffusion (Curved Path)</text>
+        
+        <!-- Flow Matching Line -->
+        <path d="M 100 200 L 500 50" fill="none" stroke="#10B981" stroke-width="4" />
+        <text x="320" y="160" font-family="monospace" fill="#10B981" font-size="12" transform="rotate(-20 320 160)">Flow Matching (Straight Path)</text>
+        
+        <!-- Steps for Diffusion -->
+        <circle cx="160" cy="135" r="4" fill="#EF4444" />
+        <circle cx="230" cy="95" r="4" fill="#EF4444" />
+        <circle cx="310" cy="70" r="4" fill="#EF4444" />
+        <circle cx="400" cy="55" r="4" fill="#EF4444" />
+        
+        <!-- Steps for Flow Matching (fewer, larger steps) -->
+        <circle cx="233" cy="150" r="5" fill="#10B981" />
+        <circle cx="366" cy="100" r="5" fill="#10B981" />
+    </svg>
+    <p style="font-size: 0.9em; color: var(--color-text-secondary); margin-top: 1rem;">
+        Because Flow Matching learns a straight-line vector field via Optimal Transport, the model can take much larger, faster steps to reach the final audio state compared to the curved trajectories of standard diffusion.
+    </p>
+</div>
+
 ## The Diffusion Transformer (DiT) Architecture
 
 Most early diffusion models (like Stable Diffusion v1.5) relied on U-Net architectures, which use convolutional layers to downsample and upsample features. F5-TTS completely discards the U-Net in favor of a **Diffusion Transformer (DiT)**.
@@ -43,6 +72,41 @@ One of F5-TTS's major contributions to Flow Matching is **Swaying Flow**.
 In standard flow matching, the integration steps from $t=0$ (pure noise) to $t=1$ (clean audio) are taken uniformly. However, the model's job is not equally difficult at all stages. When the audio is mostly noise ($t$ near 0), the general direction toward speech is obvious. When the audio is almost finished ($t$ near 1), the model is making incredibly complex, high-frequency micro-adjustments to the waveforms.
 
 **Swaying Flow** is a mathematical scheduling trick that allocates the integration steps non-uniformly. It takes massive, fast steps at the beginning of the generation process to clear away the bulk of the noise, and then "sways" the step density to take many tiny, careful steps at the end to resolve fine acoustic details. 
+
+<div style="text-align: center; margin: 2rem 0; padding: 1rem; background: var(--color-bg-tertiary); border-radius: 8px;">
+    <svg viewBox="0 0 600 150" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto;">
+        <!-- Timeline -->
+        <line x1="50" y1="75" x2="550" y2="75" stroke="currentColor" stroke-width="2" />
+        <text x="40" y="100" font-family="monospace" fill="currentColor">t=0 (Noise)</text>
+        <text x="500" y="100" font-family="monospace" fill="currentColor">t=1 (Audio)</text>
+        
+        <!-- Uniform Steps -->
+        <text x="50" y="40" font-family="monospace" fill="#EF4444" font-size="12">Uniform Steps:</text>
+        <line x1="100" y1="65" x2="100" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="150" y1="65" x2="150" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="200" y1="65" x2="200" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="250" y1="65" x2="250" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="300" y1="65" x2="300" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="350" y1="65" x2="350" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="400" y1="65" x2="400" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="450" y1="65" x2="450" y2="85" stroke="#EF4444" stroke-width="2" />
+        <line x1="500" y1="65" x2="500" y2="85" stroke="#EF4444" stroke-width="2" />
+        
+        <!-- Swaying Flow Steps -->
+        <text x="50" y="130" font-family="monospace" fill="#10B981" font-size="12">Swaying Flow:</text>
+        <line x1="150" y1="65" x2="150" y2="85" stroke="#10B981" stroke-width="3" />
+        <line x1="280" y1="65" x2="280" y2="85" stroke="#10B981" stroke-width="3" />
+        <line x1="380" y1="65" x2="380" y2="85" stroke="#10B981" stroke-width="3" />
+        <line x1="440" y1="65" x2="440" y2="85" stroke="#10B981" stroke-width="2" />
+        <line x1="475" y1="65" x2="475" y2="85" stroke="#10B981" stroke-width="2" />
+        <line x1="490" y1="65" x2="490" y2="85" stroke="#10B981" stroke-width="1" />
+        <line x1="497" y1="65" x2="497" y2="85" stroke="#10B981" stroke-width="1" />
+        <line x1="500" y1="65" x2="500" y2="85" stroke="#10B981" stroke-width="1" />
+    </svg>
+    <p style="font-size: 0.9em; color: var(--color-text-secondary); margin-top: 1rem;">
+        Swaying Flow takes large leaps at the start when the structure is simple, and densely packs its function evaluations at the end (near $t=1$) where resolving high-frequency speech details is mathematically complex.
+    </p>
+</div>
 
 This scheduling allows F5-TTS to achieve state-of-the-art audio quality with as few as **20-30 neural network evaluations**, making it viable for real-time deployment.
 
