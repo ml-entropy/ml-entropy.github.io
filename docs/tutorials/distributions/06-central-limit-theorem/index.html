@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Limit Theorem | ML Fundamentals</title>
+    <meta name="description" content="The Central Limit Theorem: why the Normal distribution is everywhere. Formal statement, proof via characteristic functions, Berry-Esseen bounds, and applications in ML.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link active">Distributions</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Distributions</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Central Limit Theorem</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Distributions</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-discrete-distributions/index.html" class="sidebar-link">01. Discrete Distributions</a>
+                    <a href="../02-continuous-distributions/index.html" class="sidebar-link">02. Continuous Distributions</a>
+                    <a href="../03-multivariate/index.html" class="sidebar-link">03. Multivariate Distributions</a>
+                    <a href="../04-exponential-family/index.html" class="sidebar-link">04. Exponential Family</a>
+                    <a href="../05-conjugate-distributions/index.html" class="sidebar-link">05. Conjugate Distributions</a>
+                    <a href="../06-central-limit-theorem/index.html" class="sidebar-link active">06. Central Limit Theorem</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../combinatorics/index.html" class="sidebar-link">Combinatorics</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <article class="article-content" id="theory">
+
+                <h1>06. The Central Limit Theorem</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    The most important theorem in probability and statistics. We prove why the
+                    average of many independent random variables is approximately Normal, regardless
+                    of the original distribution — and explore what this means for machine learning.
+                </p>
+
+                <!-- Section 1 -->
+                <h2 id="why-normal">Why Is the Normal Distribution Everywhere?</h2>
+
+                <p>
+                    Human heights, measurement errors, stock returns, test scores, pixel noise — the
+                    Normal (Gaussian) distribution appears everywhere in nature and science. This is
+                    not a coincidence. The <strong>Central Limit Theorem</strong> (CLT) explains why:
+                    whenever a quantity is the sum (or average) of many small, independent effects,
+                    it will be approximately Normally distributed.
+                </p>
+
+                <p>
+                    <strong>Analogy:</strong> Imagine a ball falling through a Galton board (peg board).
+                    At each peg, the ball randomly bounces left or right — a tiny independent push.
+                    After many pegs, the ball's final position is the sum of many small random
+                    displacements. The resulting distribution of final positions is a perfect bell curve.
+                    It doesn't matter what the individual bounces look like — as long as they're
+                    independent and small, the sum converges to a Gaussian.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">A Brief History</div>
+                    <p style="margin-bottom: 0;">
+                        De Moivre (1733) proved the first version for coin flips. Laplace (1812) generalized
+                        it. Lindeberg and Feller (1920s-30s) established the modern conditions.
+                        The theorem has been called "the informal sovereign of probability theory"
+                        by the mathematician Pólya.
+                    </p>
+                </div>
+
+
+                <!-- Section 2 -->
+                <h2 id="formal-statement">The Formal Statement</h2>
+
+                <div class="definition-box">
+                    <div class="box-title">Central Limit Theorem (Classical / Lindeberg-Lévy)</div>
+                    <p>
+                        Let $X_1, X_2, \ldots, X_n$ be <strong>independent and identically distributed</strong>
+                        (iid) random variables with:
+                    </p>
+                    <ul>
+                        <li>Finite mean: $\mathbb{E}[X_i] = \mu$</li>
+                        <li>Finite variance: $\text{Var}(X_i) = \sigma^2 > 0$</li>
+                    </ul>
+                    <p>
+                        Define the sample mean $\bar{X}_n = \frac{1}{n}\sum_{i=1}^n X_i$. Then as $n \to \infty$:
+                    </p>
+                    <div class="math-block" style="margin: 0.5rem 0;">
+                        $$\frac{\bar{X}_n - \mu}{\sigma / \sqrt{n}} \xrightarrow{d} \mathcal{N}(0, 1)$$
+                    </div>
+                    <p style="margin-bottom: 0;">
+                        Equivalently: $\bar{X}_n \overset{d}{\approx} \mathcal{N}\!\left(\mu, \frac{\sigma^2}{n}\right)$ for large $n$.
+                        The notation $\xrightarrow{d}$ means <em>convergence in distribution</em>:
+                        the CDF of the left-hand side converges pointwise to the standard Normal CDF $\Phi(x)$.
+                    </p>
+                </div>
+
+                <p>Notice the remarkable features:</p>
+                <ul>
+                    <li><strong>No distributional assumption:</strong> The $X_i$ can be Bernoulli, Poisson, Exponential, Uniform — anything with finite variance. The sum always approaches Normal.</li>
+                    <li><strong>Rate:</strong> The standard deviation of $\bar{X}_n$ shrinks as $\sigma / \sqrt{n}$. This is the origin of the $\sqrt{n}$ that appears throughout statistics.</li>
+                    <li><strong>Both conditions are necessary:</strong> Infinite variance (e.g., Cauchy distribution) breaks the CLT. The sum of Cauchy random variables is still Cauchy, not Normal.</li>
+                </ul>
+
+
+                <!-- Section 3: Visual Demonstration -->
+                <h2 id="visual-demonstration">Visual Demonstration</h2>
+
+                <p>
+                    The best way to appreciate the CLT is to see it in action. Take samples from
+                    wildly non-Normal distributions, compute their averages, and watch the bell
+                    curve emerge.
+                </p>
+
+                <!-- SVG: CLT convergence -->
+                <div style="margin: 2rem 0;">
+                    <svg viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 720px; display: block; margin: 0 auto;">
+                        <text x="360" y="22" text-anchor="middle" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="var(--color-text-primary, #1a1a2e)">CLT: Sum of Uniform[0,1] Random Variables</text>
+
+                        <!-- n=1: Uniform -->
+                        <text x="130" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="500" fill="var(--color-text-secondary, #555)">n = 1 (Uniform)</text>
+                        <line x1="30" y1="170" x2="230" y2="170" stroke="var(--color-border, #ccc)" stroke-width="1"/>
+                        <rect x="60" y="85" width="140" height="85" fill="rgba(52,152,219,0.2)" stroke="#3498db" stroke-width="2"/>
+                        <text x="30" y="175" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">0</text>
+                        <text x="230" y="175" text-anchor="end" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">1</text>
+
+                        <!-- n=2: Triangular -->
+                        <text x="370" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="500" fill="var(--color-text-secondary, #555)">n = 2 (Triangular)</text>
+                        <line x1="270" y1="170" x2="470" y2="170" stroke="var(--color-border, #ccc)" stroke-width="1"/>
+                        <path d="M 280,170 L 370,75 L 460,170 Z" fill="rgba(46,204,113,0.2)" stroke="#2ecc71" stroke-width="2"/>
+                        <text x="270" y="175" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">0</text>
+                        <text x="470" y="175" text-anchor="end" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">2</text>
+
+                        <!-- n=5: Almost Normal -->
+                        <text x="610" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="500" fill="var(--color-text-secondary, #555)">n = 5 (Nearly Normal)</text>
+                        <line x1="510" y1="170" x2="710" y2="170" stroke="var(--color-border, #ccc)" stroke-width="1"/>
+                        <path d="M 515,170 Q 535,169 555,165 Q 575,155 590,130 Q 600,105 607,85 Q 610,75 612,75 Q 614,75 617,85 Q 624,105 634,130 Q 649,155 669,165 Q 689,169 709,170" fill="rgba(231,76,60,0.2)" stroke="#e74c3c" stroke-width="2"/>
+                        <text x="510" y="175" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">0</text>
+                        <text x="710" y="175" text-anchor="end" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">5</text>
+
+                        <!-- n=30: Very Normal -->
+                        <text x="360" y="225" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary, #1a1a2e)">n = 30 (Essentially Gaussian)</text>
+                        <line x1="110" y1="390" x2="610" y2="390" stroke="var(--color-border, #ccc)" stroke-width="1"/>
+                        <path d="M 115,389 Q 160,388 210,385 Q 260,375 295,350 Q 320,320 340,275 Q 350,250 356,235 Q 360,225 362,225 Q 364,225 368,235 Q 374,250 384,275 Q 404,320 429,350 Q 464,375 514,385 Q 564,388 609,389" fill="rgba(155,89,182,0.25)" stroke="#9b59b6" stroke-width="2.5"/>
+                        <!-- Overlay Normal fit -->
+                        <path d="M 115,389 Q 160,388 210,385 Q 260,375 295,350 Q 320,320 340,275 Q 350,250 356,235 Q 360,225 362,225 Q 364,225 368,235 Q 374,250 384,275 Q 404,320 429,350 Q 464,375 514,385 Q 564,388 609,389" fill="none" stroke="#2c3e50" stroke-width="1.5" stroke-dasharray="6,3"/>
+                        <text x="110" y="395" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">5</text>
+                        <text x="610" y="395" text-anchor="end" font-family="Inter, sans-serif" font-size="9" fill="var(--color-text-secondary, #666)">25</text>
+
+                        <!-- Legend for bottom -->
+                        <line x1="430" y1="247" x2="460" y2="247" stroke="#9b59b6" stroke-width="2.5"/>
+                        <text x="465" y="251" font-family="Inter, sans-serif" font-size="10" fill="var(--color-text-secondary, #666)">Sum of 30 Uniforms</text>
+                        <line x1="430" y1="265" x2="460" y2="265" stroke="#2c3e50" stroke-width="1.5" stroke-dasharray="6,3"/>
+                        <text x="465" y="269" font-family="Inter, sans-serif" font-size="10" fill="var(--color-text-secondary, #666)">$\mathcal{N}(15, 2.5)$ fit</text>
+                    </svg>
+                </div>
+
+                <p>
+                    The progression is striking: $n = 1$ is a flat rectangle (Uniform), $n = 2$ is a triangle,
+                    and by $n = 5$ the shape is nearly indistinguishable from a Gaussian. By $n = 30$,
+                    the match is essentially perfect. This works for <em>any</em> starting distribution
+                    with finite variance.
+                </p>
+
+
+                <!-- Section 4: Proof Sketch -->
+                <h2 id="proof">Proof via Characteristic Functions</h2>
+
+                <p>
+                    The most elegant proof uses <strong>characteristic functions</strong> (the Fourier
+                    transform of a distribution). The key idea: the characteristic function of a sum
+                    of independent variables is the product of their characteristic functions, and
+                    products are easy to analyze via logarithms.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Characteristic Function</div>
+                    <p style="margin-bottom: 0;">
+                        The characteristic function of a random variable $X$ is:
+                        $$\phi_X(t) = \mathbb{E}[e^{itX}] = \int e^{itx} f(x) \, dx$$
+                        This always exists (unlike the MGF) and uniquely determines the distribution.
+                        For the standard Normal: $\phi_Z(t) = e^{-t^2/2}$.
+                    </p>
+                </div>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">CLT Proof Sketch</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Standardize:</strong> Let $Y_i = \frac{X_i - \mu}{\sigma}$ so that $\mathbb{E}[Y_i] = 0$, $\text{Var}(Y_i) = 1$.
+                            Define $Z_n = \frac{1}{\sqrt{n}}\sum_{i=1}^n Y_i = \frac{\bar{X}_n - \mu}{\sigma/\sqrt{n}}$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Characteristic function of $Z_n$:</strong> Since the $Y_i$ are iid:
+                            $$\phi_{Z_n}(t) = \left[\phi_Y\!\left(\frac{t}{\sqrt{n}}\right)\right]^n$$
+                            <p style="margin-bottom: 0;">
+                                This uses two facts: (a) the CF of a sum of independent variables is the product
+                                of their CFs, and (b) scaling $Y$ by $1/\sqrt{n}$ scales the CF argument by $1/\sqrt{n}$.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Taylor expand $\phi_Y$ around 0:</strong> Since $\mathbb{E}[Y] = 0$ and $\mathbb{E}[Y^2] = 1$:
+                            $$\phi_Y(s) = 1 + is \cdot \mathbb{E}[Y] + \frac{(is)^2}{2}\mathbb{E}[Y^2] + o(s^2) = 1 - \frac{s^2}{2} + o(s^2)$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Substitute $s = t/\sqrt{n}$:</strong>
+                            $$\phi_Y\!\left(\frac{t}{\sqrt{n}}\right) = 1 - \frac{t^2}{2n} + o\!\left(\frac{1}{n}\right)$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <strong>Take the $n$-th power:</strong> Using $\lim_{n\to\infty}(1 + a/n)^n = e^a$:
+                            $$\phi_{Z_n}(t) = \left[1 - \frac{t^2}{2n} + o\!\left(\frac{1}{n}\right)\right]^n \xrightarrow{n \to \infty} e^{-t^2/2}$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">6</div>
+                        <div class="math-step-content">
+                            <strong>Recognize the limit:</strong> $e^{-t^2/2}$ is the characteristic function of
+                            $\mathcal{N}(0, 1)$. By <strong>Lévy's continuity theorem</strong>, convergence
+                            of characteristic functions implies convergence in distribution:
+                            $$\boxed{Z_n = \frac{\bar{X}_n - \mu}{\sigma/\sqrt{n}} \xrightarrow{d} \mathcal{N}(0, 1)}$$
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Why Characteristic Functions?</div>
+                    <p style="margin-bottom: 0;">
+                        Moment generating functions (MGFs) don't always exist (e.g., for heavy-tailed distributions).
+                        Characteristic functions <em>always</em> exist because $|e^{itx}| = 1$ for all real $t, x$.
+                        Moreover, Lévy's continuity theorem gives us the convergence in distribution for free.
+                        This is why the CF-based proof is the standard one.
+                    </p>
+                </div>
+
+
+                <!-- Section 5: Berry-Esseen -->
+                <h2 id="berry-esseen">Rate of Convergence: Berry-Esseen</h2>
+
+                <p>
+                    The CLT tells us the convergence happens, but <strong>how fast?</strong> This is
+                    critical for practice: is $n = 30$ enough? $n = 100$? The Berry-Esseen theorem
+                    gives a quantitative bound.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Berry-Esseen Theorem</div>
+                    <p>
+                        If $X_1, \ldots, X_n$ are iid with $\mathbb{E}[X] = 0$, $\mathbb{E}[X^2] = \sigma^2$,
+                        and $\mathbb{E}[|X|^3] = \rho < \infty$, then:
+                    </p>
+                    <div class="math-block" style="margin: 0.5rem 0;">
+                        $$\sup_x \left|F_n(x) - \Phi(x)\right| \leq \frac{C \cdot \rho}{\sigma^3 \sqrt{n}}$$
+                    </div>
+                    <p style="margin-bottom: 0;">
+                        where $F_n$ is the CDF of the standardized sum, $\Phi$ is the standard Normal CDF,
+                        and $C \leq 0.4748$ is a universal constant. The bound is $O(1/\sqrt{n})$.
+                    </p>
+                </div>
+
+                <p>Key implications:</p>
+                <ul>
+                    <li><strong>Heavier tails → slower convergence:</strong> The ratio $\rho / \sigma^3$ measures "how far from Gaussian" the original distribution is. Distributions with large third absolute moments (skewed or heavy-tailed) converge more slowly.</li>
+                    <li><strong>Symmetric distributions converge faster:</strong> Symmetry zeroes out the third moment, effectively improving the rate to $O(1/n)$.</li>
+                    <li><strong>The $\sqrt{n}$ rule of thumb:</strong> For "nice" distributions, $n \geq 30$ gives a good Normal approximation. For skewed distributions (e.g., Exponential), you may need $n \geq 100$.</li>
+                </ul>
+
+
+                <!-- Section 6: Multivariate CLT -->
+                <h2 id="multivariate-clt">The Multivariate CLT</h2>
+
+                <p>
+                    The CLT extends naturally to vector-valued random variables.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Multivariate Central Limit Theorem</div>
+                    <p>
+                        Let $\mathbf{X}_1, \ldots, \mathbf{X}_n$ be iid random vectors in $\mathbb{R}^d$ with
+                        mean $\boldsymbol{\mu}$ and covariance matrix $\boldsymbol{\Sigma}$. Then:
+                    </p>
+                    <div class="math-block" style="margin: 0.5rem 0;">
+                        $$\sqrt{n}\left(\bar{\mathbf{X}}_n - \boldsymbol{\mu}\right) \xrightarrow{d} \mathcal{N}\left(\mathbf{0}, \boldsymbol{\Sigma}\right)$$
+                    </div>
+                    <p style="margin-bottom: 0;">
+                        The proof follows the same CF approach, using the multivariate characteristic
+                        function $\phi(\mathbf{t}) = \mathbb{E}[e^{i\mathbf{t}^T\mathbf{X}}]$ and the
+                        Cramér-Wold device (convergence of all linear combinations implies joint convergence).
+                    </p>
+                </div>
+
+
+                <!-- Section 7: Applications in ML -->
+                <h2 id="applications-ml">Applications in Machine Learning</h2>
+
+                <p>
+                    The CLT is not just a theoretical curiosity — it underpins much of modern ML practice.
+                </p>
+
+                <h3>1. Stochastic Gradient Descent</h3>
+                <p>
+                    SGD estimates the full gradient $\nabla \mathcal{L}$ using a mini-batch average:
+                    $\hat{g} = \frac{1}{B}\sum_{i=1}^B \nabla \ell_i$. By the CLT, this estimate is
+                    approximately Normal: $\hat{g} \sim \mathcal{N}\!\left(\nabla\mathcal{L}, \frac{\Sigma}{B}\right)$.
+                    This justifies why SGD works and why larger batches give more stable gradients
+                    (variance decreases as $1/B$).
+                </p>
+
+                <h3>2. Confidence Intervals and Hypothesis Testing</h3>
+                <p>
+                    The CLT lets us construct confidence intervals for any population mean:
+                    $\bar{X}_n \pm z_{\alpha/2} \cdot \frac{s}{\sqrt{n}}$. This is the basis of
+                    A/B testing, statistical significance testing, and model comparison.
+                </p>
+
+                <h3>3. Why Normal Priors Are Natural</h3>
+                <p>
+                    In Bayesian inference, placing Normal priors on parameters is not arbitrary.
+                    If a parameter is influenced by many small independent factors (which is often
+                    the case for neural network weights initialized randomly), the CLT tells us
+                    its prior distribution should be approximately Normal.
+                </p>
+
+                <h3>4. Batch Normalization</h3>
+                <p>
+                    BatchNorm computes the mean and variance of activations across a mini-batch.
+                    The CLT ensures these batch statistics are approximately Normally distributed
+                    around the true population statistics, which is why BatchNorm works well even
+                    with moderate batch sizes.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">When the CLT Fails</div>
+                    <p style="margin-bottom: 0;">
+                        The CLT requires finite variance. This fails for:
+                        <br>- <strong>Cauchy distribution:</strong> $E[X^2] = \infty$. The average of $n$ Cauchy variables has the same distribution as a single Cauchy — no convergence.
+                        <br>- <strong>Pareto with $\alpha \leq 2$:</strong> Infinite variance. The appropriate limit theorem is the <strong>Generalized CLT</strong>, where sums converge to stable distributions (not Gaussian).
+                        <br>- <strong>Dependent data:</strong> For time series or spatial data, we need specialized versions (e.g., CLT for mixing processes, martingale CLT).
+                    </p>
+                </div>
+
+            </article>
+
+
+            <!-- Code Tab -->
+            <article class="article-content" id="code">
+
+                <h2>Central Limit Theorem in Python</h2>
+                <p>Simulations and visualizations demonstrating the CLT in action.</p>
+
+                <h3>CLT Demonstration for Different Source Distributions</h3>
+
+                <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+
+def demonstrate_clt(dist_name, sampler, true_mean, true_var,
+                    sample_sizes=[1, 2, 5, 10, 30, 100],
+                    n_simulations=10000):
+    """
+    Demonstrate the CLT by plotting the distribution of sample means
+    for increasing sample sizes.
+    """
+    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    axes = axes.flatten()
+
+    for idx, n in enumerate(sample_sizes):
+        # Draw n_simulations samples of size n, compute means
+        samples = sampler(size=(n_simulations, n))
+        means = samples.mean(axis=1)
+
+        # Standardize
+        std_means = (means - true_mean) / (np.sqrt(true_var / n))
+
+        ax = axes[idx]
+        ax.hist(std_means, bins=50, density=True, alpha=0.7,
+                color='#3498db', edgecolor='white', linewidth=0.5)
+
+        # Overlay standard Normal
+        x = np.linspace(-4, 4, 200)
+        ax.plot(x, stats.norm.pdf(x), 'r-', linewidth=2,
+                label='N(0,1)')
+
+        ax.set_title(f'n = {n}', fontsize=13, fontweight='bold')
+        ax.set_xlim(-4, 4)
+        ax.legend(fontsize=9)
+
+    plt.suptitle(f'CLT: Sample means from {dist_name}',
+                 fontsize=15, fontweight='bold')
+    plt.tight_layout()
+    plt.show()
+
+
+# 1. Uniform[0, 1]: mean=0.5, var=1/12
+demonstrate_clt('Uniform[0,1]',
+                lambda size: np.random.uniform(0, 1, size),
+                true_mean=0.5, true_var=1/12)
+
+# 2. Exponential(1): mean=1, var=1 (very skewed!)
+demonstrate_clt('Exponential(1)',
+                lambda size: np.random.exponential(1, size),
+                true_mean=1.0, true_var=1.0)
+
+# 3. Bernoulli(0.3): mean=0.3, var=0.21 (discrete!)
+demonstrate_clt('Bernoulli(0.3)',
+                lambda size: np.random.binomial(1, 0.3, size),
+                true_mean=0.3, true_var=0.21)</code></pre>
+
+                <h3>Berry-Esseen Bound Visualization</h3>
+
+                <pre><code class="language-python">def berry_esseen_demo():
+    """
+    Compare the actual CDF of standardized sample means
+    to the Normal CDF, and overlay the Berry-Esseen bound.
+    """
+    np.random.seed(42)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    # Exponential(1): rho = E[|X-1|^3] = 2 + e^(-1) ≈ 2.37, sigma=1
+    sample_sizes = [5, 30, 200]
+    n_sim = 50000
+
+    for idx, n in enumerate(sample_sizes):
+        samples = np.random.exponential(1.0, (n_sim, n))
+        means = samples.mean(axis=1)
+        standardized = (means - 1.0) / (1.0 / np.sqrt(n))
+
+        # Empirical CDF
+        x_sorted = np.sort(standardized)
+        ecdf = np.arange(1, n_sim + 1) / n_sim
+
+        # Normal CDF
+        x_range = np.linspace(-4, 4, 500)
+        normal_cdf = stats.norm.cdf(x_range)
+
+        ax = axes[idx]
+        ax.plot(x_sorted, ecdf, color='#3498db', linewidth=1.5,
+                label='Empirical CDF')
+        ax.plot(x_range, normal_cdf, 'r--', linewidth=1.5,
+                label='Normal CDF')
+
+        # Berry-Esseen bound
+        rho = 2.0  # approximate E[|X-1|^3] for Exp(1)
+        C = 0.4748
+        bound = C * rho / np.sqrt(n)
+        ax.fill_between(x_range, normal_cdf - bound, normal_cdf + bound,
+                        alpha=0.15, color='red', label=f'B-E bound: {bound:.3f}')
+
+        ax.set_title(f'n = {n}', fontsize=13, fontweight='bold')
+        ax.set_xlim(-4, 4)
+        ax.legend(fontsize=8)
+
+    plt.suptitle('Berry-Esseen: Exponential(1) sample means',
+                 fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.show()
+
+berry_esseen_demo()</code></pre>
+
+                <h3>CLT Failure: The Cauchy Distribution</h3>
+
+                <pre><code class="language-python">def cauchy_no_clt():
+    """
+    Show that the CLT does NOT hold for the Cauchy distribution
+    (infinite variance). The average of n Cauchy variables
+    is still Cauchy — no convergence to Normal.
+    """
+    np.random.seed(42)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+    for idx, n in enumerate([1, 10, 1000]):
+        samples = np.random.standard_cauchy((50000, n))
+        means = samples.mean(axis=1)
+
+        # Clip for visualization (Cauchy has extreme outliers)
+        means_clipped = means[(means > -10) & (means < 10)]
+
+        ax = axes[idx]
+        ax.hist(means_clipped, bins=100, density=True, alpha=0.7,
+                color='#e74c3c', edgecolor='white', linewidth=0.5)
+
+        # Overlay Cauchy PDF (which should match)
+        x = np.linspace(-10, 10, 500)
+        ax.plot(x, stats.cauchy.pdf(x), 'k-', linewidth=2,
+                label='Cauchy PDF')
+        ax.plot(x, stats.norm.pdf(x), 'b--', linewidth=1.5,
+                label='Normal PDF')
+
+        ax.set_title(f'n = {n}', fontsize=13, fontweight='bold')
+        ax.set_xlim(-10, 10)
+        ax.legend(fontsize=8)
+
+    plt.suptitle('CLT FAILS for Cauchy: Average stays Cauchy',
+                 fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.show()
+
+cauchy_no_clt()</code></pre>
+
+                <h3>SGD Gradient Distribution</h3>
+
+                <pre><code class="language-python">def sgd_clt_demo():
+    """
+    Demonstrate that mini-batch gradient estimates are
+    approximately Normal by the CLT.
+    """
+    np.random.seed(42)
+
+    # Simulate: true gradient = 2.5, individual gradients are Gamma-distributed
+    # (skewed, definitely not Normal)
+    true_grad = 2.5
+    shape_param = 2.5  # Gamma shape (mean = shape/rate)
+
+    n_sim = 20000
+    batch_sizes = [1, 4, 16, 64, 256]
+
+    fig, axes = plt.subplots(1, len(batch_sizes), figsize=(18, 3.5))
+
+    for idx, B in enumerate(batch_sizes):
+        # Individual per-sample gradients: Gamma(shape, rate) with mean=true_grad
+        rate = shape_param / true_grad
+        individual_grads = np.random.gamma(shape_param, 1/rate, (n_sim, B))
+        batch_means = individual_grads.mean(axis=1)
+
+        ax = axes[idx]
+        ax.hist(batch_means, bins=50, density=True, alpha=0.7,
+                color='#2ecc71', edgecolor='white')
+
+        # CLT approximation
+        pop_var = shape_param / (rate ** 2)
+        x = np.linspace(batch_means.min(), batch_means.max(), 200)
+        ax.plot(x, stats.norm.pdf(x, true_grad, np.sqrt(pop_var / B)),
+                'r-', linewidth=2)
+
+        ax.set_title(f'Batch size = {B}', fontsize=11, fontweight='bold')
+        ax.axvline(true_grad, color='k', linestyle=':', alpha=0.5)
+
+    plt.suptitle('Mini-batch gradients approach Normal (CLT)',
+                 fontsize=13, fontweight='bold')
+    plt.tight_layout()
+    plt.show()
+
+sgd_clt_demo()</code></pre>
+
+            </article>
+
+
+            <!-- Exercises Tab -->
+            <article class="article-content" id="exercises">
+                <div class="exercises-header">
+                    <h2>Exercises & Progress</h2>
+                    <p>Test your understanding of the Central Limit Theorem and its applications.</p>
+                </div>
+                <div class="exercises-container">
+
+                    <div class="exercise-item easy" data-exercise="1">
+                        <div class="exercise-header">
+                            <span class="exercise-badge easy">Easy</span>
+                            <span class="exercise-title">1. CLT for Dice</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>You roll a fair six-sided die $n = 36$ times and compute the average.</p>
+                            <ol>
+                                <li>What is the mean and variance of a single die roll?</li>
+                                <li>Using the CLT, approximate the probability that the average exceeds 4.0.</li>
+                                <li>How large must $n$ be for the probability $P(\bar{X}_n > 4) < 0.01$?</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item easy" data-exercise="2">
+                        <div class="exercise-header">
+                            <span class="exercise-badge easy">Easy</span>
+                            <span class="exercise-title">2. Normal Approximation to Binomial</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>A coin with $p = 0.4$ is flipped $n = 100$ times. Let $S = \sum X_i$ be the total heads.</p>
+                            <ol>
+                                <li>What is $E[S]$ and $\text{Var}(S)$?</li>
+                                <li>Using the CLT, approximate $P(35 \leq S \leq 45)$.</li>
+                                <li>Compare your answer to the exact Binomial probability (use Python if needed).</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item medium" data-exercise="3">
+                        <div class="exercise-header">
+                            <span class="exercise-badge medium">Medium</span>
+                            <span class="exercise-title">3. SGD Variance and Batch Size</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>In SGD, the mini-batch gradient estimate is $\hat{g}_B = \frac{1}{B}\sum_{i=1}^B \nabla\ell_i$.</p>
+                            <ol>
+                                <li>Show that $\text{Var}(\hat{g}_B) = \frac{\sigma^2_g}{B}$ where $\sigma^2_g$ is the per-sample gradient variance.</li>
+                                <li>By the CLT, $\hat{g}_B$ is approximately Normal. What is its distribution?</li>
+                                <li>If you want to halve the standard deviation of the gradient estimate, by what factor must you increase the batch size? Comment on the efficiency implications.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item medium" data-exercise="4">
+                        <div class="exercise-header">
+                            <span class="exercise-badge medium">Medium</span>
+                            <span class="exercise-title">4. Berry-Esseen for Bernoulli</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>For $X_i \sim \text{Bernoulli}(p)$:</p>
+                            <ol>
+                                <li>Compute $\sigma^2 = p(1-p)$ and $\rho = \mathbb{E}[|X - p|^3]$.</li>
+                                <li>Show that the Berry-Esseen bound is tightest (worst) when $p = 0.5$ and loosest when $p$ is near 0 or 1.</li>
+                                <li>For $p = 0.5$ and $p = 0.01$, how large must $n$ be for the Berry-Esseen bound to guarantee the CDF error is below 0.01?</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item hard" data-exercise="5">
+                        <div class="exercise-header">
+                            <span class="exercise-badge hard">Hard</span>
+                            <span class="exercise-title">5. CLT Proof: Complete the Details</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>Fill in the gaps of the CLT proof from the Theory tab:</p>
+                            <ol>
+                                <li>Prove that $\phi_Y(s) = 1 - \frac{s^2}{2} + o(s^2)$ by expanding $e^{isY}$ in Taylor series and taking expectations term by term. State the conditions under which this term-by-term approach is valid.</li>
+                                <li>Rigorously justify the step $\left(1 - \frac{t^2}{2n} + o(1/n)\right)^n \to e^{-t^2/2}$ using the fact that $\log(1+x) = x + o(x)$ for small $x$.</li>
+                                <li>State Lévy's continuity theorem precisely and explain why pointwise convergence of $\phi_{Z_n}(t) \to e^{-t^2/2}$ is sufficient for convergence in distribution.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#why-normal" class="toc-link">Why Normal Is Everywhere</a>
+                <a href="#formal-statement" class="toc-link">Formal Statement</a>
+                <a href="#visual-demonstration" class="toc-link">Visual Demonstration</a>
+                <a href="#proof" class="toc-link">Proof via Char. Functions</a>
+                <a href="#berry-esseen" class="toc-link">Berry-Esseen Bounds</a>
+                <a href="#multivariate-clt" class="toc-link">Multivariate CLT</a>
+                <a href="#applications-ml" class="toc-link">Applications in ML</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>
