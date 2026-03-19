@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Algebra of Metabolism | ML Fundamentals</title>
+    <meta name="description" content="Stoichiometric matrices as linear maps, the four fundamental subspaces of metabolism, null space analysis, conservation relations, LP duality, shadow prices, reduced costs, and SVD of metabolic networks.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#8734;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link active">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Computational Biology</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Linear Algebra of Metabolism</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Computational Biology</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-fba/index.html" class="sidebar-link">01. Flux Balance Analysis</a>
+                    <a href="../02-fva/index.html" class="sidebar-link">02. Flux Variability Analysis</a>
+                    <a href="../03-linear-algebra-metabolism/index.html" class="sidebar-link active">03. Linear Algebra of Metabolism</a>
+                    <a href="../04-tuberculosis/index.html" class="sidebar-link">04. Tuberculosis Metabolic Modeling</a>
+                    <a href="../05-gnn-lp/index.html" class="sidebar-link">05. GNN for Linear Programming</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../distributions/index.html" class="sidebar-link">Distributions</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: The Stoichiometric Matrix as a Linear Map -->
+                <h2 id="stoichiometric-linear-map">The Stoichiometric Matrix as a Linear Map</h2>
+
+                <p>
+                    A metabolic network with $m$ metabolites and $n$ reactions is fully encoded by its
+                    <strong>stoichiometric matrix</strong> $S \in \mathbb{R}^{m \times n}$. Each column $S_{\cdot j}$
+                    represents reaction $j$: negative entries for consumed metabolites, positive entries for produced
+                    metabolites. Each row $S_{i \cdot}$ encodes all the reactions that affect metabolite $i$.
+                </p>
+
+                <p>
+                    The matrix $S$ defines a <strong>linear transformation</strong> from <em>flux space</em>
+                    $\mathbb{R}^n$ to <em>metabolite production-rate space</em> $\mathbb{R}^m$:
+                </p>
+
+                <div class="math-block">
+                    $$S : \mathbb{R}^n \to \mathbb{R}^m, \qquad \mathbf{v} \mapsto S\mathbf{v}$$
+                </div>
+
+                <p>
+                    Given a flux vector $\mathbf{v} = (v_1, v_2, \ldots, v_n)^T$, where $v_j$ is the rate of reaction $j$,
+                    the product $S\mathbf{v}$ gives the <strong>net production rate</strong> of every metabolite. The $i$-th
+                    component is:
+                </p>
+
+                <div class="math-block">
+                    $$(S\mathbf{v})_i = \sum_{j=1}^{n} S_{ij} v_j = \frac{d[\text{metabolite } i]}{dt}$$
+                </div>
+
+                <p>
+                    This is nothing other than a linear combination of the columns of $S$, weighted by the fluxes &mdash;
+                    a fact that connects metabolic modeling directly to the core machinery of linear algebra.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Stoichiometric Matrix as a Linear Map</div>
+                    <p>
+                        The stoichiometric matrix $S \in \mathbb{R}^{m \times n}$ defines a linear map
+                        $S : \mathbb{R}^n \to \mathbb{R}^m$ that sends a flux vector $\mathbf{v}$ to the vector of
+                        net metabolite production rates $S\mathbf{v}$. The <strong>steady-state assumption</strong>
+                        of constraint-based modeling requires:
+                    </p>
+                    <div class="math-block">
+                        $$S\mathbf{v} = \mathbf{0}$$
+                    </div>
+                    <p style="margin-bottom: 0;">
+                        This states that every internal metabolite is produced and consumed at equal rates &mdash;
+                        the cell is in <strong>metabolic homeostasis</strong>. The set of all flux vectors satisfying
+                        this constraint is precisely the <strong>null space</strong> of $S$.
+                    </p>
+                </div>
+
+                <p>
+                    From the perspective of linear algebra, $S$ is just an $m \times n$ matrix, and everything we know
+                    about the structure of linear maps applies directly. The rank of $S$ tells us the dimension of the
+                    image (achievable production rates), and the dimension of the null space tells us the degrees of
+                    freedom remaining after imposing the steady-state constraint. The next section makes this connection
+                    precise by examining all four fundamental subspaces of $S$.
+                </p>
+
+
+                <!-- Section 2: The Four Fundamental Subspaces -->
+                <h2 id="four-subspaces">The Four Fundamental Subspaces</h2>
+
+                <p>
+                    Gilbert Strang's <em>four fundamental subspaces</em> of a matrix provide the complete geometric
+                    picture of any linear map. Applied to the stoichiometric matrix $S \in \mathbb{R}^{m \times n}$
+                    of rank $r$, each subspace has a direct biological meaning.
+                </p>
+
+                <h3>Column Space of $S$: Achievable Production Rates</h3>
+
+                <p>
+                    The <strong>column space</strong> $\text{Col}(S) \subseteq \mathbb{R}^m$ is the set of all vectors
+                    that can be expressed as $S\mathbf{v}$ for some flux vector $\mathbf{v}$:
+                </p>
+
+                <div class="math-block">
+                    $$\text{Col}(S) = \{S\mathbf{v} : \mathbf{v} \in \mathbb{R}^n\} \subseteq \mathbb{R}^m, \qquad \dim = r$$
+                </div>
+
+                <p>
+                    <strong>Biological meaning:</strong> This is the set of all <em>achievable metabolite production-rate
+                    vectors</em>. If a particular production pattern $\mathbf{b}$ lies outside $\text{Col}(S)$, there
+                    exists no flux distribution that can produce it &mdash; the network simply cannot achieve that
+                    metabolic state. The dimension $r$ tells us how many <em>independent</em> production modes the
+                    network supports.
+                </p>
+
+                <h3>Null Space of $S$: Steady-State Flux Distributions</h3>
+
+                <p>
+                    The <strong>null space</strong> $\text{Null}(S) \subseteq \mathbb{R}^n$ is the kernel of the
+                    linear map:
+                </p>
+
+                <div class="math-block">
+                    $$\text{Null}(S) = \{\mathbf{v} \in \mathbb{R}^n : S\mathbf{v} = \mathbf{0}\} \subseteq \mathbb{R}^n, \qquad \dim = n - r$$
+                </div>
+
+                <p>
+                    <strong>Biological meaning:</strong> This is the <strong>feasible space for Flux Balance Analysis</strong>.
+                    Every vector in $\text{Null}(S)$ is a flux distribution that maintains steady state &mdash; no metabolite
+                    accumulates or depletes. The dimension $n - r$ counts the <strong>degrees of freedom</strong> in the
+                    network: the number of independent flux values that can be freely chosen. In genome-scale metabolic
+                    models, $n \gg r$ typically, so the null space is high-dimensional and FBA uses an objective function
+                    to select a single optimal point within it.
+                </p>
+
+                <h3>Row Space of $S$: Thermodynamic Driving Forces</h3>
+
+                <p>
+                    The <strong>row space</strong> $\text{Row}(S) = \text{Col}(S^T) \subseteq \mathbb{R}^n$ consists
+                    of all linear combinations of the rows of $S$:
+                </p>
+
+                <div class="math-block">
+                    $$\text{Row}(S) = \{S^T\mathbf{y} : \mathbf{y} \in \mathbb{R}^m\} \subseteq \mathbb{R}^n, \qquad \dim = r$$
+                </div>
+
+                <p>
+                    <strong>Biological meaning:</strong> The row space encodes <strong>thermodynamic driving forces</strong>.
+                    A vector of chemical potentials $\boldsymbol{\mu} \in \mathbb{R}^m$ (one per metabolite) induces a
+                    vector of reaction Gibbs free energies via $\Delta \mathbf{G} = S^T \boldsymbol{\mu}$. The row space
+                    is exactly the set of reaction-energy vectors that arise from some assignment of chemical potentials.
+                    The fact that $\text{Row}(S) \perp \text{Null}(S)$ means: at steady state, the net thermodynamic
+                    work done by the system through internal cycles is zero &mdash; internal loops cannot extract free
+                    energy.
+                </p>
+
+                <h3>Left Null Space of $S$: Conservation Relations</h3>
+
+                <p>
+                    The <strong>left null space</strong> $\text{Null}(S^T) \subseteq \mathbb{R}^m$ is the null space
+                    of $S^T$:
+                </p>
+
+                <div class="math-block">
+                    $$\text{Null}(S^T) = \{\mathbf{l} \in \mathbb{R}^m : S^T\mathbf{l} = \mathbf{0}\} = \{\mathbf{l} \in \mathbb{R}^m : \mathbf{l}^T S = \mathbf{0}^T\} \subseteq \mathbb{R}^m, \qquad \dim = m - r$$
+                </div>
+
+                <p>
+                    <strong>Biological meaning:</strong> Each vector $\mathbf{l}$ in the left null space defines a
+                    <strong>conserved moiety</strong> &mdash; a linear combination of metabolite concentrations that
+                    remains constant over time regardless of the fluxes. For example, if $\mathbf{l}$ has nonzero
+                    entries only for ATP, ADP, and AMP, then $\mathbf{l}^T \mathbf{x}(t) = \text{const}$ means the
+                    total adenine nucleotide pool is conserved. We derive this formally in Section 4.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Orthogonal Complement Structure</div>
+                    <p style="margin-bottom: 0;">
+                        The four subspaces come in two orthogonal pairs, and their dimensions satisfy the
+                        <strong>rank-nullity theorem</strong> in both directions:
+                    </p>
+                    <ul style="margin-top: 0.5rem; margin-bottom: 0;">
+                        <li>$\text{Null}(S) \oplus \text{Row}(S) = \mathbb{R}^n$, with $\dim\text{Null}(S) + \dim\text{Row}(S) = (n - r) + r = n$</li>
+                        <li>$\text{Null}(S^T) \oplus \text{Col}(S) = \mathbb{R}^m$, with $\dim\text{Null}(S^T) + \dim\text{Col}(S) = (m - r) + r = m$</li>
+                    </ul>
+                </div>
+
+                <!-- SVG: Four Fundamental Subspaces Diagram -->
+                <div style="margin: 2rem 0;">
+                    <svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 760px; display: block; margin: 0 auto;">
+                        <defs>
+                            <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="var(--color-text-secondary, #666)"/>
+                            </marker>
+                        </defs>
+
+                        <text x="380" y="22" text-anchor="middle" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="var(--color-text-primary, #1a1a2e)">The Four Fundamental Subspaces of $S \in \mathbb{R}^{m \times n}$</text>
+
+                        <!-- Left: R^n (flux space) -->
+                        <rect x="30" y="50" width="320" height="340" rx="12" fill="none" stroke="var(--color-border, #ccc)" stroke-width="1.5" stroke-dasharray="6,3"/>
+                        <text x="190" y="74" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="var(--color-text-primary, #1a1a2e)">Flux Space $\mathbb{R}^n$</text>
+
+                        <!-- Row space (top-left) -->
+                        <rect x="55" y="90" width="270" height="120" rx="8" fill="#3498db" fill-opacity="0.12" stroke="#3498db" stroke-width="1.5"/>
+                        <text x="190" y="118" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#2980b9">Row Space of $S$</text>
+                        <text x="190" y="138" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">$\text{Row}(S) = \text{Col}(S^T)$</text>
+                        <text x="190" y="158" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">dim = $r$</text>
+                        <text x="190" y="180" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#2980b9">Thermodynamic driving forces</text>
+                        <text x="190" y="196" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#2980b9">$\Delta G = S^T \mu$</text>
+
+                        <!-- Null space (bottom-left) -->
+                        <rect x="55" y="225" width="270" height="140" rx="8" fill="#e74c3c" fill-opacity="0.12" stroke="#e74c3c" stroke-width="1.5"/>
+                        <text x="190" y="253" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#c0392b">Null Space of $S$</text>
+                        <text x="190" y="273" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">$\text{Null}(S) = \{v : Sv = 0\}$</text>
+                        <text x="190" y="293" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">dim = $n - r$</text>
+                        <text x="190" y="318" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#c0392b">Steady-state flux distributions</text>
+                        <text x="190" y="334" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#c0392b">Feasible space for FBA</text>
+                        <text x="190" y="354" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="500" fill="#c0392b">$\perp$ Row Space</text>
+
+                        <!-- Right: R^m (metabolite space) -->
+                        <rect x="410" y="50" width="320" height="340" rx="12" fill="none" stroke="var(--color-border, #ccc)" stroke-width="1.5" stroke-dasharray="6,3"/>
+                        <text x="570" y="74" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="var(--color-text-primary, #1a1a2e)">Metabolite Space $\mathbb{R}^m$</text>
+
+                        <!-- Column space (top-right) -->
+                        <rect x="435" y="90" width="270" height="120" rx="8" fill="#27ae60" fill-opacity="0.12" stroke="#27ae60" stroke-width="1.5"/>
+                        <text x="570" y="118" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#229954">Column Space of $S$</text>
+                        <text x="570" y="138" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">$\text{Col}(S) = \{Sv : v \in \mathbb{R}^n\}$</text>
+                        <text x="570" y="158" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">dim = $r$</text>
+                        <text x="570" y="180" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#229954">Achievable metabolite</text>
+                        <text x="570" y="196" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#229954">production rates</text>
+
+                        <!-- Left null space (bottom-right) -->
+                        <rect x="435" y="225" width="270" height="140" rx="8" fill="#f39c12" fill-opacity="0.12" stroke="#f39c12" stroke-width="1.5"/>
+                        <text x="570" y="253" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#d68910">Left Null Space of $S$</text>
+                        <text x="570" y="273" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">$\text{Null}(S^T) = \{l : l^T S = 0\}$</text>
+                        <text x="570" y="293" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">dim = $m - r$</text>
+                        <text x="570" y="318" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#d68910">Conservation relations</text>
+                        <text x="570" y="334" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-style="italic" fill="#d68910">Conserved moieties (ATP+ADP+AMP)</text>
+                        <text x="570" y="354" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="500" fill="#d68910">$\perp$ Column Space</text>
+
+                        <!-- Arrow: S maps R^n to R^m -->
+                        <line x1="350" y1="145" x2="430" y2="145" stroke="var(--color-text-secondary, #666)" stroke-width="2" marker-end="url(#arrow)"/>
+                        <text x="390" y="137" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary, #1a1a2e)">$S$</text>
+
+                        <!-- Dimensions summary -->
+                        <text x="380" y="408" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="var(--color-text-secondary, #666)">$r + (n-r) = n$ &nbsp;&nbsp;&nbsp;&nbsp; $r + (m-r) = m$ &nbsp;&nbsp;&nbsp;&nbsp; Rank&ndash;Nullity Theorem</text>
+                    </svg>
+                </div>
+
+
+                <!-- Section 3: Null Space Analysis -->
+                <h2 id="null-space-analysis">Null Space Analysis</h2>
+
+                <p>
+                    The null space of $S$ is the central object in constraint-based metabolic modeling. Its dimension
+                    controls the degrees of freedom in the network, and its basis vectors represent independent
+                    steady-state flux modes. We now develop the theory for computing and interpreting $\text{Null}(S)$.
+                </p>
+
+                <h3>Dimension and Degrees of Freedom</h3>
+
+                <p>
+                    By the <strong>rank-nullity theorem</strong>, the dimension of the null space is:
+                </p>
+
+                <div class="math-block">
+                    $$\dim\text{Null}(S) = n - \text{rank}(S) = n - r$$
+                </div>
+
+                <p>
+                    For a typical genome-scale model like <em>E. coli</em> iJO1366, we have $m = 1805$ metabolites
+                    and $n = 2583$ reactions, with $\text{rank}(S) \approx 1780$. This gives a null space of dimension
+                    $\approx 803$ &mdash; meaning there are roughly 800 independent degrees of freedom in the flux
+                    distribution. This is why FBA needs an objective function: without it, the steady-state constraint
+                    alone admits an enormous family of solutions.
+                </p>
+
+                <h3>Computing the Null Space via SVD</h3>
+
+                <p>
+                    The most numerically stable method for computing the null space uses the <strong>Singular Value
+                    Decomposition</strong>. Factor $S$ as:
+                </p>
+
+                <div class="math-block">
+                    $$S = U \Sigma V^T$$
+                </div>
+
+                <p>
+                    where $U \in \mathbb{R}^{m \times m}$ and $V \in \mathbb{R}^{n \times n}$ are orthogonal matrices,
+                    and $\Sigma \in \mathbb{R}^{m \times n}$ is diagonal with singular values
+                    $\sigma_1 \geq \sigma_2 \geq \cdots \geq \sigma_r > \sigma_{r+1} = \cdots = \sigma_{\min(m,n)} = 0$.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Derivation: Null Space from SVD</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Start with $S\mathbf{v} = \mathbf{0}$ and substitute the SVD:</strong>
+                            $$U \Sigma V^T \mathbf{v} = \mathbf{0}$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Left-multiply by $U^T$ (orthogonal, so $U^T U = I$):</strong>
+                            $$\Sigma V^T \mathbf{v} = \mathbf{0}$$
+                            <p>Let $\mathbf{w} = V^T \mathbf{v}$, so we need $\Sigma \mathbf{w} = \mathbf{0}$.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Since $\Sigma$ is diagonal, $\Sigma \mathbf{w} = \mathbf{0}$ requires $\sigma_i w_i = 0$ for each $i$:</strong>
+                            <p>For $i \leq r$: $\sigma_i > 0$, so $w_i = 0$.</p>
+                            <p>For $i > r$: $\sigma_i = 0$, so $w_i$ can be anything.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Transform back: $\mathbf{v} = V\mathbf{w}$.</strong>
+                            <p>Since only $w_{r+1}, \ldots, w_n$ are free, $\mathbf{v}$ is a linear combination of
+                            columns $r+1, \ldots, n$ of $V$:</p>
+                            $$\boxed{\text{Null}(S) = \text{span}\{\mathbf{v}_{r+1}, \mathbf{v}_{r+2}, \ldots, \mathbf{v}_n\}}$$
+                            <p style="margin-bottom: 0;">
+                                where $\mathbf{v}_j$ denotes the $j$-th column of $V$. These are the right singular
+                                vectors corresponding to the zero singular values.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Example: A Small Metabolic Network</h3>
+
+                <p>
+                    Consider a toy network with 3 metabolites ($A$, $B$, $C$) and 4 reactions:
+                </p>
+
+                <ul>
+                    <li>$v_1$: $\to A$ &nbsp;(uptake of A)</li>
+                    <li>$v_2$: $A \to B$ &nbsp;(conversion)</li>
+                    <li>$v_3$: $A \to C$ &nbsp;(branching)</li>
+                    <li>$v_4$: $B + C \to$ &nbsp;(export)</li>
+                </ul>
+
+                <p>The stoichiometric matrix is:</p>
+
+                <div class="math-block">
+                    $$S = \begin{pmatrix} 1 & -1 & -1 & 0 \\ 0 & 1 & 0 & -1 \\ 0 & 0 & 1 & -1 \end{pmatrix}$$
+                </div>
+
+                <p>
+                    Row reduction reveals $\text{rank}(S) = 3$, so $\dim\text{Null}(S) = 4 - 3 = 1$. There is
+                    exactly <strong>one degree of freedom</strong>: once you fix the uptake flux $v_1$, the remaining
+                    fluxes are determined. Solving $S\mathbf{v} = \mathbf{0}$: from row 3, $v_3 = v_4$; from row 2,
+                    $v_2 = v_4$; from row 1, $v_1 = v_2 + v_3 = 2v_4$. Setting $v_4 = t$:
+                </p>
+
+                <div class="math-block">
+                    $$\text{Null}(S) = \text{span}\left\{\begin{pmatrix} 2 \\ 1 \\ 1 \\ 1 \end{pmatrix}\right\}$$
+                </div>
+
+                <p>
+                    The single null space basis vector tells us: at steady state, the uptake flux is twice the
+                    export flux, and the branching pathway splits equally. Every feasible flux distribution is
+                    a scalar multiple of this vector (subject to non-negativity constraints in the full FBA problem).
+                </p>
+
+
+                <!-- Section 4: Conservation Relations -->
+                <h2 id="conservation-relations">Conservation Relations</h2>
+
+                <p>
+                    The <strong>left null space</strong> of $S$ reveals <strong>conservation laws</strong> &mdash;
+                    quantities that remain invariant over time regardless of the flux distribution. These are among
+                    the most powerful structural insights that linear algebra provides about a metabolic network.
+                </p>
+
+                <h3>Mathematical Derivation</h3>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Derivation: Conservation Relations from the Left Null Space</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>The metabolite dynamics are governed by:</strong>
+                            $$\frac{d\mathbf{x}}{dt} = S\mathbf{v}(t)$$
+                            <p>where $\mathbf{x}(t) \in \mathbb{R}^m$ is the vector of metabolite concentrations and $\mathbf{v}(t)$ is the flux vector (which may change over time).</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Let $\mathbf{l} \in \text{Null}(S^T)$, meaning $\mathbf{l}^T S = \mathbf{0}^T$.</strong>
+                            <p>Consider the quantity $\mathbf{l}^T \mathbf{x}(t)$ &mdash; a weighted sum of metabolite concentrations.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Differentiate with respect to time:</strong>
+                            $$\frac{d}{dt}\left(\mathbf{l}^T \mathbf{x}(t)\right) = \mathbf{l}^T \frac{d\mathbf{x}}{dt} = \mathbf{l}^T S \mathbf{v}(t) = \mathbf{0}^T \mathbf{v}(t) = 0$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Therefore $\mathbf{l}^T \mathbf{x}(t) = \text{constant}$ for all time:</strong>
+                            $$\boxed{\mathbf{l}^T \mathbf{x}(t) = \mathbf{l}^T \mathbf{x}(0) \quad \forall\, t \geq 0, \quad \forall\, \mathbf{v}(t)}$$
+                            <p style="margin-bottom: 0;">
+                                This holds for <em>any</em> flux distribution &mdash; not just steady-state fluxes.
+                                The conservation is a structural property of the network topology, independent of kinetics or regulation.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Biological Significance: Conserved Moieties</h3>
+
+                <p>
+                    Each linearly independent vector in $\text{Null}(S^T)$ identifies a <strong>conserved moiety</strong>
+                    (also called a conserved pool). Classic biological examples include:
+                </p>
+
+                <ul>
+                    <li><strong>Adenine nucleotide pool:</strong> $[\text{ATP}] + [\text{ADP}] + [\text{AMP}] = \text{const}$.
+                        The corresponding left null space vector $\mathbf{l}$ has entry 1 for ATP, ADP, and AMP, and 0 elsewhere.</li>
+                    <li><strong>NAD/NADH pool:</strong> $[\text{NAD}^+] + [\text{NADH}] = \text{const}$. The cell interconverts these
+                        cofactors but cannot create or destroy the total pool through internal reactions.</li>
+                    <li><strong>CoA pool:</strong> $[\text{CoA}] + [\text{Acetyl\text{-}CoA}] + [\text{Succinyl\text{-}CoA}] + \cdots = \text{const}$.</li>
+                </ul>
+
+                <h3>Computing Conservation Relations via SVD</h3>
+
+                <p>
+                    From the SVD $S = U\Sigma V^T$, the left null space is spanned by the columns of $U$ corresponding
+                    to zero singular values:
+                </p>
+
+                <div class="math-block">
+                    $$\text{Null}(S^T) = \text{span}\{\mathbf{u}_{r+1}, \mathbf{u}_{r+2}, \ldots, \mathbf{u}_m\}$$
+                </div>
+
+                <p>
+                    The dimension $m - r$ tells us the number of independent conservation relations. In our toy
+                    example above, $m = 3$ and $r = 3$, so $m - r = 0$ &mdash; there are no conservation relations,
+                    which makes sense because none of the metabolites share a conserved moiety.
+                </p>
+
+
+                <!-- Section 5: LP Duality and Shadow Prices -->
+                <h2 id="lp-duality">LP Duality and Shadow Prices</h2>
+
+                <p>
+                    Flux Balance Analysis solves a linear program (LP). Every LP has a <strong>dual</strong>, and
+                    the dual variables have profound biological meaning: they are the <strong>shadow prices</strong>
+                    of metabolites, measuring each metabolite's marginal contribution to the cellular objective.
+                </p>
+
+                <h3>The Primal FBA Problem</h3>
+
+                <p>
+                    The standard FBA formulation is:
+                </p>
+
+                <div class="math-block">
+                    $$\max_{\mathbf{v}} \quad \mathbf{c}^T \mathbf{v}$$
+                    $$\text{s.t.} \quad S\mathbf{v} = \mathbf{0}$$
+                    $$\mathbf{v}_{lb} \leq \mathbf{v} \leq \mathbf{v}_{ub}$$
+                </div>
+
+                <p>
+                    where $\mathbf{c}$ is the objective vector (typically the biomass reaction), and
+                    $\mathbf{v}_{lb}, \mathbf{v}_{ub}$ are lower and upper bounds on each flux.
+                </p>
+
+                <h3>Deriving the Dual LP</h3>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Derivation: Dual of the FBA Linear Program</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Rewrite the bound constraints as standard form.</strong>
+                            <p>Introduce slack: $\mathbf{v} - \mathbf{v}_{lb} \geq \mathbf{0}$ and $\mathbf{v}_{ub} - \mathbf{v} \geq \mathbf{0}$.
+                            Associate dual variables $\boldsymbol{\mu}^- \geq \mathbf{0}$ with the lower bounds and
+                            $\boldsymbol{\mu}^+ \geq \mathbf{0}$ with the upper bounds. Let $\mathbf{y} \in \mathbb{R}^m$
+                            (unrestricted) be the dual variables for the equality constraints $S\mathbf{v} = \mathbf{0}$.</p>
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Form the Lagrangian:</strong>
+                            $$L(\mathbf{v}, \mathbf{y}, \boldsymbol{\mu}^+, \boldsymbol{\mu}^-) = \mathbf{c}^T \mathbf{v} - \mathbf{y}^T(S\mathbf{v}) - (\boldsymbol{\mu}^+)^T(\mathbf{v} - \mathbf{v}_{ub}) + (\boldsymbol{\mu}^-)^T(\mathbf{v} - \mathbf{v}_{lb})$$
+                            <p>Wait &mdash; we need to be careful with signs. Since the primal is a max, the dual is a min. The Lagrangian for a maximization problem subtracts the constraint violations:</p>
+                            $$L = \mathbf{c}^T\mathbf{v} - \mathbf{y}^T S\mathbf{v} + (\boldsymbol{\mu}^-)^T(\mathbf{v} - \mathbf{v}_{lb}) - (\boldsymbol{\mu}^+)^T(\mathbf{v} - \mathbf{v}_{ub})$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Collect terms in $\mathbf{v}$:</strong>
+                            $$L = \left(\mathbf{c} - S^T\mathbf{y} + \boldsymbol{\mu}^- - \boldsymbol{\mu}^+\right)^T \mathbf{v} - (\boldsymbol{\mu}^-)^T \mathbf{v}_{lb} + (\boldsymbol{\mu}^+)^T \mathbf{v}_{ub}$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>For the dual, maximize over $\mathbf{v}$ (unconstrained).</strong>
+                            <p>The Lagrangian is linear in $\mathbf{v}$, so it is bounded above only if the coefficient of $\mathbf{v}$ is zero:</p>
+                            $$S^T\mathbf{y} + \boldsymbol{\mu}^+ - \boldsymbol{\mu}^- = \mathbf{c}$$
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <strong>The dual LP is therefore:</strong>
+                            $$\boxed{\min_{\mathbf{y},\, \boldsymbol{\mu}^+,\, \boldsymbol{\mu}^-} \quad \mathbf{v}_{ub}^T \boldsymbol{\mu}^+ - \mathbf{v}_{lb}^T \boldsymbol{\mu}^-}$$
+                            $$\text{s.t.} \quad S^T\mathbf{y} + \boldsymbol{\mu}^+ - \boldsymbol{\mu}^- = \mathbf{c}$$
+                            $$\boldsymbol{\mu}^+ \geq \mathbf{0}, \quad \boldsymbol{\mu}^- \geq \mathbf{0}, \quad \mathbf{y} \text{ free}$$
+                            <p style="margin-bottom: 0;">
+                                By <strong>strong duality</strong> (which holds because the primal is feasible and bounded),
+                                the optimal dual objective equals the optimal primal objective:
+                                $\mathbf{c}^T \mathbf{v}^* = \mathbf{v}_{ub}^T (\boldsymbol{\mu}^+)^* - \mathbf{v}_{lb}^T (\boldsymbol{\mu}^-)^*$.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Interpreting Shadow Prices</h3>
+
+                <p>
+                    The dual variable $y_i$ associated with the steady-state constraint for metabolite $i$ is called
+                    the <strong>shadow price</strong> of that metabolite. Its interpretation:
+                </p>
+
+                <div class="math-block">
+                    $$y_i = \frac{\partial z^*}{\partial b_i} \bigg|_{b_i = 0}$$
+                </div>
+
+                <p>
+                    where $z^* = \mathbf{c}^T \mathbf{v}^*$ is the optimal objective value and $b_i$ is the right-hand
+                    side of the $i$-th equality constraint (which is zero at steady state). In biological terms:
+                </p>
+
+                <ul>
+                    <li><strong>$y_i > 0$:</strong> Metabolite $i$ is a <strong>bottleneck</strong>. If we could supply
+                        a small amount of metabolite $i$ exogenously (increasing $b_i$ from 0 to $\epsilon$), the optimal
+                        growth rate would increase by approximately $y_i \cdot \epsilon$.</li>
+                    <li><strong>$y_i = 0$:</strong> Metabolite $i$ is <strong>not limiting</strong>. The cell has sufficient
+                        capacity to produce or acquire it.</li>
+                    <li><strong>$y_i < 0$:</strong> Metabolite $i$ is <strong>in excess</strong>. Forcing its accumulation
+                        (increasing $b_i$) would actually decrease growth.</li>
+                </ul>
+
+                <div class="note-box">
+                    <div class="box-title">Shadow Prices as Metabolic Currency</div>
+                    <p style="margin-bottom: 0;">
+                        Shadow prices define an <strong>internal pricing system</strong> for the cell. Just as a market
+                        assigns prices reflecting scarcity, the dual solution assigns to each metabolite a "price"
+                        reflecting its marginal value for growth. High shadow prices indicate metabolic bottlenecks &mdash;
+                        these are prime targets for metabolic engineering. A reaction's contribution to growth equals the
+                        dot product of its stoichiometric column with the shadow price vector: $\Delta z_j = \mathbf{y}^T S_{\cdot j} \cdot v_j$.
+                    </p>
+                </div>
+
+
+                <!-- Section 6: Reduced Costs -->
+                <h2 id="reduced-costs">Reduced Costs</h2>
+
+                <p>
+                    While shadow prices quantify the value of <em>metabolites</em>, <strong>reduced costs</strong>
+                    quantify the value of <em>reactions</em>. The reduced cost of reaction $j$ is defined as:
+                </p>
+
+                <div class="math-block">
+                    $$\bar{c}_j = c_j - \mathbf{y}^T S_{\cdot j}$$
+                </div>
+
+                <p>
+                    where $c_j$ is the objective coefficient of reaction $j$, $\mathbf{y}$ is the vector of shadow
+                    prices, and $S_{\cdot j}$ is the $j$-th column of $S$ (the stoichiometry of reaction $j$).
+                </p>
+
+                <h3>Interpretation via the Dual Constraint</h3>
+
+                <p>
+                    The dual constraint $S^T\mathbf{y} + \boldsymbol{\mu}^+ - \boldsymbol{\mu}^- = \mathbf{c}$
+                    can be rewritten component-wise as:
+                </p>
+
+                <div class="math-block">
+                    $$\bar{c}_j = c_j - (S^T\mathbf{y})_j = \mu_j^+ - \mu_j^-$$
+                </div>
+
+                <p>
+                    By complementary slackness, at optimality:
+                </p>
+
+                <ul>
+                    <li>If $v_j^{lb} < v_j^* < v_j^{ub}$ (reaction $j$ is <strong>interior</strong>), then
+                        $\mu_j^+ = \mu_j^- = 0$, so $\bar{c}_j = 0$. The reaction is at its optimal level.</li>
+                    <li>If $v_j^* = v_j^{ub}$ (reaction $j$ is at its <strong>upper bound</strong>), then
+                        $\mu_j^+ \geq 0$, so $\bar{c}_j \geq 0$. Increasing the upper bound would improve
+                        the objective by $\mu_j^+$ per unit.</li>
+                    <li>If $v_j^* = v_j^{lb}$ (reaction $j$ is at its <strong>lower bound</strong>), then
+                        $\mu_j^- \geq 0$, so $\bar{c}_j \leq 0$. The reaction is being "held back" because
+                        using it more would hurt the objective.</li>
+                </ul>
+
+                <h3>Economic Interpretation</h3>
+
+                <p>
+                    The term $\mathbf{y}^T S_{\cdot j}$ measures the total value of the metabolites produced by
+                    reaction $j$ (where "value" is determined by the shadow prices). The reduced cost
+                    $\bar{c}_j = c_j - \mathbf{y}^T S_{\cdot j}$ is then:
+                </p>
+
+                <div class="math-block">
+                    $$\bar{c}_j = \underbrace{c_j}_{\substack{\text{direct contribution} \\ \text{to objective}}} - \underbrace{\mathbf{y}^T S_{\cdot j}}_{\substack{\text{value of metabolites} \\ \text{produced by reaction } j}}$$
+                </div>
+
+                <p>
+                    If $\bar{c}_j > 0$ for a reaction at its upper bound, the reaction is "profitable" &mdash; its
+                    direct contribution exceeds the metabolic cost of running it, and the cell would benefit from
+                    increasing its capacity. If $\bar{c}_j < 0$ for a reaction at its lower bound, running it more
+                    would be a net loss. Reactions with $\bar{c}_j = 0$ are in <strong>metabolic equilibrium</strong>:
+                    their direct benefit exactly equals their metabolic cost.
+                </p>
+
+
+                <!-- Section 7: SVD of the Stoichiometric Matrix -->
+                <h2 id="svd-metabolism">Singular Value Decomposition of $S$</h2>
+
+                <p>
+                    The SVD goes beyond computing null spaces &mdash; it reveals the <strong>hierarchical structure</strong>
+                    of the metabolic network. The singular values and singular vectors decompose the network into
+                    independent metabolic "modes" ordered by importance.
+                </p>
+
+                <h3>The Decomposition</h3>
+
+                <p>
+                    Writing $S = U\Sigma V^T$ component-wise as a sum of rank-1 matrices:
+                </p>
+
+                <div class="math-block">
+                    $$S = \sum_{k=1}^{r} \sigma_k \, \mathbf{u}_k \mathbf{v}_k^T$$
+                </div>
+
+                <p>
+                    Each term $\sigma_k \, \mathbf{u}_k \mathbf{v}_k^T$ is a <strong>metabolic mode</strong>:
+                </p>
+
+                <ul>
+                    <li>$\mathbf{v}_k \in \mathbb{R}^n$ is the <strong>flux pattern</strong> (a profile over all reactions)</li>
+                    <li>$\mathbf{u}_k \in \mathbb{R}^m$ is the corresponding <strong>metabolite pattern</strong> (a profile over all metabolites)</li>
+                    <li>$\sigma_k$ is the <strong>strength</strong> (importance) of this mode</li>
+                </ul>
+
+                <h3>Interpreting the Singular Values</h3>
+
+                <p>
+                    The singular values are ordered $\sigma_1 \geq \sigma_2 \geq \cdots \geq \sigma_r > 0$.
+                    The <strong>largest singular values</strong> correspond to the dominant metabolic pathways &mdash;
+                    the reactions and metabolites that carry the most "flux capacity" in the network. A rapid
+                    decay in the singular value spectrum indicates that the network's behavior is well-approximated
+                    by a small number of dominant modes:
+                </p>
+
+                <div class="math-block">
+                    $$S \approx S_k = \sum_{i=1}^{k} \sigma_i \, \mathbf{u}_i \mathbf{v}_i^T, \qquad \|S - S_k\|_F = \sqrt{\sum_{i=k+1}^{r} \sigma_i^2}$$
+                </div>
+
+                <p>
+                    By the <strong>Eckart-Young theorem</strong>, $S_k$ is the best rank-$k$ approximation to $S$
+                    in both the Frobenius and operator norms. This means: the first $k$ metabolic modes capture
+                    as much of the network's structure as possible with $k$ dimensions.
+                </p>
+
+                <h3>Connection to Principal Component Analysis of Flux Distributions</h3>
+
+                <p>
+                    If we sample many feasible flux distributions $\mathbf{v}_1, \ldots, \mathbf{v}_N$ (e.g., from
+                    flux sampling) and form the data matrix $X \in \mathbb{R}^{N \times n}$, then PCA of $X$ reveals
+                    the dominant <em>directions of variation</em> in flux space. These principal components live in
+                    $\text{Null}(S)$ (since all sampled fluxes are steady-state) and describe how the cell can
+                    <em>redistribute</em> fluxes while maintaining homeostasis.
+                </p>
+
+                <p>
+                    The SVD of $S$ itself is complementary: it reveals the structure of the <em>map</em> (which flux
+                    patterns produce which metabolite patterns), while PCA of sampled fluxes reveals the structure
+                    of the <em>feasible set</em> (how the null space is explored in practice).
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Practical Use of SVD in Systems Biology</div>
+                    <p style="margin-bottom: 0;">
+                        SVD of stoichiometric matrices has been used to (1) identify metabolic bottlenecks by examining
+                        the largest singular values, (2) reduce model complexity by truncating small singular values,
+                        (3) detect modeling errors (unexpected zero or near-zero singular values suggest redundant
+                        constraints), and (4) compare metabolic network architectures across species by comparing
+                        their singular value spectra.
+                    </p>
+                </div>
+
+            </article>
+
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code">
+
+                <h2>Null Space Computation and SVD Analysis</h2>
+
+                <p>
+                    We implement the core linear algebra operations for metabolic network analysis: computing null
+                    spaces and left null spaces via SVD, analyzing the singular value spectrum, and extracting
+                    shadow prices using COBRApy.
+                </p>
+
+                <h3>Null Space from SVD with NumPy</h3>
+
+                <pre><code class="language-python">import numpy as np
+from scipy.linalg import svd, null_space
+from scipy.sparse.linalg import svds
+
+# ---------------------------------------------------------
+# Example: Toy metabolic network
+# Reactions: v1: -> A, v2: A -> B, v3: A -> C, v4: B + C ->
+# ---------------------------------------------------------
+S = np.array([
+    [ 1, -1, -1,  0],   # A
+    [ 0,  1,  0, -1],   # B
+    [ 0,  0,  1, -1],   # C
+])
+
+m, n = S.shape
+print(f"Stoichiometric matrix S: {m} metabolites x {n} reactions")
+
+# --- Method 1: scipy.linalg.null_space (convenience) ---
+ns = null_space(S)
+print(f"\nNull space dimension (scipy): {ns.shape[1]}")
+print(f"Null space basis vector:\n{ns.round(6)}")
+
+# Verify: S @ ns should be zero
+residual = S @ ns
+print(f"Verification ||S @ ns|| = {np.linalg.norm(residual):.2e}")
+
+# --- Method 2: Full SVD (educational) ---
+U, sigma, Vt = svd(S, full_matrices=True)
+print(f"\nSingular values: {sigma.round(6)}")
+
+# Rank = number of singular values above threshold
+tol = max(m, n) * np.finfo(float).eps * sigma[0]
+rank = np.sum(sigma > tol)
+print(f"Numerical rank: {rank}")
+print(f"Null space dimension = n - rank = {n} - {rank} = {n - rank}")
+
+# Null space = last (n - rank) columns of V = last (n - rank) rows of Vt
+null_basis = Vt[rank:, :].T
+print(f"\nNull space basis (from SVD):\n{null_basis.round(6)}")
+
+# Verify orthogonality between null space and row space
+row_basis = Vt[:rank, :]
+print(f"\nRow space basis (first {rank} rows of Vt):")
+print(row_basis.round(6))
+print(f"Dot product (should be ~0): {(row_basis @ null_basis).round(10)}")</code></pre>
+
+                <h3>Left Null Space and Conservation Relations</h3>
+
+                <pre><code class="language-python">def find_conservation_relations(S, metabolite_names=None, tol=1e-10):
+    """
+    Find conservation relations from the left null space of S.
+
+    The left null space of S consists of vectors l such that l^T S = 0.
+    Each such vector defines a conserved quantity: l^T x(t) = const.
+
+    Parameters
+    ----------
+    S : ndarray, shape (m, n)
+        Stoichiometric matrix.
+    metabolite_names : list of str, optional
+        Names for each metabolite row.
+    tol : float
+        Threshold for singular values considered zero.
+
+    Returns
+    -------
+    L : ndarray, shape (m - r, m)
+        Rows are the conservation relation vectors.
+    """
+    U, sigma, Vt = svd(S, full_matrices=True)
+    rank = np.sum(sigma > tol * sigma[0] * max(S.shape))
+
+    # Left null space = columns of U beyond rank
+    left_null = U[:, rank:]       # shape (m, m-r)
+    L = left_null.T               # shape (m-r, m), each row is a conservation vector
+
+    print(f"Matrix rank: {rank}")
+    print(f"Number of conservation relations: {S.shape[0] - rank}")
+
+    if metabolite_names and L.shape[0] > 0:
+        print("\nConservation relations:")
+        for i, row in enumerate(L):
+            nonzero = np.where(np.abs(row) > tol)[0]
+            terms = []
+            for idx in nonzero:
+                coeff = row[idx]
+                name = metabolite_names[idx]
+                if abs(coeff - 1.0) < tol:
+                    terms.append(name)
+                elif abs(coeff + 1.0) < tol:
+                    terms.append(f"-{name}")
+                else:
+                    terms.append(f"{coeff:.3f}*{name}")
+            print(f"  Relation {i+1}: {' + '.join(terms)} = const")
+
+    return L
+
+
+# --- Example with conserved moieties ---
+# Network with ATP/ADP cycling:
+#   v1: ATP -> ADP + Pi  (hydrolysis)
+#   v2: ADP + Pi -> ATP  (synthesis)
+#   v3: -> Pi            (phosphate uptake)
+#   v4: Pi ->            (phosphate export)
+S_atp = np.array([
+    [-1,  1,  0,  0],   # ATP
+    [ 1, -1,  0,  0],   # ADP
+    [ 1, -1,  1, -1],   # Pi
+])
+
+metabolites = ['ATP', 'ADP', 'Pi']
+L = find_conservation_relations(S_atp, metabolites)
+print(f"\nConservation matrix L:\n{L.round(6)}")
+
+# Verify: L @ S should be zero
+print(f"Verification ||L @ S|| = {np.linalg.norm(L @ S_atp):.2e}")</code></pre>
+
+                <h3>SVD Analysis of a Stoichiometric Matrix</h3>
+
+                <pre><code class="language-python">import matplotlib.pyplot as plt
+
+def analyze_svd(S, reaction_names=None, metabolite_names=None):
+    """
+    Perform SVD analysis of a stoichiometric matrix.
+
+    Plots the singular value spectrum and identifies dominant
+    metabolic modes.
+
+    Parameters
+    ----------
+    S : ndarray, shape (m, n)
+        Stoichiometric matrix.
+    reaction_names : list of str, optional
+    metabolite_names : list of str, optional
+    """
+    U, sigma, Vt = svd(S, full_matrices=False)
+    m, n = S.shape
+    r = np.sum(sigma > 1e-10 * sigma[0] * max(m, n))
+
+    # --- Singular value spectrum ---
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+
+    # Plot 1: Singular values
+    ax = axes[0]
+    ax.semilogy(range(1, len(sigma) + 1), sigma, 'o-', color='#3498db',
+                markersize=4, linewidth=1.5)
+    ax.axhline(y=sigma[0] * 1e-10 * max(m, n), color='#e74c3c',
+               linestyle='--', alpha=0.7, label='Numerical zero threshold')
+    ax.set_xlabel('Index $k$')
+    ax.set_ylabel('$\\sigma_k$ (log scale)')
+    ax.set_title('Singular Value Spectrum')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    # Plot 2: Cumulative energy
+    ax = axes[1]
+    energy = np.cumsum(sigma**2) / np.sum(sigma**2)
+    ax.plot(range(1, len(sigma) + 1), energy, 's-', color='#27ae60',
+            markersize=4, linewidth=1.5)
+    ax.axhline(y=0.99, color='#e74c3c', linestyle='--', alpha=0.7,
+               label='99% energy')
+    k99 = np.searchsorted(energy, 0.99) + 1
+    ax.axvline(x=k99, color='#f39c12', linestyle=':', alpha=0.7,
+               label=f'k={k99} modes for 99%')
+    ax.set_xlabel('Number of modes $k$')
+    ax.set_ylabel('Cumulative fraction of $\\|S\\|_F^2$')
+    ax.set_title('Cumulative Energy')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    # Plot 3: Dominant mode structure
+    ax = axes[2]
+    if reaction_names:
+        # Show top flux contributions for the first mode
+        v1 = Vt[0, :]
+        top_idx = np.argsort(np.abs(v1))[-10:]
+        names = [reaction_names[i] for i in top_idx]
+        vals = v1[top_idx]
+        colors = ['#27ae60' if v > 0 else '#e74c3c' for v in vals]
+        ax.barh(range(len(top_idx)), vals, color=colors, alpha=0.8)
+        ax.set_yticks(range(len(top_idx)))
+        ax.set_yticklabels(names, fontsize=8)
+        ax.set_xlabel('Weight in $\\mathbf{v}_1$')
+        ax.set_title('Dominant Flux Mode')
+    else:
+        v1 = Vt[0, :]
+        ax.bar(range(n), v1, color='#3498db', alpha=0.7)
+        ax.set_xlabel('Reaction index')
+        ax.set_ylabel('Weight in $\\mathbf{v}_1$')
+        ax.set_title('Dominant Flux Mode')
+
+    plt.tight_layout()
+    plt.show()
+
+    # --- Summary statistics ---
+    print(f"Matrix dimensions: {m} x {n}")
+    print(f"Rank: {r}")
+    print(f"Null space dimension: {n - r}")
+    print(f"Left null space dimension: {m - r}")
+    print(f"Condition number: {sigma[0]/sigma[r-1]:.2f}")
+    print(f"Modes for 99% energy: {k99}")
+
+    return U, sigma, Vt
+
+
+# --- Analyze the toy network ---
+S = np.array([
+    [ 1, -1, -1,  0],
+    [ 0,  1,  0, -1],
+    [ 0,  0,  1, -1],
+])
+reactions = ['v1: ->A', 'v2: A->B', 'v3: A->C', 'v4: B+C->']
+metabolites = ['A', 'B', 'C']
+U, sigma, Vt = analyze_svd(S, reactions, metabolites)</code></pre>
+
+                <h3>Shadow Prices with COBRApy</h3>
+
+                <pre><code class="language-python">import cobra
+from cobra.io import load_model
+
+def analyze_shadow_prices(model_name='textbook'):
+    """
+    Compute and analyze shadow prices from FBA using COBRApy.
+
+    Shadow prices are the dual variables associated with the
+    steady-state constraints Sv = 0. They indicate the marginal
+    value of each metabolite to the objective.
+
+    Parameters
+    ----------
+    model_name : str
+        Name of the model to load ('textbook' for E. coli core).
+    """
+    # Load model
+    model = load_model(model_name)
+    print(f"Model: {model.id}")
+    print(f"  Metabolites: {len(model.metabolites)}")
+    print(f"  Reactions:   {len(model.reactions)}")
+    print(f"  Genes:       {len(model.genes)}")
+
+    # Solve FBA
+    solution = model.optimize()
+    print(f"\nObjective value (growth rate): {solution.objective_value:.6f}")
+
+    # --- Shadow prices ---
+    shadow_prices = solution.shadow_prices
+    print(f"\nShadow prices (top 10 by absolute value):")
+    top_sp = shadow_prices.abs().nlargest(10)
+    for met_id, val in top_sp.items():
+        met = model.metabolites.get_by_id(met_id)
+        sp = shadow_prices[met_id]
+        print(f"  {met_id:20s} ({met.name:30s}): {sp:+.6f}")
+
+    # --- Reduced costs ---
+    reduced_costs = solution.reduced_costs
+    nonzero_rc = reduced_costs[reduced_costs.abs() > 1e-8]
+    print(f"\nReactions with nonzero reduced costs: {len(nonzero_rc)}")
+    print("Top 10 by absolute value:")
+    top_rc = reduced_costs.abs().nlargest(10)
+    for rxn_id, val in top_rc.items():
+        rxn = model.reactions.get_by_id(rxn_id)
+        rc = reduced_costs[rxn_id]
+        flux = solution.fluxes[rxn_id]
+        print(f"  {rxn_id:20s}: rc={rc:+.6f}, flux={flux:.6f}, "
+              f"bounds=[{rxn.lower_bound}, {rxn.upper_bound}]")
+
+    # --- Visualization ---
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Shadow prices distribution
+    ax = axes[0]
+    sp_vals = shadow_prices.values
+    ax.hist(sp_vals[sp_vals != 0], bins=30, color='#3498db',
+            alpha=0.7, edgecolor='white')
+    ax.set_xlabel('Shadow Price')
+    ax.set_ylabel('Count')
+    ax.set_title('Distribution of Nonzero Shadow Prices')
+    ax.axvline(x=0, color='#e74c3c', linestyle='--', alpha=0.5)
+
+    # Reduced costs distribution
+    ax = axes[1]
+    rc_vals = reduced_costs.values
+    ax.hist(rc_vals[rc_vals != 0], bins=30, color='#27ae60',
+            alpha=0.7, edgecolor='white')
+    ax.set_xlabel('Reduced Cost')
+    ax.set_ylabel('Count')
+    ax.set_title('Distribution of Nonzero Reduced Costs')
+    ax.axvline(x=0, color='#e74c3c', linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
+    return solution
+
+
+# --- Run the analysis ---
+solution = analyze_shadow_prices('textbook')</code></pre>
+
+                <h3>Full Subspace Analysis of a COBRA Model</h3>
+
+                <pre><code class="language-python">import cobra
+from cobra.io import load_model
+
+def full_subspace_analysis(model_name='textbook'):
+    """
+    Complete four-subspace analysis of a COBRA metabolic model.
+
+    Extracts the stoichiometric matrix, computes the SVD, and
+    reports dimensions and biological content of each subspace.
+    """
+    model = load_model(model_name)
+
+    # Extract stoichiometric matrix
+    met_ids = [m.id for m in model.metabolites]
+    rxn_ids = [r.id for r in model.reactions]
+    m_count = len(met_ids)
+    n_count = len(rxn_ids)
+
+    S = cobra.util.create_stoichiometric_matrix(model, array_type='dense')
+    print(f"Stoichiometric matrix: {m_count} metabolites x {n_count} reactions")
+
+    # SVD
+    U, sigma, Vt = svd(S, full_matrices=True)
+    tol = max(m_count, n_count) * np.finfo(float).eps * sigma[0]
+    rank = np.sum(sigma > tol)
+
+    print(f"\n=== Four Fundamental Subspaces ===")
+    print(f"Rank of S: {rank}")
+    print(f"  Column space dim:     {rank}  (achievable production rates)")
+    print(f"  Null space dim:       {n_count - rank}  (steady-state degrees of freedom)")
+    print(f"  Row space dim:        {rank}  (thermodynamic constraints)")
+    print(f"  Left null space dim:  {m_count - rank}  (conservation relations)")
+
+    # Conservation relations
+    if m_count - rank > 0:
+        left_null = U[:, rank:]
+        print(f"\n=== Conservation Relations ({m_count - rank} found) ===")
+        for i in range(min(5, m_count - rank)):
+            vec = left_null[:, i]
+            nonzero = np.where(np.abs(vec) > 0.1)[0]
+            involved = [(met_ids[j], vec[j]) for j in nonzero]
+            involved.sort(key=lambda x: -abs(x[1]))
+            terms = [f"{c:.2f}*{name}" for name, c in involved[:6]]
+            print(f"  Relation {i+1}: {' + '.join(terms)}")
+
+    # Singular value spectrum summary
+    print(f"\n=== Singular Value Spectrum ===")
+    print(f"  Largest:  {sigma[0]:.4f}")
+    print(f"  Smallest nonzero: {sigma[rank-1]:.6f}")
+    print(f"  Condition number: {sigma[0]/sigma[rank-1]:.2f}")
+
+    cumulative = np.cumsum(sigma[:rank]**2) / np.sum(sigma[:rank]**2)
+    for threshold in [0.5, 0.9, 0.95, 0.99]:
+        k = np.searchsorted(cumulative, threshold) + 1
+        print(f"  Modes for {threshold*100:.0f}% energy: {k}/{rank}")
+
+    return S, U, sigma, Vt, rank
+
+
+S, U, sigma, Vt, rank = full_subspace_analysis('textbook')</code></pre>
+
+            </article>
+
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises">
+                <div class="exercises-header">
+                    <h2>Exercises &amp; Progress</h2>
+                    <p>Test your understanding of the linear algebra underlying metabolic network analysis, from null space computation to LP duality.</p>
+                </div>
+
+                <div class="exercises-container">
+
+                    <div class="exercise-item easy" data-exercise="1">
+                        <div class="exercise-header">
+                            <span class="exercise-badge easy">Easy</span>
+                            <span class="exercise-title">1. Null Space of a Small Stoichiometric Matrix</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>
+                                Consider a metabolic network with 3 metabolites ($X$, $Y$, $Z$) and 5 reactions:
+                            </p>
+                            <ul>
+                                <li>$v_1$: $\to X$ &nbsp;(uptake)</li>
+                                <li>$v_2$: $X \to Y$</li>
+                                <li>$v_3$: $X \to Z$</li>
+                                <li>$v_4$: $Y \to Z$</li>
+                                <li>$v_5$: $Z \to$ &nbsp;(export)</li>
+                            </ul>
+                            <ol>
+                                <li>Write down the stoichiometric matrix $S \in \mathbb{R}^{3 \times 5}$.</li>
+                                <li>Compute $\text{rank}(S)$ by row reduction. How many degrees of freedom does the network have?</li>
+                                <li>Find a basis for $\text{Null}(S)$ by solving $S\mathbf{v} = \mathbf{0}$ explicitly. Express your answer as $n - r$ linearly independent vectors.</li>
+                                <li>Verify your answer: for each basis vector $\mathbf{v}$, confirm that $S\mathbf{v} = \mathbf{0}$ and give a biological interpretation (which pathway does each null space vector represent?).</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item easy" data-exercise="2">
+                        <div class="exercise-header">
+                            <span class="exercise-badge easy">Easy</span>
+                            <span class="exercise-title">2. Conservation Relations from the Left Null Space</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>
+                                Consider a simplified cofactor cycling network with 4 metabolites (ATP, ADP, NAD$^+$, NADH) and 3 reactions:
+                            </p>
+                            <ul>
+                                <li>$v_1$: ATP + NAD$^+$ $\to$ ADP + NADH &nbsp;(coupled oxidation)</li>
+                                <li>$v_2$: ADP $\to$ ATP &nbsp;(phosphorylation)</li>
+                                <li>$v_3$: NADH $\to$ NAD$^+$ &nbsp;(electron transport)</li>
+                            </ul>
+                            <ol>
+                                <li>Write down the stoichiometric matrix $S \in \mathbb{R}^{4 \times 3}$.</li>
+                                <li>Compute $\text{rank}(S)$. What is $\dim\text{Null}(S^T) = m - r$?</li>
+                                <li>Find a basis for the left null space by solving $\mathbf{l}^T S = \mathbf{0}^T$.</li>
+                                <li>Interpret each conservation relation biologically. Which pools are conserved, and why does this make biochemical sense?</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item medium" data-exercise="3">
+                        <div class="exercise-header">
+                            <span class="exercise-badge medium">Medium</span>
+                            <span class="exercise-title">3. Shadow Prices: Computation and Interpretation</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>
+                                Consider the following small FBA problem with stoichiometric matrix, bounds, and objective:
+                            </p>
+                            <div class="math-block">
+                                $$S = \begin{pmatrix} 1 & -1 & -1 & 0 \\ 0 & 1 & 0 & -1 \end{pmatrix}, \qquad \mathbf{c} = \begin{pmatrix} 0 \\ 0 \\ 0 \\ 1 \end{pmatrix}$$
+                            </div>
+                            <p>
+                                Bounds: $0 \leq v_1 \leq 10$, $0 \leq v_2 \leq 8$, $0 \leq v_3 \leq 6$, $0 \leq v_4 \leq \infty$.
+                            </p>
+                            <ol>
+                                <li>Solve the primal FBA problem: $\max \mathbf{c}^T\mathbf{v}$ subject to $S\mathbf{v} = 0$ and the bounds. Find the optimal $\mathbf{v}^*$ and $z^* = \mathbf{c}^T\mathbf{v}^*$.</li>
+                                <li>Write down the dual LP explicitly. Identify the dual variables $\mathbf{y}$, $\boldsymbol{\mu}^+$, and $\boldsymbol{\mu}^-$.</li>
+                                <li>Solve the dual and find the shadow prices $y_1$ and $y_2$. Verify strong duality: the dual objective equals $z^*$.</li>
+                                <li>Interpret the shadow prices: which metabolite is the bottleneck for the objective? If the upper bound on $v_1$ were increased to 11, what would the new optimal objective be (approximately)?</li>
+                                <li>Compute the reduced costs $\bar{c}_j$ for each reaction and verify complementary slackness.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item medium" data-exercise="4">
+                        <div class="exercise-header">
+                            <span class="exercise-badge medium">Medium</span>
+                            <span class="exercise-title">4. Rank-Nullity Theorem for Metabolic Networks</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>
+                                This exercise connects the abstract rank-nullity theorem to concrete properties of metabolic networks.
+                            </p>
+                            <ol>
+                                <li>
+                                    <strong>Prove from first principles:</strong> For any matrix $S \in \mathbb{R}^{m \times n}$,
+                                    $\text{rank}(S) + \dim\text{Null}(S) = n$.
+                                    <em>Hint:</em> Use the fact that if $\{\mathbf{v}_1, \ldots, \mathbf{v}_k\}$ is a basis for $\text{Null}(S)$,
+                                    you can extend it to a basis for $\mathbb{R}^n$, and show that $S$ maps the remaining basis vectors to
+                                    a linearly independent set of size $n - k$ in $\mathbb{R}^m$.
+                                </li>
+                                <li>
+                                    Verify numerically for the <em>E. coli</em> core model (use COBRApy's <code>textbook</code> model):
+                                    extract $S$, compute $\text{rank}(S)$ via SVD, compute $\dim\text{Null}(S)$ via SVD, and check that
+                                    $\text{rank}(S) + \dim\text{Null}(S) = n$.
+                                </li>
+                                <li>
+                                    Similarly verify for the left null space: $\text{rank}(S) + \dim\text{Null}(S^T) = m$. Report the
+                                    number of conservation relations.
+                                </li>
+                                <li>
+                                    Explain biologically why $\dim\text{Null}(S)$ is typically much larger than zero in genome-scale
+                                    models. What does a large null space mean for the cell's metabolic flexibility?
+                                </li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item hard" data-exercise="5">
+                        <div class="exercise-header">
+                            <span class="exercise-badge hard">Hard</span>
+                            <span class="exercise-title">5. Derive the Dual LP and Prove Strong Duality</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>
+                                This exercise requires a complete, rigorous derivation of LP duality for the FBA problem
+                                and a proof that strong duality holds.
+                            </p>
+                            <ol>
+                                <li>
+                                    <strong>Standard form conversion:</strong> Rewrite the FBA problem
+                                    $\max\{\mathbf{c}^T\mathbf{v} : S\mathbf{v} = \mathbf{0},\; \mathbf{v}_{lb} \leq \mathbf{v} \leq \mathbf{v}_{ub}\}$
+                                    in standard LP form: $\max\{\mathbf{c}^T\mathbf{x} : A\mathbf{x} = \mathbf{b},\; \mathbf{x} \geq \mathbf{0}\}$
+                                    by introducing slack variables and/or variable shifts $\mathbf{v}' = \mathbf{v} - \mathbf{v}_{lb}$.
+                                </li>
+                                <li>
+                                    <strong>Derive the dual:</strong> Starting from the standard-form primal, derive the dual LP using the
+                                    Lagrangian method. Show all steps: form the Lagrangian $L(\mathbf{x}, \boldsymbol{\lambda}, \boldsymbol{\mu})$,
+                                    minimize over $\mathbf{x}$, and state the resulting dual problem.
+                                </li>
+                                <li>
+                                    <strong>Weak duality:</strong> Prove that for any primal-feasible $\mathbf{v}$ and dual-feasible
+                                    $(\mathbf{y}, \boldsymbol{\mu}^+, \boldsymbol{\mu}^-)$:
+                                    $$\mathbf{c}^T\mathbf{v} \leq \mathbf{v}_{ub}^T\boldsymbol{\mu}^+ - \mathbf{v}_{lb}^T\boldsymbol{\mu}^-$$
+                                    <em>Hint:</em> Substitute the dual constraint into $\mathbf{c}^T\mathbf{v}$ and use the primal constraints and sign conditions.
+                                </li>
+                                <li>
+                                    <strong>Strong duality:</strong> State the conditions under which strong duality holds (i.e.,
+                                    primal optimal = dual optimal with no gap). For FBA, argue that these conditions are satisfied
+                                    when the flux bounds define a nonempty bounded polytope.
+                                    <em>Hint:</em> Use the LP strong duality theorem (Slater's condition for LP, which requires only feasibility).
+                                </li>
+                                <li>
+                                    <strong>Complementary slackness:</strong> Derive the complementary slackness conditions for FBA:
+                                    $\mu_j^+(v_j^{ub} - v_j^*) = 0$ and $\mu_j^-(v_j^* - v_j^{lb}) = 0$ for all $j$.
+                                    Explain why these conditions mean that $\bar{c}_j = 0$ whenever reaction $j$ is strictly between its bounds.
+                                </li>
+                            </ol>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#stoichiometric-linear-map" class="toc-link">Stoichiometric Matrix as Linear Map</a>
+                <a href="#four-subspaces" class="toc-link">Four Fundamental Subspaces</a>
+                <a href="#null-space-analysis" class="toc-link">Null Space Analysis</a>
+                <a href="#conservation-relations" class="toc-link">Conservation Relations</a>
+                <a href="#lp-duality" class="toc-link">LP Duality &amp; Shadow Prices</a>
+                <a href="#reduced-costs" class="toc-link">Reduced Costs</a>
+                <a href="#svd-metabolism" class="toc-link">SVD of $S$</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

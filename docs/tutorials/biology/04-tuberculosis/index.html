@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuberculosis Metabolic Modeling | ML Fundamentals</title>
+    <meta name="description" content="Genome-scale metabolic modeling of Mycobacterium tuberculosis using iNJ661. Drug target identification through in silico gene knockouts, FBA, FVA, and condition-specific analysis.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221e;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link active">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Computational Biology</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Tuberculosis Modeling</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Computational Biology</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-fba/index.html" class="sidebar-link">01. Flux Balance Analysis</a>
+                    <a href="../02-fva/index.html" class="sidebar-link">02. Flux Variability Analysis</a>
+                    <a href="../03-linear-algebra-metabolism/index.html" class="sidebar-link">03. Linear Algebra of Metabolism</a>
+                    <a href="../04-tuberculosis/index.html" class="sidebar-link active">04. Tuberculosis Modeling</a>
+                    <a href="../05-gnn-lp/index.html" class="sidebar-link">05. GNN for Linear Programming</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../distributions/index.html" class="sidebar-link">Distributions</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ============================================================ -->
+            <!-- THEORY TAB -->
+            <!-- ============================================================ -->
+            <article class="article-content" id="theory">
+
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>04. Tuberculosis Metabolic Modeling</h1>
+                    <p class="lead">
+                        Genome-scale metabolic modeling transforms our understanding of <em>Mycobacterium tuberculosis</em>&mdash;the pathogen behind one of humanity's deadliest diseases. By encoding the bacterium's entire metabolism as a mathematical system, we can predict growth, identify drug targets, and simulate treatment strategies computationally, all before stepping into a wet lab.
+                    </p>
+                </div>
+
+                <!-- ============================== -->
+                <!-- Section 1: The Challenge -->
+                <!-- ============================== -->
+                <h2 id="tb-challenge">Tuberculosis: The Challenge</h2>
+
+                <p>
+                    Tuberculosis (TB) remains one of the most devastating infectious diseases in human history. Despite the availability of antibiotics since the mid-20th century, TB continues to claim approximately <strong>1.5 million lives per year</strong>, making it the leading cause of death from a single infectious agent&mdash;surpassing even HIV/AIDS.
+                </p>
+
+                <p>
+                    The causative agent, <em>Mycobacterium tuberculosis</em> (Mtb), is an unusually formidable pathogen. Several biological features make it extraordinarily difficult to treat:
+                </p>
+
+                <ul>
+                    <li><strong>Slow growth:</strong> Mtb has a doubling time of ~20 hours (compared to ~20 minutes for <em>E. coli</em>). Standard treatment requires 6&ndash;9 months of multi-drug therapy.</li>
+                    <li><strong>Dormancy:</strong> Mtb can enter a non-replicating persistent state inside granulomas, rendering it tolerant to most antibiotics that target active growth processes.</li>
+                    <li><strong>Complex cell wall:</strong> The mycobacterial cell envelope contains mycolic acids&mdash;long-chain fatty acids (C<sub>60</sub>&ndash;C<sub>90</sub>) that form a waxy, nearly impermeable barrier. This wall blocks drug entry and is unlike any structure found in humans.</li>
+                    <li><strong>Intracellular lifestyle:</strong> Mtb survives and replicates inside human macrophages, the very immune cells meant to destroy it.</li>
+                </ul>
+
+                <p>
+                    Traditional drug discovery against TB is painfully slow: screening compound libraries, testing in culture, validating in animal models, then clinical trials. The entire pipeline takes 10&ndash;15 years and billions of dollars per approved drug. <strong>Computational metabolic modeling</strong> offers a complementary approach: build a mathematical representation of the pathogen's metabolism, then use it to predict which genes and reactions are essential for survival, thereby identifying candidate drug targets <em>in silico</em>.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">TB by the Numbers</div>
+                    <ul style="margin-bottom: 0;">
+                        <li><strong>10.6 million</strong> new TB cases globally in 2022 (WHO)</li>
+                        <li><strong>1.3 million</strong> TB deaths among HIV-negative people; <strong>167,000</strong> among HIV-positive people</li>
+                        <li><strong>Multi-drug resistant TB (MDR-TB):</strong> ~450,000 new cases/year, resistant to isoniazid and rifampicin</li>
+                        <li><strong>Treatment duration:</strong> 6 months for drug-sensitive TB; up to 20 months for MDR-TB</li>
+                        <li><strong>Only 3 new TB drugs</strong> approved in the last 50 years (bedaquiline, delamanid, pretomanid)</li>
+                    </ul>
+                </div>
+
+
+                <!-- ============================== -->
+                <!-- Section 2: The iNJ661 Model -->
+                <!-- ============================== -->
+                <h2 id="inj661-model">The iNJ661 Model</h2>
+
+                <p>
+                    The <strong>iNJ661</strong> model, published by Jamshidi and Palsson in 2007, was the first comprehensive genome-scale metabolic model (GSMM) of <em>M. tuberculosis</em> strain H37Rv&mdash;the most widely studied laboratory reference strain. The model name follows the convention: "i" for <em>in silico</em>, "NJ" for the authors' initials (Neema Jamshidi), and "661" for the number of genes included.
+                </p>
+
+                <p>
+                    The model's scope is substantial:
+                </p>
+
+                <ul>
+                    <li><strong>661 genes</strong> out of ~4,000 total in the Mtb genome</li>
+                    <li><strong>939 reactions</strong> (including transport and exchange reactions)</li>
+                    <li><strong>828 metabolites</strong> across two compartments</li>
+                </ul>
+
+                <p>
+                    Building this model required integrating data from multiple sources: the Mtb H37Rv genome annotation (Cole et al., 1998), the KEGG pathway database, the TubercuList database (a curated repository of Mtb gene annotations), and extensive literature curation of biochemical evidence for each reaction.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Genome-Scale Metabolic Model (GSMM)</div>
+                    <p>
+                        A GSMM is a mathematically structured representation of all known metabolic reactions in an organism. It is reconstructed <strong>bottom-up</strong> through a multi-step process:
+                    </p>
+                    <ol>
+                        <li><strong>Genome annotation:</strong> Identify all open reading frames (ORFs) and assign putative functions.</li>
+                        <li><strong>Reaction database mapping:</strong> Link gene functions to metabolic reactions using databases (KEGG, MetaCyc, BRENDA).</li>
+                        <li><strong>Gap filling:</strong> Add reactions not yet linked to genes but required for the network to produce known biomass components.</li>
+                        <li><strong>Stoichiometric balancing:</strong> Ensure mass and charge balance for every reaction.</li>
+                        <li><strong>Gene-Protein-Reaction (GPR) rules:</strong> Define Boolean rules mapping genes to proteins to reactions (e.g., if gene A <em>AND</em> gene B are active, reaction R can carry flux).</li>
+                    </ol>
+                    <p style="margin-bottom: 0;">
+                        The result is encoded as a stoichiometric matrix $S$ together with flux bounds and a biomass objective function. The model is then analyzed using constraint-based methods such as FBA and FVA.
+                    </p>
+                </div>
+
+
+                <!-- ============================== -->
+                <!-- Section 3: Model Structure -->
+                <!-- ============================== -->
+                <h2 id="model-structure">Model Structure</h2>
+
+                <p>
+                    The mathematical core of iNJ661 is the <strong>stoichiometric matrix</strong> $S$, with dimensions $828 \times 939$&mdash;each row corresponds to a metabolite, each column to a reaction, and each entry $S_{ij}$ is the stoichiometric coefficient of metabolite $i$ in reaction $j$ (negative for substrates, positive for products).
+                </p>
+
+                <p>
+                    The model partitions metabolites into two compartments:
+                </p>
+
+                <ul>
+                    <li><strong>Cytoplasm (c):</strong> The intracellular space where most metabolic reactions occur</li>
+                    <li><strong>Extracellular (e):</strong> The environment from which nutrients are imported and to which waste products are secreted</li>
+                </ul>
+
+                <p>
+                    Transport reactions connect the two compartments, and exchange reactions allow metabolites to enter or leave the system. The key metabolic pathways captured in the model include:
+                </p>
+
+                <ul>
+                    <li><strong>Central carbon metabolism:</strong> Glycolysis, pentose phosphate pathway, TCA cycle</li>
+                    <li><strong>Energy generation:</strong> Oxidative phosphorylation, the electron transport chain</li>
+                    <li><strong>Lipid metabolism:</strong> Fatty acid synthesis (FAS-I and FAS-II), mycolic acid biosynthesis</li>
+                    <li><strong>Cell wall assembly:</strong> Peptidoglycan, arabinogalactan, lipoarabinomannan</li>
+                    <li><strong>Amino acid and nucleotide biosynthesis</strong></li>
+                </ul>
+
+                <!-- SVG: Simplified Metabolic Map -->
+                <h3>Simplified Metabolic Map of Key Mtb Pathways</h3>
+
+                <div class="svg-container">
+                    <svg viewBox="0 0 820 580" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif; background: var(--color-bg-alt); border-radius: 12px; border: 1px solid var(--color-border); width: 100%; max-width: 820px;">
+                        <!-- Title -->
+                        <text x="410" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="var(--color-text)">Key Metabolic Pathways in M. tuberculosis (iNJ661)</text>
+
+                        <!-- Extracellular boundary -->
+                        <rect x="20" y="42" width="780" height="520" rx="12" fill="none" stroke="var(--color-border)" stroke-width="1.5" stroke-dasharray="6,4"/>
+                        <text x="40" y="62" font-size="10" fill="var(--color-text-muted)" font-style="italic">Extracellular</text>
+
+                        <!-- Cytoplasm boundary -->
+                        <rect x="50" y="80" width="720" height="465" rx="10" fill="none" stroke="#3b82f6" stroke-width="1.5" opacity="0.4"/>
+                        <text x="70" y="98" font-size="10" fill="#3b82f6" font-weight="500">Cytoplasm</text>
+
+                        <!-- Carbon source inputs -->
+                        <rect x="30" y="130" width="80" height="30" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.2"/>
+                        <text x="70" y="149" text-anchor="middle" font-size="10" font-weight="500" fill="#16a34a">Glucose</text>
+                        <line x1="110" y1="145" x2="145" y2="145" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+                        <rect x="30" y="175" width="80" height="30" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.2"/>
+                        <text x="70" y="194" text-anchor="middle" font-size="10" font-weight="500" fill="#16a34a">Glycerol</text>
+                        <line x1="110" y1="190" x2="145" y2="175" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+                        <rect x="30" y="220" width="80" height="30" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.2"/>
+                        <text x="70" y="239" text-anchor="middle" font-size="10" font-weight="500" fill="#16a34a">Acetate</text>
+                        <line x1="110" y1="235" x2="145" y2="220" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+                        <!-- Glycolysis box -->
+                        <rect x="148" y="120" width="130" height="60" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+                        <text x="213" y="145" text-anchor="middle" font-size="12" font-weight="600" fill="#1d4ed8">Glycolysis</text>
+                        <text x="213" y="162" text-anchor="middle" font-size="9" fill="#3b82f6">Glucose &rarr; Pyruvate</text>
+
+                        <!-- Pentose Phosphate -->
+                        <rect x="148" y="195" width="130" height="50" rx="8" fill="#faf5ff" stroke="#8b5cf6" stroke-width="1.5"/>
+                        <text x="213" y="216" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">Pentose Phosphate</text>
+                        <text x="213" y="232" text-anchor="middle" font-size="9" fill="#8b5cf6">NADPH + Ribose-5P</text>
+
+                        <!-- Arrow: Glycolysis to PPP -->
+                        <line x1="195" y1="180" x2="195" y2="195" stroke="var(--color-border)" stroke-width="1" marker-end="url(#arrowGray)"/>
+
+                        <!-- Arrow: Glycolysis to TCA -->
+                        <line x1="278" y1="165" x2="340" y2="195" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+                        <text x="315" y="174" font-size="8" fill="var(--color-text-muted)">Pyruvate</text>
+
+                        <!-- TCA Cycle (circle representation) -->
+                        <circle cx="420" cy="240" r="50" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
+                        <text x="420" y="235" text-anchor="middle" font-size="13" font-weight="600" fill="#ea580c">TCA</text>
+                        <text x="420" y="252" text-anchor="middle" font-size="9" fill="#f97316">Cycle</text>
+
+                        <!-- NADH/FADH2 output from TCA -->
+                        <line x1="470" y1="230" x2="530" y2="215" stroke="#f97316" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+                        <text x="505" y="210" font-size="8" fill="var(--color-text-muted)">NADH, FADH2</text>
+
+                        <!-- Oxidative Phosphorylation -->
+                        <rect x="535" y="185" width="145" height="60" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+                        <text x="607" y="210" text-anchor="middle" font-size="11" font-weight="600" fill="#dc2626">Oxidative</text>
+                        <text x="607" y="226" text-anchor="middle" font-size="11" font-weight="600" fill="#dc2626">Phosphorylation</text>
+                        <text x="607" y="240" text-anchor="middle" font-size="9" fill="#ef4444">ETC &rarr; ATP</text>
+
+                        <!-- O2 input -->
+                        <rect x="700" y="195" width="55" height="25" rx="6" fill="#fef2f2" stroke="#ef4444" stroke-width="1"/>
+                        <text x="727" y="212" text-anchor="middle" font-size="10" font-weight="500" fill="#dc2626">O&#8322;</text>
+                        <line x1="700" y1="207" x2="680" y2="207" stroke="#ef4444" stroke-width="1.2" marker-end="url(#arrowRed)"/>
+
+                        <!-- ATP output -->
+                        <text x="607" y="260" text-anchor="middle" font-size="10" font-weight="600" fill="#dc2626">ATP</text>
+                        <line x1="607" y1="245" x2="607" y2="254" stroke="#ef4444" stroke-width="1.2"/>
+
+                        <!-- Acetyl-CoA node -->
+                        <rect x="320" y="290" width="90" height="30" rx="6" fill="#fff7ed" stroke="#f97316" stroke-width="1.2"/>
+                        <text x="365" y="309" text-anchor="middle" font-size="10" font-weight="500" fill="#ea580c">Acetyl-CoA</text>
+
+                        <!-- Arrow: TCA to Acetyl-CoA (bidirectional context) -->
+                        <line x1="400" y1="288" x2="385" y2="290" stroke="#f97316" stroke-width="1" marker-end="url(#arrowOrange)"/>
+
+                        <!-- FAS-I -->
+                        <rect x="170" y="320" width="120" height="55" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+                        <text x="230" y="342" text-anchor="middle" font-size="11" font-weight="600" fill="#059669">FAS-I</text>
+                        <text x="230" y="358" text-anchor="middle" font-size="9" fill="#10b981">C<tspan font-size="7" dy="2">16</tspan><tspan dy="-2">&ndash;C</tspan><tspan font-size="7" dy="2">26</tspan><tspan dy="-2"> fatty acids</tspan></text>
+
+                        <!-- Arrow: Acetyl-CoA to FAS-I -->
+                        <line x1="320" y1="310" x2="290" y2="330" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrowGreenDark)"/>
+
+                        <!-- FAS-II -->
+                        <rect x="170" y="395" width="120" height="55" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+                        <text x="230" y="417" text-anchor="middle" font-size="11" font-weight="600" fill="#059669">FAS-II</text>
+                        <text x="230" y="433" text-anchor="middle" font-size="9" fill="#10b981">Meromycolic chain</text>
+
+                        <!-- Arrow: FAS-I to FAS-II -->
+                        <line x1="230" y1="375" x2="230" y2="395" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrowGreenDark)"/>
+
+                        <!-- Drug target indicators on FAS-II -->
+                        <rect x="300" y="400" width="95" height="42" rx="6" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,2"/>
+                        <text x="347" y="417" text-anchor="middle" font-size="9" font-weight="600" fill="#dc2626">Drug Targets</text>
+                        <text x="347" y="432" text-anchor="middle" font-size="8" fill="#ef4444">InhA, KasA</text>
+                        <line x1="300" y1="420" x2="290" y2="420" stroke="#ef4444" stroke-width="1" stroke-dasharray="3,2"/>
+
+                        <!-- Mycolic Acid Synthesis -->
+                        <rect x="150" y="470" width="160" height="55" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+                        <text x="230" y="492" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">Mycolic Acids</text>
+                        <text x="230" y="510" text-anchor="middle" font-size="9" fill="#16a34a">C<tspan font-size="7" dy="2">60</tspan><tspan dy="-2">&ndash;C</tspan><tspan font-size="7" dy="2">90</tspan><tspan dy="-2"> (unique to mycobacteria)</tspan></text>
+
+                        <!-- Arrow: FAS-II to Mycolic Acids -->
+                        <line x1="230" y1="450" x2="230" y2="470" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrowGreenDark)"/>
+
+                        <!-- Cell Wall Assembly -->
+                        <rect x="430" y="390" width="150" height="65" rx="8" fill="#fefce8" stroke="#eab308" stroke-width="1.5"/>
+                        <text x="505" y="415" text-anchor="middle" font-size="11" font-weight="600" fill="#ca8a04">Cell Wall</text>
+                        <text x="505" y="432" text-anchor="middle" font-size="11" font-weight="600" fill="#ca8a04">Assembly</text>
+                        <text x="505" y="448" text-anchor="middle" font-size="8" fill="#eab308">Peptidoglycan + AG + LAM</text>
+
+                        <!-- Arrow: Mycolic Acids to Cell Wall -->
+                        <line x1="310" y1="495" x2="430" y2="435" stroke="#ca8a04" stroke-width="1.5" marker-end="url(#arrowYellow)"/>
+
+                        <!-- Amino Acid Biosynthesis -->
+                        <rect x="530" y="290" width="130" height="50" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+                        <text x="595" y="311" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">Amino Acid</text>
+                        <text x="595" y="327" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">Biosynthesis</text>
+
+                        <!-- Arrow: TCA to Amino Acids -->
+                        <line x1="460" y1="260" x2="530" y2="298" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#arrowPurple)"/>
+
+                        <!-- Nucleotide Biosynthesis -->
+                        <rect x="530" y="360" width="130" height="50" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+                        <text x="595" y="381" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">Nucleotide</text>
+                        <text x="595" y="397" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">Biosynthesis</text>
+
+                        <!-- Biomass -->
+                        <rect x="530" y="470" width="200" height="55" rx="10" fill="#1e40af" stroke="#1e3a8a" stroke-width="2"/>
+                        <text x="630" y="493" text-anchor="middle" font-size="13" font-weight="700" fill="white">BIOMASS</text>
+                        <text x="630" y="512" text-anchor="middle" font-size="9" fill="#93c5fd">Growth objective function</text>
+
+                        <!-- Arrows to Biomass -->
+                        <line x1="505" y1="455" x2="545" y2="475" stroke="#ca8a04" stroke-width="1.2" marker-end="url(#arrowYellow)"/>
+                        <line x1="595" y1="340" x2="610" y2="470" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#arrowPurple)"/>
+                        <line x1="595" y1="410" x2="615" y2="470" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#arrowPurple)"/>
+                        <line x1="310" y1="510" x2="530" y2="498" stroke="#16a34a" stroke-width="1.2" marker-end="url(#arrowGreenDark)"/>
+
+                        <!-- Arrow definitions -->
+                        <defs>
+                            <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="#22c55e" stroke-width="1"/>
+                            </marker>
+                            <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="#3b82f6" stroke-width="1"/>
+                            </marker>
+                            <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="#f97316" stroke-width="1"/>
+                            </marker>
+                            <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="#ef4444" stroke-width="1"/>
+                            </marker>
+                            <marker id="arrowGreenDark" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="#10b981" stroke-width="1"/>
+                            </marker>
+                            <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="#8b5cf6" stroke-width="1"/>
+                            </marker>
+                            <marker id="arrowYellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="#eab308" stroke-width="1"/>
+                            </marker>
+                            <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <path d="M0,0 L8,3 L0,6" fill="none" stroke="var(--color-border)" stroke-width="1"/>
+                            </marker>
+                        </defs>
+                    </svg>
+                </div>
+
+                <p>
+                    The diagram above shows the major metabolic pathways in the iNJ661 model. Carbon sources (glucose, glycerol, acetate) feed into central metabolism. The TCA cycle generates reducing equivalents (NADH, FADH<sub>2</sub>) that drive oxidative phosphorylation to produce ATP. The unique mycobacterial pathway&mdash;FAS-I, FAS-II, and mycolic acid biosynthesis&mdash;feeds into cell wall assembly. All pathways contribute precursors to the biomass objective function.
+                </p>
+
+
+                <!-- ============================== -->
+                <!-- Section 4: FBA for Growth -->
+                <!-- ============================== -->
+                <h2 id="fba-growth">FBA for Growth Prediction</h2>
+
+                <p>
+                    Flux Balance Analysis (FBA) predicts the steady-state metabolic flux distribution by solving a linear program. For the iNJ661 model, the standard formulation is:
+                </p>
+
+                $$\max_{\mathbf{v}} \; v_{\text{biomass}}$$
+                $$\text{subject to:} \quad S \cdot \mathbf{v} = \mathbf{0}$$
+                $$\mathbf{l} \leq \mathbf{v} \leq \mathbf{u}$$
+
+                <p>
+                    where $\mathbf{v} \in \mathbb{R}^{939}$ is the flux vector, $S \in \mathbb{R}^{828 \times 939}$ is the stoichiometric matrix, and $\mathbf{l}, \mathbf{u}$ are lower and upper bounds on each flux. The objective is to maximize the flux through the <strong>biomass reaction</strong>&mdash;a pseudo-reaction that consumes all the precursors needed to build new cell material.
+                </p>
+
+                <p>
+                    The Mtb biomass objective function is more complex than a typical bacterial model. In addition to standard components (amino acids, nucleotides, lipids), it includes <strong>Mtb-specific components</strong>:
+                </p>
+
+                <ul>
+                    <li><strong>Mycolic acids</strong> (alpha-, methoxy-, and keto-mycolates)</li>
+                    <li><strong>Mycocerosates</strong> (phthiocerol dimycocerosates, PDIMs)</li>
+                    <li><strong>Sulfolipids</strong> (SL-1, important virulence factors)</li>
+                    <li><strong>Arabinogalactan and peptidoglycan</strong> (cell wall polymers)</li>
+                </ul>
+
+                <p>
+                    A key validation step is comparing <em>in silico</em> growth predictions against experimental data across different carbon sources. The table below shows how the model performs:
+                </p>
+
+                <div style="overflow-x: auto; margin: 2rem 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Carbon Source</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">Experimental Growth</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">In Silico Growth</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">FBA Growth Rate (h<sup>-1</sup>)</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">Agreement</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Glucose</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.053</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Match</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Glycerol</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.049</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Match</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Acetate</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.024</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Match</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Palmitate</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.031</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Match</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Cholesterol</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.018</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Match</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem 1rem;">Citrate (sole source)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">No</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">No</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.000</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Match</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    The model correctly predicts growth on diverse carbon sources including glucose, glycerol, acetate, and fatty acids&mdash;all of which Mtb encounters in different host environments. Glycerol is the standard lab medium carbon source for Mtb, while fatty acids (palmitate, cholesterol) are thought to be important <em>in vivo</em> carbon sources within macrophage phagosomes.
+                </p>
+
+
+                <!-- ============================== -->
+                <!-- Section 5: Gene Knockouts -->
+                <!-- ============================== -->
+                <h2 id="gene-knockouts">In Silico Gene Knockouts</h2>
+
+                <p>
+                    One of the most powerful applications of genome-scale models is the ability to simulate gene deletions computationally. The procedure is straightforward: for each gene $g$ in the model, identify all reactions that require $g$ (using GPR rules), set the flux bounds of those reactions to zero, and re-solve the FBA problem.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Gene Knockout Simulation</div>
+                    <p>
+                        For a gene $g$ with associated reactions $\text{reactions}(g) = \{j_1, j_2, \ldots, j_k\}$:
+                    </p>
+                    <p>
+                        <strong>Step 1.</strong> Set flux bounds to zero for all dependent reactions:
+                    </p>
+                    $$\text{KO gene } g: \quad v_j = 0 \quad \text{for all } j \in \text{reactions}(g)$$
+                    <p>
+                        <strong>Step 2.</strong> Solve the modified FBA problem to obtain the knockout growth rate $Z^*_{\text{KO}}$.
+                    </p>
+                    <p>
+                        <strong>Step 3.</strong> Classify the gene:
+                    </p>
+                    $$\text{Essential if: } Z^*_{\text{KO}} = 0 \;\;(\text{or } < \epsilon \text{ for numerical tolerance})$$
+                    <p style="margin-bottom: 0;">
+                        $$\text{Non-essential if: } Z^*_{\text{KO}} > \epsilon$$
+                    </p>
+                </div>
+
+                <p>
+                    A gene is deemed <strong>essential</strong> if its knockout causes the predicted growth rate to drop to zero (or below a small threshold $\epsilon \approx 10^{-6}$). The biological interpretation: the cell cannot grow without this gene, so the corresponding enzyme is a potential drug target.
+                </p>
+
+                <p>
+                    Applying this procedure to all 661 genes in iNJ661 yields approximately <strong>200 predicted essential genes</strong> (~30% of metabolic genes). This prediction can be validated against experimental data from transposon mutagenesis studies (Sassetti et al., 2003; Griffin et al., 2011), which systematically disrupt genes and measure fitness.
+                </p>
+
+                <div style="overflow-x: auto; margin: 2rem 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Metric</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">Value</th>
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Predicted essential genes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">~200</td>
+                                <td style="padding: 0.75rem 1rem;">Genes whose knockout abolishes growth in silico</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">True positives (TP)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">~130</td>
+                                <td style="padding: 0.75rem 1rem;">Predicted essential AND experimentally essential</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">False positives (FP)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">~70</td>
+                                <td style="padding: 0.75rem 1rem;">Predicted essential but experimentally non-essential</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Sensitivity (Recall)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">~78%</td>
+                                <td style="padding: 0.75rem 1rem;">Fraction of truly essential genes correctly predicted</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem 1rem;">Specificity</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">~85%</td>
+                                <td style="padding: 0.75rem 1rem;">Fraction of truly non-essential genes correctly predicted</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    The ~78% sensitivity means the model catches most essential genes, while the ~85% specificity means it does not generate excessive false alarms. The false positives often arise from isozymes (backup enzymes not fully captured in GPR rules) or alternative pathways absent from the model. False negatives can result from the model's inability to capture regulatory effects.
+                </p>
+
+
+                <!-- ============================== -->
+                <!-- Section 6: Drug Target ID -->
+                <!-- ============================== -->
+                <h2 id="drug-targets">Drug Target Identification</h2>
+
+                <p>
+                    Not every essential gene is a good drug target. A useful drug must kill (or inhibit) the pathogen <em>without harming the host</em>. The strategy is a three-step computational pipeline:
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Drug Target Identification Pipeline</div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>FBA Gene Essentiality Screen:</strong> Perform single-gene knockouts on the Mtb model (as described above). Identify the set $E_{\text{Mtb}}$ of all essential genes.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Filter Human Orthologs:</strong> Using BLAST or ortholog databases (e.g., InParanoid, OrthoMCL), identify Mtb genes that have close homologs in the human genome. Remove these from the candidate set to avoid off-target toxicity. Define $H$ as the set of Mtb genes with human orthologs. The filtered set is $E_{\text{Mtb}} \setminus H$.
+                        </div>
+                    </div>
+
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Prioritize Unique Pathways:</strong> Among the remaining candidates, prioritize genes in pathways that are unique to mycobacteria and absent in humans: mycolic acid biosynthesis, cell wall assembly (arabinogalactan, LAM), and the glyoxylate shunt. These offer the highest selectivity for anti-TB drugs.
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    The beauty of this approach is that it connects computational predictions to real drug mechanisms. Several known TB drug targets emerge from this pipeline:
+                </p>
+
+                <div style="overflow-x: auto; margin: 2rem 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Gene</th>
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Enzyme</th>
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Pathway</th>
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Known Drug</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">FBA Essential?</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">Human Ortholog?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">inhA</td>
+                                <td style="padding: 0.75rem 1rem;">Enoyl-ACP reductase</td>
+                                <td style="padding: 0.75rem 1rem;">FAS-II (mycolic acid)</td>
+                                <td style="padding: 0.75rem 1rem;">Isoniazid, Ethionamide</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">No</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">kasA</td>
+                                <td style="padding: 0.75rem 1rem;">Beta-ketoacyl-ACP synthase</td>
+                                <td style="padding: 0.75rem 1rem;">FAS-II (mycolic acid)</td>
+                                <td style="padding: 0.75rem 1rem;">Thiolactomycin (experimental)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">No</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">embB</td>
+                                <td style="padding: 0.75rem 1rem;">Arabinosyltransferase</td>
+                                <td style="padding: 0.75rem 1rem;">Arabinogalactan synthesis</td>
+                                <td style="padding: 0.75rem 1rem;">Ethambutol</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">No</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">alr</td>
+                                <td style="padding: 0.75rem 1rem;">Alanine racemase</td>
+                                <td style="padding: 0.75rem 1rem;">Peptidoglycan synthesis</td>
+                                <td style="padding: 0.75rem 1rem;">D-cycloserine</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">No</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">folP1</td>
+                                <td style="padding: 0.75rem 1rem;">Dihydropteroate synthase</td>
+                                <td style="padding: 0.75rem 1rem;">Folate biosynthesis</td>
+                                <td style="padding: 0.75rem 1rem;">Para-aminosalicylic acid</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">Yes</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #16a34a; font-weight: 600;">No</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">rpoB</td>
+                                <td style="padding: 0.75rem 1rem;">RNA polymerase beta subunit</td>
+                                <td style="padding: 0.75rem 1rem;">Transcription</td>
+                                <td style="padding: 0.75rem 1rem;">Rifampicin</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #ca8a04; font-weight: 600;">N/A*</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #dc2626; font-weight: 600;">Yes</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    <em>*rpoB is not in the metabolic model since it is involved in transcription, not metabolism. This illustrates a limitation: metabolic models only capture metabolic targets.</em>
+                </p>
+
+                <p>
+                    The first five genes in the table are all correctly predicted as essential by FBA, lack human orthologs, and are targets of known anti-TB drugs. This retrospective validation demonstrates that the computational pipeline can identify clinically validated drug targets. The real value, of course, lies in predicting <em>novel</em> targets among the remaining essential genes without human orthologs.
+                </p>
+
+
+                <!-- ============================== -->
+                <!-- Section 7: Condition-Specific -->
+                <!-- ============================== -->
+                <h2 id="condition-specific">Condition-Specific Modeling</h2>
+
+                <p>
+                    Tuberculosis infection is not a single state. Mtb encounters dramatically different metabolic environments depending on the stage of infection:
+                </p>
+
+                <ul>
+                    <li><strong>Aerobic (active TB):</strong> During active replication in well-oxygenated lung tissue, Mtb uses oxidative phosphorylation for energy generation and can metabolize diverse carbon sources.</li>
+                    <li><strong>Hypoxic (latent TB):</strong> Inside granulomas&mdash;walled-off immune structures&mdash;oxygen tension drops dramatically. Mtb enters a dormant, non-replicating persistent state. It shifts from aerobic respiration to anaerobic pathways, using nitrate as an alternative electron acceptor.</li>
+                    <li><strong>Nutrient-limited:</strong> Within macrophage phagosomes, Mtb faces limited access to carbon sources and must rely on host-derived lipids (cholesterol, fatty acids) rather than sugars.</li>
+                </ul>
+
+                <p>
+                    These conditions are modeled by adjusting the flux bounds on uptake reactions:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Condition-Specific Constraints</div>
+                    <p>
+                        <strong>Aerobic conditions:</strong> Standard oxygen uptake allowed.
+                    </p>
+                    $$-20 \leq v_{\text{O}_2} \leq 0 \quad \text{(O}_2\text{ import)}$$
+                    <p>
+                        <strong>Hypoxic conditions:</strong> Block oxygen, enable nitrate reduction.
+                    </p>
+                    $$v_{\text{O}_2} = 0, \quad -10 \leq v_{\text{NO}_3^-} \leq 0$$
+                    <p>
+                        <strong>Nutrient-limited conditions:</strong> Reduce carbon source uptake, switch to fatty acids.
+                    </p>
+                    $$v_{\text{glucose}} = 0, \quad -1 \leq v_{\text{cholesterol}} \leq 0$$
+                </div>
+
+                <p>
+                    Under each condition, we can apply both FBA and <strong>Flux Variability Analysis (FVA)</strong>. FVA computes the minimum and maximum flux through every reaction while maintaining optimal (or near-optimal) growth. This reveals the <strong>metabolic flexibility</strong> available to the bacterium:
+                </p>
+
+                <ul>
+                    <li><strong>Reactions with wide flux ranges</strong> under FVA have metabolic alternatives&mdash;blocking them alone may not be sufficient to kill the bacterium.</li>
+                    <li><strong>Reactions with narrow flux ranges</strong> (especially if $v_{\min} \approx v_{\max} > 0$) are metabolic bottlenecks&mdash;the cell has no alternative, making them ideal drug targets.</li>
+                </ul>
+
+                <p>
+                    A critical finding from condition-specific modeling: <strong>some genes are essential only under specific conditions</strong>. For example, genes in the nitrate reductase pathway become essential under hypoxic conditions but are dispensable during aerobic growth. This has profound implications for treating latent TB, which current drug regimens struggle to eradicate.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Clinical Relevance</div>
+                    <p style="margin-bottom: 0;">
+                        Condition-specific modeling explains why standard TB drugs (isoniazid, rifampicin) are less effective against latent TB: they primarily target pathways active during aerobic growth. By identifying genes essential specifically under hypoxic conditions, the model can suggest targets for drugs that would kill dormant bacilli&mdash;a critical unmet need in TB therapy.
+                    </p>
+                </div>
+
+
+                <!-- ============================== -->
+                <!-- Section 8: Mycolic Acid Pathway -->
+                <!-- ============================== -->
+                <h2 id="mycolic-acid">Mycolic Acid Pathway Analysis</h2>
+
+                <p>
+                    Mycolic acids are the hallmark of mycobacteria. These extraordinarily long-chain fatty acids (C<sub>60</sub>&ndash;C<sub>90</sub>) are essential for cell envelope integrity, impermeability, and virulence. They are entirely absent in human cells, making the mycolic acid biosynthetic pathway an ideal target for selective anti-TB drugs.
+                </p>
+
+                <p>
+                    The pathway involves two fatty acid synthase systems working in tandem:
+                </p>
+
+                <ul>
+                    <li><strong>FAS-I</strong> (a single multifunctional enzyme): Synthesizes medium-chain fatty acids (C<sub>16</sub>&ndash;C<sub>26</sub>) from acetyl-CoA. This is similar to the mammalian fatty acid synthase.</li>
+                    <li><strong>FAS-II</strong> (a multi-enzyme system): Extends FAS-I products to very long chains (C<sub>48</sub>&ndash;C<sub>62</sub>), forming the meromycolic acid chain. FAS-II is unique to bacteria and is the target of several key TB drugs. Key enzymes: InhA, KasA, KasB, MabA, HadABC.</li>
+                    <li><strong>Condensation:</strong> Meromycolic acid is condensed with an alpha-branch (C<sub>22</sub>&ndash;C<sub>26</sub>) by Pks13 to form the final mycolic acid.</li>
+                </ul>
+
+                <p>
+                    FBA analysis of this pathway reveals what happens when individual steps are blocked:
+                </p>
+
+                <div style="overflow-x: auto; margin: 2rem 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Blocked Step</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">Growth Rate</th>
+                                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600;">% of Wild Type</th>
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Biological Effect</th>
+                                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600;">Clinical Analog</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">None (wild type)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.053</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">100%</td>
+                                <td style="padding: 0.75rem 1rem;">Normal growth</td>
+                                <td style="padding: 0.75rem 1rem;">&mdash;</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">FAS-I (all reactions)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.000</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #dc2626; font-weight: 600;">0%</td>
+                                <td style="padding: 0.75rem 1rem;">No fatty acid precursors</td>
+                                <td style="padding: 0.75rem 1rem;">No approved drug</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">InhA (FAS-II)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.000</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #dc2626; font-weight: 600;">0%</td>
+                                <td style="padding: 0.75rem 1rem;">No meromycolic acid elongation</td>
+                                <td style="padding: 0.75rem 1rem; font-weight: 600;">Isoniazid</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">KasA (FAS-II)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.000</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #dc2626; font-weight: 600;">0%</td>
+                                <td style="padding: 0.75rem 1rem;">No beta-ketoacyl chain extension</td>
+                                <td style="padding: 0.75rem 1rem;">Thiolactomycin</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Pks13 (condensation)</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.000</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #dc2626; font-weight: 600;">0%</td>
+                                <td style="padding: 0.75rem 1rem;">Cannot assemble final mycolic acid</td>
+                                <td style="padding: 0.75rem 1rem;">TAM16 (experimental)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem 1rem;">Mycolyl transferase</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center;">0.000</td>
+                                <td style="padding: 0.75rem 1rem; text-align: center; color: #dc2626; font-weight: 600;">0%</td>
+                                <td style="padding: 0.75rem 1rem;">Mycolic acid not attached to cell wall</td>
+                                <td style="padding: 0.75rem 1rem;">&mdash;</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Every step in the mycolic acid pathway is essential&mdash;there is no redundancy. This is exactly what makes isoniazid (which targets InhA after activation by KatG) and ethionamide (which directly inhibits InhA) such effective first-line drugs. The FBA analysis confirms the biological reality: blocking <em>any</em> step in mycolic acid biosynthesis is lethal to the bacterium.
+                </p>
+
+                <p>
+                    This analysis also explains why resistance mutations in <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">inhA</span> or <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">katG</span> lead to isoniazid resistance: the pathway remains essential, but the drug can no longer inhibit the target enzyme. The metabolic model predicts essentiality; resistance arises from changes in drug-target binding, which is outside the model's scope.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Beyond iNJ661: Updated Models</div>
+                    <p style="margin-bottom: 0;">
+                        Since iNJ661 (2007), several updated Mtb models have been published, including iNJ661v (refined version), GSMN-TB, and sMtb (2018, with 1,192 genes and 1,555 reactions). Each new reconstruction improves coverage and accuracy. The principles and methods demonstrated here apply to all of them&mdash;the workflow (load model, run FBA, perform knockouts, change conditions) remains the same, only the model file changes.
+                    </p>
+                </div>
+
+            </article>
+
+
+            <!-- ============================================================ -->
+            <!-- CODE TAB -->
+            <!-- ============================================================ -->
+            <article class="article-content" id="code">
+
+                <h2>Tuberculosis Metabolic Modeling in Python</h2>
+                <p>
+                    Complete implementations using COBRApy, the standard Python library for constraint-based metabolic modeling. We will load a published Mtb model, run FBA, perform gene essentiality analysis, simulate drug effects, and model condition-specific metabolism.
+                </p>
+
+                <h3>Setup and Installation</h3>
+
+                <pre><code class="language-python"># Install COBRApy if you haven't already
+# pip install cobra
+
+import cobra
+from cobra.flux_analysis import (
+    single_gene_deletion,
+    flux_variability_analysis,
+)
+import pandas as pd
+import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
+
+print(f"COBRApy version: {cobra.__version__}")</code></pre>
+
+                <h3>Loading the iNJ661 Model</h3>
+
+                <pre><code class="language-python"># The iNJ661 model is available in SBML format from BiGG Models
+# Download: http://bigg.ucsd.edu/models/iNJ661
+# For this tutorial, we load it from a local file or URL
+
+# Option 1: Load from a local SBML file
+# model = cobra.io.read_sbml_model("iNJ661.xml")
+
+# Option 2: Load from BiGG (requires internet)
+# model = cobra.io.load_json_model("iNJ661.json")
+
+# Option 3: For demonstration, use the bundled E. coli model
+# and apply Mtb-specific concepts
+# Here we assume you have downloaded the iNJ661 model:
+model = cobra.io.read_sbml_model("iNJ661.xml")
+
+# Inspect model dimensions
+print(f"Model: {model.id}")
+print(f"Genes:       {len(model.genes)}")
+print(f"Reactions:   {len(model.reactions)}")
+print(f"Metabolites: {len(model.metabolites)}")
+print(f"Compartments: {model.compartments}")
+
+# The stoichiometric matrix dimensions
+S = cobra.util.create_stoichiometric_matrix(model)
+print(f"\nStoichiometric matrix S: {S.shape[0]} metabolites x {S.shape[1]} reactions")
+print(f"Non-zero entries: {np.count_nonzero(S)} ({100*np.count_nonzero(S)/S.size:.2f}% dense)")</code></pre>
+
+                <h3>Running FBA: Growth Prediction</h3>
+
+                <pre><code class="language-python"># Identify the biomass objective function
+print(f"Objective: {model.objective}")
+print(f"Objective direction: {model.objective.direction}")
+
+# Run FBA on the default medium (typically Middlebrook 7H9 with glycerol)
+solution = model.optimize()
+
+print(f"\n--- FBA Solution ---")
+print(f"Status: {solution.status}")
+print(f"Objective value (growth rate): {solution.objective_value:.6f} h^-1")
+print(f"Doubling time: {np.log(2)/solution.objective_value:.1f} hours")
+
+# Inspect key fluxes
+print(f"\n--- Key Fluxes ---")
+key_reactions = ['BIOMASS_Mtb', 'PFK', 'PYK', 'CS', 'ATPS4r', 'EX_glc__D_e']
+for rxn_id in key_reactions:
+    if rxn_id in model.reactions:
+        rxn = model.reactions.get_by_id(rxn_id)
+        print(f"  {rxn_id:20s}: {solution.fluxes[rxn_id]:8.4f}  ({rxn.name})")</code></pre>
+
+                <h3>Growth on Different Carbon Sources</h3>
+
+                <pre><code class="language-python">def test_carbon_source(model, carbon_exchange, uptake_rate=-10.0):
+    """Test growth on a specific carbon source.
+
+    Args:
+        model: COBRA model
+        carbon_exchange: Exchange reaction ID for the carbon source
+        uptake_rate: Maximum uptake rate (negative = import)
+
+    Returns:
+        Growth rate (float)
+    """
+    with model:  # context manager restores original state
+        # Close all carbon source uptakes
+        carbon_exchanges = [
+            'EX_glc__D_e', 'EX_glyc_e', 'EX_ac_e',
+            'EX_pyr_e', 'EX_lac__L_e', 'EX_succ_e',
+        ]
+        for ex in carbon_exchanges:
+            if ex in model.reactions:
+                model.reactions.get_by_id(ex).lower_bound = 0
+
+        # Open the desired carbon source
+        if carbon_exchange in model.reactions:
+            model.reactions.get_by_id(carbon_exchange).lower_bound = uptake_rate
+
+        solution = model.optimize()
+        if solution.status == 'optimal':
+            return solution.objective_value
+        return 0.0
+
+# Test multiple carbon sources
+carbon_sources = {
+    'Glucose':  'EX_glc__D_e',
+    'Glycerol': 'EX_glyc_e',
+    'Acetate':  'EX_ac_e',
+    'Pyruvate': 'EX_pyr_e',
+    'Succinate':'EX_succ_e',
+}
+
+print(f"{'Carbon Source':<15} {'Growth Rate (h^-1)':>20} {'Can Grow?':>12}")
+print("-" * 50)
+for name, exchange in carbon_sources.items():
+    rate = test_carbon_source(model, exchange)
+    can_grow = "Yes" if rate > 1e-6 else "No"
+    print(f"{name:<15} {rate:>20.6f} {can_grow:>12}")</code></pre>
+
+                <h3>Single Gene Knockout Analysis</h3>
+
+                <pre><code class="language-python"># Knock out a single gene and observe the effect on growth
+
+def knockout_gene(model, gene_id):
+    """Simulate a single gene knockout.
+
+    Args:
+        model: COBRA model
+        gene_id: ID of the gene to knock out
+
+    Returns:
+        dict with knockout results
+    """
+    with model:
+        gene = model.genes.get_by_id(gene_id)
+        gene.knock_out()
+
+        solution = model.optimize()
+        growth = solution.objective_value if solution.status == 'optimal' else 0.0
+
+        # Identify which reactions were disabled
+        disabled = [rxn.id for rxn in gene.reactions
+                    if rxn.bounds == (0, 0)]
+
+    return {
+        'gene': gene_id,
+        'growth_rate': growth,
+        'is_essential': growth < 1e-6,
+        'reactions_disabled': disabled,
+        'n_reactions_affected': len(gene.reactions),
+    }
+
+# Example: knock out inhA (isoniazid target)
+result = knockout_gene(model, 'Rv1484')  # inhA gene ID in Mtb
+print(f"Gene: {result['gene']}")
+print(f"Growth after KO: {result['growth_rate']:.6f}")
+print(f"Essential: {result['is_essential']}")
+print(f"Reactions affected: {result['n_reactions_affected']}")
+print(f"Reactions disabled: {result['reactions_disabled']}")</code></pre>
+
+                <h3>Genome-Wide Gene Essentiality Screen</h3>
+
+                <pre><code class="language-python"># Perform single-gene deletions for ALL genes in the model
+# This is the computational equivalent of a transposon mutagenesis screen
+
+print("Running genome-wide gene essentiality screen...")
+print(f"Screening {len(model.genes)} genes...\n")
+
+# COBRApy has a built-in function for this
+deletion_results = single_gene_deletion(model)
+
+# Process results
+deletion_results['is_essential'] = deletion_results['growth'] < 1e-6
+
+essential_genes = deletion_results[deletion_results['is_essential']]
+non_essential_genes = deletion_results[~deletion_results['is_essential']]
+
+print(f"Total genes screened:    {len(deletion_results)}")
+print(f"Essential genes:         {len(essential_genes)} ({100*len(essential_genes)/len(deletion_results):.1f}%)")
+print(f"Non-essential genes:     {len(non_essential_genes)} ({100*len(non_essential_genes)/len(deletion_results):.1f}%)")
+
+# Show the top essential genes sorted by the number of reactions they affect
+essential_info = []
+for idx, row in essential_genes.iterrows():
+    gene_ids = row['ids']  # frozenset of gene IDs
+    for gid in gene_ids:
+        gene = model.genes.get_by_id(gid)
+        essential_info.append({
+            'gene_id': gid,
+            'name': gene.name if gene.name else gid,
+            'n_reactions': len(gene.reactions),
+            'growth': row['growth'],
+        })
+
+essential_df = pd.DataFrame(essential_info).sort_values('n_reactions', ascending=False)
+print(f"\nTop 15 essential genes (by number of reactions affected):")
+print(essential_df.head(15).to_string(index=False))</code></pre>
+
+                <h3>Simulating Drug Effects (Mycolic Acid Pathway)</h3>
+
+                <pre><code class="language-python"># Simulate the effect of blocking mycolic acid pathway enzymes
+# This models the mechanism of isoniazid, ethionamide, etc.
+
+def simulate_drug_effect(model, target_genes, drug_name="Drug"):
+    """Simulate drug effect by knocking out target gene(s).
+
+    Args:
+        model: COBRA model
+        target_genes: list of gene IDs to knock out (drug targets)
+        drug_name: name of the drug being simulated
+
+    Returns:
+        dict with simulation results
+    """
+    with model:
+        wt_solution = model.optimize()
+        wt_growth = wt_solution.objective_value
+
+    with model:
+        for gid in target_genes:
+            if gid in model.genes:
+                model.genes.get_by_id(gid).knock_out()
+        ko_solution = model.optimize()
+        ko_growth = ko_solution.objective_value if ko_solution.status == 'optimal' else 0.0
+
+    return {
+        'drug': drug_name,
+        'targets': target_genes,
+        'wt_growth': wt_growth,
+        'ko_growth': ko_growth,
+        'growth_ratio': ko_growth / wt_growth if wt_growth > 0 else 0,
+        'is_lethal': ko_growth < 1e-6,
+    }
+
+# Simulate known TB drugs
+drug_simulations = [
+    (['Rv1484'],         'Isoniazid (InhA)'),
+    (['Rv2245'],         'Thiolactomycin (KasA)'),
+    (['Rv3795'],         'Ethambutol (EmbB)'),
+    (['Rv3423c'],        'D-cycloserine (Alr)'),
+    (['Rv1484', 'Rv2245'], 'INH + Thiolactomycin (combo)'),
+]
+
+print(f"{'Drug':<30} {'Target Growth':>14} {'% of WT':>10} {'Lethal?':>10}")
+print("-" * 67)
+for targets, name in drug_simulations:
+    result = simulate_drug_effect(model, targets, name)
+    pct = 100 * result['growth_ratio']
+    print(f"{result['drug']:<30} {result['ko_growth']:>14.6f} {pct:>9.1f}% {'YES' if result['is_lethal'] else 'No':>10}")</code></pre>
+
+                <h3>Condition-Specific Modeling</h3>
+
+                <pre><code class="language-python">def model_condition(model, condition_name, constraints):
+    """Model a specific growth condition by adjusting uptake bounds.
+
+    Args:
+        model: COBRA model
+        condition_name: descriptive name
+        constraints: dict of {reaction_id: (lower_bound, upper_bound)}
+
+    Returns:
+        dict with condition-specific results
+    """
+    with model:
+        for rxn_id, (lb, ub) in constraints.items():
+            if rxn_id in model.reactions:
+                rxn = model.reactions.get_by_id(rxn_id)
+                rxn.lower_bound = lb
+                rxn.upper_bound = ub
+
+        solution = model.optimize()
+        growth = solution.objective_value if solution.status == 'optimal' else 0.0
+
+        # Perform FVA to assess metabolic flexibility
+        if growth > 1e-6:
+            fva = flux_variability_analysis(
+                model,
+                fraction_of_optimum=0.9,  # allow 90% of max growth
+            )
+            fva['range'] = fva['maximum'] - fva['minimum']
+            n_flexible = (fva['range'] > 1e-6).sum()
+            n_fixed = (fva['range'] <= 1e-6).sum()
+        else:
+            n_flexible, n_fixed = 0, 0
+            fva = None
+
+    return {
+        'condition': condition_name,
+        'growth_rate': growth,
+        'n_flexible_reactions': n_flexible,
+        'n_fixed_reactions': n_fixed,
+        'fva': fva,
+    }
+
+# Define conditions
+conditions = {
+    'Aerobic (glucose)': {
+        'EX_glc__D_e': (-10, 0),
+        'EX_o2_e': (-20, 0),
+    },
+    'Hypoxic (glucose)': {
+        'EX_glc__D_e': (-10, 0),
+        'EX_o2_e': (0, 0),        # no oxygen
+        'EX_no3_e': (-10, 0),     # nitrate as electron acceptor
+    },
+    'Nutrient-limited (cholesterol)': {
+        'EX_glc__D_e': (0, 0),     # no glucose
+        'EX_glyc_e': (0, 0),       # no glycerol
+        'EX_chsterol_e': (-1, 0),  # limited cholesterol
+        'EX_o2_e': (-20, 0),
+    },
+}
+
+print(f"{'Condition':<35} {'Growth (h^-1)':>14} {'Flexible Rxns':>15} {'Fixed Rxns':>12}")
+print("-" * 80)
+for name, constraints in conditions.items():
+    result = model_condition(model, name, constraints)
+    print(f"{result['condition']:<35} {result['growth_rate']:>14.6f} "
+          f"{result['n_flexible_reactions']:>15} {result['n_fixed_reactions']:>12}")</code></pre>
+
+                <h3>Condition-Specific Essential Genes</h3>
+
+                <pre><code class="language-python">def find_condition_essential_genes(model, constraints):
+    """Find genes essential under specific conditions.
+
+    Args:
+        model: COBRA model
+        constraints: dict of flux constraints for the condition
+
+    Returns:
+        set of essential gene IDs
+    """
+    essential = set()
+    with model:
+        # Apply condition constraints
+        for rxn_id, (lb, ub) in constraints.items():
+            if rxn_id in model.reactions:
+                rxn = model.reactions.get_by_id(rxn_id)
+                rxn.lower_bound = lb
+                rxn.upper_bound = ub
+
+        # Check if growth is possible under this condition
+        base_solution = model.optimize()
+        if base_solution.status != 'optimal' or base_solution.objective_value < 1e-6:
+            print("  No growth under this condition.")
+            return essential
+
+        # Screen all genes
+        results = single_gene_deletion(model)
+        results['is_essential'] = results['growth'] < 1e-6
+
+        for idx, row in results.iterrows():
+            if row['is_essential']:
+                for gid in row['ids']:
+                    essential.add(gid)
+
+    return essential
+
+# Compare essential genes between aerobic and hypoxic conditions
+aerobic_constraints = {'EX_glc__D_e': (-10, 0), 'EX_o2_e': (-20, 0)}
+hypoxic_constraints = {'EX_glc__D_e': (-10, 0), 'EX_o2_e': (0, 0), 'EX_no3_e': (-10, 0)}
+
+print("Screening aerobic essential genes...")
+aerobic_essential = find_condition_essential_genes(model, aerobic_constraints)
+
+print("Screening hypoxic essential genes...")
+hypoxic_essential = find_condition_essential_genes(model, hypoxic_constraints)
+
+# Set operations to find condition-specific essentials
+both = aerobic_essential & hypoxic_essential
+aerobic_only = aerobic_essential - hypoxic_essential
+hypoxic_only = hypoxic_essential - aerobic_essential
+
+print(f"\n--- Condition-Specific Essentiality ---")
+print(f"Essential in both conditions:     {len(both)}")
+print(f"Essential only under aerobic:     {len(aerobic_only)}")
+print(f"Essential only under hypoxic:     {len(hypoxic_only)}")
+
+if hypoxic_only:
+    print(f"\nGenes essential ONLY under hypoxia (potential latent-TB targets):")
+    for gid in sorted(hypoxic_only)[:10]:
+        gene = model.genes.get_by_id(gid)
+        print(f"  {gid}: {gene.name if gene.name else 'unknown'}")</code></pre>
+
+                <h3>Synthetic Lethality Analysis</h3>
+
+                <pre><code class="language-python">from cobra.flux_analysis import double_gene_deletion
+
+def find_synthetic_lethal_pairs(model, gene_list=None, max_pairs=100):
+    """Find pairs of non-essential genes whose combined knockout is lethal.
+
+    Args:
+        model: COBRA model
+        gene_list: list of gene IDs to screen (default: all non-essential genes)
+        max_pairs: maximum number of pairs to report
+
+    Returns:
+        DataFrame of synthetic lethal pairs
+    """
+    if gene_list is None:
+        # First find non-essential genes
+        single_results = single_gene_deletion(model)
+        single_results['is_essential'] = single_results['growth'] < 1e-6
+        non_essential_ids = []
+        for idx, row in single_results.iterrows():
+            if not row['is_essential']:
+                for gid in row['ids']:
+                    non_essential_ids.append(gid)
+        gene_list = non_essential_ids
+
+    print(f"Screening {len(gene_list)} non-essential genes for synthetic lethality...")
+    print(f"Total pairs: {len(gene_list) * (len(gene_list)-1) // 2}")
+
+    # Use COBRApy's double_gene_deletion
+    # For large models, screen a subset for tractability
+    if len(gene_list) > 50:
+        print(f"Subsetting to first 50 genes for tractability...")
+        gene_list = gene_list[:50]
+
+    double_results = double_gene_deletion(model, gene_list1=gene_list)
+
+    # Identify synthetic lethal pairs
+    sl_pairs = []
+    for idx, row in double_results.iterrows():
+        if row['growth'] < 1e-6:
+            genes = sorted(row['ids'])
+            if len(genes) == 2:
+                sl_pairs.append({
+                    'gene_1': genes[0],
+                    'gene_2': genes[1],
+                    'double_ko_growth': row['growth'],
+                })
+
+    sl_df = pd.DataFrame(sl_pairs)
+    print(f"\nSynthetic lethal pairs found: {len(sl_df)}")
+    return sl_df.head(max_pairs)
+
+# Run synthetic lethality screen (on a subset for speed)
+sl_results = find_synthetic_lethal_pairs(model, max_pairs=20)
+if len(sl_results) > 0:
+    print(sl_results.to_string(index=False))</code></pre>
+
+                <h3>Full Analysis Pipeline</h3>
+
+                <pre><code class="language-python">def tb_drug_target_pipeline(model):
+    """Complete drug target identification pipeline.
+
+    Steps:
+        1. Gene essentiality screen
+        2. Filter human orthologs (simulated)
+        3. Prioritize unique pathways
+
+    Returns:
+        DataFrame of prioritized drug targets
+    """
+    print("=" * 60)
+    print("TB DRUG TARGET IDENTIFICATION PIPELINE")
+    print("=" * 60)
+
+    # Step 1: Gene essentiality
+    print("\n[Step 1] Gene essentiality screen...")
+    results = single_gene_deletion(model)
+    results['is_essential'] = results['growth'] < 1e-6
+    essential_ids = set()
+    for idx, row in results.iterrows():
+        if row['is_essential']:
+            for gid in row['ids']:
+                essential_ids.add(gid)
+    print(f"  Essential genes: {len(essential_ids)}")
+
+    # Step 2: Filter human orthologs
+    # In practice, use BLAST or InParanoid. Here we simulate with
+    # known conserved housekeeping genes
+    print("\n[Step 2] Filtering human orthologs...")
+    # This is a simplified simulation - real analysis uses BLAST
+    human_orthologs = set()  # Would contain gene IDs with human homologs
+    # For demonstration, assume ~30% of essential genes have human orthologs
+    filtered = essential_ids - human_orthologs
+    print(f"  After ortholog filter: {len(filtered)} candidates")
+
+    # Step 3: Prioritize by pathway
+    print("\n[Step 3] Prioritizing by pathway uniqueness...")
+    targets = []
+    for gid in filtered:
+        gene = model.genes.get_by_id(gid)
+        # Check which subsystems the gene's reactions belong to
+        subsystems = set()
+        for rxn in gene.reactions:
+            if rxn.subsystem:
+                subsystems.add(rxn.subsystem)
+
+        # Score: higher if in mycolic acid / cell wall pathways
+        priority = 0
+        unique_pathway = False
+        for sub in subsystems:
+            sub_lower = sub.lower()
+            if any(kw in sub_lower for kw in
+                   ['mycol', 'cell wall', 'arabino', 'peptido', 'lipid']):
+                priority += 3
+                unique_pathway = True
+            elif any(kw in sub_lower for kw in
+                     ['folate', 'pantothenate', 'cofactor']):
+                priority += 2
+            else:
+                priority += 1
+
+        targets.append({
+            'gene_id': gid,
+            'name': gene.name if gene.name else gid,
+            'n_reactions': len(gene.reactions),
+            'subsystems': ', '.join(sorted(subsystems)),
+            'priority_score': priority,
+            'unique_pathway': unique_pathway,
+        })
+
+    target_df = pd.DataFrame(targets).sort_values(
+        'priority_score', ascending=False
+    )
+
+    print(f"\n--- Top 20 Drug Target Candidates ---")
+    print(target_df.head(20).to_string(index=False))
+
+    return target_df
+
+# Run the pipeline
+candidates = tb_drug_target_pipeline(model)</code></pre>
+
+            </article>
+
+
+            <!-- ============================================================ -->
+            <!-- EXERCISES TAB -->
+            <!-- ============================================================ -->
+            <article class="article-content" id="exercises">
+                <div class="exercises-header">
+                    <h2>Exercises &amp; Progress</h2>
+                    <p>Apply metabolic modeling to real TB drug discovery problems. Exercises progress from basic model exploration to advanced analyses that mirror actual research workflows.</p>
+                </div>
+                <div class="exercises-container">
+
+                    <!-- Exercise 1: Easy -->
+                    <div class="exercise-item easy" data-exercise="1">
+                        <div class="exercise-header">
+                            <span class="exercise-badge easy">Easy</span>
+                            <span class="exercise-title">1. Load the iNJ661 Model and Predict Growth on Glucose</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>Download the iNJ661 model from <a href="http://bigg.ucsd.edu/models/iNJ661" target="_blank">BiGG Models</a> and perform a basic FBA analysis.</p>
+                            <ol>
+                                <li>Load the model and print its dimensions: number of genes, reactions, and metabolites. Verify they match the published values (661 genes, 939 reactions, 828 metabolites).</li>
+                                <li>Identify the biomass reaction. Print its formula (reactants and products). How many distinct metabolites does it consume?</li>
+                                <li>Set up the medium for glucose as the sole carbon source (close all other carbon uptakes, set glucose uptake to $-10$ mmol/gDW/h). Run FBA and report the growth rate.</li>
+                                <li>Compute the predicted doubling time using $t_d = \ln(2) / \mu$ where $\mu$ is the growth rate. Compare this to the experimentally observed Mtb doubling time of ~20 hours. Does the model give a reasonable prediction?</li>
+                                <li>Print the top 10 reactions by absolute flux value. Which pathways dominate the flux distribution?</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2: Easy -->
+                    <div class="exercise-item easy" data-exercise="2">
+                        <div class="exercise-header">
+                            <span class="exercise-badge easy">Easy</span>
+                            <span class="exercise-title">2. Single Gene Knockout: Interpret the Result</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>Explore the effect of knocking out individual genes in the Mtb model.</p>
+                            <ol>
+                                <li>Knock out the gene <code>Rv1484</code> (<em>inhA</em>, the target of isoniazid). What happens to the growth rate? List all reactions that are disabled by this knockout.</li>
+                                <li>Knock out the gene <code>Rv2245</code> (<em>kasA</em>). Is it essential? What pathway does it belong to?</li>
+                                <li>Knock out a gene from the TCA cycle (e.g., <code>Rv1240</code>, malate dehydrogenase). Is it essential? Why might a TCA cycle gene be non-essential (think about alternative pathways)?</li>
+                                <li>For the non-essential knockout from part (3), determine the growth rate as a fraction of wild type. Run FVA on the knockout model&mdash;which reactions show increased flux ranges compared to wild type? These compensating reactions reveal the cell's backup strategies.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3: Medium -->
+                    <div class="exercise-item medium" data-exercise="3">
+                        <div class="exercise-header">
+                            <span class="exercise-badge medium">Medium</span>
+                            <span class="exercise-title">3. Genome-Wide Essentiality Screen</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>Perform a comprehensive gene essentiality analysis and validate against experimental data.</p>
+                            <ol>
+                                <li>Run <code>single_gene_deletion</code> on all genes in the model. Record the growth rate for each knockout. How many genes are predicted essential (growth &lt; $10^{-6}$)?</li>
+                                <li>Classify genes into categories: <strong>essential</strong> (growth = 0), <strong>reduced growth</strong> ($0 &lt; \text{growth} &lt; 0.9 \times \text{WT}$), and <strong>no effect</strong> (growth $\geq 0.9 \times$ WT). What fraction falls into each category?</li>
+                                <li>The TraSH (Transposon Site Hybridization) study by Sassetti et al. identified 614 genes essential for <em>in vitro</em> growth. Compare your predictions: compute the confusion matrix (TP, FP, TN, FN), sensitivity, specificity, precision, and F1 score. <em>Note:</em> The gene lists may not overlap perfectly since the model contains only metabolic genes.</li>
+                                <li>Identify the subsystems (pathways) most enriched in essential genes. For each pathway, compute the fraction of essential genes. Which pathways have 100% essentiality?</li>
+                                <li>Discuss: what are the main sources of disagreement between the model predictions and experimental data? Consider model limitations (coverage, GPR rules, missing regulation).</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 4: Medium -->
+                    <div class="exercise-item medium" data-exercise="4">
+                        <div class="exercise-header">
+                            <span class="exercise-badge medium">Medium</span>
+                            <span class="exercise-title">4. Hypoxic Condition Modeling</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>Model the metabolic shift that occurs during latent TB infection when Mtb encounters hypoxic conditions inside granulomas.</p>
+                            <ol>
+                                <li>Set up two conditions: <strong>aerobic</strong> (O<sub>2</sub> uptake = $-20$) and <strong>hypoxic</strong> (O<sub>2</sub> uptake = $0$, nitrate uptake = $-10$). Run FBA under both. What is the growth rate ratio (hypoxic/aerobic)?</li>
+                                <li>Run FVA under both conditions (at 90% optimality). Compare the number of reactions with non-zero flux ranges. Which condition allows more metabolic flexibility?</li>
+                                <li>Identify reactions that carry flux under hypoxia but not under aerobic conditions (and vice versa). These represent the metabolic reprogramming. List the top 10 reactions that are "activated" under hypoxia.</li>
+                                <li>Perform gene essentiality screens under both conditions. Find genes that are:
+                                    <ul>
+                                        <li>(a) Essential under both conditions (core essentials)</li>
+                                        <li>(b) Essential only under aerobic conditions</li>
+                                        <li>(c) Essential only under hypoxic conditions (latent TB targets)</li>
+                                    </ul>
+                                    Category (c) is particularly interesting for drug discovery. Discuss what pathways these genes belong to.
+                                </li>
+                                <li>For each hypoxia-specific essential gene, determine whether it has a human ortholog (use any bioinformatics approach or a known list). The subset that is hypoxia-essential and lacks a human ortholog represents the most promising latent TB drug targets.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5: Hard -->
+                    <div class="exercise-item hard" data-exercise="5">
+                        <div class="exercise-header">
+                            <span class="exercise-badge hard">Hard</span>
+                            <span class="exercise-title">5. Synthetic Lethality: Designing Combination Drug Therapy</span>
+                        </div>
+                        <div class="exercise-content">
+                            <p>Find pairs of individually non-essential genes whose simultaneous knockout is lethal. These synthetic lethal pairs represent targets for combination drug therapy&mdash;where neither drug alone kills the bacterium, but together they are lethal.</p>
+                            <ol>
+                                <li><strong>Setup:</strong> First identify all non-essential genes from Exercise 3. Use <code>double_gene_deletion</code> from COBRApy to screen all pairs of non-essential genes. Due to the combinatorial explosion ($\binom{n}{2}$ pairs), you may need to restrict to a subset (e.g., 100 genes).</li>
+                                <li><strong>Analysis:</strong> How many synthetic lethal pairs did you find? What fraction of all tested pairs are synthetic lethal? Plot the distribution of double-knockout growth rates.</li>
+                                <li><strong>Pathway enrichment:</strong> For each synthetic lethal pair, identify which pathways the two genes belong to. Are synthetic lethal interactions more common between genes in the <em>same</em> pathway (redundancy) or <em>different</em> pathways (metabolic coupling)? Compute the enrichment and test for statistical significance.</li>
+                                <li><strong>Drug target prioritization:</strong> Filter synthetic lethal pairs where:
+                                    <ul>
+                                        <li>Neither gene has a close human ortholog</li>
+                                        <li>At least one gene is in a druggable pathway (i.e., a known enzyme class with existing inhibitors)</li>
+                                        <li>The genes are in different pathways (to reduce cross-resistance risk)</li>
+                                    </ul>
+                                    Rank the top 10 candidate drug pairs. For each, describe the biological rationale for why the combination might work.
+                                </li>
+                                <li><strong>Robustness:</strong> Test whether your top synthetic lethal pairs remain lethal under different growth conditions (aerobic vs. hypoxic vs. nutrient-limited). A pair that is synthetic lethal under <em>all</em> conditions is a more robust drug target. Report which pairs pass this robustness filter.</li>
+                            </ol>
+                            <p><em>Hint:</em> Synthetic lethality often arises from isozymes (genes encoding enzymes that catalyze the same reaction) or from alternative metabolic routes (e.g., two pathways that can each independently supply the same essential metabolite). Understanding the mechanism behind each synthetic lethal interaction is key to assessing its therapeutic potential.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#tb-challenge" class="toc-link">TB: The Challenge</a>
+                <a href="#inj661-model" class="toc-link">The iNJ661 Model</a>
+                <a href="#model-structure" class="toc-link">Model Structure</a>
+                <a href="#fba-growth" class="toc-link">FBA for Growth Prediction</a>
+                <a href="#gene-knockouts" class="toc-link">In Silico Gene Knockouts</a>
+                <a href="#drug-targets" class="toc-link">Drug Target Identification</a>
+                <a href="#condition-specific" class="toc-link">Condition-Specific Modeling</a>
+                <a href="#mycolic-acid" class="toc-link">Mycolic Acid Pathway</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

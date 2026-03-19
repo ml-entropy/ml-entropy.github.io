@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNN for Linear Programming | Computational Biology</title>
+    <meta name="description" content="How Graph Neural Networks can represent and solve Linear Programs. The theoretical framework from ICLR 2023 connecting WL-isomorphism tests to LP feasibility, boundedness, and optimal solutions.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link active">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Computational Biology</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>GNN for Linear Programming</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Computational Biology</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-fba/index.html" class="sidebar-link">01. Flux Balance Analysis</a>
+                    <a href="../02-fva/index.html" class="sidebar-link">02. Flux Variability Analysis</a>
+                    <a href="../03-linear-algebra-metabolism/index.html" class="sidebar-link">03. Linear Algebra of Metabolism</a>
+                    <a href="../04-tuberculosis/index.html" class="sidebar-link">04. Tuberculosis Modeling</a>
+                    <a href="../05-gnn-lp/index.html" class="sidebar-link active">05. GNN for Linear Programming</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../distributions/index.html" class="sidebar-link">Distributions</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article: Theory -->
+        <main class="tutorial-main">
+
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: Motivation -->
+                <h2 id="motivation">Motivation: Why GNNs for LPs?</h2>
+
+                <p>
+                    Linear programs (LPs) are among the most ubiquitous computational workhorses in science and industry. Every day, billions of LP instances are solved across logistics (vehicle routing, supply chain optimization), scheduling (airline crew assignment, manufacturing), finance (portfolio optimization), and &mdash; crucially for this tutorial series &mdash; <strong>computational biology</strong>. Flux Balance Analysis, the subject of our first tutorial, is at its core an LP. Every call to COBRApy's <code>model.optimize()</code> dispatches an LP to a solver.
+                </p>
+
+                <p>
+                    Traditional LP solvers &mdash; the simplex method (Dantzig, 1947) and interior point methods (Karmarkar, 1984) &mdash; are remarkably efficient. But they share a fundamental limitation: <strong>they do not generalize</strong>. Each new LP instance starts from scratch. A simplex solver that has processed a million metabolic models does not become any faster or smarter on the million-and-first. It learns nothing.
+                </p>
+
+                <p>
+                    This raises a provocative question: <em>can we learn to solve linear programs?</em> If many LP instances share structural patterns &mdash; as metabolic models across different organisms clearly do &mdash; then a machine learning model trained on solved instances might be able to predict properties of new instances without running a full solver.
+                </p>
+
+                <p>
+                    The paper <strong>"On Representing Linear Programs by Graph Neural Networks"</strong> by Ziang Chen, Jialin Liu, Xinshang Wang, Jianfeng Lu, and Wotao Yin (ICLR 2023, Spotlight) provides the theoretical foundation for this program. Their key contribution is not just an empirical demonstration that GNNs can predict LP properties &mdash; it is a rigorous proof that GNNs are <em>theoretically capable</em> of representing the mappings from LP instances to their solutions.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Key Insight</div>
+                    <p>
+                        Linear programs have a natural <strong>permutation-invariant</strong> structure: reordering the variables or constraints of an LP does not change the problem. This is precisely the kind of symmetry that Graph Neural Networks are designed to respect. The paper proves that a sufficiently expressive GNN can approximate LP feasibility, optimal objective value, and even optimal solutions to arbitrary precision.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        The bridge between GNNs and LPs is the <strong>Weisfeiler-Lehman (WL) graph isomorphism test</strong>: two LPs that the WL test can distinguish must have the same feasibility and boundedness properties if they are WL-equivalent, and any GNN as powerful as the WL test can capture these properties.
+                    </p>
+                </div>
+
+
+                <!-- Section 2: LP as Bipartite Graph -->
+                <h2 id="bipartite-graph">LP as a Bipartite Graph</h2>
+
+                <p>
+                    The first step is to represent an LP as a graph. Consider the standard form of a linear program:
+                </p>
+
+                <div class="math-block">
+                    $$\min_{\mathbf{x}} \; \mathbf{c}^T\mathbf{x} \quad \text{s.t.} \quad A\mathbf{x} \leq \mathbf{b}, \quad \mathbf{x} \geq \mathbf{0}$$
+                </div>
+
+                <p>
+                    where $\mathbf{x} \in \mathbb{R}^n$ is the vector of decision variables, $\mathbf{c} \in \mathbb{R}^n$ is the objective coefficient vector, $A \in \mathbb{R}^{m \times n}$ is the constraint matrix, and $\mathbf{b} \in \mathbb{R}^m$ is the right-hand side vector. This LP can be naturally represented as a <strong>weighted bipartite graph</strong> $G = (V_x \cup V_c, E)$:
+                </p>
+
+                <ul>
+                    <li><strong>Variable nodes $V_x$</strong>: One node per decision variable $x_j$ (for $j = 1, \ldots, n$). Each variable node carries the feature $c_j$ &mdash; the objective coefficient &mdash; as well as any bound information.</li>
+                    <li><strong>Constraint nodes $V_c$</strong>: One node per constraint $i$ (for $i = 1, \ldots, m$). Each constraint node carries the feature $b_i$ &mdash; the right-hand side value.</li>
+                    <li><strong>Edges $E$</strong>: An edge connects variable node $j$ to constraint node $i$ if and only if $A_{ij} \neq 0$. The edge weight is $A_{ij}$, the coefficient of variable $j$ in constraint $i$.</li>
+                </ul>
+
+                <p>
+                    This representation is both natural and sparse: real-world constraint matrices $A$ are typically very sparse (a variable appears in only a few constraints), so the resulting bipartite graph has far fewer edges than a dense matrix would imply. For a metabolic model with 1,000 metabolites and 1,500 reactions, the stoichiometric matrix might have only 5,000 nonzero entries rather than the possible 1,500,000.
+                </p>
+
+                <!-- SVG: Bipartite Graph -->
+                <div style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg" style="max-width: 680px; width: 100%; height: auto; font-family: 'Inter', sans-serif;">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+                            </marker>
+                        </defs>
+
+                        <!-- Background -->
+                        <rect width="720" height="420" rx="12" fill="var(--color-surface, #f8fafc)" stroke="var(--color-border, #e2e8f0)" stroke-width="1"/>
+
+                        <!-- Title -->
+                        <text x="360" y="32" text-anchor="middle" font-size="15" font-weight="600" fill="var(--color-text, #1e293b)">LP to Bipartite Graph Conversion</text>
+
+                        <!-- Left side: LP formulation -->
+                        <rect x="20" y="52" width="290" height="170" rx="8" fill="var(--color-bg-alt, #f1f5f9)" stroke="var(--color-border, #e2e8f0)" stroke-width="1"/>
+                        <text x="165" y="75" text-anchor="middle" font-size="12" font-weight="600" fill="var(--color-text-secondary, #475569)">Example LP</text>
+
+                        <text x="40" y="105" font-size="13" fill="var(--color-text, #1e293b)" font-family="'JetBrains Mono', monospace">min  2x&#x2081; + 3x&#x2082; + x&#x2083;</text>
+                        <text x="40" y="130" font-size="13" fill="var(--color-text, #1e293b)" font-family="'JetBrains Mono', monospace">s.t. x&#x2081; + 2x&#x2082;       &le; 4</text>
+                        <text x="40" y="155" font-size="13" fill="var(--color-text, #1e293b)" font-family="'JetBrains Mono', monospace">          x&#x2082; + 3x&#x2083; &le; 6</text>
+                        <text x="40" y="180" font-size="13" fill="var(--color-text, #1e293b)" font-family="'JetBrains Mono', monospace">     3x&#x2081;      + 2x&#x2083; &le; 5</text>
+                        <text x="40" y="208" font-size="12" fill="var(--color-text-secondary, #475569)">x&#x2081;, x&#x2082;, x&#x2083; &ge; 0</text>
+
+                        <!-- Arrow -->
+                        <line x1="325" y1="140" x2="385" y2="140" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+                        <text x="355" y="130" text-anchor="middle" font-size="11" fill="#64748b">encode</text>
+
+                        <!-- Right side: Bipartite graph -->
+                        <rect x="400" y="52" width="300" height="280" rx="8" fill="var(--color-bg-alt, #f1f5f9)" stroke="var(--color-border, #e2e8f0)" stroke-width="1"/>
+                        <text x="550" y="75" text-anchor="middle" font-size="12" font-weight="600" fill="var(--color-text-secondary, #475569)">Bipartite Graph G = (V&#x2093; &cup; V&#x1D04;, E)</text>
+
+                        <!-- Variable nodes (left column in graph) -->
+                        <circle cx="450" cy="120" r="22" fill="#3b82f6" stroke="#2563eb" stroke-width="2"/>
+                        <text x="450" y="125" text-anchor="middle" font-size="12" font-weight="600" fill="white">x&#x2081;</text>
+                        <text x="450" y="155" text-anchor="middle" font-size="10" fill="#3b82f6">c=2</text>
+
+                        <circle cx="450" cy="200" r="22" fill="#3b82f6" stroke="#2563eb" stroke-width="2"/>
+                        <text x="450" y="205" text-anchor="middle" font-size="12" font-weight="600" fill="white">x&#x2082;</text>
+                        <text x="450" y="235" text-anchor="middle" font-size="10" fill="#3b82f6">c=3</text>
+
+                        <circle cx="450" cy="280" r="22" fill="#3b82f6" stroke="#2563eb" stroke-width="2"/>
+                        <text x="450" y="285" text-anchor="middle" font-size="12" font-weight="600" fill="white">x&#x2083;</text>
+                        <text x="450" y="315" text-anchor="middle" font-size="10" fill="#3b82f6">c=1</text>
+
+                        <!-- Constraint nodes (right column in graph) -->
+                        <rect x="628" y="98" width="44" height="44" rx="6" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+                        <text x="650" y="125" text-anchor="middle" font-size="11" font-weight="600" fill="white">c&#x2081;</text>
+                        <text x="650" y="155" text-anchor="middle" font-size="10" fill="#f59e0b">b=4</text>
+
+                        <rect x="628" y="178" width="44" height="44" rx="6" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+                        <text x="650" y="205" text-anchor="middle" font-size="11" font-weight="600" fill="white">c&#x2082;</text>
+                        <text x="650" y="235" text-anchor="middle" font-size="10" fill="#f59e0b">b=6</text>
+
+                        <rect x="628" y="258" width="44" height="44" rx="6" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+                        <text x="650" y="285" text-anchor="middle" font-size="11" font-weight="600" fill="white">c&#x2083;</text>
+                        <text x="650" y="315" text-anchor="middle" font-size="10" fill="#f59e0b">b=5</text>
+
+                        <!-- Edges with weights -->
+                        <!-- x1 -> c1 (A=1) -->
+                        <line x1="472" y1="120" x2="628" y2="120" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="548" y="112" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">1</text>
+
+                        <!-- x1 -> c3 (A=3) -->
+                        <line x1="472" y1="125" x2="628" y2="275" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="540" y="215" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">3</text>
+
+                        <!-- x2 -> c1 (A=2) -->
+                        <line x1="472" y1="195" x2="628" y2="125" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="558" y="152" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">2</text>
+
+                        <!-- x2 -> c2 (A=1) -->
+                        <line x1="472" y1="200" x2="628" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="548" y="192" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">1</text>
+
+                        <!-- x3 -> c2 (A=3) -->
+                        <line x1="472" y1="275" x2="628" y2="205" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="558" y="248" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">3</text>
+
+                        <!-- x3 -> c3 (A=2) -->
+                        <line x1="472" y1="280" x2="628" y2="280" stroke="#94a3b8" stroke-width="2"/>
+                        <text x="548" y="272" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">2</text>
+
+                        <!-- Legend -->
+                        <circle cx="435" cy="365" r="8" fill="#3b82f6"/>
+                        <text x="450" y="369" font-size="11" fill="var(--color-text, #1e293b)">Variable nodes (features: c&#x2C7C;)</text>
+
+                        <rect x="427" y="387" width="16" height="16" rx="3" fill="#f59e0b"/>
+                        <text x="450" y="399" font-size="11" fill="var(--color-text, #1e293b)">Constraint nodes (features: b&#x1D62;)</text>
+
+                        <!-- Matrix view -->
+                        <rect x="20" y="240" width="290" height="160" rx="8" fill="var(--color-bg-alt, #f1f5f9)" stroke="var(--color-border, #e2e8f0)" stroke-width="1"/>
+                        <text x="165" y="263" text-anchor="middle" font-size="12" font-weight="600" fill="var(--color-text-secondary, #475569)">Constraint Matrix A</text>
+
+                        <text x="100" y="295" text-anchor="middle" font-size="13" font-family="'JetBrains Mono', monospace" fill="var(--color-text, #1e293b)">    x&#x2081;  x&#x2082;  x&#x2083;</text>
+                        <text x="40" y="318" font-size="13" font-family="'JetBrains Mono', monospace" fill="var(--color-text, #1e293b)">c&#x2081;  [ 1   2   0 ]</text>
+                        <text x="40" y="343" font-size="13" font-family="'JetBrains Mono', monospace" fill="var(--color-text, #1e293b)">c&#x2082;  [ 0   1   3 ]</text>
+                        <text x="40" y="368" font-size="13" font-family="'JetBrains Mono', monospace" fill="var(--color-text, #1e293b)">c&#x2083;  [ 3   0   2 ]</text>
+
+                        <text x="165" y="393" text-anchor="middle" font-size="10" fill="var(--color-text-secondary, #475569)">Edges exist only where A&#x1D62;&#x2C7C; &ne; 0 (6 edges, not 9)</text>
+                    </svg>
+                </div>
+
+                <p>
+                    Notice the sparsity: in our example, the matrix $A$ has 6 nonzero entries out of 9 possible. Real metabolic stoichiometric matrices are far sparser &mdash; typically only 0.5&ndash;2% of entries are nonzero. This sparsity is exactly what makes the graph representation powerful: the GNN only needs to pass messages along existing edges, naturally exploiting the structure of the problem.
+                </p>
+
+
+                <!-- Section 3: WL Connection -->
+                <h2 id="wl-connection">The Weisfeiler-Lehman Connection</h2>
+
+                <p>
+                    The theoretical backbone of the paper rests on the <strong>Weisfeiler-Lehman (WL) graph isomorphism test</strong> &mdash; a classical algorithm from combinatorics that iteratively refines node labels to determine whether two graphs are structurally equivalent.
+                </p>
+
+                <h3>The 1-WL Algorithm</h3>
+
+                <p>
+                    The 1-WL test (also called "color refinement") works as follows:
+                </p>
+
+                <ol>
+                    <li><strong>Initialization:</strong> Assign each node an initial label (color) based on its features.</li>
+                    <li><strong>Iteration:</strong> At each step, update each node's label by hashing together its current label and the <em>multiset</em> of its neighbors' labels:
+                        $$\ell^{(t+1)}(v) = \text{HASH}\!\left(\ell^{(t)}(v), \{\!\!\{ \ell^{(t)}(u) : u \in \mathcal{N}(v) \}\!\!\}\right)$$
+                    </li>
+                    <li><strong>Termination:</strong> If after any iteration the multisets of labels for the two graphs differ, declare them <strong>non-isomorphic</strong>. If the labels stabilize (no further refinement is possible), the test is inconclusive &mdash; the graphs <em>might</em> be isomorphic.</li>
+                </ol>
+
+                <p>
+                    The crucial connection to GNNs was established by Xu et al. (2019) and Morris et al. (2019):
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">GNN&ndash;WL Equivalence (Xu et al., 2019)</div>
+                    <p style="margin-bottom: 0;">
+                        A GNN with <strong>injective</strong> aggregation and update functions is exactly as powerful as the 1-WL test. That is, two graphs that the 1-WL test can distinguish will produce different GNN outputs, and two graphs that the 1-WL test cannot distinguish will produce the same GNN output. The Graph Isomorphism Network (GIN) achieves this maximal expressiveness.
+                    </p>
+                </div>
+
+                <p>
+                    This equivalence means that to understand what a GNN can learn about LPs, we need to understand what the WL test can distinguish about LP bipartite graphs.
+                </p>
+
+                <h3>WL-Equivalence for LPs</h3>
+
+                <p>
+                    The paper defines two LPs as <strong>WL-equivalent</strong> if their bipartite graph representations cannot be distinguished by the 1-WL test. This is a strong condition: it means not only that the graphs have the same topology, but that the WL refinement process produces identical label distributions at every iteration.
+                </p>
+
+                <p>
+                    The paper's central theoretical results establish that WL-equivalence preserves LP properties:
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Theorem 1 (Feasibility &amp; Boundedness Invariance)</div>
+                    <p style="margin-bottom: 0;">
+                        If two LPs are WL-equivalent (i.e., their bipartite graph representations cannot be distinguished by the 1-WL test), then they have the <strong>same feasibility and boundedness status</strong>. That is, either both are infeasible, both are feasible and bounded, or both are feasible and unbounded.
+                    </p>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Theorem 2 (Solution Invariance)</div>
+                    <p style="margin-bottom: 0;">
+                        If two WL-equivalent LPs are both feasible and bounded, then they share the <strong>same minimum-norm optimal solution</strong>. Specifically, if $\mathbf{x}^*_1$ and $\mathbf{x}^*_2$ are the minimum $\ell_2$-norm optimal solutions of the two LPs, and $\pi$ is the permutation relating the WL-equivalent nodes, then $x^*_{1,j} = x^*_{2,\pi(j)}$ for all variable indices $j$.
+                    </p>
+                </div>
+
+                <p>
+                    These theorems have a powerful implication: any function that is <strong>invariant under WL-equivalence</strong> (such as a GNN) can in principle distinguish any two LPs with different feasibility, boundedness, or optimal solution properties &mdash; because the WL test itself can distinguish them.
+                </p>
+
+
+                <!-- Section 4: GNN Architecture -->
+                <h2 id="gnn-architecture">GNN Architecture for LPs</h2>
+
+                <p>
+                    The GNN operates on the bipartite graph representation via <strong>message passing</strong>. Since the graph is bipartite, messages flow in two directions: from variable nodes to constraint nodes, and from constraint nodes to variable nodes.
+                </p>
+
+                <h3>Message Passing</h3>
+
+                <p>
+                    At each layer $l$, the embedding of a variable node $j$ is updated by aggregating information from its neighboring constraint nodes:
+                </p>
+
+                <div class="math-block">
+                    $$h_j^{(l+1)} = \sigma\!\left(W_1^{(l)} h_j^{(l)} + \sum_{i \in \mathcal{N}(j)} W_2^{(l)} \big[h_i^{(l)} \,\|\, e_{ij}\big]\right)$$
+                </div>
+
+                <p>
+                    where:
+                </p>
+                <ul>
+                    <li>$h_j^{(l)} \in \mathbb{R}^d$ is the embedding of variable node $j$ at layer $l$</li>
+                    <li>$h_i^{(l)} \in \mathbb{R}^d$ is the embedding of constraint node $i$ at layer $l$</li>
+                    <li>$e_{ij} = A_{ij}$ is the edge feature (the constraint coefficient)</li>
+                    <li>$[\cdot \| \cdot]$ denotes concatenation</li>
+                    <li>$W_1^{(l)}, W_2^{(l)}$ are learnable weight matrices</li>
+                    <li>$\sigma$ is a nonlinear activation (e.g., ReLU)</li>
+                    <li>$\mathcal{N}(j)$ is the set of constraint nodes connected to variable node $j$</li>
+                </ul>
+
+                <p>
+                    Symmetrically, constraint node embeddings are updated from their neighboring variable nodes:
+                </p>
+
+                <div class="math-block">
+                    $$h_i^{(l+1)} = \sigma\!\left(W_3^{(l)} h_i^{(l)} + \sum_{j \in \mathcal{N}(i)} W_4^{(l)} \big[h_j^{(l)} \,\|\, e_{ij}\big]\right)$$
+                </div>
+
+                <p>
+                    After $L$ layers of message passing, the node embeddings have accumulated information from their $L$-hop neighborhood. For LP bipartite graphs, $L$ layers means that each variable node has "seen" all constraints within $L$ hops and vice versa. The paper shows that with enough layers, the embeddings become as discriminative as the WL test.
+                </p>
+
+                <h3>Readout Functions</h3>
+
+                <p>
+                    After message passing, a <strong>readout function</strong> maps the final embeddings to predictions. The readout depends on the task:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Graph-Level Readout (for Feasibility and Objective)</div>
+                    <p style="margin-bottom: 0;">
+                        Pool all node embeddings into a single graph-level representation, then pass through an MLP:
+                        $$\hat{y} = \text{MLP}\!\left(\text{READOUT}\!\big(\{h_j^{(L)}\}_{j \in V_x} \cup \{h_i^{(L)}\}_{i \in V_c}\big)\right)$$
+                        where READOUT is a permutation-invariant aggregation such as sum or mean. For feasibility, $\hat{y} \in [0, 1]$ (binary classification via sigmoid). For objective value, $\hat{y} \in \mathbb{R}$ (regression).
+                    </p>
+                </div>
+
+                <div class="definition-box">
+                    <div class="box-title">Node-Level Readout (for Optimal Solution)</div>
+                    <p style="margin-bottom: 0;">
+                        Apply an MLP independently to each variable node embedding:
+                        $$\hat{x}_j^* = \text{MLP}(h_j^{(L)}) \quad \text{for each } j \in V_x$$
+                        This produces a vector $\hat{\mathbf{x}}^* \in \mathbb{R}^n$ approximating the optimal solution.
+                    </p>
+                </div>
+
+
+                <!-- Section 5: Three Prediction Tasks -->
+                <h2 id="prediction-tasks">Three Prediction Tasks</h2>
+
+                <p>
+                    The paper evaluates GNNs on three progressively harder prediction tasks, each probing a different aspect of the LP:
+                </p>
+
+                <h3>a) Feasibility Classification</h3>
+
+                <p>
+                    <strong>Question:</strong> Does the LP have a feasible solution? That is, does there exist an $\mathbf{x} \geq \mathbf{0}$ satisfying $A\mathbf{x} \leq \mathbf{b}$?
+                </p>
+                <p>
+                    This is a <strong>binary classification</strong> task. The GNN uses a graph-level readout followed by a sigmoid activation. The loss function is binary cross-entropy (BCE):
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{feas}} = -\big[y \log \hat{y} + (1 - y)\log(1 - \hat{y})\big]$$
+                </div>
+                <p>
+                    The paper uses an embedding dimension of $d = 6$ for this task, which is notably small &mdash; feasibility is a relatively "easy" graph-level property.
+                </p>
+
+                <h3>b) Optimal Objective Value</h3>
+
+                <p>
+                    <strong>Question:</strong> What is $\mathbf{c}^T\mathbf{x}^*$, the optimal value of the objective function?
+                </p>
+                <p>
+                    This is a <strong>regression</strong> task. The GNN uses a graph-level readout followed by a linear layer. The loss is mean squared error:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{obj}} = \|\hat{y} - \mathbf{c}^T\mathbf{x}^*\|^2$$
+                </div>
+                <p>
+                    Again, embedding dimension $d = 6$ suffices: the objective value is a single scalar summarizing the entire LP.
+                </p>
+
+                <h3>c) Optimal Solution</h3>
+
+                <p>
+                    <strong>Question:</strong> What is $\mathbf{x}^*$, the full vector of optimal variable values?
+                </p>
+                <p>
+                    This is a <strong>per-variable regression</strong> task &mdash; the hardest of the three. Each variable node must output its own optimal value, and these values must be globally consistent (satisfying all constraints simultaneously). The loss is:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{sol}} = \|\hat{\mathbf{x}}^* - \mathbf{x}^*\|_2^2 = \sum_{j=1}^{n} (\hat{x}_j^* - x_j^*)^2$$
+                </div>
+                <p>
+                    The paper uses embedding dimension $d = 16$ for this task &mdash; significantly larger than the other two, reflecting the fact that predicting a full solution vector requires each node to carry more information about the global problem structure.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Why Is Solution Prediction Harder?</div>
+                    <p style="margin-bottom: 0;">
+                        Feasibility and objective value are <strong>graph-level</strong> properties: they depend on the LP as a whole, not on individual variables. The optimal solution, however, is a <strong>node-level</strong> property: each variable node must produce its own value, and the vector of values must jointly satisfy all constraints. This requires each node embedding to encode not just local neighborhood information, but global structural information about the entire LP. More layers and larger embeddings are needed to propagate this information effectively.
+                    </p>
+                </div>
+
+
+                <!-- Section 6: Theoretical Results in Detail -->
+                <h2 id="theoretical-results">Theoretical Results in Detail</h2>
+
+                <p>
+                    The paper's theoretical contribution is to prove that GNNs are <strong>universal</strong> for LP representation &mdash; that for LPs of bounded size, a GNN can approximate the feasibility indicator, optimal objective, and optimal solution to arbitrary precision. The proof strategy is elegant and proceeds through three key steps.
+                </p>
+
+                <h3>Step 1: WL-Equivalence Preserves LP Properties</h3>
+
+                <p>
+                    The first step (Theorems 1 and 2, stated above) shows that WL-equivalent LPs have identical feasibility/boundedness status and the same minimum-norm optimal solution. The proof exploits the structure of LP duality and the specific way that the WL test interacts with the bipartite graph representation.
+                </p>
+
+                <p>
+                    The key idea: if two LP bipartite graphs are WL-equivalent, there exists a permutation $\pi$ on variables and $\sigma$ on constraints such that $A' = P_\sigma A P_\pi^T$, $\mathbf{b}' = P_\sigma \mathbf{b}$, and $\mathbf{c}' = P_\pi \mathbf{c}$, where $P_\pi$ and $P_\sigma$ are the corresponding permutation matrices. Under such a permutation, the feasible region and objective function are isomorphic, so all LP properties are preserved.
+                </p>
+
+                <h3>Step 2: Lusin's Theorem and Continuity</h3>
+
+                <p>
+                    The second step leverages <strong>Lusin's theorem</strong> from measure theory:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Lusin's Theorem</div>
+                    <p style="margin-bottom: 0;">
+                        For any measurable function $f: X \to \mathbb{R}$ and any $\varepsilon > 0$, there exists a continuous function $g: X \to \mathbb{R}$ such that $f$ and $g$ agree on a set of measure at least $1 - \varepsilon$. Informally: <em>every measurable function is "almost continuous."</em>
+                    </p>
+                </div>
+
+                <p>
+                    The LP-to-solution mapping (taking the entries of $A$, $\mathbf{b}$, $\mathbf{c}$ to the optimal solution $\mathbf{x}^*$) is measurable but not continuous &mdash; small perturbations of the LP data can cause the optimal vertex to jump discontinuously. However, Lusin's theorem guarantees that this mapping can be approximated by a continuous function on a set of arbitrarily large measure. The "bad" set (where the continuous approximation fails) can be made arbitrarily small.
+                </p>
+
+                <h3>Step 3: GNN Universal Approximation</h3>
+
+                <p>
+                    The final step uses the fact that GNNs are <strong>universal approximators of continuous WL-invariant functions</strong>. Since:
+                </p>
+
+                <ol>
+                    <li>The LP mappings (feasibility, objective, solution) are WL-invariant (Step 1),</li>
+                    <li>They can be approximated by continuous WL-invariant functions (Step 2, via Lusin's theorem),</li>
+                    <li>GNNs can approximate any continuous WL-invariant function (by the GNN universality theorem),</li>
+                </ol>
+
+                <p>
+                    it follows that GNNs can approximate the LP mappings to arbitrary precision on a set of arbitrarily large measure.
+                </p>
+
+                <div class="example-box">
+                    <div class="box-title">The Logical Chain</div>
+                    <p>Putting the three steps together, the argument flows as:</p>
+                    <div class="math-block">
+                        $$\underbrace{\text{LP mapping}}_{\text{measurable, WL-invariant}} \;\xrightarrow{\text{Lusin}}\; \underbrace{\text{continuous approx.}}_{\text{continuous, WL-invariant}} \;\xrightarrow{\text{GNN universality}}\; \underbrace{\text{GNN}}_{\text{learnable}}$$
+                    </div>
+                    <p style="margin-bottom: 0;">
+                        For any LP instance space of bounded size (at most $n$ variables, $m$ constraints) and any desired accuracy $\varepsilon > 0$, there exists a GNN with $O(n + m)$ nodes and finitely many layers and parameters that approximates the feasibility indicator, optimal objective, or optimal solution to within $\varepsilon$ on a set of probability at least $1 - \varepsilon$.
+                    </p>
+                </div>
+
+
+                <!-- Section 7: Training and Evaluation -->
+                <h2 id="training-evaluation">Training and Evaluation</h2>
+
+                <h3>Data Generation</h3>
+
+                <p>
+                    The paper generates random LP instances by sampling the entries of $A$, $\mathbf{b}$, and $\mathbf{c}$ from controlled distributions. Each instance is then solved exactly using a standard LP solver (e.g., Gurobi or CPLEX) to obtain ground-truth labels: feasibility status, optimal objective value, and optimal solution vector.
+                </p>
+
+                <p>
+                    Care is taken to ensure that the dataset contains a balanced mix of feasible/infeasible and bounded/unbounded instances. The LP sizes vary, with the primary experiments using $n \in \{3, 4, 5\}$ variables and $m \in \{3, 4, 5\}$ constraints.
+                </p>
+
+                <h3>Architecture Details</h3>
+
+                <ul>
+                    <li><strong>GNN layers:</strong> 4&ndash;8 layers of bipartite message passing</li>
+                    <li><strong>Embedding dimension:</strong> $d = 6$ for feasibility and objective tasks; $d = 16$ for solution prediction</li>
+                    <li><strong>Activation:</strong> ReLU</li>
+                    <li><strong>Optimizer:</strong> Adam with learning rate $10^{-3}$</li>
+                    <li><strong>Training set:</strong> $\sim$10,000 LP instances; test set: $\sim$2,000</li>
+                </ul>
+
+                <h3>Results</h3>
+
+                <p>
+                    The paper reports strong performance across all three tasks. The following table summarizes representative results:
+                </p>
+
+                <div style="overflow-x: auto; margin: 1.5rem 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--color-border);">
+                                <th style="text-align: left; padding: 0.75rem 1rem; font-weight: 600;">Task</th>
+                                <th style="text-align: center; padding: 0.75rem 1rem; font-weight: 600;">Metric</th>
+                                <th style="text-align: center; padding: 0.75rem 1rem; font-weight: 600;">Embedding $d$</th>
+                                <th style="text-align: center; padding: 0.75rem 1rem; font-weight: 600;">Performance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Feasibility</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">Accuracy</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">6</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">&gt; 97%</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Optimal Objective</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">Relative L2 Error</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">6</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">&lt; 3%</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--color-border);">
+                                <td style="padding: 0.75rem 1rem;">Optimal Solution</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">L2 Error</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">16</td>
+                                <td style="text-align: center; padding: 0.75rem 1rem;">&lt; 5%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    A particularly striking finding is that the GNN generalizes well to LP instances <em>larger</em> than those seen during training. This suggests that the GNN learns structural patterns about LP solving, not just memorization of specific instances.
+                </p>
+
+
+                <!-- Section 8: Connection to FBA -->
+                <h2 id="connection-fba">Connection to FBA</h2>
+
+                <p>
+                    The deepest motivation for including this paper in a computational biology tutorial series is that <strong>Flux Balance Analysis is a linear program</strong>. Recall from Tutorial 01 that FBA solves:
+                </p>
+
+                <div class="math-block">
+                    $$\max_{\mathbf{v}} \; \mathbf{c}^T\mathbf{v} \quad \text{s.t.} \quad S\mathbf{v} = \mathbf{0}, \quad \mathbf{v}_{\min} \leq \mathbf{v} \leq \mathbf{v}_{\max}$$
+                </div>
+
+                <p>
+                    where $S$ is the stoichiometric matrix, $\mathbf{v}$ is the flux vector, and $\mathbf{c}$ selects the biomass reaction. This is a linear program with equality and bound constraints. Converting it to the standard inequality form (or using the GNN-LP framework directly on the equality-constrained form) allows us to represent any FBA problem as a bipartite graph.
+                </p>
+
+                <p>
+                    The GNN-LP framework opens several exciting possibilities for computational biology:
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Potential Applications to Metabolic Modeling</div>
+                    <ul style="margin-bottom: 0;">
+                        <li><strong>Rapid feasibility screening:</strong> Given a set of gene knockouts or media conditions, a trained GNN could predict whether the organism can grow (FBA feasibility) orders of magnitude faster than solving the LP &mdash; especially valuable for genome-scale combinatorial knockout studies.</li>
+                        <li><strong>Growth rate prediction:</strong> Predict the FBA objective value (growth rate) without solving the LP, enabling rapid screening of thousands of environmental conditions.</li>
+                        <li><strong>Cross-organism generalization:</strong> Train a GNN on metabolic models from multiple organisms, then predict metabolic capabilities of a new organism. The permutation-invariant structure means the GNN naturally handles different orderings of metabolites and reactions.</li>
+                        <li><strong>Learning metabolic patterns:</strong> The GNN embeddings might capture meaningful biological structure &mdash; for example, metabolites with similar GNN embeddings might play similar roles across different organisms.</li>
+                    </ul>
+                </div>
+
+                <p>
+                    This connection bridges the first four tutorials in this series (which focus on formulating and solving metabolic LPs) with modern machine learning. Instead of solving each FBA instance from scratch, we envision a future where GNNs <em>learn</em> the structure of metabolic optimization, enabling faster and more generalizable predictions.
+                </p>
+
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../04-tuberculosis/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; Tuberculosis Modeling</span>
+                    </a>
+                    <a href="../index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Up</span>
+                        <span class="nav-title">Biology Home &rarr;</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- Code Article -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Implementation: GNN for Linear Programming</h2>
+                <p>
+                    The following code demonstrates how to represent an LP as a bipartite graph, build a simple GNN for LP prediction using PyTorch Geometric, and convert an FBA problem from COBRApy into the GNN-LP format.
+                </p>
+
+                <h3>1. LP to Bipartite Graph with NetworkX</h3>
+                <p>
+                    First, we represent an LP as a bipartite graph using NetworkX. Each variable and constraint becomes a node, and nonzero entries in the constraint matrix become edges.
+                </p>
+
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code class="language-python">import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+
+def lp_to_bipartite_graph(A, b, c):
+    """
+    Convert an LP (min c^T x s.t. Ax <= b, x >= 0) to a bipartite graph.
+
+    Parameters
+    ----------
+    A : np.ndarray, shape (m, n) - constraint matrix
+    b : np.ndarray, shape (m,)   - right-hand side
+    c : np.ndarray, shape (n,)   - objective coefficients
+
+    Returns
+    -------
+    G : nx.Graph - bipartite graph with node/edge attributes
+    """
+    m, n = A.shape
+    G = nx.Graph()
+
+    # Add variable nodes (type 0)
+    for j in range(n):
+        G.add_node(f"x_{j+1}",
+                   bipartite=0,
+                   node_type="variable",
+                   feature=c[j])
+
+    # Add constraint nodes (type 1)
+    for i in range(m):
+        G.add_node(f"c_{i+1}",
+                   bipartite=1,
+                   node_type="constraint",
+                   feature=b[i])
+
+    # Add edges where A_ij != 0
+    for i in range(m):
+        for j in range(n):
+            if A[i, j] != 0:
+                G.add_edge(f"x_{j+1}", f"c_{i+1}",
+                           weight=A[i, j])
+
+    return G
+
+
+def visualize_lp_graph(G):
+    """Visualize the bipartite graph of an LP."""
+    var_nodes = [n for n, d in G.nodes(data=True) if d["node_type"] == "variable"]
+    con_nodes = [n for n, d in G.nodes(data=True) if d["node_type"] == "constraint"]
+
+    pos = {}
+    for i, node in enumerate(var_nodes):
+        pos[node] = (0, -i)
+    for i, node in enumerate(con_nodes):
+        pos[node] = (2, -i)
+
+    fig, ax = plt.subplots(1, 1, figsize=(8, 5))
+
+    # Draw variable nodes (blue circles)
+    nx.draw_networkx_nodes(G, pos, nodelist=var_nodes,
+                           node_color="#3b82f6", node_size=700, ax=ax)
+    # Draw constraint nodes (orange squares)
+    nx.draw_networkx_nodes(G, pos, nodelist=con_nodes,
+                           node_color="#f59e0b", node_size=700,
+                           node_shape="s", ax=ax)
+    # Draw edges with weights as labels
+    nx.draw_networkx_edges(G, pos, width=2, alpha=0.6, ax=ax)
+
+    # Node labels
+    nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold",
+                            font_color="white", ax=ax)
+
+    # Edge weight labels
+    edge_labels = nx.get_edge_attributes(G, "weight")
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels,
+                                 font_size=10, ax=ax)
+
+    ax.set_title("LP Bipartite Graph", fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+
+# Example from the tutorial
+A = np.array([[1, 2, 0],
+              [0, 1, 3],
+              [3, 0, 2]])
+b = np.array([4, 6, 5])
+c = np.array([2, 3, 1])
+
+G = lp_to_bipartite_graph(A, b, c)
+print(f"Variable nodes: {[n for n, d in G.nodes(data=True) if d['node_type'] == 'variable']}")
+print(f"Constraint nodes: {[n for n, d in G.nodes(data=True) if d['node_type'] == 'constraint']}")
+print(f"Edges: {list(G.edges(data=True))}")
+print(f"Number of edges: {G.number_of_edges()} (vs {A.shape[0]*A.shape[1]} possible)")
+
+visualize_lp_graph(G)</code></pre>
+                </div>
+
+                <h3>2. GNN for LP with PyTorch Geometric</h3>
+                <p>
+                    This implements a simple bipartite GNN that can predict LP feasibility, optimal objective, or optimal solution. The architecture follows the message-passing scheme described in the Theory tab.
+                </p>
+
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code class="language-python">import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch_geometric.data import Data, DataLoader
+from torch_geometric.nn import MessagePassing, global_mean_pool
+
+class BipartiteLPConv(MessagePassing):
+    """
+    Bipartite message-passing layer for LP graphs.
+    Messages flow from source nodes to target nodes,
+    incorporating edge features (A_ij coefficients).
+    """
+    def __init__(self, in_channels, out_channels, edge_dim=1):
+        super().__init__(aggr='add')  # Sum aggregation
+        # Transform for the node's own embedding
+        self.lin_self = nn.Linear(in_channels, out_channels)
+        # Transform for messages (neighbor embedding + edge feature)
+        self.lin_msg = nn.Linear(in_channels + edge_dim, out_channels)
+        self.act = nn.ReLU()
+
+    def forward(self, x, edge_index, edge_attr):
+        # Self-update + aggregated messages
+        self_update = self.lin_self(x)
+        msg_update = self.propagate(edge_index, x=x, edge_attr=edge_attr)
+        return self.act(self_update + msg_update)
+
+    def message(self, x_j, edge_attr):
+        # Concatenate neighbor embedding with edge feature
+        return self.lin_msg(torch.cat([x_j, edge_attr], dim=-1))
+
+
+class GNN_LP(nn.Module):
+    """
+    GNN for Linear Programming prediction.
+
+    Supports three tasks:
+    - 'feasibility': binary classification (graph-level)
+    - 'objective': scalar regression (graph-level)
+    - 'solution': per-variable regression (node-level)
+    """
+    def __init__(self, node_feat_dim=1, edge_feat_dim=1,
+                 hidden_dim=16, num_layers=4, task='feasibility'):
+        super().__init__()
+        self.task = task
+        self.num_layers = num_layers
+
+        # Initial embedding
+        self.embed = nn.Linear(node_feat_dim, hidden_dim)
+
+        # Message-passing layers
+        self.convs = nn.ModuleList([
+            BipartiteLPConv(hidden_dim, hidden_dim, edge_feat_dim)
+            for _ in range(num_layers)
+        ])
+
+        # Readout head
+        if task == 'feasibility':
+            self.head = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, 1)
+            )
+        elif task == 'objective':
+            self.head = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, 1)
+            )
+        elif task == 'solution':
+            self.head = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, 1)
+            )
+
+    def forward(self, data):
+        x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+
+        # Initial embedding
+        x = self.embed(x)
+
+        # Message passing
+        for conv in self.convs:
+            x = conv(x, edge_index, edge_attr)
+
+        if self.task in ('feasibility', 'objective'):
+            # Graph-level pooling
+            graph_emb = global_mean_pool(x, data.batch)
+            out = self.head(graph_emb)
+            if self.task == 'feasibility':
+                out = torch.sigmoid(out)
+            return out.squeeze(-1)
+
+        elif self.task == 'solution':
+            # Node-level prediction (only for variable nodes)
+            var_mask = data.node_type == 0  # variable nodes
+            x_vars = x[var_mask]
+            return self.head(x_vars).squeeze(-1)
+
+
+def lp_to_pyg_data(A, b, c, label=None, solution=None):
+    """
+    Convert an LP instance to a PyTorch Geometric Data object.
+
+    Variable nodes have feature c_j, constraint nodes have feature b_i.
+    Edges carry the A_ij coefficient as an edge feature.
+    """
+    m, n = A.shape
+
+    # Node features: [c_1,...,c_n, b_1,...,b_m]
+    node_features = torch.tensor(
+        np.concatenate([c, b]), dtype=torch.float32
+    ).unsqueeze(-1)
+
+    # Node types: 0 = variable, 1 = constraint
+    node_type = torch.tensor(
+        [0]*n + [1]*m, dtype=torch.long
+    )
+
+    # Build edge list from nonzero entries of A
+    rows, cols = np.nonzero(A)
+    # Edge: variable col -> constraint (row + n)
+    # We add edges in both directions for undirected message passing
+    src = np.concatenate([cols, rows + n])
+    dst = np.concatenate([rows + n, cols])
+    edge_index = torch.tensor(np.stack([src, dst]), dtype=torch.long)
+
+    # Edge features: A_ij values (duplicated for both directions)
+    edge_vals = np.concatenate([A[rows, cols], A[rows, cols]])
+    edge_attr = torch.tensor(edge_vals, dtype=torch.float32).unsqueeze(-1)
+
+    data = Data(
+        x=node_features,
+        edge_index=edge_index,
+        edge_attr=edge_attr,
+        node_type=node_type,
+        num_vars=n,
+        num_constraints=m
+    )
+
+    if label is not None:
+        data.y = torch.tensor([label], dtype=torch.float32)
+    if solution is not None:
+        data.solution = torch.tensor(solution, dtype=torch.float32)
+
+    return data
+
+
+# Example: create a data object from our LP
+data = lp_to_pyg_data(A, b, c, label=1)  # feasible=1
+print(f"Nodes: {data.num_nodes} ({data.num_vars} vars + {data.num_constraints} constraints)")
+print(f"Edges: {data.num_edges} (bidirectional)")
+print(f"Node features shape: {data.x.shape}")
+print(f"Edge features shape: {data.edge_attr.shape}")
+
+# Create and test the model
+model = GNN_LP(node_feat_dim=1, hidden_dim=16, num_layers=4, task='feasibility')
+pred = model(data)
+print(f"\nFeasibility prediction: {pred.item():.4f}")</code></pre>
+                </div>
+
+                <h3>3. Converting an FBA Problem to GNN-LP Format</h3>
+                <p>
+                    This shows how to take a COBRApy metabolic model and convert its FBA formulation into the bipartite graph representation suitable for GNN processing.
+                </p>
+
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code class="language-python">import cobra
+from cobra.io import load_model
+import numpy as np
+from scipy.sparse import csr_matrix
+
+def fba_to_gnn_lp(model):
+    """
+    Convert a COBRApy metabolic model's FBA problem
+    into the GNN-LP bipartite graph format.
+
+    FBA problem:
+        max  c^T v
+        s.t. S v = 0
+             v_min <= v <= v_max
+
+    We convert equality constraints S v = 0 into
+    two inequalities: S v <= 0 and -S v <= 0.
+    Bound constraints become additional rows.
+
+    Returns a dict with A, b, c matrices in standard LP form.
+    """
+    # Get stoichiometric matrix
+    S = cobra.util.array.create_stoichiometric_matrix(model, array_type='dense')
+    m, n = S.shape  # m metabolites, n reactions
+
+    # Get bounds
+    lower_bounds = np.array([r.lower_bound for r in model.reactions])
+    upper_bounds = np.array([r.upper_bound for r in model.reactions])
+
+    # Get objective (negate because LP standard form is min)
+    c_obj = np.zeros(n)
+    for rxn in model.objective.variables:
+        idx = model.reactions.index(rxn.name)
+        c_obj[idx] = -1.0  # negate for minimization
+
+    # Build constraint matrix for standard form
+    # Sv = 0  =>  Sv <= 0 and -Sv <= 0
+    # v >= lb  =>  -Iv <= -lb
+    # v <= ub  =>   Iv <= ub
+
+    I_n = np.eye(n)
+    A_ineq = np.vstack([
+        S,          # Sv <= 0
+        -S,         # -Sv <= 0
+        -I_n,       # -v <= -lb
+        I_n         # v <= ub
+    ])
+
+    b_ineq = np.concatenate([
+        np.zeros(m),         # Sv <= 0
+        np.zeros(m),         # -Sv <= 0
+        -lower_bounds,       # -v <= -lb
+        upper_bounds          # v <= ub
+    ])
+
+    # Filter out infinite bounds (unconstrained)
+    finite_mask = np.isfinite(b_ineq)
+    A_final = A_ineq[finite_mask]
+    b_final = b_ineq[finite_mask]
+
+    return {
+        'A': A_final,
+        'b': b_final,
+        'c': c_obj,
+        'n_vars': n,
+        'n_constraints': A_final.shape[0],
+        'reaction_ids': [r.id for r in model.reactions],
+        'metabolite_ids': [m.id for m in model.metabolites],
+        'sparsity': 1.0 - np.count_nonzero(A_final) / A_final.size
+    }
+
+
+# Load a standard model and convert
+model = load_model("textbook")  # E. coli core model
+print(f"Model: {model.id}")
+print(f"Reactions: {len(model.reactions)}")
+print(f"Metabolites: {len(model.metabolites)}")
+
+# Convert to LP format
+lp_data = fba_to_gnn_lp(model)
+print(f"\nLP dimensions:")
+print(f"  Variables (reactions): {lp_data['n_vars']}")
+print(f"  Constraints: {lp_data['n_constraints']}")
+print(f"  Constraint matrix shape: {lp_data['A'].shape}")
+print(f"  Matrix sparsity: {lp_data['sparsity']:.1%}")
+
+# Convert to PyG format for GNN
+data = lp_to_pyg_data(lp_data['A'], lp_data['b'], lp_data['c'])
+print(f"\nGNN graph:")
+print(f"  Nodes: {data.num_nodes}")
+print(f"  Edges: {data.num_edges}")
+print(f"  Avg degree: {data.num_edges / data.num_nodes:.1f}")
+
+# Solve FBA for ground truth
+fba_solution = model.optimize()
+print(f"\nFBA solution:")
+print(f"  Status: {fba_solution.status}")
+print(f"  Growth rate: {fba_solution.objective_value:.4f}")</code></pre>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Official Repository</div>
+                    <p style="margin-bottom: 0;">
+                        The official implementation of the GNN-LP paper is available at:
+                        <a href="https://github.com/liujl11git/GNN-LP" target="_blank">https://github.com/liujl11git/GNN-LP</a>.
+                        It includes data generation scripts, model training code, and pre-trained checkpoints for reproducing the paper's results.
+                    </p>
+                </div>
+
+                <!-- Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../04-tuberculosis/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; Tuberculosis Modeling</span>
+                    </a>
+                    <a href="../index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Up</span>
+                        <span class="nav-title">Biology Home &rarr;</span>
+                    </a>
+                </div>
+
+            </article>
+
+            <!-- Exercises Article -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of graph representations of LPs, WL-invariance, and the connection to GNNs. Each exercise has a full solution.</p>
+
+                <div class="exercise-list">
+
+                    <!-- Easy -->
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. LP to Bipartite Graph</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider the following LP:</p>
+                            <p>$$\min \; 4x_1 + x_2 \quad \text{s.t.} \quad 2x_1 + x_2 \leq 6, \quad x_1 + 3x_2 \leq 9, \quad x_1, x_2 \geq 0$$</p>
+                            <ol type="a">
+                                <li>Write down the constraint matrix $A$, right-hand side $\mathbf{b}$, and objective vector $\mathbf{c}$.</li>
+                                <li>Draw the bipartite graph. How many variable nodes, constraint nodes, and edges are there?</li>
+                                <li>List all edge weights.</li>
+                                <li>Is this bipartite graph complete (every variable connected to every constraint)? Why or why not?</li>
+                            </ol>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>a)</strong></p>
+                                <p>$$A = \begin{bmatrix} 2 & 1 \\ 1 & 3 \end{bmatrix}, \quad \mathbf{b} = \begin{bmatrix} 6 \\ 9 \end{bmatrix}, \quad \mathbf{c} = \begin{bmatrix} 4 \\ 1 \end{bmatrix}$$</p>
+
+                                <p><strong>b)</strong> The bipartite graph has:</p>
+                                <ul>
+                                    <li>2 variable nodes: $x_1$ (feature $c_1 = 4$) and $x_2$ (feature $c_2 = 1$)</li>
+                                    <li>2 constraint nodes: $\text{c}_1$ (feature $b_1 = 6$) and $\text{c}_2$ (feature $b_2 = 9$)</li>
+                                    <li>4 edges (since all entries of $A$ are nonzero)</li>
+                                </ul>
+
+                                <p><strong>c)</strong> The edge weights are:</p>
+                                <ul>
+                                    <li>$x_1 \leftrightarrow \text{c}_1$: weight $A_{11} = 2$</li>
+                                    <li>$x_1 \leftrightarrow \text{c}_2$: weight $A_{21} = 1$</li>
+                                    <li>$x_2 \leftrightarrow \text{c}_1$: weight $A_{12} = 1$</li>
+                                    <li>$x_2 \leftrightarrow \text{c}_2$: weight $A_{22} = 3$</li>
+                                </ul>
+
+                                <p><strong>d)</strong> Yes, this bipartite graph is complete because every entry $A_{ij}$ is nonzero, so every variable node is connected to every constraint node. In real-world LPs (especially metabolic models), the constraint matrix $A$ is usually very sparse, so the bipartite graph is far from complete.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Permutation Invariance and GNNs</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Explain why permutation invariance makes GNNs a natural choice for learning over LP instances. Specifically:</p>
+                            <ol type="a">
+                                <li>What does it mean for an LP to be "permutation invariant"? Give a concrete example.</li>
+                                <li>Why would a fully-connected neural network (MLP) that takes the flattened matrix $A$ as input <em>not</em> respect this invariance?</li>
+                                <li>How does a GNN's message-passing architecture naturally handle permutation invariance?</li>
+                            </ol>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>a)</strong> An LP is permutation invariant in the sense that reordering its variables or constraints does not change the underlying optimization problem. For example, consider:</p>
+                                <p>LP1: $\min 2x_1 + 3x_2$ s.t. $x_1 + x_2 \leq 5$</p>
+                                <p>LP2: $\min 3y_1 + 2y_2$ s.t. $y_1 + y_2 \leq 5$</p>
+                                <p>These are the <em>same</em> LP with variables relabeled ($y_1 = x_2, y_2 = x_1$). The feasible region is the same, and the optimal objective value is the same. Similarly, swapping the order of constraints does not change the problem.</p>
+
+                                <p><strong>b)</strong> An MLP that takes the flattened matrix $[A_{11}, A_{12}, A_{21}, A_{22}, b_1, b_2, c_1, c_2]$ as input would treat position 1 differently from position 2. Swapping the rows of $A$ (permuting constraints) would change the input vector and potentially produce a different output, even though the LP is mathematically identical. The MLP would need to learn the invariance from data, which is wasteful and requires far more training examples.</p>
+
+                                <p><strong>c)</strong> A GNN operates on the <em>graph</em> of the LP, not a fixed-order vector. The message-passing update for each node depends only on its features and its neighbors' features &mdash; not on any arbitrary node ordering. The aggregation function (sum, mean) is permutation invariant: $\sum_{i \in \mathcal{N}(j)} f(h_i) = \sum_{i \in \pi(\mathcal{N}(j))} f(h_i)$ for any permutation $\pi$. Therefore, permuting variables or constraints in the LP simply permutes the GNN's internal node representations without changing the final output.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Medium -->
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Variable Reordering and Graph Isomorphism</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider the LP:</p>
+                            <p>$$\min \; 2x_1 + x_2 + 3x_3 \quad \text{s.t.} \quad x_1 + x_3 \leq 4, \quad x_2 + x_3 \leq 5, \quad x_1, x_2, x_3 \geq 0$$</p>
+                            <ol type="a">
+                                <li>Write down the bipartite graph (nodes, edges, features).</li>
+                                <li>Now reorder the variables as $(x_3, x_1, x_2)$, rewriting the LP accordingly. Write down the new bipartite graph.</li>
+                                <li>Show that the two bipartite graphs are isomorphic by providing an explicit node mapping.</li>
+                                <li>Explain why this means a GNN will produce the same output for both orderings.</li>
+                            </ol>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>a)</strong> Original LP bipartite graph:</p>
+                                <ul>
+                                    <li>Variable nodes: $x_1$ (feat 2), $x_2$ (feat 1), $x_3$ (feat 3)</li>
+                                    <li>Constraint nodes: $\text{c}_1$ (feat 4), $\text{c}_2$ (feat 5)</li>
+                                    <li>Edges: $x_1 \leftrightarrow \text{c}_1$ (wt 1), $x_3 \leftrightarrow \text{c}_1$ (wt 1), $x_2 \leftrightarrow \text{c}_2$ (wt 1), $x_3 \leftrightarrow \text{c}_2$ (wt 1)</li>
+                                </ul>
+
+                                <p><strong>b)</strong> Reordered LP: $\min \; 3y_1 + 2y_2 + y_3$ s.t. $y_2 + y_1 \leq 4$, $y_3 + y_1 \leq 5$</p>
+                                <p>(where $y_1 = x_3, y_2 = x_1, y_3 = x_2$)</p>
+                                <ul>
+                                    <li>Variable nodes: $y_1$ (feat 3), $y_2$ (feat 2), $y_3$ (feat 1)</li>
+                                    <li>Constraint nodes: $\text{c}_1'$ (feat 4), $\text{c}_2'$ (feat 5)</li>
+                                    <li>Edges: $y_2 \leftrightarrow \text{c}_1'$ (wt 1), $y_1 \leftrightarrow \text{c}_1'$ (wt 1), $y_3 \leftrightarrow \text{c}_2'$ (wt 1), $y_1 \leftrightarrow \text{c}_2'$ (wt 1)</li>
+                                </ul>
+
+                                <p><strong>c)</strong> The isomorphism mapping is:</p>
+                                <p>$x_1 \mapsto y_2$, $x_2 \mapsto y_3$, $x_3 \mapsto y_1$, $\text{c}_1 \mapsto \text{c}_1'$, $\text{c}_2 \mapsto \text{c}_2'$</p>
+                                <p>Under this mapping, node features are preserved ($x_1$ has feat 2 and $y_2$ has feat 2, etc.), edge connections are preserved ($x_1 \leftrightarrow \text{c}_1$ maps to $y_2 \leftrightarrow \text{c}_1'$, etc.), and edge weights are preserved (all weights are 1). Therefore the graphs are isomorphic.</p>
+
+                                <p><strong>d)</strong> Since the two graphs are isomorphic, the 1-WL test will produce the same multiset of labels at every iteration. Because a GNN's output is determined by the WL-equivalent class of its input graph, the GNN will produce identical graph-level outputs for both orderings. For node-level outputs (solution prediction), the variable node embeddings will be correspondingly permuted: the embedding for $x_1$ in the first graph equals the embedding for $y_2$ in the second graph, ensuring consistent predictions.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. FBA as a GNN-LP Problem</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a toy metabolic network with 3 metabolites (A, B, C) and 4 reactions:</p>
+                            <ul>
+                                <li>$v_1$: $\to$ A (uptake, bounds $[0, 10]$)</li>
+                                <li>$v_2$: A $\to$ B (bounds $[0, 1000]$)</li>
+                                <li>$v_3$: B $\to$ C (bounds $[0, 1000]$)</li>
+                                <li>$v_4$: C $\to$ (secretion/biomass, bounds $[0, 1000]$)</li>
+                            </ul>
+                            <p>The objective is to maximize $v_4$ (biomass production).</p>
+                            <ol type="a">
+                                <li>Write the stoichiometric matrix $S$.</li>
+                                <li>Formulate the FBA problem as a standard LP: $\min \mathbf{c}^T\mathbf{v}$ s.t. $A\mathbf{v} \leq \mathbf{b}$.</li>
+                                <li>How many nodes and edges does the resulting bipartite graph have?</li>
+                                <li>Solve the LP by hand or by inspection. What is the optimal growth rate?</li>
+                            </ol>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>a)</strong> The stoichiometric matrix (metabolites as rows, reactions as columns):</p>
+                                <p>$$S = \begin{bmatrix} 1 & -1 & 0 & 0 \\ 0 & 1 & -1 & 0 \\ 0 & 0 & 1 & -1 \end{bmatrix}$$</p>
+                                <p>Row 1 (A): produced by $v_1$, consumed by $v_2$. Row 2 (B): produced by $v_2$, consumed by $v_3$. Row 3 (C): produced by $v_3$, consumed by $v_4$.</p>
+
+                                <p><strong>b)</strong> Converting to standard form (minimize, inequality constraints):</p>
+                                <p>Objective: $\min -v_4$ (negate for minimization), so $\mathbf{c} = [0, 0, 0, -1]^T$.</p>
+                                <p>Steady-state $S\mathbf{v} = 0$ becomes $S\mathbf{v} \leq 0$ and $-S\mathbf{v} \leq 0$ (6 constraints).</p>
+                                <p>Bounds: $-v_j \leq -\text{lb}_j$ and $v_j \leq \text{ub}_j$ (8 more constraints, but some with $\text{lb} = 0$ can be replaced by $\mathbf{v} \geq 0$).</p>
+                                <p>Combining all finite constraints, the matrix $A$ has $\leq 14$ rows (6 from steady-state + up to 8 from bounds) and 4 columns.</p>
+
+                                <p><strong>c)</strong> Variable nodes: 4 (one per reaction). Constraint nodes: up to 14 (depending on how many bounds are finite). The stoichiometric matrix $S$ has 6 nonzero entries, contributing 12 edges (6 from $S\mathbf{v} \leq 0$ and 6 from $-S\mathbf{v} \leq 0$). The bound constraints contribute up to 8 more edges (one per bound per reaction). Total edges: up to 20, plus reverse directions for undirected message passing = up to 40 directed edges.</p>
+
+                                <p><strong>d)</strong> By inspection: at steady state, $v_1 = v_2 = v_3 = v_4$. The binding constraint is the uptake bound $v_1 \leq 10$, so the optimal solution is $v_1 = v_2 = v_3 = v_4 = 10$. The maximum growth rate (biomass flux) is $v_4^* = 10$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hard -->
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Edge Features Are Essential</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>This exercise proves that the bipartite graph <em>topology</em> alone (without edge weights) is insufficient to determine LP solutions &mdash; demonstrating why edge features are essential for the GNN-LP framework.</p>
+                            <p>Consider two LPs with the <strong>same bipartite graph structure</strong> but <strong>different edge weights</strong>:</p>
+                            <p><strong>LP1:</strong> $\min \; x_1 + x_2$ s.t. $x_1 + x_2 \leq 4$, $x_1, x_2 \geq 0$</p>
+                            <p><strong>LP2:</strong> $\min \; x_1 + x_2$ s.t. $2x_1 + x_2 \leq 4$, $x_1, x_2 \geq 0$</p>
+                            <ol type="a">
+                                <li>Verify that both LPs have the same bipartite graph topology (same nodes, same edge connections) but different edge weights.</li>
+                                <li>Solve both LPs. Do they have the same optimal solution?</li>
+                                <li>Now consider a more subtle example:
+                                    <p><strong>LP3:</strong> $\min \; x_1 + x_2$ s.t. $x_1 + 2x_2 \leq 6$, $2x_1 + x_2 \leq 6$, $x_1, x_2 \geq 0$</p>
+                                    <p><strong>LP4:</strong> $\min \; x_1 + x_2$ s.t. $x_1 + 3x_2 \leq 6$, $3x_1 + x_2 \leq 6$, $x_1, x_2 \geq 0$</p>
+                                    Both have identical graph topology and the same node features. Find the optimal solution to each and show they differ.
+                                </li>
+                                <li>Explain why this demonstrates that a GNN <em>must</em> use edge features (the $A_{ij}$ coefficients) and cannot rely solely on graph topology and node features.</li>
+                            </ol>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>a)</strong> Both LP1 and LP2 have:</p>
+                                <ul>
+                                    <li>Variable nodes: $x_1, x_2$</li>
+                                    <li>Constraint nodes: $\text{c}_1$</li>
+                                    <li>Edges: $x_1 \leftrightarrow \text{c}_1$ and $x_2 \leftrightarrow \text{c}_1$</li>
+                                </ul>
+                                <p>The topology is identical. The difference is that in LP1, edge $x_1 \leftrightarrow \text{c}_1$ has weight 1, while in LP2 it has weight 2.</p>
+
+                                <p><strong>b)</strong></p>
+                                <p><em>LP1:</em> $\min x_1 + x_2$ s.t. $x_1 + x_2 \leq 4$. Since the objective pushes both variables toward 0 and the constraint does not have a lower bound (beyond $x \geq 0$), the optimum is at $\mathbf{x}^* = (0, 0)$ with objective value $0$.</p>
+                                <p><em>LP2:</em> Same analysis &mdash; $\mathbf{x}^* = (0, 0)$ with objective value $0$.</p>
+                                <p>In this case the solutions happen to be the same (both trivially optimal at the origin). Let us modify the problems to make them more interesting:</p>
+                                <p><em>LP1':</em> $\max x_1 + x_2$ s.t. $x_1 + x_2 \leq 4$. Optimal: $x_1 + x_2 = 4$, objective $= 4$.</p>
+                                <p><em>LP2':</em> $\max x_1 + x_2$ s.t. $2x_1 + x_2 \leq 4$. Optimal at $x_1 = 0, x_2 = 4$, objective $= 4$.</p>
+                                <p>Now consider yet another formulation: in LP2', the feasible region is smaller (it is a strict subset of LP1's feasible region on the $x_1$ side). While the <em>optimal value</em> happens to be the same here (both 4), the <em>optimal solutions</em> differ: LP1' has a face of optima $\{(t, 4-t) : 0 \leq t \leq 4\}$, while LP2' has a unique optimum at $(0, 4)$.</p>
+
+                                <p><strong>c)</strong></p>
+                                <p><em>LP3:</em> The constraints $x_1 + 2x_2 \leq 6$ and $2x_1 + x_2 \leq 6$ define a polygon. To maximize $x_1 + x_2$, we find the intersection: subtracting gives $x_1 - x_2 = 0$, so $x_1 = x_2$. Substituting: $3x_1 = 6$, so $x_1 = x_2 = 2$. Optimal objective: $4$.</p>
+                                <p><em>LP4:</em> The constraints $x_1 + 3x_2 \leq 6$ and $3x_1 + x_2 \leq 6$ intersect at: subtracting gives $2x_1 - 2x_2 = 0$, so $x_1 = x_2$. Substituting: $4x_1 = 6$, so $x_1 = x_2 = 1.5$. Optimal objective: $3$.</p>
+                                <p>Both LPs have identical topology (2 variable nodes, 2 constraint nodes, 4 edges), identical node features ($c_1 = c_2 = 1$, $b_1 = b_2 = 6$), but different optimal solutions: $(2, 2)$ vs $(1.5, 1.5)$ and different optimal objectives: $4$ vs $3$.</p>
+
+                                <p><strong>d)</strong> This proves that graph topology and node features alone are <em>insufficient</em> to determine LP properties. LP3 and LP4 are topologically and node-feature identical, yet have different optimal solutions and objective values. The <em>only</em> difference is the edge weights (the $A_{ij}$ coefficients). Therefore, any GNN that correctly predicts LP solutions must incorporate edge features into its message-passing computation. This is precisely why the architecture uses $e_{ij} = A_{ij}$ as an edge feature in the message function: $\text{MSG}(h_i, e_{ij}) = W_2[h_i \| e_{ij}]$. Without the edge features, the GNN would produce identical outputs for LP3 and LP4, which would be incorrect.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#motivation" class="toc-link">Why GNNs for LPs?</a>
+                <a href="#bipartite-graph" class="toc-link">LP as Bipartite Graph</a>
+                <a href="#wl-connection" class="toc-link">Weisfeiler-Lehman Connection</a>
+                <a href="#gnn-architecture" class="toc-link">GNN Architecture</a>
+                <a href="#prediction-tasks" class="toc-link">Three Prediction Tasks</a>
+                <a href="#theoretical-results" class="toc-link">Theoretical Results</a>
+                <a href="#training-evaluation" class="toc-link">Training &amp; Evaluation</a>
+                <a href="#connection-fba" class="toc-link">Connection to FBA</a>
+            </nav>
+        </aside>
+    </div>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // KaTeX Rendering
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            // Tab Switching Logic
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+
+                // Update tab classes
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+
+                // Show/Hide articles
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+
+                // Re-render KaTeX in newly visible content
+                if (typeof renderMathInElement === 'function') {
+                    setTimeout(() => {
+                        renderMathInElement(document.body, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false},
+                                {left: '\\[', right: '\\]', display: true},
+                                {left: '\\(', right: '\\)', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    }, 50);
+                }
+
+                // Update TOC visibility based on tab
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            // Event Listeners
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            // Handle browser back/forward buttons
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            // Initial Load
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>
