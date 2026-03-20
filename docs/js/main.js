@@ -14,6 +14,7 @@
         initMobileNav();
         initMobileSidebar();
         initScrollEffects();
+        initTutorialTabs();
         initKaTeX();
         initExercises();
         initCodeBlocks();
@@ -197,6 +198,90 @@
                 }
             });
         });
+    }
+
+    // ========================================
+    // Tutorial Tabs (Theory / Code / Exercises)
+    // ========================================
+    function initTutorialTabs() {
+        var tabs = document.querySelectorAll('.tutorial-tab');
+        if (!tabs.length) return;
+
+        var articles = document.querySelectorAll('.tutorial-main > .article-content');
+        if (!articles.length) return;
+
+        function switchTab(targetId) {
+            // Hide all articles, show target
+            articles.forEach(function(article) {
+                article.style.display = (article.id === targetId) ? '' : 'none';
+            });
+
+            // Update active class on tabs
+            tabs.forEach(function(tab) {
+                var href = tab.getAttribute('href');
+                if (href === '#' + targetId) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            // Re-render KaTeX in the newly visible tab
+            var target = document.getElementById(targetId);
+            if (target && typeof renderMathInElement === 'function') {
+                renderMathInElement(target, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false,
+                    strict: false,
+                    trust: true,
+                    macros: {
+                        "\\R": "\\mathbb{R}",
+                        "\\N": "\\mathbb{N}",
+                        "\\E": "\\mathbb{E}",
+                        "\\P": "\\mathbb{P}",
+                        "\\argmax": "\\operatorname{argmax}",
+                        "\\argmin": "\\operatorname{argmin}",
+                        "\\KL": "\\text{KL}",
+                        "\\Var": "\\text{Var}",
+                        "\\Cov": "\\text{Cov}"
+                    }
+                });
+            }
+
+            // Scroll to top of content
+            var header = document.querySelector('.tutorial-content-header');
+            if (header) {
+                var navHeight = document.querySelector('.navbar')?.offsetHeight || 0;
+                window.scrollTo({
+                    top: header.offsetTop - navHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        tabs.forEach(function(tab) {
+            tab.addEventListener('click', function(e) {
+                e.preventDefault();
+                var href = this.getAttribute('href');
+                if (href && href.startsWith('#')) {
+                    var targetId = href.substring(1);
+                    switchTab(targetId);
+                    // Update URL hash without scrolling
+                    history.replaceState(null, '', href);
+                }
+            });
+        });
+
+        // Handle initial hash in URL (e.g., page loaded with #exercises)
+        var hash = window.location.hash.substring(1);
+        if (hash && (hash === 'theory' || hash === 'code' || hash === 'exercises')) {
+            switchTab(hash);
+        }
     }
 
     // ========================================
@@ -391,16 +476,19 @@
     // ========================================
     function initSmoothScroll() {
         document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+            // Skip tutorial tabs — they have their own handler
+            if (anchor.classList.contains('tutorial-tab')) return;
+
             anchor.addEventListener('click', function(e) {
                 const targetId = this.getAttribute('href');
                 if (targetId === '#') return;
-                
+
                 const target = document.querySelector(targetId);
                 if (target) {
                     e.preventDefault();
                     const headerHeight = document.querySelector('.navbar')?.offsetHeight || 0;
                     const targetPosition = target.getBoundingClientRect().top + window.pageYOffset;
-                    
+
                     window.scrollTo({
                         top: targetPosition - headerHeight - 20,
                         behavior: 'smooth'
