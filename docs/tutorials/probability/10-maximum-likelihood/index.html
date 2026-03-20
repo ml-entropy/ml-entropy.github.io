@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maximum Likelihood Estimation | ML Fundamentals</title>
+    <meta name="description" content="Maximum likelihood estimation from first principles: likelihood function, MLE computation, Fisher information, Cramér-Rao bound, and asymptotic properties.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link active">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Probability Theory</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Maximum Likelihood Estimation</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Probability Theory</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-bayes-theorem/index.html" class="sidebar-link">01. Bayes' Theorem</a>
+                    <a href="../02-axioms/index.html" class="sidebar-link">02. Axioms of Probability</a>
+                    <a href="../03-conditional-probability/index.html" class="sidebar-link">03. Conditional Probability</a>
+                    <a href="../04-random-variables/index.html" class="sidebar-link">04. Random Variables</a>
+                    <a href="../05-expectation-variance/index.html" class="sidebar-link">05. Expectation &amp; Variance</a>
+                    <a href="../06-joint-distributions/index.html" class="sidebar-link">06. Joint Distributions</a>
+                    <a href="../07-inequalities/index.html" class="sidebar-link">07. Concentration Inequalities</a>
+                    <a href="../08-limit-theorems/index.html" class="sidebar-link">08. Limit Theorems</a>
+                    <a href="../09-moment-generating-functions/index.html" class="sidebar-link">09. Moment Generating Functions</a>
+                    <a href="../10-maximum-likelihood/index.html" class="sidebar-link active">10. Maximum Likelihood</a>
+                    <a href="../11-markov-chains/index.html" class="sidebar-link">11. Markov Chains</a>
+                    <a href="../12-monte-carlo/index.html" class="sidebar-link">12. Monte Carlo Methods</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">On This Page</h3>
+                <nav class="sidebar-nav">
+                    <a href="#estimation-problem" class="sidebar-link">The Estimation Problem</a>
+                    <a href="#likelihood-function" class="sidebar-link">The Likelihood Function</a>
+                    <a href="#mle-definition" class="sidebar-link">Maximum Likelihood Estimator</a>
+                    <a href="#mle-examples" class="sidebar-link">MLE Examples</a>
+                    <a href="#properties-mle" class="sidebar-link">Properties of MLE</a>
+                    <a href="#fisher-information" class="sidebar-link">Fisher Information</a>
+                    <a href="#cramer-rao" class="sidebar-link">Cram&eacute;r-Rao Lower Bound</a>
+                    <a href="#sufficient-statistics" class="sidebar-link">Sufficient Statistics</a>
+                    <a href="#mle-vs-map" class="sidebar-link">MLE vs MAP</a>
+                    <a href="#em-algorithm" class="sidebar-link">EM Algorithm</a>
+                    <a href="#ml-connections" class="sidebar-link">Connections to ML</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../distributions/index.html" class="sidebar-link">Distributions</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ============================================================
+                 THEORY TAB
+                 ============================================================ -->
+            <article class="article-content" id="theory">
+
+                <h1>10. Maximum Likelihood Estimation</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    Maximum likelihood estimation (MLE) is the most widely used method for fitting
+                    statistical models to data. Given a parametric family of distributions, the MLE
+                    picks the parameter value that makes the observed data <em>most probable</em>.
+                    This tutorial derives MLE from first principles, works through key examples,
+                    establishes its optimality through Fisher information and the Cram&eacute;r-Rao
+                    bound, and connects it to modern machine learning.
+                </p>
+
+                <!-- ======== Section 1: The Estimation Problem ======== -->
+                <h2 id="estimation-problem">The Estimation Problem</h2>
+
+                <p>
+                    Suppose we observe data $x_1, x_2, \ldots, x_n$ and believe they were generated
+                    by some probability distribution $f(x \mid \theta)$, where $\theta$ is an unknown
+                    parameter (or vector of parameters). The <strong>estimation problem</strong> is:
+                    given the data, what is the best guess for $\theta$?
+                </p>
+
+                <p>
+                    This question arises everywhere:
+                </p>
+                <ul>
+                    <li>A biologist measures the heights of 100 plants and wants to estimate the population mean and variance.</li>
+                    <li>A data scientist fits a logistic regression model and needs to estimate the weight vector.</li>
+                    <li>A physicist measures the decay times of radioactive atoms to estimate the decay rate.</li>
+                </ul>
+
+                <p>
+                    There are two major philosophical frameworks for estimation:
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.75rem;">Approach</th>
+                            <th style="text-align: left; padding: 0.75rem;">View of $\theta$</th>
+                            <th style="text-align: left; padding: 0.75rem;">Method</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>Frequentist</strong></td>
+                            <td style="padding: 0.75rem;">$\theta$ is a fixed but unknown constant</td>
+                            <td style="padding: 0.75rem;">MLE, method of moments, UMVUE</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;"><strong>Bayesian</strong></td>
+                            <td style="padding: 0.75rem;">$\theta$ is a random variable with a prior distribution</td>
+                            <td style="padding: 0.75rem;">MAP, posterior mean, full posterior</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    MLE is the crown jewel of frequentist estimation. It is popular because it is
+                    <strong>intuitive</strong> (choose the parameter that best explains the data),
+                    <strong>general</strong> (works for any parametric model), and
+                    <strong>optimal</strong> (achieves the lowest possible variance among a broad class
+                    of estimators, at least asymptotically).
+                </p>
+
+                <!-- ======== Section 2: The Likelihood Function ======== -->
+                <h2 id="likelihood-function">The Likelihood Function</h2>
+
+                <p>
+                    The <strong>likelihood function</strong> is the key object in MLE. Given observed
+                    data $\mathbf{x} = (x_1, \ldots, x_n)$, the likelihood is the joint density (or mass
+                    function) viewed as a function of the parameter:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$L(\theta) = L(\theta \mid \mathbf{x}) = f(\mathbf{x} \mid \theta) = \prod_{i=1}^{n} f(x_i \mid \theta)$$
+                </div>
+
+                <p>
+                    The last equality holds when the observations are independent and identically
+                    distributed (i.i.d.). This is a crucial conceptual shift:
+                </p>
+
+                <ul>
+                    <li><strong>Probability:</strong> $\theta$ is fixed, and we ask how probable different data outcomes are. $f(x \mid \theta)$ is a function of $x$.</li>
+                    <li><strong>Likelihood:</strong> the data $\mathbf{x}$ is fixed (we observed it), and we ask which parameter values make this data most probable. $L(\theta)$ is a function of $\theta$.</li>
+                </ul>
+
+                <p>
+                    <strong>Important:</strong> The likelihood is <em>not</em> a probability distribution
+                    over $\theta$. It does not integrate to 1 over the parameter space, and in general
+                    $\int L(\theta) \, d\theta \neq 1$. It is a measure of <em>relative plausibility</em>:
+                    if $L(\theta_1) = 3 \, L(\theta_2)$, then $\theta_1$ makes the observed data three
+                    times more probable than $\theta_2$.
+                </p>
+
+                <p>
+                    Because products are unwieldy (numerically and analytically), we almost always work
+                    with the <strong>log-likelihood</strong>:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\ell(\theta) = \log L(\theta) = \sum_{i=1}^{n} \log f(x_i \mid \theta)$$
+                </div>
+
+                <p>
+                    The log is a strictly increasing function, so maximizing $\ell(\theta)$ and maximizing
+                    $L(\theta)$ give the same answer. The log-likelihood turns products into sums,
+                    which are far easier to differentiate and optimize.
+                </p>
+
+                <!-- ======== Section 3: Maximum Likelihood Estimator ======== -->
+                <h2 id="mle-definition">Maximum Likelihood Estimator</h2>
+
+                <p>
+                    The <strong>maximum likelihood estimator</strong> (MLE) is the parameter value
+                    that maximizes the likelihood (equivalently, the log-likelihood):
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\hat{\theta}_{\text{MLE}} = \arg\max_{\theta \in \Theta} \, L(\theta) = \arg\max_{\theta \in \Theta} \, \ell(\theta)$$
+                </div>
+
+                <p>
+                    To find the MLE, we typically follow a three-step recipe:
+                </p>
+
+                <ol>
+                    <li><strong>Write the log-likelihood.</strong> Compute $\ell(\theta) = \sum_{i=1}^n \log f(x_i \mid \theta)$.</li>
+                    <li><strong>Solve the score equation.</strong> The <em>score function</em> is $S(\theta) = \frac{\partial \ell}{\partial \theta}$. Set it to zero:
+                        $$S(\hat{\theta}) = \frac{\partial \ell}{\partial \theta}\bigg|_{\theta = \hat{\theta}} = 0$$
+                    </li>
+                    <li><strong>Verify it is a maximum.</strong> Check that $\frac{\partial^2 \ell}{\partial \theta^2}\big|_{\theta = \hat{\theta}} < 0$, or use other arguments (e.g., concavity of the entire log-likelihood).</li>
+                </ol>
+
+                <p>
+                    For vector parameters $\boldsymbol{\theta} = (\theta_1, \ldots, \theta_k)$, the
+                    score equation becomes a system: $\nabla_{\boldsymbol{\theta}} \ell = \mathbf{0}$,
+                    and the second-order condition requires the Hessian matrix to be negative definite.
+                </p>
+
+                <p>
+                    <strong>Caveat:</strong> Not all MLEs come from solving $S(\theta) = 0$. Sometimes
+                    the MLE occurs at the boundary of the parameter space (as in the Uniform example below),
+                    and sometimes the likelihood has no closed-form maximum, requiring numerical optimization.
+                </p>
+
+                <!-- ======== Section 4: MLE Examples ======== -->
+                <h2 id="mle-examples">MLE Examples</h2>
+
+                <p>
+                    Let us work through the MLE for five fundamental distributions. These examples
+                    build core skill and illustrate the variety of behaviors MLEs can have.
+                </p>
+
+                <h3>Example 1: Bernoulli Distribution</h3>
+                <p>
+                    Data: $x_1, \ldots, x_n \overset{\text{iid}}{\sim} \text{Bernoulli}(p)$, so $x_i \in \{0, 1\}$.
+                    Let $k = \sum_{i=1}^n x_i$ be the number of successes.
+                </p>
+                <p><strong>Likelihood:</strong></p>
+                <div class="math-block">
+                    $$L(p) = \prod_{i=1}^n p^{x_i}(1-p)^{1-x_i} = p^k (1-p)^{n-k}$$
+                </div>
+                <p><strong>Log-likelihood:</strong></p>
+                <div class="math-block">
+                    $$\ell(p) = k \log p + (n-k) \log(1-p)$$
+                </div>
+                <p><strong>Score equation:</strong></p>
+                <div class="math-block">
+                    $$\frac{d\ell}{dp} = \frac{k}{p} - \frac{n-k}{1-p} = 0 \implies k(1-p) = (n-k)p \implies k = np$$
+                </div>
+                <div class="math-block" style="background: var(--color-surface-elevated); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                    $$\boxed{\hat{p}_{\text{MLE}} = \frac{k}{n} = \bar{x}}$$
+                </div>
+                <p>
+                    The MLE for the Bernoulli parameter is the sample proportion&mdash;exactly what
+                    intuition suggests.
+                </p>
+
+                <h3>Example 2: Normal Distribution</h3>
+                <p>
+                    Data: $x_1, \ldots, x_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$.
+                    Both $\mu$ and $\sigma^2$ are unknown.
+                </p>
+                <p><strong>Log-likelihood:</strong></p>
+                <div class="math-block">
+                    $$\ell(\mu, \sigma^2) = -\frac{n}{2}\log(2\pi) - \frac{n}{2}\log\sigma^2 - \frac{1}{2\sigma^2}\sum_{i=1}^n (x_i - \mu)^2$$
+                </div>
+                <p><strong>Score equations:</strong></p>
+                <div class="math-block">
+                    $$\frac{\partial \ell}{\partial \mu} = \frac{1}{\sigma^2}\sum_{i=1}^n (x_i - \mu) = 0 \implies \hat{\mu} = \frac{1}{n}\sum_{i=1}^n x_i = \bar{x}$$
+                </div>
+                <div class="math-block">
+                    $$\frac{\partial \ell}{\partial \sigma^2} = -\frac{n}{2\sigma^2} + \frac{1}{2\sigma^4}\sum_{i=1}^n (x_i - \mu)^2 = 0 \implies \hat{\sigma}^2 = \frac{1}{n}\sum_{i=1}^n (x_i - \bar{x})^2$$
+                </div>
+                <div class="math-block" style="background: var(--color-surface-elevated); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                    $$\boxed{\hat{\mu}_{\text{MLE}} = \bar{x}, \qquad \hat{\sigma}^2_{\text{MLE}} = \frac{1}{n}\sum_{i=1}^n (x_i - \bar{x})^2}$$
+                </div>
+                <p>
+                    Note that $\hat{\sigma}^2_{\text{MLE}}$ divides by $n$, not $n-1$. This makes it
+                    a <em>biased</em> estimator of $\sigma^2$ (it slightly underestimates the true variance).
+                    The unbiased sample variance $s^2 = \frac{1}{n-1}\sum(x_i - \bar{x})^2$ is preferred
+                    for small samples, but the bias vanishes as $n \to \infty$.
+                </p>
+
+                <h3>Example 3: Poisson Distribution</h3>
+                <p>
+                    Data: $x_1, \ldots, x_n \overset{\text{iid}}{\sim} \text{Poisson}(\lambda)$.
+                </p>
+                <p><strong>Log-likelihood:</strong></p>
+                <div class="math-block">
+                    $$\ell(\lambda) = \sum_{i=1}^n \left( x_i \log \lambda - \lambda - \log(x_i!) \right) = \left(\sum x_i\right) \log \lambda - n\lambda - \sum \log(x_i!)$$
+                </div>
+                <p><strong>Score equation:</strong></p>
+                <div class="math-block">
+                    $$\frac{d\ell}{d\lambda} = \frac{\sum x_i}{\lambda} - n = 0$$
+                </div>
+                <div class="math-block" style="background: var(--color-surface-elevated); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                    $$\boxed{\hat{\lambda}_{\text{MLE}} = \frac{1}{n}\sum_{i=1}^n x_i = \bar{x}}$$
+                </div>
+
+                <h3>Example 4: Exponential Distribution</h3>
+                <p>
+                    Data: $x_1, \ldots, x_n \overset{\text{iid}}{\sim} \text{Exp}(\lambda)$, with density $f(x \mid \lambda) = \lambda e^{-\lambda x}$ for $x \geq 0$.
+                </p>
+                <p><strong>Log-likelihood:</strong></p>
+                <div class="math-block">
+                    $$\ell(\lambda) = n \log \lambda - \lambda \sum_{i=1}^n x_i$$
+                </div>
+                <p><strong>Score equation:</strong></p>
+                <div class="math-block">
+                    $$\frac{d\ell}{d\lambda} = \frac{n}{\lambda} - \sum x_i = 0$$
+                </div>
+                <div class="math-block" style="background: var(--color-surface-elevated); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                    $$\boxed{\hat{\lambda}_{\text{MLE}} = \frac{n}{\sum_{i=1}^n x_i} = \frac{1}{\bar{x}}}$$
+                </div>
+
+                <h3>Example 5: Uniform Distribution (Boundary MLE)</h3>
+                <p>
+                    Data: $x_1, \ldots, x_n \overset{\text{iid}}{\sim} \text{Uniform}(0, \theta)$,
+                    with density $f(x \mid \theta) = 1/\theta$ for $0 \leq x \leq \theta$.
+                </p>
+                <p><strong>Likelihood:</strong></p>
+                <div class="math-block">
+                    $$L(\theta) = \prod_{i=1}^n \frac{1}{\theta} \cdot \mathbf{1}(0 \leq x_i \leq \theta) = \frac{1}{\theta^n} \cdot \mathbf{1}(\theta \geq x_{(n)})$$
+                </div>
+                <p>
+                    where $x_{(n)} = \max(x_1, \ldots, x_n)$ is the sample maximum. For $\theta \geq x_{(n)}$,
+                    $L(\theta) = 1/\theta^n$ is strictly decreasing, so the maximum occurs at the smallest
+                    allowable value:
+                </p>
+                <div class="math-block" style="background: var(--color-surface-elevated); border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                    $$\boxed{\hat{\theta}_{\text{MLE}} = x_{(n)} = \max(x_1, \ldots, x_n)}$$
+                </div>
+                <p>
+                    This MLE does <em>not</em> come from setting a derivative to zero. The maximum is
+                    at the boundary of the parameter space. Also, this estimator is biased downward:
+                    $E[\hat{\theta}] = \frac{n}{n+1}\theta < \theta$, though the bias vanishes as $n \to \infty$.
+                </p>
+
+                <!-- SVG: Log-likelihood curve -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg" style="max-width: 560px; width: 100%;">
+                        <!-- Background -->
+                        <rect x="0" y="0" width="560" height="340" fill="none"/>
+
+                        <!-- Axes -->
+                        <line x1="70" y1="280" x2="530" y2="280" stroke="var(--color-border)" stroke-width="1.5"/>
+                        <line x1="70" y1="280" x2="70" y2="30" stroke="var(--color-border)" stroke-width="1.5"/>
+
+                        <!-- Axis labels -->
+                        <text x="300" y="320" text-anchor="middle" fill="var(--color-text)" font-size="14" font-family="Inter, sans-serif">$\theta$</text>
+                        <text x="25" y="155" text-anchor="middle" fill="var(--color-text)" font-size="14" font-family="Inter, sans-serif" transform="rotate(-90, 25, 155)">$\ell(\theta)$</text>
+
+                        <!-- Log-likelihood curve (bell-shaped, slightly asymmetric) -->
+                        <path d="M 90,270 Q 130,265 170,245 Q 210,220 240,180 Q 270,130 300,70 Q 310,55 320,70 Q 350,130 380,180 Q 410,220 440,245 Q 470,260 510,270"
+                              fill="none" stroke="var(--color-accent)" stroke-width="3" stroke-linecap="round"/>
+
+                        <!-- Fill under curve (subtle) -->
+                        <path d="M 90,270 Q 130,265 170,245 Q 210,220 240,180 Q 270,130 300,70 Q 310,55 320,70 Q 350,130 380,180 Q 410,220 440,245 Q 470,260 510,270 L 510,280 L 90,280 Z"
+                              fill="rgba(99, 102, 241, 0.08)"/>
+
+                        <!-- MLE vertical line -->
+                        <line x1="310" y1="55" x2="310" y2="280" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,4"/>
+
+                        <!-- MLE dot -->
+                        <circle cx="310" cy="55" r="6" fill="#ef4444" stroke="white" stroke-width="2"/>
+
+                        <!-- MLE label -->
+                        <text x="310" y="42" text-anchor="middle" fill="#ef4444" font-size="14" font-weight="600" font-family="Inter, sans-serif">$\hat{\theta}_{\text{MLE}}$</text>
+
+                        <!-- Annotation arrow and text -->
+                        <path d="M 400,90 L 335,60" fill="none" stroke="var(--color-text-secondary)" stroke-width="1.2" marker-end="url(#arrowhead-mle)"/>
+                        <defs>
+                            <marker id="arrowhead-mle" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <polygon points="0 0, 8 3, 0 6" fill="var(--color-text-secondary)"/>
+                            </marker>
+                        </defs>
+                        <text x="405" y="85" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif">Maximum of</text>
+                        <text x="405" y="100" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif">log-likelihood</text>
+
+                        <!-- Tick marks -->
+                        <line x1="310" y1="280" x2="310" y2="288" stroke="var(--color-border)" stroke-width="1.5"/>
+                        <text x="310" y="300" text-anchor="middle" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">$\hat{\theta}$</text>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 1.</strong> A log-likelihood curve $\ell(\theta)$. The MLE $\hat{\theta}$ is the value of $\theta$ at the peak.
+                    </p>
+                </div>
+
+                <!-- ======== Section 5: Properties of MLE ======== -->
+                <h2 id="properties-mle">Properties of MLE</h2>
+
+                <p>
+                    MLE is not just a convenient recipe&mdash;it has remarkable theoretical properties
+                    that justify its widespread use. Under regularity conditions (the parameter space
+                    is open, the density is smooth, identifiable, etc.), the MLE satisfies:
+                </p>
+
+                <h3>1. Consistency</h3>
+                <p>
+                    As $n \to \infty$, the MLE converges in probability to the true parameter value:
+                </p>
+                <div class="math-block">
+                    $$\hat{\theta}_{\text{MLE}} \xrightarrow{P} \theta_0$$
+                </div>
+                <p>
+                    Intuition: with more data, the log-likelihood concentrates ever more sharply around
+                    the true value. Formally, by the law of large numbers, $\frac{1}{n}\ell(\theta)
+                    \to E[\log f(X \mid \theta)]$, and this expectation is uniquely maximized at $\theta_0$
+                    (by the information inequality / Gibbs' inequality).
+                </p>
+
+                <h3>2. Asymptotic Normality</h3>
+                <p>
+                    The MLE is approximately normal for large $n$:
+                </p>
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\sqrt{n}\left(\hat{\theta}_{\text{MLE}} - \theta_0\right) \xrightarrow{d} \mathcal{N}\!\left(0, \frac{1}{I(\theta_0)}\right)$$
+                </div>
+                <p>
+                    where $I(\theta_0)$ is the Fisher information (defined in the next section).
+                    Equivalently, for large $n$:
+                </p>
+                <div class="math-block">
+                    $$\hat{\theta}_{\text{MLE}} \;\dot{\sim}\; \mathcal{N}\!\left(\theta_0, \frac{1}{nI(\theta_0)}\right)$$
+                </div>
+                <p>
+                    This gives us an automatic recipe for confidence intervals without knowing
+                    the exact finite-sample distribution of $\hat{\theta}$.
+                </p>
+
+                <h3>3. Invariance (Equivariance)</h3>
+                <p>
+                    If $\hat{\theta}$ is the MLE of $\theta$, then for any function $g$:
+                </p>
+                <div class="math-block">
+                    $$\widehat{g(\theta)}_{\text{MLE}} = g(\hat{\theta}_{\text{MLE}})$$
+                </div>
+                <p>
+                    For example, if $\hat{\lambda} = 1/\bar{x}$ is the MLE of the Exponential rate,
+                    then the MLE of the mean $1/\lambda$ is just $\bar{x}$. This seems obvious but is
+                    <em>not</em> true for many other estimators (e.g., the unbiased estimator of
+                    $\sigma^2$ is $s^2$, but $s$ is not an unbiased estimator of $\sigma$).
+                </p>
+
+                <h3>4. Asymptotic Efficiency</h3>
+                <p>
+                    Among all consistent, asymptotically normal estimators, the MLE has the smallest
+                    asymptotic variance. It achieves the Cram&eacute;r-Rao lower bound (defined below)
+                    in the limit, meaning no other "well-behaved" estimator can do better for large $n$.
+                </p>
+
+                <!-- ======== Section 6: Fisher Information ======== -->
+                <h2 id="fisher-information">Fisher Information</h2>
+
+                <p>
+                    The <strong>Fisher information</strong> quantifies how much information a single
+                    observation carries about the unknown parameter $\theta$. It is defined as:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$I(\theta) = E\!\left[\left(\frac{\partial}{\partial \theta} \log f(X \mid \theta)\right)^{\!2}\right] = -E\!\left[\frac{\partial^2}{\partial \theta^2} \log f(X \mid \theta)\right]$$
+                </div>
+
+                <p>
+                    The two expressions are equal under standard regularity conditions (interchange
+                    of differentiation and integration). Let us unpack both:
+                </p>
+
+                <ul>
+                    <li><strong>First form (variance of the score):</strong> The score $S(\theta) = \frac{\partial}{\partial \theta}\log f(X \mid \theta)$ has $E[S(\theta)] = 0$ at the true $\theta$. So $I(\theta) = \text{Var}(S(\theta))$. High Fisher information means the score is highly variable&mdash;the data are informative about $\theta$.</li>
+                    <li><strong>Second form (expected curvature):</strong> $I(\theta) = -E[\ell''(\theta)]$. A sharply curved log-likelihood (large $|{\ell''}|$) means the peak is narrow, so $\theta$ is precisely determined. This is the form used most for computation.</li>
+                </ul>
+
+                <p><strong>Fisher information for $n$ i.i.d. observations:</strong></p>
+                <div class="math-block">
+                    $$I_n(\theta) = n \, I(\theta)$$
+                </div>
+                <p>
+                    Information grows linearly with sample size. This is why standard errors decrease
+                    like $1/\sqrt{n}$.
+                </p>
+
+                <!-- SVG: Fisher information visualization -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" style="max-width: 600px; width: 100%;">
+                        <!-- Left panel: High Fisher info (narrow peak) -->
+                        <text x="150" y="25" text-anchor="middle" fill="var(--color-text)" font-size="14" font-weight="600" font-family="Inter, sans-serif">High Fisher Information</text>
+
+                        <!-- Left axes -->
+                        <line x1="40" y1="240" x2="270" y2="240" stroke="var(--color-border)" stroke-width="1"/>
+                        <line x1="40" y1="240" x2="40" y2="45" stroke="var(--color-border)" stroke-width="1"/>
+
+                        <!-- Narrow bell curve -->
+                        <path d="M 60,235 Q 90,232 110,220 Q 130,195 140,140 Q 148,80 155,55 Q 158,48 160,55 Q 167,80 175,140 Q 185,195 205,220 Q 225,232 255,235"
+                              fill="rgba(16, 185, 129, 0.15)" stroke="#10b981" stroke-width="2.5"/>
+
+                        <!-- Peak marker -->
+                        <circle cx="158" cy="48" r="4" fill="#10b981"/>
+                        <line x1="158" y1="48" x2="158" y2="240" stroke="#10b981" stroke-width="1" stroke-dasharray="4,3"/>
+                        <text x="158" y="258" text-anchor="middle" fill="#10b981" font-size="11" font-family="Inter, sans-serif">$\hat{\theta}$</text>
+
+                        <!-- Width annotation -->
+                        <line x1="128" y1="150" x2="188" y2="150" stroke="var(--color-text-secondary)" stroke-width="1" marker-start="url(#arrow-left)" marker-end="url(#arrow-right)"/>
+                        <text x="158" y="170" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">narrow</text>
+
+                        <text x="150" y="205" text-anchor="middle" fill="#10b981" font-size="11" font-family="Inter, sans-serif">Large $I(\theta)$</text>
+                        <text x="150" y="220" text-anchor="middle" fill="#10b981" font-size="11" font-family="Inter, sans-serif">= precise estimate</text>
+
+                        <!-- Divider -->
+                        <line x1="300" y1="35" x2="300" y2="260" stroke="var(--color-border)" stroke-width="1" stroke-dasharray="4,4"/>
+
+                        <!-- Right panel: Low Fisher info (wide peak) -->
+                        <text x="450" y="25" text-anchor="middle" fill="var(--color-text)" font-size="14" font-weight="600" font-family="Inter, sans-serif">Low Fisher Information</text>
+
+                        <!-- Right axes -->
+                        <line x1="330" y1="240" x2="570" y2="240" stroke="var(--color-border)" stroke-width="1"/>
+                        <line x1="330" y1="240" x2="330" y2="45" stroke="var(--color-border)" stroke-width="1"/>
+
+                        <!-- Wide bell curve -->
+                        <path d="M 340,235 Q 360,228 380,210 Q 400,185 420,155 Q 435,130 445,115 Q 450,108 455,115 Q 465,130 480,155 Q 500,185 520,210 Q 540,228 560,235"
+                              fill="rgba(239, 68, 68, 0.12)" stroke="#ef4444" stroke-width="2.5"/>
+
+                        <!-- Peak marker -->
+                        <circle cx="450" cy="108" r="4" fill="#ef4444"/>
+                        <line x1="450" y1="108" x2="450" y2="240" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,3"/>
+                        <text x="450" y="258" text-anchor="middle" fill="#ef4444" font-size="11" font-family="Inter, sans-serif">$\hat{\theta}$</text>
+
+                        <!-- Width annotation -->
+                        <line x1="395" y1="170" x2="505" y2="170" stroke="var(--color-text-secondary)" stroke-width="1" marker-start="url(#arrow-left)" marker-end="url(#arrow-right)"/>
+                        <text x="450" y="190" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">wide</text>
+
+                        <text x="450" y="205" text-anchor="middle" fill="#ef4444" font-size="11" font-family="Inter, sans-serif">Small $I(\theta)$</text>
+                        <text x="450" y="220" text-anchor="middle" fill="#ef4444" font-size="11" font-family="Inter, sans-serif">= uncertain estimate</text>
+
+                        <!-- Arrow markers -->
+                        <defs>
+                            <marker id="arrow-left" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto">
+                                <polygon points="6 0, 0 3, 6 6" fill="var(--color-text-secondary)"/>
+                            </marker>
+                            <marker id="arrow-right" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
+                                <polygon points="0 0, 6 3, 0 6" fill="var(--color-text-secondary)"/>
+                            </marker>
+                        </defs>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 2.</strong> Fisher information as curvature. A narrow (sharply curved) log-likelihood indicates high Fisher information and a precise estimate. A wide (gently curved) log-likelihood indicates low Fisher information and an uncertain estimate.
+                    </p>
+                </div>
+
+                <h3>Fisher Information Examples</h3>
+                <p><strong>Bernoulli($p$):</strong></p>
+                <div class="math-block">
+                    $$\log f(x \mid p) = x \log p + (1-x)\log(1-p)$$
+                </div>
+                <div class="math-block">
+                    $$\frac{\partial^2}{\partial p^2}\log f = -\frac{x}{p^2} - \frac{1-x}{(1-p)^2} \implies I(p) = \frac{1}{p(1-p)}$$
+                </div>
+                <p>
+                    Information is lowest at $p = 1/2$ (hardest to estimate) and diverges as $p \to 0$ or $p \to 1$ (easy to tell a very biased coin from a fair one).
+                </p>
+
+                <p><strong>Normal($\mu, \sigma^2$ known):</strong></p>
+                <div class="math-block">
+                    $$I(\mu) = \frac{1}{\sigma^2}$$
+                </div>
+                <p>
+                    Smaller variance (less noise) means more information about the mean per observation.
+                </p>
+
+                <p><strong>Exponential($\lambda$):</strong></p>
+                <div class="math-block">
+                    $$I(\lambda) = \frac{1}{\lambda^2}$$
+                </div>
+
+                <h3>Fisher Information Matrix</h3>
+                <p>
+                    For a vector parameter $\boldsymbol{\theta} = (\theta_1, \ldots, \theta_k)$, Fisher
+                    information becomes a $k \times k$ matrix:
+                </p>
+                <div class="math-block">
+                    $$[\mathbf{I}(\boldsymbol{\theta})]_{jl} = -E\!\left[\frac{\partial^2 \ell}{\partial \theta_j \, \partial \theta_l}\right]$$
+                </div>
+                <p>
+                    For the Normal with both $\mu$ and $\sigma^2$ unknown:
+                </p>
+                <div class="math-block">
+                    $$\mathbf{I}(\mu, \sigma^2) = \begin{pmatrix} 1/\sigma^2 & 0 \\ 0 & 1/(2\sigma^4) \end{pmatrix}$$
+                </div>
+                <p>
+                    The diagonal structure shows that $\mu$ and $\sigma^2$ are "informationally
+                    orthogonal"&mdash;knowing one does not help estimate the other.
+                </p>
+
+                <!-- ======== Section 7: Cramér-Rao Lower Bound ======== -->
+                <h2 id="cramer-rao">Cram&eacute;r-Rao Lower Bound</h2>
+
+                <p>
+                    The Cram&eacute;r-Rao inequality sets a fundamental limit on how precisely
+                    <em>any</em> unbiased estimator can estimate a parameter:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\text{Var}(\hat{\theta}) \geq \frac{1}{n \, I(\theta)}$$
+                </div>
+
+                <p>
+                    for any unbiased estimator $\hat{\theta}$ of $\theta$ based on $n$ i.i.d. observations.
+                </p>
+
+                <p><strong>Proof sketch:</strong></p>
+                <p>
+                    The proof uses the Cauchy-Schwarz inequality. Let $T = \hat{\theta}(\mathbf{X})$ be
+                    any unbiased estimator and $S = \sum_{i=1}^n \frac{\partial}{\partial \theta}\log f(X_i \mid \theta)$
+                    be the total score. Since $E[S] = 0$ and $E[T] = \theta$:
+                </p>
+                <div class="math-block">
+                    $$1 = \frac{\partial}{\partial \theta} E[T] = \text{Cov}(T, S)$$
+                </div>
+                <p>By Cauchy-Schwarz:</p>
+                <div class="math-block">
+                    $$1 = [\text{Cov}(T, S)]^2 \leq \text{Var}(T) \cdot \text{Var}(S) = \text{Var}(T) \cdot n I(\theta)$$
+                </div>
+                <p>
+                    Rearranging gives the bound. Equality holds if and only if $T$ is a linear function
+                    of $S$, which happens precisely for the exponential family.
+                </p>
+
+                <p><strong>Definitions:</strong></p>
+                <ul>
+                    <li>An estimator that achieves the Cram&eacute;r-Rao bound is called <strong>efficient</strong>.</li>
+                    <li>The <strong>efficiency</strong> of an estimator is $e(\hat{\theta}) = \frac{1/(nI(\theta))}{\text{Var}(\hat{\theta})} \leq 1$.</li>
+                    <li>A <strong>UMVUE</strong> (uniformly minimum variance unbiased estimator) has the smallest variance among all unbiased estimators. If an efficient estimator exists, it is the UMVUE.</li>
+                </ul>
+
+                <p><strong>Example:</strong> For $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \mathcal{N}(\mu, \sigma^2)$ with $\sigma^2$ known, $\text{Var}(\bar{X}) = \sigma^2/n = 1/(nI(\mu))$. So $\bar{X}$ is efficient&mdash;it achieves the Cram&eacute;r-Rao bound exactly.</p>
+
+                <!-- ======== Section 8: Sufficient Statistics ======== -->
+                <h2 id="sufficient-statistics">Sufficient Statistics</h2>
+
+                <p>
+                    A statistic $T(\mathbf{X})$ is <strong>sufficient</strong> for $\theta$ if it
+                    captures all the information in the data about $\theta$. Formally:
+                </p>
+
+                <div class="math-block">
+                    $$T(\mathbf{X}) \text{ is sufficient for } \theta \iff f(\mathbf{x} \mid T(\mathbf{x}), \theta) = f(\mathbf{x} \mid T(\mathbf{x}))$$
+                </div>
+
+                <p>
+                    The conditional distribution of the data given $T$ does not depend on $\theta$.
+                    Once you know $T$, the remaining data contains no additional information about $\theta$.
+                </p>
+
+                <h3>Fisher-Neyman Factorization Theorem</h3>
+                <p>
+                    The most practical tool for finding sufficient statistics:
+                </p>
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$T(\mathbf{X}) \text{ is sufficient for } \theta \iff f(\mathbf{x} \mid \theta) = g(T(\mathbf{x}), \theta) \cdot h(\mathbf{x})$$
+                </div>
+                <p>
+                    where $g$ depends on $\mathbf{x}$ only through $T(\mathbf{x})$, and $h$ does not depend on $\theta$.
+                </p>
+
+                <p><strong>Examples:</strong></p>
+                <ul>
+                    <li><strong>Bernoulli($p$):</strong> $L(p) = p^{\sum x_i}(1-p)^{n-\sum x_i}$. Take $g = p^t(1-p)^{n-t}$ with $T = \sum x_i$, and $h = 1$. So $T = \sum X_i$ is sufficient for $p$.</li>
+                    <li><strong>Normal($\mu, \sigma^2$):</strong> $T = (\sum X_i, \sum X_i^2)$ is jointly sufficient for $(\mu, \sigma^2)$.</li>
+                    <li><strong>Uniform($0, \theta$):</strong> $T = X_{(n)} = \max(X_i)$ is sufficient for $\theta$.</li>
+                </ul>
+
+                <h3>MLE and Sufficiency</h3>
+                <p>
+                    A beautiful fact: the MLE is always a function of any sufficient statistic. This
+                    follows because the likelihood depends on $\mathbf{x}$ only through $T(\mathbf{x})$
+                    (by factorization), so maximizing $L(\theta)$ over $\theta$ can only involve $T$.
+                </p>
+
+                <p>
+                    <strong>Minimal sufficiency:</strong> A sufficient statistic $T$ is <em>minimal</em>
+                    if it achieves the maximum data reduction&mdash;it is a function of every other
+                    sufficient statistic. The MLE is typically a function of the minimal sufficient statistic.
+                </p>
+
+                <!-- ======== Section 9: MLE vs MAP ======== -->
+                <h2 id="mle-vs-map">MLE vs MAP</h2>
+
+                <p>
+                    The <strong>maximum a posteriori</strong> (MAP) estimator comes from Bayesian
+                    statistics. Given a prior $\pi(\theta)$ on the parameter, the MAP estimate maximizes
+                    the posterior distribution:
+                </p>
+
+                <div class="math-block">
+                    $$\hat{\theta}_{\text{MAP}} = \arg\max_\theta \, p(\theta \mid \mathbf{x}) = \arg\max_\theta \, L(\theta) \cdot \pi(\theta)$$
+                </div>
+
+                <p>
+                    On a log scale:
+                </p>
+                <div class="math-block">
+                    $$\hat{\theta}_{\text{MAP}} = \arg\max_\theta \left[ \ell(\theta) + \log \pi(\theta) \right]$$
+                </div>
+
+                <p>Key observations:</p>
+                <ul>
+                    <li><strong>MLE = MAP with uniform prior:</strong> If $\pi(\theta) = \text{const}$, then $\log \pi(\theta)$ is constant, and MAP reduces to MLE. MLE is Bayesian with a flat prior.</li>
+                    <li><strong>Regularization as prior:</strong> L2 regularization $\|\theta\|^2$ corresponds to a Gaussian prior; L1 regularization $\|\theta\|_1$ corresponds to a Laplace prior. So regularized MLE is MAP estimation.</li>
+                    <li><strong>Small data vs big data:</strong> When $n$ is small, the prior $\log \pi(\theta)$ has a big effect (MAP $\neq$ MLE). As $n \to \infty$, the likelihood dominates: $\ell(\theta) = O(n)$ while $\log\pi(\theta) = O(1)$, so MAP $\to$ MLE.</li>
+                </ul>
+
+                <!-- SVG: MLE vs MAP comparison -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 580 310" xmlns="http://www.w3.org/2000/svg" style="max-width: 580px; width: 100%;">
+                        <!-- Axes -->
+                        <line x1="60" y1="260" x2="540" y2="260" stroke="var(--color-border)" stroke-width="1.5"/>
+                        <line x1="60" y1="260" x2="60" y2="25" stroke="var(--color-border)" stroke-width="1.5"/>
+                        <text x="300" y="295" text-anchor="middle" fill="var(--color-text)" font-size="14" font-family="Inter, sans-serif">$\theta$</text>
+
+                        <!-- Likelihood (blue, peak at 340) -->
+                        <path d="M 80,255 Q 120,250 160,235 Q 200,210 240,170 Q 280,120 310,70 Q 325,48 340,42 Q 355,48 370,70 Q 400,120 430,170 Q 460,210 490,240 Q 510,250 530,255"
+                              fill="none" stroke="var(--color-accent)" stroke-width="2.5"/>
+
+                        <!-- Prior (orange, peak at 220, Gaussian) -->
+                        <path d="M 80,250 Q 110,245 130,230 Q 155,200 175,160 Q 195,110 210,75 Q 218,55 225,50 Q 232,55 240,75 Q 255,110 275,160 Q 295,200 315,230 Q 340,248 380,253 Q 420,255 530,255"
+                              fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="8,4"/>
+
+                        <!-- Posterior (purple, peak at ~280) -->
+                        <path d="M 80,255 Q 110,252 140,242 Q 170,225 200,195 Q 230,150 255,100 Q 270,70 280,50 Q 290,42 295,50 Q 310,70 325,100 Q 345,145 370,190 Q 400,225 430,245 Q 460,252 530,255"
+                              fill="rgba(168, 85, 247, 0.1)" stroke="#8b5cf6" stroke-width="2.5"/>
+
+                        <!-- MLE marker -->
+                        <circle cx="340" cy="42" r="5" fill="var(--color-accent)"/>
+                        <line x1="340" y1="42" x2="340" y2="260" stroke="var(--color-accent)" stroke-width="1.2" stroke-dasharray="4,3"/>
+                        <text x="340" y="275" text-anchor="middle" fill="var(--color-accent)" font-size="11" font-weight="600" font-family="Inter, sans-serif">MLE</text>
+
+                        <!-- MAP marker -->
+                        <circle cx="290" cy="42" r="5" fill="#8b5cf6"/>
+                        <line x1="290" y1="42" x2="290" y2="260" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="4,3"/>
+                        <text x="290" y="275" text-anchor="middle" fill="#8b5cf6" font-size="11" font-weight="600" font-family="Inter, sans-serif">MAP</text>
+
+                        <!-- Prior peak marker -->
+                        <circle cx="225" cy="50" r="4" fill="#f59e0b"/>
+
+                        <!-- Legend -->
+                        <line x1="380" y1="18" x2="405" y2="18" stroke="var(--color-accent)" stroke-width="2.5"/>
+                        <text x="410" y="22" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">Likelihood $L(\theta)$</text>
+
+                        <line x1="380" y1="35" x2="405" y2="35" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="8,4"/>
+                        <text x="410" y="39" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">Prior $\pi(\theta)$</text>
+
+                        <line x1="380" y1="52" x2="405" y2="52" stroke="#8b5cf6" stroke-width="2.5"/>
+                        <text x="410" y="56" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">Posterior $\propto L \cdot \pi$</text>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 3.</strong> MLE vs MAP. The prior pulls the MAP estimate toward the prior mode, away from the MLE. With more data, the likelihood sharpens and the MAP converges to the MLE.
+                    </p>
+                </div>
+
+                <!-- ======== Section 10: EM Algorithm ======== -->
+                <h2 id="em-algorithm">The EM Algorithm</h2>
+
+                <p>
+                    Sometimes direct maximization of the likelihood is intractable, often because
+                    the model involves <strong>latent (hidden) variables</strong>. The
+                    <strong>Expectation-Maximization (EM)</strong> algorithm, introduced by
+                    Dempster, Laird, and Rubin (1977), handles this elegantly.
+                </p>
+
+                <p><strong>Setup:</strong> We observe data $\mathbf{x}$ but there are hidden variables
+                    $\mathbf{z}$. The <em>complete-data</em> log-likelihood $\ell(\theta \mid \mathbf{x}, \mathbf{z})$
+                    would be easy to maximize if we knew $\mathbf{z}$. The <em>incomplete-data</em>
+                    (marginal) log-likelihood is:
+                </p>
+                <div class="math-block">
+                    $$\ell(\theta \mid \mathbf{x}) = \log \sum_{\mathbf{z}} f(\mathbf{x}, \mathbf{z} \mid \theta)$$
+                </div>
+                <p>
+                    The sum (or integral) inside the log makes direct optimization difficult.
+                </p>
+
+                <p><strong>The Algorithm:</strong> Starting from an initial guess $\theta^{(0)}$, repeat:</p>
+                <ol>
+                    <li><strong>E-step:</strong> Compute the expected complete-data log-likelihood,
+                        averaging over the current posterior of the latent variables:
+                        $$Q(\theta \mid \theta^{(t)}) = E_{\mathbf{z} \mid \mathbf{x}, \theta^{(t)}}\!\left[\log f(\mathbf{x}, \mathbf{z} \mid \theta)\right]$$
+                    </li>
+                    <li><strong>M-step:</strong> Maximize $Q$ over $\theta$:
+                        $$\theta^{(t+1)} = \arg\max_\theta \, Q(\theta \mid \theta^{(t)})$$
+                    </li>
+                </ol>
+
+                <p><strong>Key property:</strong> Each EM iteration is guaranteed to increase (or maintain)
+                    the observed-data log-likelihood:
+                </p>
+                <div class="math-block">
+                    $$\ell(\theta^{(t+1)} \mid \mathbf{x}) \geq \ell(\theta^{(t)} \mid \mathbf{x})$$
+                </div>
+
+                <p>
+                    This follows because the M-step maximizes a lower bound on $\ell$, and the E-step
+                    makes the bound tight at the current $\theta^{(t)}$. However, EM only converges to
+                    a <em>local</em> maximum (or saddle point), so multiple initializations are common.
+                </p>
+
+                <h3>Application: Gaussian Mixture Model</h3>
+                <p>
+                    A GMM with $K$ components has density $f(x \mid \boldsymbol{\theta}) = \sum_{k=1}^K \pi_k \, \mathcal{N}(x \mid \mu_k, \sigma_k^2)$,
+                    where $\boldsymbol{\theta} = (\pi_k, \mu_k, \sigma_k^2)_{k=1}^K$.
+                    The latent variable $z_i \in \{1, \ldots, K\}$ indicates which component generated observation $x_i$.
+                </p>
+                <ul>
+                    <li><strong>E-step:</strong> Compute responsibilities $\gamma_{ik} = P(z_i = k \mid x_i, \theta^{(t)}) = \frac{\pi_k^{(t)} \, \mathcal{N}(x_i \mid \mu_k^{(t)}, {\sigma_k^2}^{(t)})}{\sum_j \pi_j^{(t)} \, \mathcal{N}(x_i \mid \mu_j^{(t)}, {\sigma_j^2}^{(t)})}$</li>
+                    <li><strong>M-step:</strong> Update parameters:
+                        $$\pi_k^{(t+1)} = \frac{N_k}{n}, \quad \mu_k^{(t+1)} = \frac{\sum_i \gamma_{ik} x_i}{N_k}, \quad {\sigma_k^2}^{(t+1)} = \frac{\sum_i \gamma_{ik}(x_i - \mu_k^{(t+1)})^2}{N_k}$$
+                        where $N_k = \sum_i \gamma_{ik}$ is the effective number of points assigned to component $k$.
+                    </li>
+                </ul>
+
+                <!-- ======== Section 11: Connections to ML ======== -->
+                <h2 id="ml-connections">Connections to Machine Learning</h2>
+
+                <p>
+                    MLE is not just a statistical concept&mdash;it is the <em>engine</em> behind most
+                    supervised learning algorithms. When you train a neural network by minimizing a loss
+                    function, you are often performing MLE without realizing it.
+                </p>
+
+                <h3>Cross-Entropy Loss = Negative Log-Likelihood</h3>
+                <p>
+                    In classification with a model $p_\theta(y \mid x)$, the cross-entropy loss over
+                    a dataset $\{(x_i, y_i)\}$ is:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{CE}}(\theta) = -\frac{1}{n}\sum_{i=1}^n \log p_\theta(y_i \mid x_i) = -\frac{1}{n}\ell(\theta)$$
+                </div>
+                <p>
+                    Minimizing cross-entropy loss is <em>exactly</em> maximizing the log-likelihood.
+                    This is true regardless of the model architecture (logistic regression, random forest,
+                    transformer, etc.).
+                </p>
+
+                <h3>Logistic Regression as MLE</h3>
+                <p>
+                    In logistic regression, $P(Y = 1 \mid \mathbf{x}) = \sigma(\mathbf{w}^\top \mathbf{x})$
+                    where $\sigma$ is the sigmoid function. The negative log-likelihood is the binary
+                    cross-entropy:
+                </p>
+                <div class="math-block">
+                    $$-\ell(\mathbf{w}) = -\sum_{i=1}^n \left[y_i \log \sigma(\mathbf{w}^\top \mathbf{x}_i) + (1-y_i)\log(1 - \sigma(\mathbf{w}^\top \mathbf{x}_i))\right]$$
+                </div>
+                <p>
+                    This is a concave function of $\mathbf{w}$, so gradient descent finds the global MLE.
+                </p>
+
+                <h3>MSE Loss and Gaussian Likelihood</h3>
+                <p>
+                    If we model $y = f_\theta(x) + \epsilon$ with $\epsilon \sim \mathcal{N}(0, \sigma^2)$,
+                    the log-likelihood is:
+                </p>
+                <div class="math-block">
+                    $$\ell(\theta) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^n (y_i - f_\theta(x_i))^2$$
+                </div>
+                <p>
+                    Maximizing over $\theta$ is equivalent to minimizing $\sum(y_i - f_\theta(x_i))^2$,
+                    the mean squared error. <strong>MSE loss assumes Gaussian noise.</strong>
+                </p>
+
+                <h3>Regularization = Prior = MAP</h3>
+                <p>
+                    When we add L2 regularization $\lambda \|\mathbf{w}\|^2$ to the loss:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{reg}}(\mathbf{w}) = -\ell(\mathbf{w}) + \lambda \|\mathbf{w}\|^2$$
+                </div>
+                <p>
+                    This is the negative log-posterior with a Gaussian prior $\mathbf{w} \sim \mathcal{N}(\mathbf{0}, \frac{1}{2\lambda}\mathbf{I})$.
+                    Minimizing the regularized loss performs MAP estimation, not MLE. The regularization
+                    strength $\lambda$ controls how much the prior influences the estimate.
+                </p>
+
+            </article>
+
+            <!-- ============================================================
+                 CODE TAB
+                 ============================================================ -->
+            <article class="article-content" id="code" style="display: none;">
+
+                <h1>Code: Maximum Likelihood Estimation</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    Hands-on implementations of MLE, Fisher information, the EM algorithm, and comparison with MAP estimation. All code uses NumPy and SciPy.
+                </p>
+
+                <!-- ======== Code 1: MLE for Normal Distribution ======== -->
+                <h2>1. MLE for Normal Distribution Parameters</h2>
+                <p>
+                    We derive the MLE for $\mu$ and $\sigma^2$ and verify them with numerical optimization.
+                </p>
+                <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; overflow-x: auto;">
+<pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; line-height: 1.6;"><code>import numpy as np
+from scipy.optimize import minimize_scalar, minimize
+from scipy.stats import norm
+
+np.random.seed(42)
+
+# True parameters
+mu_true, sigma_true = 5.0, 2.0
+n = 100
+data = np.random.normal(mu_true, sigma_true, size=n)
+
+# --- Analytical MLE ---
+mu_mle = np.mean(data)
+sigma2_mle = np.mean((data - mu_mle) ** 2)  # divides by n, not n-1
+
+print("Analytical MLE:")
+print(f"  mu_hat  = {mu_mle:.4f}  (true: {mu_true})")
+print(f"  sigma2_hat = {sigma2_mle:.4f}  (true: {sigma_true**2})")
+
+# --- Numerical MLE via log-likelihood ---
+def neg_log_likelihood(params, data):
+    mu, log_sigma2 = params  # use log(sigma^2) to enforce positivity
+    sigma2 = np.exp(log_sigma2)
+    n = len(data)
+    ll = -n/2 * np.log(2 * np.pi * sigma2) - np.sum((data - mu)**2) / (2 * sigma2)
+    return -ll  # minimize negative log-likelihood
+
+result = minimize(neg_log_likelihood, x0=[0.0, 0.0], args=(data,), method='Nelder-Mead')
+mu_num, sigma2_num = result.x[0], np.exp(result.x[1])
+
+print("\nNumerical MLE (scipy.optimize):")
+print(f"  mu_hat  = {mu_num:.4f}")
+print(f"  sigma2_hat = {sigma2_num:.4f}")
+
+# --- Log-likelihood surface ---
+print("\nLog-likelihood at MLE:", -neg_log_likelihood([mu_mle, np.log(sigma2_mle)], data))
+
+# --- Unbiased estimator comparison ---
+sigma2_unbiased = np.var(data, ddof=1)  # divides by n-1
+print(f"\nUnbiased sigma^2 = {sigma2_unbiased:.4f}")
+print(f"MLE sigma^2      = {sigma2_mle:.4f}")
+print(f"Ratio MLE/unbiased = {sigma2_mle/sigma2_unbiased:.4f}  (should be ~ {n}/{n+1} = {n/(n+1):.4f})")</code></pre>
+                </div>
+
+                <!-- ======== Code 2: MLE for Poisson Regression ======== -->
+                <h2>2. MLE for Poisson Regression</h2>
+                <p>
+                    Poisson regression models count data: $Y_i \sim \text{Poisson}(\lambda_i)$ with
+                    $\log \lambda_i = \mathbf{w}^\top \mathbf{x}_i$. We implement MLE via gradient descent.
+                </p>
+                <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; overflow-x: auto;">
+<pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; line-height: 1.6;"><code>import numpy as np
+from scipy.special import gammaln
+
+np.random.seed(42)
+
+# Generate synthetic Poisson regression data
+n, d = 200, 3
+X = np.column_stack([np.ones(n), np.random.randn(n, d - 1)])
+w_true = np.array([1.0, 0.5, -0.3])
+
+# True rates and observed counts
+log_lambda = X @ w_true
+y = np.random.poisson(np.exp(log_lambda))
+
+# Log-likelihood for Poisson regression
+def poisson_log_likelihood(w, X, y):
+    eta = X @ w
+    return np.sum(y * eta - np.exp(eta) - gammaln(y + 1))
+
+# Gradient of log-likelihood
+def poisson_gradient(w, X, y):
+    eta = X @ w
+    return X.T @ (y - np.exp(eta))
+
+# Hessian of log-likelihood
+def poisson_hessian(w, X, y):
+    eta = X @ w
+    W = np.diag(np.exp(eta))
+    return -X.T @ W @ X
+
+# Newton-Raphson optimization (IRLS)
+w = np.zeros(d)
+print("Newton-Raphson for Poisson Regression MLE:")
+print(f"{'Iter':>4} {'Log-Likelihood':>16} {'||gradient||':>14}")
+for iteration in range(10):
+    ll = poisson_log_likelihood(w, X, y)
+    grad = poisson_gradient(w, X, y)
+    hess = poisson_hessian(w, X, y)
+    grad_norm = np.linalg.norm(grad)
+
+    print(f"{iteration:4d} {ll:16.4f} {grad_norm:14.6f}")
+
+    if grad_norm < 1e-8:
+        print("Converged!")
+        break
+
+    # Newton step: w_new = w - H^{-1} g
+    w = w - np.linalg.solve(hess, grad)
+
+print(f"\nMLE weights:  {w}")
+print(f"True weights: {w_true}")
+
+# Verify with scipy
+from scipy.optimize import minimize as sp_minimize
+result = sp_minimize(lambda w: -poisson_log_likelihood(w, X, y), x0=np.zeros(d), method='BFGS')
+print(f"Scipy MLE:    {result.x}")</code></pre>
+                </div>
+
+                <!-- ======== Code 3: Fisher Information and Confidence Intervals ======== -->
+                <h2>3. Fisher Information and Confidence Intervals</h2>
+                <p>
+                    We compute the Fisher information, verify the Cram&eacute;r-Rao bound, and build
+                    asymptotic confidence intervals.
+                </p>
+                <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; overflow-x: auto;">
+<pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; line-height: 1.6;"><code>import numpy as np
+from scipy.stats import norm, expon
+
+np.random.seed(42)
+
+# ============================================================
+# Example 1: Bernoulli parameter
+# ============================================================
+p_true = 0.3
+n = 500
+data_bern = np.random.binomial(1, p_true, size=n)
+p_hat = np.mean(data_bern)
+
+# Fisher information: I(p) = 1 / [p(1-p)]
+I_p = 1 / (p_hat * (1 - p_hat))
+se_p = 1 / np.sqrt(n * I_p)  # standard error
+
+# 95% confidence interval
+ci_low = p_hat - 1.96 * se_p
+ci_high = p_hat + 1.96 * se_p
+
+print("=== Bernoulli MLE ===")
+print(f"p_hat = {p_hat:.4f}, true p = {p_true}")
+print(f"Fisher info I(p) = {I_p:.4f}")
+print(f"Cramer-Rao lower bound on Var = {1/(n*I_p):.6f}")
+print(f"Actual Var(p_hat) = p(1-p)/n = {p_true*(1-p_true)/n:.6f}")
+print(f"95% CI: ({ci_low:.4f}, {ci_high:.4f})")
+print(f"True p in CI: {ci_low <= p_true <= ci_high}")
+
+# ============================================================
+# Example 2: Exponential rate
+# ============================================================
+lambda_true = 2.0
+data_exp = np.random.exponential(1/lambda_true, size=n)
+lambda_hat = 1 / np.mean(data_exp)
+
+# Fisher information: I(lambda) = 1 / lambda^2
+I_lambda = 1 / lambda_hat**2
+se_lambda = 1 / np.sqrt(n * I_lambda)
+
+ci_low_l = lambda_hat - 1.96 * se_lambda
+ci_high_l = lambda_hat + 1.96 * se_lambda
+
+print("\n=== Exponential MLE ===")
+print(f"lambda_hat = {lambda_hat:.4f}, true lambda = {lambda_true}")
+print(f"Fisher info I(lambda) = {I_lambda:.4f}")
+print(f"Cramer-Rao bound = {1/(n*I_lambda):.6f}")
+print(f"95% CI: ({ci_low_l:.4f}, {ci_high_l:.4f})")
+print(f"True lambda in CI: {ci_low_l <= lambda_true <= ci_high_l}")
+
+# ============================================================
+# Monte Carlo verification of Cramer-Rao bound
+# ============================================================
+print("\n=== Monte Carlo Verification ===")
+n_sim = 10000
+n_obs = 50
+lambda_hats = np.array([1 / np.mean(np.random.exponential(1/lambda_true, size=n_obs))
+                         for _ in range(n_sim)])
+
+empirical_var = np.var(lambda_hats)
+cramer_rao = lambda_true**2 / n_obs  # 1/(n * I) = lambda^2 / n
+
+print(f"Empirical Var(lambda_hat) = {empirical_var:.6f}")
+print(f"Cramer-Rao lower bound    = {cramer_rao:.6f}")
+print(f"Ratio (should be >= 1)    = {empirical_var / cramer_rao:.4f}")</code></pre>
+                </div>
+
+                <!-- ======== Code 4: EM Algorithm for Gaussian Mixture ======== -->
+                <h2>4. EM Algorithm for Gaussian Mixture Model</h2>
+                <p>
+                    A from-scratch implementation of EM for fitting a mixture of Gaussians.
+                </p>
+                <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; overflow-x: auto;">
+<pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; line-height: 1.6;"><code>import numpy as np
+from scipy.stats import norm as sp_norm
+
+np.random.seed(42)
+
+# ============================================================
+# Generate data from a 3-component Gaussian mixture
+# ============================================================
+true_params = {
+    'pi': np.array([0.3, 0.5, 0.2]),
+    'mu': np.array([-2.0, 1.0, 5.0]),
+    'sigma': np.array([0.8, 1.2, 0.5])
+}
+
+n = 500
+K = 3
+z_true = np.random.choice(K, size=n, p=true_params['pi'])
+data = np.array([np.random.normal(true_params['mu'][z], true_params['sigma'][z]) for z in z_true])
+
+# ============================================================
+# EM Algorithm
+# ============================================================
+def em_gmm(data, K, max_iter=100, tol=1e-8):
+    n = len(data)
+
+    # Random initialization
+    pi = np.ones(K) / K
+    mu = np.random.choice(data, size=K, replace=False)
+    sigma = np.ones(K) * np.std(data)
+
+    log_likelihoods = []
+
+    for iteration in range(max_iter):
+        # --- E-step: compute responsibilities ---
+        # gamma[i, k] = P(z_i = k | x_i, theta)
+        gamma = np.zeros((n, K))
+        for k in range(K):
+            gamma[:, k] = pi[k] * sp_norm.pdf(data, mu[k], sigma[k])
+        gamma_sum = gamma.sum(axis=1, keepdims=True)
+        gamma /= gamma_sum
+
+        # Log-likelihood
+        ll = np.sum(np.log(gamma_sum.ravel()))
+        log_likelihoods.append(ll)
+
+        # Check convergence
+        if iteration > 0 and abs(log_likelihoods[-1] - log_likelihoods[-2]) < tol:
+            print(f"Converged at iteration {iteration}")
+            break
+
+        # --- M-step: update parameters ---
+        N_k = gamma.sum(axis=0)  # effective counts per component
+
+        pi = N_k / n
+        mu = (gamma.T @ data) / N_k
+        for k in range(K):
+            diff = data - mu[k]
+            sigma[k] = np.sqrt(np.sum(gamma[:, k] * diff**2) / N_k[k])
+
+    return pi, mu, sigma, log_likelihoods
+
+# Run EM
+pi_hat, mu_hat, sigma_hat, lls = em_gmm(data, K)
+
+# Sort by means for comparison
+order = np.argsort(mu_hat)
+print("EM Results (sorted by mean):")
+print(f"{'Component':>10} {'pi_hat':>8} {'mu_hat':>8} {'sigma_hat':>10}")
+for k in order:
+    print(f"{k:10d} {pi_hat[k]:8.3f} {mu_hat[k]:8.3f} {sigma_hat[k]:10.3f}")
+
+print("\nTrue Parameters:")
+print(f"{'Component':>10} {'pi':>8} {'mu':>8} {'sigma':>10}")
+for k in range(K):
+    print(f"{k:10d} {true_params['pi'][k]:8.3f} {true_params['mu'][k]:8.3f} {true_params['sigma'][k]:10.3f}")
+
+print(f"\nFinal log-likelihood: {lls[-1]:.4f}")
+print(f"Number of iterations: {len(lls)}")</code></pre>
+                </div>
+
+                <!-- ======== Code 5: MLE vs MAP ======== -->
+                <h2>5. Comparing MLE and MAP Estimates</h2>
+                <p>
+                    We compare MLE and MAP for a Bernoulli parameter with a Beta prior, showing how
+                    the prior affects the estimate (especially with small samples).
+                </p>
+                <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; overflow-x: auto;">
+<pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; line-height: 1.6;"><code>import numpy as np
+
+np.random.seed(42)
+
+p_true = 0.7
+
+# Beta(alpha, beta) prior on p
+# MAP for Bernoulli with Beta prior: (k + alpha - 1) / (n + alpha + beta - 2)
+# Posterior mean: (k + alpha) / (n + alpha + beta)
+
+priors = {
+    'Uniform (alpha=1, beta=1)': (1, 1),          # flat prior -> MAP = MLE
+    'Weak (alpha=2, beta=2)': (2, 2),              # mild shrinkage to 0.5
+    'Strong (alpha=10, beta=10)': (10, 10),         # strong pull to 0.5
+    'Informative (alpha=7, beta=3)': (7, 3),        # prior centered at 0.7
+}
+
+sample_sizes = [5, 20, 100, 1000]
+
+print(f"True p = {p_true}\n")
+print(f"{'Prior':<35} {'n':>5} {'k':>5} {'MLE':>8} {'MAP':>8} {'Post. Mean':>11} {'|MLE-p|':>8} {'|MAP-p|':>8}")
+print("-" * 100)
+
+for prior_name, (alpha, beta) in priors.items():
+    for n in sample_sizes:
+        data = np.random.binomial(1, p_true, size=n)
+        k = data.sum()
+
+        mle = k / n
+        # MAP for Beta-Bernoulli
+        if alpha + beta > 2:
+            map_est = (k + alpha - 1) / (n + alpha + beta - 2)
+        else:
+            map_est = mle  # uniform prior: MAP = MLE
+        post_mean = (k + alpha) / (n + alpha + beta)
+
+        print(f"{prior_name:<35} {n:5d} {k:5d} {mle:8.4f} {map_est:8.4f} {post_mean:11.4f} {abs(mle-p_true):8.4f} {abs(map_est-p_true):8.4f}")
+    print()
+
+# Demonstrate MLE failure with small data
+print("=== Edge Case: MLE with zero successes ===")
+data_zero = np.zeros(5, dtype=int)  # 0 successes in 5 trials
+mle_zero = 0.0  # MLE says p = 0!
+map_zero = (0 + 2 - 1) / (5 + 2 + 2 - 2)  # Beta(2,2) prior
+post_mean_zero = (0 + 2) / (5 + 2 + 2)
+
+print(f"Data: 0 heads in 5 flips")
+print(f"MLE:           {mle_zero:.4f}  (degenerate!)")
+print(f"MAP (Beta 2,2): {map_zero:.4f}")
+print(f"Post. Mean:    {post_mean_zero:.4f}")
+print("The prior prevents the pathological estimate of p = 0.")</code></pre>
+                </div>
+
+            </article>
+
+            <!-- ============================================================
+                 EXERCISES TAB
+                 ============================================================ -->
+            <article class="article-content" id="exercises" style="display: none;">
+
+                <h1>Exercises: Maximum Likelihood Estimation</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    15 exercises organized by difficulty. Work through the Easy problems first to build
+                    fluency, then tackle Medium and Hard. Full solutions are provided.
+                </p>
+
+                <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 0.5rem;">Easy (1&ndash;5)</h2>
+
+                <!-- EASY 1 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 1: MLE for Geometric Distribution</h3>
+                        <p>Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Geometric}(p)$, where $P(X = k) = (1-p)^{k-1}p$ for $k = 1, 2, 3, \ldots$. Find the MLE of $p$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>Likelihood:</strong></p>
+                            $$L(p) = \prod_{i=1}^n (1-p)^{x_i - 1} p = p^n (1-p)^{\sum x_i - n}$$
+                            <p><strong>Log-likelihood:</strong></p>
+                            $$\ell(p) = n \log p + \left(\sum x_i - n\right) \log(1 - p)$$
+                            <p><strong>Score equation:</strong></p>
+                            $$\frac{d\ell}{dp} = \frac{n}{p} - \frac{\sum x_i - n}{1-p} = 0$$
+                            $$n(1-p) = (\sum x_i - n)p \implies n = p \sum x_i$$
+                            <p><strong>Answer:</strong> $\displaystyle\hat{p}_{\text{MLE}} = \frac{n}{\sum_{i=1}^n x_i} = \frac{1}{\bar{x}}$.</p>
+                            <p>This is intuitive: the expected value of a Geometric($p$) is $1/p$, so the MLE inverts the sample mean.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 2 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 2: Log-Likelihood Maximization</h3>
+                        <p>You observe data $x_1 = 3, x_2 = 5, x_3 = 2, x_4 = 7, x_5 = 4$ from a Poisson($\lambda$) distribution. (a) Write the log-likelihood function $\ell(\lambda)$. (b) Compute the MLE $\hat{\lambda}$. (c) Evaluate $\ell(\hat{\lambda})$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> With $\sum x_i = 21$ and $n = 5$:</p>
+                            $$\ell(\lambda) = 21 \log \lambda - 5\lambda - \log(3! \cdot 5! \cdot 2! \cdot 7! \cdot 4!)$$
+                            $$= 21 \log \lambda - 5\lambda - \log(6 \cdot 120 \cdot 2 \cdot 5040 \cdot 24) = 21 \log \lambda - 5\lambda - \log(87{,}091{,}200)$$
+                            <p><strong>(b)</strong> $\hat{\lambda} = \bar{x} = 21/5 = 4.2$</p>
+                            <p><strong>(c)</strong> $\ell(4.2) = 21 \log 4.2 - 5(4.2) - \log(87{,}091{,}200) = 21(1.4351) - 21 - 18.2825 \approx 30.1371 - 21 - 18.2825 = -9.145$</p>
+                            <p><strong>Answer:</strong> $\hat{\lambda} = 4.2$, and $\ell(4.2) \approx -9.145$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 3 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 3: MLE for Exponential Distribution</h3>
+                        <p>The waiting times (in minutes) between buses are recorded: $12, 8, 15, 6, 10, 9, 14, 7, 11, 8$. Assuming an Exponential($\lambda$) model, find the MLE of $\lambda$ and the MLE of the mean waiting time $\mu = 1/\lambda$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>$n = 10$, $\sum x_i = 100$, $\bar{x} = 10$.</p>
+                            <p>$\hat{\lambda}_{\text{MLE}} = 1/\bar{x} = 1/10 = 0.1$ per minute.</p>
+                            <p>By the invariance property, $\hat{\mu}_{\text{MLE}} = 1/\hat{\lambda} = \bar{x} = 10$ minutes.</p>
+                            <p><strong>Answer:</strong> $\hat{\lambda} = 0.1$, $\hat{\mu} = 10$ minutes.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 4 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 4: MLE for Bernoulli with Small Sample</h3>
+                        <p>A coin is flipped 10 times, yielding 7 heads. (a) Find the MLE of the probability of heads $p$. (b) What is the MLE of the probability of getting exactly 2 heads in 5 future flips? (Use the invariance property.)</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> $\hat{p} = 7/10 = 0.7$.</p>
+                            <p><strong>(b)</strong> The probability of exactly 2 heads in 5 flips is $g(p) = \binom{5}{2}p^2(1-p)^3$. By invariance:</p>
+                            $$\widehat{g(p)} = g(\hat{p}) = \binom{5}{2}(0.7)^2(0.3)^3 = 10 \times 0.49 \times 0.027 = 0.1323$$
+                            <p><strong>Answer:</strong> $\hat{p} = 0.7$. MLE of $P(2 \text{ heads in } 5 \text{ flips}) = 0.1323$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 5 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 5: Likelihood vs Probability</h3>
+                        <p>Let $X \sim \text{Binomial}(10, p)$ and we observe $x = 3$. (a) Compute $L(p)$ at $p = 0.2, 0.3, 0.5$. (b) Which value of $p$ among $\{0.1, 0.2, 0.3, 0.4, 0.5\}$ maximizes the likelihood? (c) Does $L(0.2) + L(0.3) + L(0.5) = 1$? Why or why not?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>$L(p) = \binom{10}{3}p^3(1-p)^7 = 120 \, p^3(1-p)^7$.</p>
+                            <p><strong>(a)</strong></p>
+                            <ul>
+                                <li>$L(0.2) = 120(0.008)(0.2097) = 0.2013$</li>
+                                <li>$L(0.3) = 120(0.027)(0.0824) = 0.2668$</li>
+                                <li>$L(0.5) = 120(0.125)(0.0078) = 0.1172$</li>
+                            </ul>
+                            <p><strong>(b)</strong> Evaluate at all five points: $L(0.1) = 0.0574$, $L(0.2) = 0.2013$, $L(0.3) = 0.2668$, $L(0.4) = 0.2150$, $L(0.5) = 0.1172$. The maximum is at $p = 0.3$, which equals $x/n = 3/10$.</p>
+                            <p><strong>(c)</strong> No. $L(0.2) + L(0.3) + L(0.5) = 0.5853 \neq 1$. The likelihood is not a probability distribution over $p$. It does not integrate to 1. In fact, $\int_0^1 L(p) \, dp = \int_0^1 120 p^3 (1-p)^7 dp = 120 \cdot B(4,8) = 120/(11 \cdot \binom{10}{3}) = 1/11$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <h2 style="color: #f59e0b; border-bottom: 2px solid #f59e0b; padding-bottom: 0.5rem; margin-top: 3rem;">Medium (6&ndash;10)</h2>
+
+                <!-- MEDIUM 6 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 6: Fisher Information for the Normal</h3>
+                        <p>For $X \sim \mathcal{N}(\mu, \sigma^2)$ with $\sigma^2$ known: (a) Compute the Fisher information $I(\mu)$. (b) Verify that $\text{Var}(\bar{X}) = 1/(nI(\mu))$ (i.e., $\bar{X}$ is efficient). (c) For $\sigma^2$ unknown (and $\mu$ known), compute $I(\sigma^2)$ and the Cram&eacute;r-Rao bound for estimating $\sigma^2$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> $\log f(x \mid \mu) = -\frac{1}{2}\log(2\pi\sigma^2) - \frac{(x-\mu)^2}{2\sigma^2}$</p>
+                            $$\frac{\partial}{\partial \mu}\log f = \frac{x - \mu}{\sigma^2}, \qquad \frac{\partial^2}{\partial \mu^2}\log f = -\frac{1}{\sigma^2}$$
+                            $$I(\mu) = -E\!\left[-\frac{1}{\sigma^2}\right] = \frac{1}{\sigma^2}$$
+
+                            <p><strong>(b)</strong> $\text{Var}(\bar{X}) = \sigma^2/n$. The Cram&eacute;r-Rao bound is $\frac{1}{nI(\mu)} = \frac{\sigma^2}{n}$. Since they are equal, $\bar{X}$ achieves the bound and is efficient.</p>
+
+                            <p><strong>(c)</strong> With $\mu$ known, let $\tau = \sigma^2$:</p>
+                            $$\log f(x \mid \tau) = -\frac{1}{2}\log(2\pi\tau) - \frac{(x-\mu)^2}{2\tau}$$
+                            $$\frac{\partial}{\partial \tau}\log f = -\frac{1}{2\tau} + \frac{(x-\mu)^2}{2\tau^2}$$
+                            $$\frac{\partial^2}{\partial \tau^2}\log f = \frac{1}{2\tau^2} - \frac{(x-\mu)^2}{\tau^3}$$
+                            $$I(\tau) = -E\!\left[\frac{1}{2\tau^2} - \frac{(x-\mu)^2}{\tau^3}\right] = -\frac{1}{2\tau^2} + \frac{\tau}{\tau^3} = \frac{1}{2\tau^2} = \frac{1}{2\sigma^4}$$
+                            <p><strong>Answer:</strong> $I(\sigma^2) = \frac{1}{2\sigma^4}$. Cram&eacute;r-Rao bound: $\text{Var}(\hat{\sigma}^2) \geq \frac{2\sigma^4}{n}$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 7 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 7: Cram&eacute;r-Rao Bound Verification</h3>
+                        <p>For $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Poisson}(\lambda)$: (a) Compute $I(\lambda)$. (b) The MLE is $\hat{\lambda} = \bar{X}$. Compute $\text{Var}(\hat{\lambda})$ exactly. (c) Does $\bar{X}$ achieve the Cram&eacute;r-Rao bound?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> $\log f(x \mid \lambda) = x \log \lambda - \lambda - \log(x!)$</p>
+                            $$\frac{\partial^2}{\partial \lambda^2}\log f = -\frac{x}{\lambda^2} \implies I(\lambda) = -E\!\left[-\frac{X}{\lambda^2}\right] = \frac{E[X]}{\lambda^2} = \frac{\lambda}{\lambda^2} = \frac{1}{\lambda}$$
+
+                            <p><strong>(b)</strong> $\text{Var}(\bar{X}) = \text{Var}(X)/n = \lambda/n$.</p>
+
+                            <p><strong>(c)</strong> Cram&eacute;r-Rao bound: $1/(nI(\lambda)) = \lambda/n$. Since $\text{Var}(\bar{X}) = \lambda/n$, the MLE $\bar{X}$ <strong>achieves the bound exactly</strong> and is efficient.</p>
+
+                            <p><strong>Answer:</strong> $I(\lambda) = 1/\lambda$. Yes, $\bar{X}$ is efficient for estimating the Poisson rate.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 8 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 8: Two-Parameter MLE</h3>
+                        <p>Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Gamma}(\alpha, \beta)$ with density $f(x \mid \alpha, \beta) = \frac{\beta^\alpha}{\Gamma(\alpha)} x^{\alpha-1} e^{-\beta x}$ for $x > 0$. (a) Write the log-likelihood. (b) Show that the MLE of $\beta$ given $\alpha$ is $\hat{\beta}(\alpha) = n\alpha / \sum x_i$. (c) Why can't we find a closed-form MLE for $\alpha$?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong></p>
+                            $$\ell(\alpha, \beta) = n\alpha \log \beta - n \log \Gamma(\alpha) + (\alpha - 1)\sum \log x_i - \beta \sum x_i$$
+
+                            <p><strong>(b)</strong> Setting $\partial \ell / \partial \beta = 0$:</p>
+                            $$\frac{n\alpha}{\beta} - \sum x_i = 0 \implies \hat{\beta} = \frac{n\alpha}{\sum x_i}$$
+
+                            <p><strong>(c)</strong> Setting $\partial \ell / \partial \alpha = 0$:</p>
+                            $$n \log \beta - n \psi(\alpha) + \sum \log x_i = 0$$
+                            <p>where $\psi(\alpha) = \Gamma'(\alpha)/\Gamma(\alpha)$ is the digamma function. Substituting $\hat{\beta}$:</p>
+                            $$\log \alpha - \psi(\alpha) + \log\!\left(\frac{\sum x_i}{n}\right) - \frac{1}{n}\sum \log x_i + \log n - \log(\sum x_i) = 0$$
+                            <p>This involves the digamma function $\psi(\alpha)$, which has no closed-form inverse. The MLE for $\alpha$ must be found numerically (e.g., Newton's method).</p>
+                            <p><strong>Answer:</strong> $\hat{\beta} = n\alpha/\sum x_i$ (conditional on $\alpha$). No closed form for $\hat{\alpha}$ because the score equation involves the digamma function.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 9 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 9: MLE for the Uniform&mdash;Bias and Consistency</h3>
+                        <p>Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Uniform}(0, \theta)$. The MLE is $\hat{\theta} = X_{(n)} = \max(X_i)$. (a) Show that $P(\hat{\theta} \leq t) = (t/\theta)^n$ for $0 \leq t \leq \theta$. (b) Compute $E[\hat{\theta}]$ and show it is biased. (c) Find a constant $c$ such that $c \, \hat{\theta}$ is unbiased. (d) Prove consistency: show $\hat{\theta} \xrightarrow{P} \theta$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> $P(X_{(n)} \leq t) = P(\text{all } X_i \leq t) = \prod_{i=1}^n P(X_i \leq t) = (t/\theta)^n$.</p>
+
+                            <p><strong>(b)</strong> The PDF of $X_{(n)}$ is $f_{(n)}(t) = n t^{n-1}/\theta^n$ for $0 \leq t \leq \theta$.</p>
+                            $$E[\hat{\theta}] = \int_0^\theta t \cdot \frac{n t^{n-1}}{\theta^n} dt = \frac{n}{\theta^n} \cdot \frac{\theta^{n+1}}{n+1} = \frac{n}{n+1}\theta$$
+                            <p>Since $E[\hat{\theta}] = \frac{n}{n+1}\theta < \theta$, the MLE is biased downward.</p>
+
+                            <p><strong>(c)</strong> $c \cdot E[\hat{\theta}] = \theta \implies c = \frac{n+1}{n}$. So $\frac{n+1}{n}X_{(n)}$ is unbiased.</p>
+
+                            <p><strong>(d)</strong> For any $\epsilon > 0$:</p>
+                            $$P(|\hat{\theta} - \theta| > \epsilon) = P(\hat{\theta} < \theta - \epsilon) = \left(\frac{\theta - \epsilon}{\theta}\right)^n = \left(1 - \frac{\epsilon}{\theta}\right)^n \to 0 \text{ as } n \to \infty$$
+                            <p><strong>Answer:</strong> $E[\hat{\theta}] = \frac{n}{n+1}\theta$ (biased). Unbiased version: $\frac{n+1}{n}X_{(n)}$. Consistency follows because $P(\hat{\theta} < \theta - \epsilon) \to 0$ exponentially fast.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 10 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 10: MLE and Sufficient Statistics</h3>
+                        <p>For $X_1, \ldots, X_n \overset{\text{iid}}{\sim} \text{Exp}(\lambda)$: (a) Use the Fisher-Neyman factorization theorem to find a sufficient statistic for $\lambda$. (b) Show that the MLE $\hat{\lambda} = n/\sum X_i$ is a function of the sufficient statistic. (c) Is $\sum X_i$ a minimal sufficient statistic? Justify.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> The joint density is:</p>
+                            $$f(\mathbf{x} \mid \lambda) = \prod_{i=1}^n \lambda e^{-\lambda x_i} = \lambda^n e^{-\lambda \sum x_i}$$
+                            <p>Take $g(T, \lambda) = \lambda^n e^{-\lambda T}$ with $T = \sum x_i$, and $h(\mathbf{x}) = 1$. By Fisher-Neyman, $T = \sum X_i$ is sufficient for $\lambda$.</p>
+
+                            <p><strong>(b)</strong> $\hat{\lambda} = n / \sum X_i = n / T$, which is indeed a function of $T$.</p>
+
+                            <p><strong>(c)</strong> Yes. $T = \sum X_i$ is minimal sufficient. To prove this, consider the ratio $f(\mathbf{x} \mid \lambda) / f(\mathbf{y} \mid \lambda) = e^{-\lambda(\sum x_i - \sum y_i)}$. This is independent of $\lambda$ if and only if $\sum x_i = \sum y_i$, i.e., $T(\mathbf{x}) = T(\mathbf{y})$. By the minimal sufficiency characterization, $T$ is minimal sufficient.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 0.5rem; margin-top: 3rem;">Hard (11&ndash;15)</h2>
+
+                <!-- HARD 11 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 11: EM for a Two-Component Mixture</h3>
+                        <p>Consider a mixture of two Gaussians: $f(x) = \pi \mathcal{N}(x \mid \mu_1, 1) + (1-\pi)\mathcal{N}(x \mid \mu_2, 1)$, with $\sigma^2 = 1$ known. (a) Write the complete-data log-likelihood $\ell_c(\pi, \mu_1, \mu_2 \mid \mathbf{x}, \mathbf{z})$. (b) Derive the E-step: compute $E[z_i \mid x_i, \theta^{(t)}]$. (c) Derive the M-step update formulas for $\pi$, $\mu_1$, $\mu_2$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Let $z_i \in \{1, 2\}$ be the latent component indicator. Define $\gamma_i = \mathbf{1}(z_i = 1)$.</p>
+
+                            <p><strong>(a) Complete-data log-likelihood:</strong></p>
+                            $$\ell_c = \sum_{i=1}^n \left[\gamma_i \log(\pi \, \phi(x_i - \mu_1)) + (1-\gamma_i)\log((1-\pi)\phi(x_i - \mu_2))\right]$$
+                            $$= \sum_i \gamma_i \log \pi + (1-\gamma_i)\log(1-\pi) - \frac{1}{2}\sum_i \gamma_i(x_i - \mu_1)^2 - \frac{1}{2}\sum_i (1-\gamma_i)(x_i - \mu_2)^2 + \text{const}$$
+
+                            <p><strong>(b) E-step:</strong> The responsibility is:</p>
+                            $$r_i^{(t)} = E[\gamma_i \mid x_i, \theta^{(t)}] = P(z_i = 1 \mid x_i, \theta^{(t)}) = \frac{\pi^{(t)} \phi(x_i - \mu_1^{(t)})}{\pi^{(t)}\phi(x_i - \mu_1^{(t)}) + (1-\pi^{(t)})\phi(x_i - \mu_2^{(t)})}$$
+
+                            <p><strong>(c) M-step:</strong> Maximize $Q(\theta \mid \theta^{(t)}) = E_{\mathbf{z}}[\ell_c]$ by replacing $\gamma_i$ with $r_i^{(t)}$:</p>
+                            $$\pi^{(t+1)} = \frac{1}{n}\sum_{i=1}^n r_i^{(t)}$$
+                            $$\mu_1^{(t+1)} = \frac{\sum_i r_i^{(t)} x_i}{\sum_i r_i^{(t)}}, \qquad \mu_2^{(t+1)} = \frac{\sum_i (1 - r_i^{(t)}) x_i}{\sum_i (1 - r_i^{(t)})}$$
+                            <p>These are weighted averages, with weights given by the responsibilities.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 12 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 12: Proving Consistency of MLE</h3>
+                        <p>Let $X_1, \ldots, X_n \overset{\text{iid}}{\sim} f(x \mid \theta_0)$ and define $M_n(\theta) = \frac{1}{n}\ell(\theta) = \frac{1}{n}\sum_{i=1}^n \log f(X_i \mid \theta)$. (a) Show that $M(\theta) := E[\log f(X \mid \theta)]$ is uniquely maximized at $\theta = \theta_0$ using the Kullback-Leibler divergence. (b) Explain how the law of large numbers combined with (a) implies $\hat{\theta}_{\text{MLE}} \xrightarrow{P} \theta_0$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> Consider:</p>
+                            $$M(\theta_0) - M(\theta) = E_{\theta_0}\!\left[\log \frac{f(X \mid \theta_0)}{f(X \mid \theta)}\right] = D_{KL}(f_{\theta_0} \| f_\theta)$$
+                            <p>By Gibbs' inequality (or the non-negativity of KL divergence), $D_{KL} \geq 0$ with equality if and only if $f_{\theta_0} = f_\theta$ a.e., which (under identifiability) means $\theta = \theta_0$. Therefore $M(\theta)$ is uniquely maximized at $\theta_0$.</p>
+
+                            <p><strong>(b)</strong> By the strong law of large numbers, for each $\theta$:</p>
+                            $$M_n(\theta) = \frac{1}{n}\sum_{i=1}^n \log f(X_i \mid \theta) \xrightarrow{a.s.} M(\theta)$$
+                            <p>Under uniform convergence (which holds under compactness and regularity), the maximizer of $M_n$ converges to the maximizer of $M$:</p>
+                            $$\hat{\theta}_n = \arg\max M_n(\theta) \xrightarrow{P} \arg\max M(\theta) = \theta_0$$
+                            <p>This is the "M-estimation" consistency argument. The key insight is that the <strong>MLE maximizes an empirical approximation to a function whose true maximum is at $\theta_0$</strong>, and as the approximation gets better (by LLN), the maximizer converges to the truth. $\square$</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 13 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 13: Sufficient Statistic Proofs</h3>
+                        <p>For the Normal family $\mathcal{N}(\mu, \sigma^2)$ with both parameters unknown: (a) Prove that $T = (\sum X_i, \sum X_i^2)$ is sufficient using the factorization theorem. (b) Prove that $T$ is minimal sufficient by showing the ratio $f(\mathbf{x} \mid \mu, \sigma^2)/f(\mathbf{y} \mid \mu, \sigma^2)$ is free of $(\mu, \sigma^2)$ if and only if $T(\mathbf{x}) = T(\mathbf{y})$. (c) Can you reduce $T$ to a one-dimensional sufficient statistic? Why or why not?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> The joint density is:</p>
+                            $$f(\mathbf{x} \mid \mu, \sigma^2) = (2\pi\sigma^2)^{-n/2} \exp\!\left(-\frac{1}{2\sigma^2}\sum(x_i - \mu)^2\right)$$
+                            $$= (2\pi\sigma^2)^{-n/2} \exp\!\left(-\frac{\sum x_i^2 - 2\mu \sum x_i + n\mu^2}{2\sigma^2}\right)$$
+                            <p>This is $g(\sum x_i, \sum x_i^2, \mu, \sigma^2) \cdot h(\mathbf{x})$ where $h(\mathbf{x}) = 1$. The density depends on $\mathbf{x}$ only through $(\sum x_i, \sum x_i^2)$, so this is sufficient by Fisher-Neyman. $\square$</p>
+
+                            <p><strong>(b)</strong> The likelihood ratio is:</p>
+                            $$\frac{f(\mathbf{x})}{f(\mathbf{y})} = \exp\!\left(-\frac{(\sum x_i^2 - \sum y_i^2) - 2\mu(\sum x_i - \sum y_i)}{2\sigma^2}\right)$$
+                            <p>This is free of $(\mu, \sigma^2)$ for all $(\mu, \sigma^2)$ iff both $\sum x_i^2 = \sum y_i^2$ and $\sum x_i = \sum y_i$, i.e., $T(\mathbf{x}) = T(\mathbf{y})$. So $T$ is minimal sufficient. $\square$</p>
+
+                            <p><strong>(c)</strong> No. With two unknown parameters, we need at least a two-dimensional sufficient statistic. Intuitively, the data must carry separate information about $\mu$ and $\sigma^2$, and no one-dimensional summary can capture both. Formally, the Normal family with both parameters unknown is a two-parameter exponential family, so the minimal sufficient statistic has dimension 2.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 14 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 14: Fisher Information Matrix and Multiparameter Cram&eacute;r-Rao</h3>
+                        <p>For $X \sim \mathcal{N}(\mu, \sigma^2)$ with both parameters unknown, let $\boldsymbol{\theta} = (\mu, \sigma^2)$. (a) Compute the full $2 \times 2$ Fisher information matrix $\mathbf{I}(\boldsymbol{\theta})$. (b) State the multiparameter Cram&eacute;r-Rao bound. (c) From the inverse of $n\mathbf{I}$, read off the asymptotic variance of $\hat{\mu}$ and $\hat{\sigma}^2$ and the asymptotic covariance between them.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> Let $\tau = \sigma^2$. The log-density is $\log f = -\frac{1}{2}\log(2\pi\tau) - \frac{(x-\mu)^2}{2\tau}$.</p>
+
+                            <p>Second derivatives:</p>
+                            $$\frac{\partial^2 \log f}{\partial \mu^2} = -\frac{1}{\tau}, \qquad \frac{\partial^2 \log f}{\partial \mu \, \partial \tau} = -\frac{x - \mu}{\tau^2}$$
+                            $$\frac{\partial^2 \log f}{\partial \tau^2} = \frac{1}{2\tau^2} - \frac{(x-\mu)^2}{\tau^3}$$
+
+                            <p>Taking negative expectations:</p>
+                            $$\mathbf{I}(\mu, \tau) = \begin{pmatrix} 1/\tau & 0 \\ 0 & 1/(2\tau^2) \end{pmatrix} = \begin{pmatrix} 1/\sigma^2 & 0 \\ 0 & 1/(2\sigma^4) \end{pmatrix}$$
+
+                            <p><strong>(b)</strong> The multiparameter Cram&eacute;r-Rao bound states that for any unbiased estimator $\hat{\boldsymbol{\theta}}$:</p>
+                            $$\text{Cov}(\hat{\boldsymbol{\theta}}) \succeq [n\mathbf{I}(\boldsymbol{\theta})]^{-1}$$
+                            <p>where $\succeq$ means the difference is positive semidefinite.</p>
+
+                            <p><strong>(c)</strong></p>
+                            $$[n\mathbf{I}]^{-1} = \frac{1}{n}\begin{pmatrix} \sigma^2 & 0 \\ 0 & 2\sigma^4 \end{pmatrix}$$
+                            <p>Reading off the diagonal:</p>
+                            <ul>
+                                <li>Asymptotic $\text{Var}(\hat{\mu}) = \sigma^2/n$</li>
+                                <li>Asymptotic $\text{Var}(\hat{\sigma}^2) = 2\sigma^4/n$</li>
+                                <li>Asymptotic $\text{Cov}(\hat{\mu}, \hat{\sigma}^2) = 0$</li>
+                            </ul>
+                            <p>The zero covariance means the estimation of $\mu$ and $\sigma^2$ are asymptotically independent&mdash;an important property of the normal distribution.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 15 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 15: MLE, MAP, and Regularization in Logistic Regression</h3>
+                        <p>Consider logistic regression: $P(Y=1 \mid \mathbf{x}) = \sigma(\mathbf{w}^\top \mathbf{x})$ where $\sigma(z) = 1/(1+e^{-z})$. (a) Show that the negative log-likelihood is convex in $\mathbf{w}$. (b) When the data are linearly separable, show that the MLE $\hat{\mathbf{w}}$ does not exist (it diverges to infinity). (c) Show that adding an L2 penalty $\lambda\|\mathbf{w}\|^2$ corresponds to a Gaussian prior on $\mathbf{w}$, and that the regularized problem always has a finite solution. (d) What prior does L1 regularization correspond to, and why does it produce sparse solutions?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> The negative log-likelihood is:</p>
+                            $$-\ell(\mathbf{w}) = \sum_{i=1}^n \left[-y_i \mathbf{w}^\top\mathbf{x}_i + \log(1 + e^{\mathbf{w}^\top\mathbf{x}_i})\right]$$
+                            <p>The Hessian of $-\ell$ is:</p>
+                            $$\mathbf{H} = \sum_{i=1}^n \sigma_i(1-\sigma_i) \mathbf{x}_i \mathbf{x}_i^\top$$
+                            <p>where $\sigma_i = \sigma(\mathbf{w}^\top\mathbf{x}_i) \in (0,1)$. Each term is a PSD matrix (outer product scaled by positive weight), so $\mathbf{H} \succeq 0$, proving convexity. $\square$</p>
+
+                            <p><strong>(b)</strong> If the data are linearly separable, there exists $\mathbf{v}$ such that $y_i \mathbf{v}^\top\mathbf{x}_i > 0$ for all $i$. Consider $\mathbf{w} = c \mathbf{v}$ as $c \to \infty$:</p>
+                            <ul>
+                                <li>For $y_i = 1$: the term $\log \sigma(c\mathbf{v}^\top\mathbf{x}_i) \to 0$.</li>
+                                <li>For $y_i = 0$: the term $\log(1-\sigma(c\mathbf{v}^\top\mathbf{x}_i)) \to 0$.</li>
+                            </ul>
+                            <p>So $\ell(\mathbf{w}) \to 0$ from below, but never reaches 0. The supremum is not attained at any finite $\mathbf{w}$, so the MLE does not exist. $\square$</p>
+
+                            <p><strong>(c)</strong> The regularized objective is:</p>
+                            $$\mathcal{L}_{\text{reg}} = -\ell(\mathbf{w}) + \lambda\|\mathbf{w}\|^2 = -\ell(\mathbf{w}) - \log \mathcal{N}(\mathbf{w} \mid \mathbf{0}, \frac{1}{2\lambda}\mathbf{I}) + \text{const}$$
+                            <p>This is $-\log p(\mathbf{w} \mid \text{data})$ with Gaussian prior $\mathbf{w} \sim \mathcal{N}(\mathbf{0}, \frac{1}{2\lambda}\mathbf{I})$. The Hessian of $\mathcal{L}_{\text{reg}}$ is $\mathbf{H} + 2\lambda\mathbf{I} \succ 0$ (strictly PD), so the objective is strictly convex and has a unique finite minimizer. $\square$</p>
+
+                            <p><strong>(d)</strong> L1 regularization: $\lambda\|\mathbf{w}\|_1 = -\log \prod_j \frac{\lambda}{2}e^{-\lambda|w_j|} + \text{const}$. This corresponds to independent Laplace priors $w_j \sim \text{Laplace}(0, 1/\lambda)$.</p>
+                            <p>The Laplace prior has a sharp peak at zero, which assigns high probability to $w_j = 0$. Geometrically, the L1 ball has corners along the axes, so the contours of the loss function are more likely to first touch the constraint set at a corner (where some $w_j = 0$), producing <strong>sparse</strong> solutions.</p>
+                        </div>
+                    </details>
+                </div>
+
+            </article>
+
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="tutorial-toc">
+            <div class="toc-card">
+                <h3 class="toc-title">Key Concept</h3>
+                <div style="padding: 1rem; background: rgba(99, 102, 241, 0.08); border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.9rem;">
+                        <strong>Maximum likelihood estimation</strong> picks the parameter value $\hat{\theta}$ that makes the observed data most probable: $\hat{\theta} = \arg\max_\theta L(\theta)$.
+                    </p>
+                </div>
+                <h3 class="toc-title">Prerequisites</h3>
+                <ul style="padding-left: 1.25rem; font-size: 0.875rem;">
+                    <li>Calculus (derivatives, optimization)</li>
+                    <li>Random variables &amp; distributions</li>
+                    <li>Common distributions (Normal, Poisson, Exponential)</li>
+                </ul>
+                <h3 class="toc-title" style="margin-top: 1.5rem;">Key Formulas</h3>
+                <div style="font-size: 0.85rem;">
+                    <p>$L(\theta) = \prod_{i=1}^n f(x_i \mid \theta)$</p>
+                    <p>$\ell(\theta) = \sum_{i=1}^n \log f(x_i \mid \theta)$</p>
+                    <p>$S(\theta) = \frac{\partial \ell}{\partial \theta} = 0$</p>
+                    <p>$I(\theta) = -E\!\left[\frac{\partial^2 \ell}{\partial \theta^2}\right]$</p>
+                    <p>$\text{Var}(\hat{\theta}) \geq \frac{1}{nI(\theta)}$</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

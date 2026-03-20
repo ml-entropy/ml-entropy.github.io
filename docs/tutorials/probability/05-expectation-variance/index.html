@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expectation &amp; Variance | ML Fundamentals</title>
+    <meta name="description" content="Expectation and variance from first principles: expected value, LOTUS, linearity, variance properties, covariance, conditional expectation, and bias-variance tradeoff with 15 exercises and full solutions.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link active">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Probability Theory</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Expectation &amp; Variance</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Probability Theory</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-bayes-theorem/index.html" class="sidebar-link">01. Bayes' Theorem</a>
+                    <a href="../02-axioms/index.html" class="sidebar-link">02. Axioms of Probability</a>
+                    <a href="../03-conditional-probability/index.html" class="sidebar-link">03. Conditional Probability</a>
+                    <a href="../04-random-variables/index.html" class="sidebar-link">04. Random Variables</a>
+                    <a href="../05-expectation-variance/index.html" class="sidebar-link active">05. Expectation &amp; Variance</a>
+                    <a href="../06-joint-distributions/index.html" class="sidebar-link">06. Joint Distributions</a>
+                    <a href="../07-inequalities/index.html" class="sidebar-link">07. Probability Inequalities</a>
+                    <a href="../08-limit-theorems/index.html" class="sidebar-link">08. Limit Theorems</a>
+                    <a href="../09-moment-generating-functions/index.html" class="sidebar-link">09. Moment Generating Functions</a>
+                    <a href="../10-maximum-likelihood/index.html" class="sidebar-link">10. Maximum Likelihood</a>
+                    <a href="../11-markov-chains/index.html" class="sidebar-link">11. Markov Chains</a>
+                    <a href="../12-monte-carlo/index.html" class="sidebar-link">12. Monte Carlo Methods</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">On This Page</h3>
+                <nav class="sidebar-nav">
+                    <a href="#why-expectation" class="sidebar-link">Why Expectation?</a>
+                    <a href="#definition-expected-value" class="sidebar-link">Definition of Expected Value</a>
+                    <a href="#lotus" class="sidebar-link">LOTUS</a>
+                    <a href="#linearity" class="sidebar-link">Linearity of Expectation</a>
+                    <a href="#variance" class="sidebar-link">Variance</a>
+                    <a href="#variance-properties" class="sidebar-link">Properties of Variance</a>
+                    <a href="#covariance-correlation" class="sidebar-link">Covariance &amp; Correlation</a>
+                    <a href="#higher-moments" class="sidebar-link">Higher Moments</a>
+                    <a href="#conditional-expectation" class="sidebar-link">Conditional Expectation</a>
+                    <a href="#conditional-variance" class="sidebar-link">Conditional Variance</a>
+                    <a href="#ml-connections" class="sidebar-link">Connections to ML</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../distributions/index.html" class="sidebar-link">Distributions</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ============================================================
+                 THEORY TAB
+                 ============================================================ -->
+            <article class="article-content" id="theory">
+
+                <h1>05. Expectation &amp; Variance</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    Expectation and variance are the two most fundamental numerical summaries of any probability
+                    distribution. Expectation captures the <em>center</em>&mdash;the long-run average&mdash;while
+                    variance captures the <em>spread</em>&mdash;how far values typically fall from that center.
+                    This tutorial develops both concepts from first principles, proves their key properties,
+                    and connects them directly to machine learning through the bias-variance tradeoff.
+                </p>
+
+                <!-- ======== Section 1: Why Expectation? ======== -->
+                <h2 id="why-expectation">Why Expectation?</h2>
+
+                <p>
+                    A probability distribution can be complicated&mdash;it assigns a probability to every possible
+                    outcome. But in practice, we often need a single number that summarizes "what to expect."
+                    This is exactly what the <strong>expected value</strong> (or <strong>expectation</strong>,
+                    or <strong>mean</strong>) provides.
+                </p>
+
+                <p>
+                    Consider a gambler evaluating a bet. The game costs $10 to play. With probability $1/6$
+                    you win $50, and with probability $5/6$ you win nothing. Should you play? The expected
+                    value of your <em>net gain</em> is:
+                </p>
+
+                <div class="math-block">
+                    $$E[\text{gain}] = \frac{1}{6}(50 - 10) + \frac{5}{6}(0 - 10) = \frac{40}{6} - \frac{50}{6} = -\frac{10}{6} \approx -\$1.67$$
+                </div>
+
+                <p>
+                    On average, you <em>lose</em> $1.67 per play. The expected value reveals this game is
+                    unfavorable even though the prize looks attractive.
+                </p>
+
+                <p>
+                    <strong>The long-run average interpretation.</strong> If you repeat a random experiment
+                    independently many times, the average of the observed values converges to the expected
+                    value. This is the <strong>Law of Large Numbers</strong>, which we will encounter formally
+                    in a later tutorial. For now, the intuition is:
+                </p>
+
+                <div class="math-block">
+                    $$\frac{1}{n}\sum_{i=1}^{n} X_i \xrightarrow{n \to \infty} E[X]$$
+                </div>
+
+                <p>
+                    <strong>Fair games.</strong> A game is called <strong>fair</strong> if the expected net
+                    gain is zero: $E[\text{gain}] = 0$. In the gambling example above, the game would be fair
+                    if the entry fee were $50/6 \approx \$8.33$. Casinos ensure that every game has a negative
+                    expected value for the player&mdash;this is the <strong>house edge</strong>.
+                </p>
+
+                <p>
+                    Beyond gambling, expected value appears everywhere: insurance companies use it to set premiums,
+                    decision theorists use it to rank alternatives, and machine learning models minimize
+                    expected loss over the data distribution.
+                </p>
+
+                <!-- ======== Section 2: Definition of Expected Value ======== -->
+                <h2 id="definition-expected-value">Definition of Expected Value</h2>
+
+                <p>
+                    The expected value of a random variable $X$ is a weighted average of all possible values,
+                    where the weights are the probabilities.
+                </p>
+
+                <p><strong>Discrete case.</strong> If $X$ takes values $x_1, x_2, \ldots$ with probability
+                mass function $p(x_i) = P(X = x_i)$:</p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{E[X] = \sum_{i} x_i \, p(x_i)}$$
+                </div>
+
+                <p><strong>Continuous case.</strong> If $X$ has probability density function $f(x)$:</p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{E[X] = \int_{-\infty}^{\infty} x \, f(x) \, dx}$$
+                </div>
+
+                <p>
+                    <strong>Conditions for existence.</strong> The expected value exists (is well-defined and
+                    finite) if and only if $\sum_i |x_i| \, p(x_i) < \infty$ (discrete) or
+                    $\int_{-\infty}^{\infty} |x| \, f(x) \, dx < \infty$ (continuous). The absolute convergence
+                    requirement prevents situations where rearranging terms changes the sum. The
+                    <strong>Cauchy distribution</strong> is the classic example where $E[X]$ does not exist:
+                    $f(x) = \frac{1}{\pi(1 + x^2)}$ has tails so heavy that $\int |x| f(x) \, dx = \infty$.
+                </p>
+
+                <p><strong>Examples:</strong></p>
+                <ul>
+                    <li><strong>Fair die:</strong> $E[X] = \sum_{k=1}^{6} k \cdot \frac{1}{6} = \frac{1+2+3+4+5+6}{6} = \frac{21}{6} = 3.5$</li>
+                    <li><strong>Bernoulli($p$):</strong> $E[X] = 0 \cdot (1-p) + 1 \cdot p = p$</li>
+                    <li><strong>Exponential($\lambda$):</strong> $E[X] = \int_0^{\infty} x \lambda e^{-\lambda x} dx = \frac{1}{\lambda}$ (by integration by parts)</li>
+                    <li><strong>Uniform$(a, b)$:</strong> $E[X] = \int_a^b x \cdot \frac{1}{b-a} \, dx = \frac{a + b}{2}$</li>
+                </ul>
+
+                <!-- SVG: Mean as balance point -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 560 240" xmlns="http://www.w3.org/2000/svg" style="max-width: 560px; width: 100%;">
+                        <!-- Axis -->
+                        <line x1="40" y1="170" x2="520" y2="170" stroke="var(--color-border)" stroke-width="2"/>
+
+                        <!-- Discrete distribution bars -->
+                        <rect x="80" y="140" width="30" height="30" fill="rgba(59, 130, 246, 0.5)" stroke="var(--color-accent)" stroke-width="1.5" rx="2"/>
+                        <rect x="140" y="110" width="30" height="60" fill="rgba(59, 130, 246, 0.5)" stroke="var(--color-accent)" stroke-width="1.5" rx="2"/>
+                        <rect x="200" y="70" width="30" height="100" fill="rgba(59, 130, 246, 0.5)" stroke="var(--color-accent)" stroke-width="1.5" rx="2"/>
+                        <rect x="260" y="50" width="30" height="120" fill="rgba(59, 130, 246, 0.6)" stroke="var(--color-accent)" stroke-width="1.5" rx="2"/>
+                        <rect x="320" y="80" width="30" height="90" fill="rgba(59, 130, 246, 0.5)" stroke="var(--color-accent)" stroke-width="1.5" rx="2"/>
+                        <rect x="380" y="120" width="30" height="50" fill="rgba(59, 130, 246, 0.5)" stroke="var(--color-accent)" stroke-width="1.5" rx="2"/>
+                        <rect x="440" y="145" width="30" height="25" fill="rgba(59, 130, 246, 0.5)" stroke="var(--color-accent)" stroke-width="1.5" rx="2"/>
+
+                        <!-- Value labels -->
+                        <text x="95" y="188" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" text-anchor="middle">1</text>
+                        <text x="155" y="188" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" text-anchor="middle">2</text>
+                        <text x="215" y="188" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" text-anchor="middle">3</text>
+                        <text x="275" y="188" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" text-anchor="middle">4</text>
+                        <text x="335" y="188" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" text-anchor="middle">5</text>
+                        <text x="395" y="188" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" text-anchor="middle">6</text>
+                        <text x="455" y="188" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" text-anchor="middle">7</text>
+
+                        <!-- Balance point (triangle) -->
+                        <polygon points="275,200 265,220 285,220" fill="#ef4444" stroke="#ef4444" stroke-width="1"/>
+                        <line x1="275" y1="170" x2="275" y2="200" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,3"/>
+
+                        <!-- E[X] label -->
+                        <text x="275" y="237" fill="#ef4444" font-size="14" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">E[X] = balance point</text>
+
+                        <!-- Title -->
+                        <text x="280" y="25" fill="var(--color-text)" font-size="15" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">Mean as the "Center of Mass"</text>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 1.</strong> The expected value $E[X]$ is the balance point (center of mass) of the probability distribution.
+                        If you cut out the histogram from cardboard, it would balance on a needle placed at $E[X]$.
+                    </p>
+                </div>
+
+                <p>
+                    The "balance point" analogy is more than a metaphor. In physics, the center of mass of a
+                    system of point masses $m_i$ at positions $x_i$ is $\bar{x} = \frac{\sum m_i x_i}{\sum m_i}$.
+                    Since probabilities sum to 1, the expected value has the identical form.
+                </p>
+
+                <!-- ======== Section 3: LOTUS ======== -->
+                <h2 id="lotus">Law of the Unconscious Statistician (LOTUS)</h2>
+
+                <p>
+                    Suppose you know the distribution of $X$ and want to find $E[g(X)]$ for some function $g$.
+                    One approach: determine the distribution of $Y = g(X)$ first, then compute $E[Y]$. But
+                    this is often tedious. LOTUS provides a shortcut:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{E[g(X)] = \sum_{x} g(x) \, p(x) \quad \text{(discrete)} \qquad E[g(X)] = \int_{-\infty}^{\infty} g(x) \, f(x) \, dx \quad \text{(continuous)}}$$
+                </div>
+
+                <p>
+                    The name "unconscious statistician" is somewhat tongue-in-cheek: the formula is so
+                    natural that many students use it without realizing it requires proof. The key insight
+                    is that you can compute the expectation of any function of $X$ using the <em>original</em>
+                    distribution of $X$, without needing the distribution of $g(X)$.
+                </p>
+
+                <p><strong>Why is LOTUS useful?</strong> Consider finding $E[X^2]$. By LOTUS:</p>
+
+                <div class="math-block">
+                    $$E[X^2] = \sum_x x^2 \, p(x) \quad \text{or} \quad E[X^2] = \int_{-\infty}^{\infty} x^2 \, f(x) \, dx$$
+                </div>
+
+                <p>
+                    This is far easier than first finding the distribution of $Y = X^2$ and then computing
+                    $E[Y]$. We will see that $E[X^2]$ plays a central role in computing variance.
+                </p>
+
+                <p><strong>Example:</strong> Let $X \sim \text{Uniform}\{1, 2, 3, 4, 5, 6\}$ (fair die). Find $E[X^2]$.</p>
+                <div class="math-block">
+                    $$E[X^2] = \sum_{k=1}^{6} k^2 \cdot \frac{1}{6} = \frac{1 + 4 + 9 + 16 + 25 + 36}{6} = \frac{91}{6} \approx 15.17$$
+                </div>
+
+                <p><strong>Example:</strong> Let $X \sim \text{Exponential}(\lambda)$. Find $E[e^{tX}]$ for $t < \lambda$.</p>
+                <div class="math-block">
+                    $$E[e^{tX}] = \int_0^{\infty} e^{tx} \cdot \lambda e^{-\lambda x} \, dx = \lambda \int_0^{\infty} e^{-({\lambda - t})x} \, dx = \frac{\lambda}{\lambda - t}$$
+                </div>
+                <p>
+                    This is the <strong>moment generating function</strong> of the exponential distribution,
+                    which we will study in detail in Tutorial 09.
+                </p>
+
+                <!-- ======== Section 4: Linearity of Expectation ======== -->
+                <h2 id="linearity">Linearity of Expectation</h2>
+
+                <p>
+                    The single most powerful property of expectation is its <strong>linearity</strong>:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{E[aX + b] = aE[X] + b}$$
+                    $$\boxed{E[X + Y] = E[X] + E[Y]}$$
+                </div>
+
+                <p>
+                    The second equation is remarkable: it holds <strong>always</strong>, even when $X$ and $Y$
+                    are dependent! This makes linearity of expectation an extraordinarily versatile tool.
+                </p>
+
+                <p><strong>Proof of $E[X + Y] = E[X] + E[Y]$ (discrete case):</strong></p>
+                <div class="math-block">
+                    $$E[X + Y] = \sum_x \sum_y (x + y) \, p(x, y) = \sum_x \sum_y x \, p(x, y) + \sum_x \sum_y y \, p(x, y)$$
+                </div>
+                <div class="math-block">
+                    $$= \sum_x x \underbrace{\sum_y p(x, y)}_{p_X(x)} + \sum_y y \underbrace{\sum_x p(x, y)}_{p_Y(y)} = E[X] + E[Y]$$
+                </div>
+                <p>
+                    The proof uses only the definition of marginal distributions&mdash;no independence
+                    assumption is needed!
+                </p>
+
+                <p>
+                    By induction, linearity extends to any finite sum:
+                    $E\!\left[\sum_{i=1}^{n} a_i X_i + b\right] = \sum_{i=1}^{n} a_i E[X_i] + b$.
+                </p>
+
+                <p><strong>Application: Expected number of fixed points.</strong> Suppose $n$ people each
+                    put a hat in a pile, and each randomly picks one. How many people get their own hat back?</p>
+                <p>
+                    Let $X_i = 1$ if person $i$ gets their own hat (a <strong>fixed point</strong>), and $X_i = 0$
+                    otherwise. The total number of matches is $X = \sum_{i=1}^{n} X_i$. By linearity:
+                </p>
+                <div class="math-block">
+                    $$E[X] = \sum_{i=1}^{n} E[X_i] = \sum_{i=1}^{n} P(X_i = 1) = \sum_{i=1}^{n} \frac{1}{n} = 1$$
+                </div>
+                <p>
+                    On average, exactly <strong>one</strong> person gets their own hat, regardless of $n$.
+                    This elegant result would be very difficult to derive by computing $P(X = k)$ directly.
+                    The $X_i$'s are <em>dependent</em> (if person 1 gets their hat, it affects others), but
+                    linearity of expectation does not care.
+                </p>
+
+                <!-- ======== Section 5: Variance ======== -->
+                <h2 id="variance">Variance</h2>
+
+                <p>
+                    Expectation tells us the center of a distribution, but two distributions can share the
+                    same mean yet look completely different. We need a measure of <strong>spread</strong>.
+                </p>
+
+                <p>
+                    <strong>Motivation.</strong> A natural first attempt might be $E[X - \mu]$ where $\mu = E[X]$,
+                    but this is always zero (positive and negative deviations cancel). Using the absolute
+                    deviation $E[|X - \mu|]$ works but is analytically inconvenient (not differentiable).
+                    Instead, we square the deviations:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{Var}(X) = E[(X - \mu)^2]}$$
+                </div>
+
+                <p>
+                    The <strong>computational formula</strong> is often more convenient:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{Var}(X) = E[X^2] - (E[X])^2}$$
+                </div>
+
+                <p><strong>Proof:</strong></p>
+                <div class="math-block">
+                    $$\text{Var}(X) = E[(X - \mu)^2] = E[X^2 - 2\mu X + \mu^2]$$
+                </div>
+                <div class="math-block">
+                    $$= E[X^2] - 2\mu E[X] + \mu^2 = E[X^2] - 2\mu^2 + \mu^2 = E[X^2] - \mu^2$$
+                </div>
+
+                <p>
+                    A useful mnemonic: <strong>"the mean of the square minus the square of the mean."</strong>
+                </p>
+
+                <p>
+                    <strong>Standard deviation</strong> is simply $\sigma_X = \sqrt{\text{Var}(X)}$. It has the
+                    same units as $X$ (variance has squared units), making it more interpretable.
+                </p>
+
+                <p><strong>Examples:</strong></p>
+                <ul>
+                    <li><strong>Bernoulli($p$):</strong> $E[X] = p$, $E[X^2] = p$ (since $X^2 = X$ for $X \in \{0,1\}$), so $\text{Var}(X) = p - p^2 = p(1-p)$. Maximum at $p = 1/2$.</li>
+                    <li><strong>Fair die:</strong> $E[X] = 3.5$, $E[X^2] = 91/6$, so $\text{Var}(X) = 91/6 - (3.5)^2 = 91/6 - 49/4 = 35/12 \approx 2.92$.</li>
+                    <li><strong>Exponential($\lambda$):</strong> $E[X] = 1/\lambda$, $E[X^2] = 2/\lambda^2$, so $\text{Var}(X) = 2/\lambda^2 - 1/\lambda^2 = 1/\lambda^2$.</li>
+                </ul>
+
+                <!-- SVG: Variance as spread -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 560 280" xmlns="http://www.w3.org/2000/svg" style="max-width: 560px; width: 100%;">
+                        <!-- Title -->
+                        <text x="280" y="25" fill="var(--color-text)" font-size="15" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">Same Mean, Different Variance</text>
+
+                        <!-- Axis -->
+                        <line x1="40" y1="230" x2="520" y2="230" stroke="var(--color-border)" stroke-width="1.5"/>
+
+                        <!-- Narrow distribution (low variance) -->
+                        <path d="M 130,230 Q 160,228 190,220 Q 220,190 250,120 Q 265,70 280,50 Q 295,70 310,120 Q 340,190 370,220 Q 400,228 430,230" fill="rgba(59, 130, 246, 0.2)" stroke="var(--color-accent)" stroke-width="2.5"/>
+                        <text x="280" y="45" fill="var(--color-accent)" font-size="12" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">Low Var</text>
+
+                        <!-- Wide distribution (high variance) -->
+                        <path d="M 60,230 Q 100,228 140,222 Q 180,210 220,185 Q 250,165 270,155 Q 280,150 290,155 Q 310,165 340,185 Q 380,210 420,222 Q 460,228 500,230" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="6,3"/>
+                        <text x="445" y="195" fill="#ef4444" font-size="12" font-weight="600" font-family="Inter, sans-serif" text-anchor="start">High Var</text>
+
+                        <!-- Mean line -->
+                        <line x1="280" y1="40" x2="280" y2="230" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-dasharray="4,4"/>
+                        <text x="280" y="252" fill="var(--color-text)" font-size="13" font-weight="500" font-family="Inter, sans-serif" text-anchor="middle">&#956; (same mean)</text>
+
+                        <!-- Sigma arrows for narrow -->
+                        <line x1="230" y1="140" x2="330" y2="140" stroke="var(--color-accent)" stroke-width="1.5"/>
+                        <polygon points="230,140 237,136 237,144" fill="var(--color-accent)"/>
+                        <polygon points="330,140 323,136 323,144" fill="var(--color-accent)"/>
+                        <text x="280" y="135" fill="var(--color-accent)" font-size="11" font-weight="500" font-family="Inter, sans-serif" text-anchor="middle">&#963;&#8321;</text>
+
+                        <!-- Sigma arrows for wide -->
+                        <line x1="170" y1="205" x2="390" y2="205" stroke="#ef4444" stroke-width="1.5"/>
+                        <polygon points="170,205 177,201 177,209" fill="#ef4444"/>
+                        <polygon points="390,205 383,201 383,209" fill="#ef4444"/>
+                        <text x="280" y="200" fill="#ef4444" font-size="11" font-weight="500" font-family="Inter, sans-serif" text-anchor="middle">&#963;&#8322; &gt;&gt; &#963;&#8321;</text>
+
+                        <!-- Axis ticks -->
+                        <line x1="280" y1="228" x2="280" y2="233" stroke="var(--color-text)" stroke-width="1.5"/>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 2.</strong> Two distributions sharing the same mean $\mu$ but with very different
+                        variances. The blue (solid) curve has low variance&mdash;values cluster near the mean.
+                        The red (dashed) curve has high variance&mdash;values are more spread out.
+                    </p>
+                </div>
+
+                <!-- ======== Section 6: Properties of Variance ======== -->
+                <h2 id="variance-properties">Properties of Variance</h2>
+
+                <p>Variance behaves differently from expectation under linear transformations:</p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{Var}(aX + b) = a^2 \, \text{Var}(X)}$$
+                </div>
+
+                <p><strong>Proof:</strong></p>
+                <div class="math-block">
+                    $$\text{Var}(aX + b) = E[(aX + b - E[aX + b])^2] = E[(aX + b - aE[X] - b)^2] = E[a^2(X - E[X])^2] = a^2 \text{Var}(X)$$
+                </div>
+
+                <p>
+                    Key observations: adding a constant $b$ shifts the distribution but does not change its
+                    spread, so variance is unaffected. Scaling by $a$ scales the spread, but variance involves
+                    squared deviations, so the factor is $a^2$.
+                </p>
+
+                <p><strong>Variance of a sum:</strong> For two random variables $X$ and $Y$:</p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{Var}(X + Y) = \text{Var}(X) + \text{Var}(Y) + 2\text{Cov}(X, Y)}$$
+                </div>
+
+                <p><strong>Proof:</strong></p>
+                <div class="math-block">
+                    $$\text{Var}(X + Y) = E[(X + Y - E[X+Y])^2]$$
+                </div>
+                <div class="math-block">
+                    $$= E[((X - \mu_X) + (Y - \mu_Y))^2]$$
+                </div>
+                <div class="math-block">
+                    $$= E[(X - \mu_X)^2] + 2E[(X - \mu_X)(Y - \mu_Y)] + E[(Y - \mu_Y)^2]$$
+                </div>
+                <div class="math-block">
+                    $$= \text{Var}(X) + 2\text{Cov}(X, Y) + \text{Var}(Y)$$
+                </div>
+
+                <p>
+                    <strong>If $X$ and $Y$ are independent</strong> (or merely uncorrelated), then $\text{Cov}(X, Y) = 0$
+                    and we get the simpler result:
+                </p>
+                <div class="math-block">
+                    $$\text{Var}(X + Y) = \text{Var}(X) + \text{Var}(Y) \quad \text{(when } X \perp Y \text{)}$$
+                </div>
+
+                <p>
+                    For $n$ independent random variables: $\text{Var}\!\left(\sum_{i=1}^n X_i\right) = \sum_{i=1}^n \text{Var}(X_i)$.
+                    This is crucial: while the mean of a sum equals the sum of means <em>always</em>,
+                    the variance of a sum equals the sum of variances <em>only</em> for independent
+                    (or uncorrelated) variables.
+                </p>
+
+                <p><strong>Important consequence for the sample mean:</strong> If $X_1, \ldots, X_n$ are i.i.d.
+                with mean $\mu$ and variance $\sigma^2$:</p>
+                <div class="math-block">
+                    $$\text{Var}(\bar{X}) = \text{Var}\!\left(\frac{1}{n}\sum_{i=1}^{n} X_i\right) = \frac{1}{n^2} \sum_{i=1}^{n} \sigma^2 = \frac{\sigma^2}{n}$$
+                </div>
+                <p>
+                    The variance of the sample mean shrinks as $1/n$&mdash;this is why averaging reduces noise.
+                </p>
+
+                <!-- ======== Section 7: Covariance and Correlation ======== -->
+                <h2 id="covariance-correlation">Covariance and Correlation</h2>
+
+                <p>
+                    <strong>Covariance</strong> measures the degree to which two random variables move together:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{Cov}(X, Y) = E[(X - \mu_X)(Y - \mu_Y)] = E[XY] - E[X]E[Y]}$$
+                </div>
+
+                <p>
+                    If $\text{Cov}(X, Y) > 0$: when $X$ is above its mean, $Y$ tends to be above its mean too
+                    (positive association). If $\text{Cov}(X, Y) < 0$: they tend to move in opposite directions.
+                    If $\text{Cov}(X, Y) = 0$: the variables are <strong>uncorrelated</strong>.
+                </p>
+
+                <p><strong>Properties of covariance:</strong></p>
+                <ul>
+                    <li>$\text{Cov}(X, X) = \text{Var}(X)$</li>
+                    <li>$\text{Cov}(X, Y) = \text{Cov}(Y, X)$ (symmetric)</li>
+                    <li>$\text{Cov}(aX + b, Y) = a\,\text{Cov}(X, Y)$ (linear in each argument)</li>
+                    <li>$\text{Cov}(X + Y, Z) = \text{Cov}(X, Z) + \text{Cov}(Y, Z)$ (additive)</li>
+                    <li>If $X \perp Y$, then $\text{Cov}(X, Y) = 0$ (but the converse is <strong>false</strong>)</li>
+                </ul>
+
+                <p>
+                    <strong>Correlation</strong> is the standardized version of covariance:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{Cor}(X, Y) = \rho_{XY} = \frac{\text{Cov}(X, Y)}{\sigma_X \, \sigma_Y}}$$
+                </div>
+
+                <p>
+                    Correlation is dimensionless and satisfies $-1 \leq \rho_{XY} \leq 1$ (by the Cauchy-Schwarz
+                    inequality). The extreme values $\rho = \pm 1$ occur if and only if $Y$ is a <em>linear</em>
+                    function of $X$: $Y = aX + b$.
+                </p>
+
+                <p>
+                    <strong>Uncorrelated $\neq$ independent.</strong> This is a critical distinction. Let
+                    $X \sim \text{Uniform}\{-1, 0, 1\}$ and $Y = X^2$. Then:
+                </p>
+                <div class="math-block">
+                    $$E[XY] = E[X \cdot X^2] = E[X^3] = \frac{(-1)^3 + 0^3 + 1^3}{3} = 0$$
+                </div>
+                <div class="math-block">
+                    $$E[X] = 0, \quad \text{so } \text{Cov}(X, Y) = E[XY] - E[X]E[Y] = 0 - 0 = 0$$
+                </div>
+                <p>
+                    So $X$ and $Y$ are uncorrelated. But $Y$ is completely determined by $X$&mdash;they are
+                    maximally dependent! Uncorrelatedness only rules out <em>linear</em> dependence.
+                </p>
+
+                <!-- ======== Section 8: Higher Moments ======== -->
+                <h2 id="higher-moments">Higher Moments</h2>
+
+                <p>
+                    The $k$-th <strong>raw moment</strong> (or moment about the origin) is $\mu_k' = E[X^k]$.
+                    The $k$-th <strong>central moment</strong> (moment about the mean) is $\mu_k = E[(X - \mu)^k]$.
+                </p>
+
+                <ul>
+                    <li>$k = 1$: The first moment is the mean. $\mu_1' = E[X] = \mu$.</li>
+                    <li>$k = 2$: The second central moment is the variance. $\mu_2 = \text{Var}(X)$.</li>
+                    <li>$k = 3$: The third central moment relates to <strong>skewness</strong>.</li>
+                    <li>$k = 4$: The fourth central moment relates to <strong>kurtosis</strong>.</li>
+                </ul>
+
+                <p><strong>Skewness</strong> measures asymmetry of the distribution:</p>
+                <div class="math-block">
+                    $$\text{Skew}(X) = E\!\left[\left(\frac{X - \mu}{\sigma}\right)^3\right] = \frac{\mu_3}{\sigma^3}$$
+                </div>
+                <ul>
+                    <li>$\text{Skew} > 0$: right-tailed (tail extends to the right)</li>
+                    <li>$\text{Skew} < 0$: left-tailed (tail extends to the left)</li>
+                    <li>$\text{Skew} = 0$: symmetric (e.g., Normal, Uniform)</li>
+                </ul>
+
+                <p><strong>Kurtosis</strong> measures the "tailedness" of the distribution:</p>
+                <div class="math-block">
+                    $$\text{Kurt}(X) = E\!\left[\left(\frac{X - \mu}{\sigma}\right)^4\right] = \frac{\mu_4}{\sigma^4}$$
+                </div>
+                <p>
+                    The Normal distribution has kurtosis 3. The <strong>excess kurtosis</strong> is $\text{Kurt}(X) - 3$,
+                    which is zero for the Normal. Distributions with excess kurtosis $> 0$ (<strong>leptokurtic</strong>)
+                    have heavier tails than the Normal; those with excess kurtosis $< 0$
+                    (<strong>platykurtic</strong>) have lighter tails.
+                </p>
+
+                <p>
+                    <strong>Why moments matter:</strong> Under certain regularity conditions, the sequence of
+                    all moments $\{E[X^k]\}_{k=1}^{\infty}$ uniquely determines the distribution. This is
+                    the basis of the <strong>method of moments</strong> for parameter estimation.
+                </p>
+
+                <!-- ======== Section 9: Conditional Expectation ======== -->
+                <h2 id="conditional-expectation">Conditional Expectation</h2>
+
+                <p>
+                    Just as conditional probability refines our beliefs given partial information, <strong>conditional
+                    expectation</strong> refines our expected value given partial information.
+                </p>
+
+                <p><strong>Definition.</strong> The conditional expectation of $X$ given $Y = y$ is:</p>
+                <div class="math-block">
+                    $$E[X \mid Y = y] = \sum_x x \, p_{X|Y}(x \mid y) \quad \text{(discrete)}$$
+                </div>
+                <div class="math-block">
+                    $$E[X \mid Y = y] = \int_{-\infty}^{\infty} x \, f_{X|Y}(x \mid y) \, dx \quad \text{(continuous)}$$
+                </div>
+
+                <p>
+                    Note that $E[X \mid Y = y]$ is a <em>number</em> (it depends on the specific value $y$).
+                    When we write $E[X \mid Y]$ (without specifying the value), we treat it as a <em>random
+                    variable</em>&mdash;a function of $Y$.
+                </p>
+
+                <p><strong>Law of Iterated Expectation (Tower Property):</strong> This is one of the most
+                    powerful results in all of probability:</p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{E[X] = E\!\big[E[X \mid Y]\big]}$$
+                </div>
+
+                <p>
+                    In words: the overall expected value of $X$ equals the expected value of the conditional
+                    expected values. To find $E[X]$, you can "condition on" any convenient random variable $Y$,
+                    compute $E[X \mid Y]$ for each possible value of $Y$, and then average over $Y$.
+                </p>
+
+                <p><strong>Proof (discrete case):</strong></p>
+                <div class="math-block">
+                    $$E\!\big[E[X \mid Y]\big] = \sum_y E[X \mid Y = y] \cdot P(Y = y)$$
+                </div>
+                <div class="math-block">
+                    $$= \sum_y \left(\sum_x x \, P(X = x \mid Y = y)\right) P(Y = y) = \sum_y \sum_x x \, P(X = x, Y = y)$$
+                </div>
+                <div class="math-block">
+                    $$= \sum_x x \sum_y P(X = x, Y = y) = \sum_x x \, P(X = x) = E[X] \qquad \square$$
+                </div>
+
+                <p><strong>Example: Random number of coin flips.</strong> You roll a fair die to get $N$,
+                    then flip a fair coin $N$ times. Let $X$ = number of heads. What is $E[X]$?</p>
+                <div class="math-block">
+                    $$E[X \mid N = n] = n \cdot \frac{1}{2} = \frac{n}{2}$$
+                </div>
+                <div class="math-block">
+                    $$E[X] = E\!\left[E[X \mid N]\right] = E\!\left[\frac{N}{2}\right] = \frac{E[N]}{2} = \frac{3.5}{2} = 1.75$$
+                </div>
+
+                <p><strong>Example: Random walk stopping time.</strong> You flip a fair coin until you get
+                    heads. Let $T$ be the number of flips. Find $E[T]$ using conditioning.</p>
+                <p>Condition on the first flip. With probability $1/2$ we get heads immediately ($T = 1$).
+                    With probability $1/2$ we get tails, and then we're back where we started, needing
+                    $1 + E[T]$ more flips. So:</p>
+                <div class="math-block">
+                    $$E[T] = \frac{1}{2} \cdot 1 + \frac{1}{2}(1 + E[T]) = 1 + \frac{1}{2}E[T]$$
+                </div>
+                <div class="math-block">
+                    $$\frac{1}{2}E[T] = 1 \implies E[T] = 2$$
+                </div>
+
+                <!-- ======== Section 10: Conditional Variance ======== -->
+                <h2 id="conditional-variance">Conditional Variance</h2>
+
+                <p>
+                    The conditional variance $\text{Var}(X \mid Y = y) = E[(X - E[X \mid Y = y])^2 \mid Y = y]$
+                    measures the remaining uncertainty in $X$ after observing $Y = y$.
+                </p>
+
+                <p>
+                    The <strong>Law of Total Variance</strong> (also called the variance decomposition formula
+                    or Eve's law) provides a beautiful decomposition:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{Var}(X) = E\!\big[\text{Var}(X \mid Y)\big] + \text{Var}\!\big(E[X \mid Y]\big)}$$
+                </div>
+
+                <p>
+                    This says: <strong>total variance = within-group variance + between-group variance</strong>.
+                </p>
+                <ul>
+                    <li>$E[\text{Var}(X \mid Y)]$: the average variance <em>within</em> each group defined by $Y$ (unexplained variance)</li>
+                    <li>$\text{Var}(E[X \mid Y])$: the variance of the group means (explained variance)</li>
+                </ul>
+
+                <p><strong>Proof:</strong> We use the identity $\text{Var}(Z) = E[Z^2] - (E[Z])^2$ applied to $Z = X \mid Y$:</p>
+                <div class="math-block">
+                    $$\text{Var}(X \mid Y) = E[X^2 \mid Y] - (E[X \mid Y])^2$$
+                </div>
+                <p>Taking expectations of both sides:</p>
+                <div class="math-block">
+                    $$E[\text{Var}(X \mid Y)] = E[E[X^2 \mid Y]] - E[(E[X \mid Y])^2] = E[X^2] - E[(E[X \mid Y])^2]$$
+                </div>
+                <p>For the second term, note that:</p>
+                <div class="math-block">
+                    $$\text{Var}(E[X \mid Y]) = E[(E[X \mid Y])^2] - (E[E[X \mid Y]])^2 = E[(E[X \mid Y])^2] - (E[X])^2$$
+                </div>
+                <p>Adding:</p>
+                <div class="math-block">
+                    $$E[\text{Var}(X \mid Y)] + \text{Var}(E[X \mid Y]) = E[X^2] - (E[X])^2 = \text{Var}(X) \qquad \square$$
+                </div>
+
+                <p><strong>Example: Random coin flips (continued).</strong> Roll a die $N$, flip $N$ coins, $X$ = number of heads.</p>
+                <div class="math-block">
+                    $$\text{Var}(X \mid N = n) = n \cdot \frac{1}{2} \cdot \frac{1}{2} = \frac{n}{4}$$
+                </div>
+                <div class="math-block">
+                    $$E[\text{Var}(X \mid N)] = E\!\left[\frac{N}{4}\right] = \frac{E[N]}{4} = \frac{3.5}{4} = 0.875$$
+                </div>
+                <div class="math-block">
+                    $$\text{Var}(E[X \mid N]) = \text{Var}\!\left(\frac{N}{2}\right) = \frac{1}{4}\text{Var}(N) = \frac{1}{4} \cdot \frac{35}{12} = \frac{35}{48} \approx 0.729$$
+                </div>
+                <div class="math-block">
+                    $$\text{Var}(X) = 0.875 + 0.729 = \frac{77}{48} \approx 1.604$$
+                </div>
+
+                <!-- ======== Section 11: Connections to ML ======== -->
+                <h2 id="ml-connections">Connections to Machine Learning</h2>
+
+                <p>
+                    Expectation and variance are not just abstract concepts&mdash;they are the language in
+                    which machine learning is formulated.
+                </p>
+
+                <p><strong>Loss functions as expectations.</strong> When we train a model $\hat{f}$ to predict
+                $Y$ from $X$, we minimize the <strong>expected loss</strong> (or <strong>risk</strong>):</p>
+                <div class="math-block">
+                    $$R(\hat{f}) = E[L(Y, \hat{f}(X))]$$
+                </div>
+                <p>
+                    For squared loss $L(y, \hat{y}) = (y - \hat{y})^2$, the optimal predictor is the <strong>conditional
+                    expectation</strong> $\hat{f}^*(x) = E[Y \mid X = x]$. This shows that conditional expectation
+                    is not just a theoretical construct but the <em>optimal prediction</em> under squared loss.
+                </p>
+
+                <p><strong>The Bias-Variance Tradeoff.</strong> Consider the mean squared error of an estimator
+                $\hat{\theta}$ for a parameter $\theta$:</p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\text{MSE}(\hat{\theta}) = \text{Bias}(\hat{\theta})^2 + \text{Var}(\hat{\theta})}$$
+                </div>
+
+                <p>where $\text{Bias}(\hat{\theta}) = E[\hat{\theta}] - \theta$.</p>
+
+                <p><strong>Proof:</strong></p>
+                <div class="math-block">
+                    $$\text{MSE}(\hat{\theta}) = E[(\hat{\theta} - \theta)^2] = E[(\hat{\theta} - E[\hat{\theta}] + E[\hat{\theta}] - \theta)^2]$$
+                </div>
+                <div class="math-block">
+                    $$= E[(\hat{\theta} - E[\hat{\theta}])^2] + 2(E[\hat{\theta}] - \theta)\underbrace{E[\hat{\theta} - E[\hat{\theta}]]}_{=0} + (E[\hat{\theta}] - \theta)^2$$
+                </div>
+                <div class="math-block">
+                    $$= \text{Var}(\hat{\theta}) + \text{Bias}(\hat{\theta})^2$$
+                </div>
+
+                <!-- SVG: Bias-Variance Decomposition -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 560 320" xmlns="http://www.w3.org/2000/svg" style="max-width: 560px; width: 100%;">
+                        <!-- Title -->
+                        <text x="280" y="25" fill="var(--color-text)" font-size="15" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">Bias-Variance Tradeoff</text>
+
+                        <!-- Axes -->
+                        <line x1="70" y1="270" x2="520" y2="270" stroke="var(--color-border)" stroke-width="2"/>
+                        <line x1="70" y1="270" x2="70" y2="50" stroke="var(--color-border)" stroke-width="2"/>
+
+                        <!-- Y-axis label -->
+                        <text x="25" y="160" fill="var(--color-text)" font-size="13" font-weight="500" font-family="Inter, sans-serif" text-anchor="middle" transform="rotate(-90, 25, 160)">Error</text>
+
+                        <!-- X-axis label -->
+                        <text x="295" y="300" fill="var(--color-text)" font-size="13" font-weight="500" font-family="Inter, sans-serif" text-anchor="middle">Model Complexity</text>
+
+                        <!-- Bias^2 curve (decreasing) -->
+                        <path d="M 90,100 Q 150,120 200,160 Q 260,200 330,230 Q 400,245 500,250" fill="none" stroke="var(--color-accent)" stroke-width="2.5"/>
+                        <text x="500" y="244" fill="var(--color-accent)" font-size="12" font-weight="600" font-family="Inter, sans-serif" text-anchor="end">Bias&#xB2;</text>
+
+                        <!-- Variance curve (increasing) -->
+                        <path d="M 90,250 Q 150,245 200,235 Q 260,215 330,180 Q 400,130 500,80" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+                        <text x="500" y="74" fill="#ef4444" font-size="12" font-weight="600" font-family="Inter, sans-serif" text-anchor="end">Variance</text>
+
+                        <!-- Total MSE curve (U-shaped) -->
+                        <path d="M 90,85 Q 150,95 200,120 Q 240,140 270,148 Q 300,150 330,148 Q 380,140 430,125 Q 470,115 500,100" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-dasharray="8,4"/>
+                        <text x="500" y="94" fill="#8b5cf6" font-size="12" font-weight="600" font-family="Inter, sans-serif" text-anchor="end">Total MSE</text>
+
+                        <!-- Optimal point -->
+                        <circle cx="290" cy="149" r="5" fill="#8b5cf6"/>
+                        <line x1="290" y1="155" x2="290" y2="270" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="4,3"/>
+                        <text x="290" y="285" fill="#8b5cf6" font-size="11" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">Optimal</text>
+
+                        <!-- Underfitting / Overfitting labels -->
+                        <text x="150" y="55" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif" text-anchor="middle">Underfitting</text>
+                        <text x="150" y="68" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif" text-anchor="middle">(high bias)</text>
+                        <text x="440" y="55" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif" text-anchor="middle">Overfitting</text>
+                        <text x="440" y="68" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif" text-anchor="middle">(high variance)</text>
+
+                        <!-- Arrows -->
+                        <path d="M 115,70 L 180,70" fill="none" stroke="var(--color-text-secondary)" stroke-width="1" marker-end="url(#arrowhead-bv)"/>
+                        <path d="M 475,70 L 410,70" fill="none" stroke="var(--color-text-secondary)" stroke-width="1" marker-end="url(#arrowhead-bv)"/>
+
+                        <defs>
+                            <marker id="arrowhead-bv" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <polygon points="0 0, 8 3, 0 6" fill="var(--color-text-secondary)"/>
+                            </marker>
+                        </defs>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 3.</strong> The bias-variance tradeoff. As model complexity increases,
+                        bias decreases (the model can fit the data better) but variance increases (the model
+                        becomes more sensitive to the specific training set). The total MSE = Bias$^2$ + Variance
+                        is minimized at an intermediate complexity level.
+                    </p>
+                </div>
+
+                <p><strong>Gradient descent minimizes expected loss.</strong> In stochastic gradient descent
+                (SGD), we approximate the gradient of the expected loss using mini-batches:</p>
+                <div class="math-block">
+                    $$\nabla_\theta R(\theta) = E\!\left[\nabla_\theta L(Y, f_\theta(X))\right] \approx \frac{1}{m}\sum_{i=1}^{m} \nabla_\theta L(y_i, f_\theta(x_i))$$
+                </div>
+                <p>
+                    The mini-batch gradient is an <em>unbiased estimator</em> of the true gradient: its
+                    expectation equals the true gradient. But it has variance, which causes the noisy
+                    trajectory of SGD. Reducing batch size increases variance; increasing it reduces variance
+                    but is computationally more expensive. This is yet another instance of the bias-variance
+                    tradeoff.
+                </p>
+
+                <p><strong>Regularization as variance reduction.</strong> Techniques like L2 regularization
+                (ridge regression) intentionally introduce a small amount of bias to achieve a larger reduction
+                in variance, lowering the overall MSE. This is a direct application of the MSE decomposition.</p>
+
+                <p><strong>Ensemble methods.</strong> Bagging (bootstrap aggregating) reduces prediction
+                variance by averaging predictions from multiple models trained on bootstrap samples. If
+                individual models have variance $\sigma^2$ and pairwise correlation $\rho$, the ensemble
+                variance is:</p>
+                <div class="math-block">
+                    $$\text{Var}(\bar{f}) = \rho \sigma^2 + \frac{1 - \rho}{n}\sigma^2$$
+                </div>
+                <p>
+                    As $n \to \infty$, this approaches $\rho \sigma^2$&mdash;the irreducible variance due
+                    to correlation between models. Random forests further reduce $\rho$ by randomizing
+                    feature selection.
+                </p>
+
+            </article>
+
+            <!-- ============================================================
+                 CODE TAB
+                 ============================================================ -->
+            <article class="article-content" id="code" style="display: none;">
+
+                <h1>Code: Expectation &amp; Variance in Python</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    Computing expectation and variance from simulated data, demonstrating linearity of
+                    expectation, computing covariance and correlation, simulating the law of iterated
+                    expectation, and visualizing the bias-variance tradeoff.
+                </p>
+
+                <!-- Code Block 1: Computing E[X] and Var(X) -->
+                <h2 id="code-basic">Computing Expectation and Variance</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+def expected_value_discrete(values, probabilities):
+    """
+    Compute E[X] for a discrete random variable.
+
+    Parameters:
+        values: array of possible values x_i
+        probabilities: array of P(X = x_i)
+
+    Returns:
+        E[X] = sum(x_i * p_i)
+    """
+    values = np.array(values)
+    probabilities = np.array(probabilities)
+    assert np.isclose(probabilities.sum(), 1.0), "Probabilities must sum to 1"
+    return np.sum(values * probabilities)
+
+
+def variance_discrete(values, probabilities):
+    """
+    Compute Var(X) = E[X^2] - (E[X])^2 for a discrete random variable.
+    """
+    values = np.array(values)
+    probabilities = np.array(probabilities)
+    mean = expected_value_discrete(values, probabilities)
+    mean_sq = expected_value_discrete(values**2, probabilities)
+    return mean_sq - mean**2
+
+
+# --- Fair die ---
+vals = [1, 2, 3, 4, 5, 6]
+probs = [1/6] * 6
+
+print("=== Fair Die ===")
+print(f"E[X]   = {expected_value_discrete(vals, probs):.4f}")       # 3.5
+print(f"Var(X) = {variance_discrete(vals, probs):.4f}")             # 2.9167
+print(f"SD(X)  = {np.sqrt(variance_discrete(vals, probs)):.4f}")    # 1.7078
+
+# --- Simulation verification ---
+np.random.seed(42)
+n_samples = 1_000_000
+samples = np.random.choice(vals, size=n_samples, p=probs)
+
+print(f"\nSimulated E[X]   = {samples.mean():.4f}")
+print(f"Simulated Var(X) = {samples.var():.4f}")
+
+# --- Bernoulli(p) ---
+p = 0.3
+print(f"\n=== Bernoulli(p={p}) ===")
+print(f"E[X]   = {expected_value_discrete([0, 1], [1-p, p]):.4f}")  # 0.3
+print(f"Var(X) = {variance_discrete([0, 1], [1-p, p]):.4f}")        # 0.21
+
+# --- Continuous: Exponential(lambda) via simulation ---
+lam = 2.0
+exp_samples = np.random.exponential(scale=1/lam, size=n_samples)
+print(f"\n=== Exponential(lambda={lam}) ===")
+print(f"Theoretical E[X]   = {1/lam:.4f}")
+print(f"Simulated   E[X]   = {exp_samples.mean():.4f}")
+print(f"Theoretical Var(X) = {1/lam**2:.4f}")
+print(f"Simulated   Var(X) = {exp_samples.var():.4f}")</code></pre>
+
+                <!-- Code Block 2: Linearity of Expectation -->
+                <h2 id="code-linearity">Linearity of Expectation: The Hat Problem</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+def hat_experiment(n_people, n_trials=100_000):
+    """
+    Simulate the hat problem: n people randomly pick from n hats.
+    Count how many people get their own hat (fixed points of a permutation).
+
+    By linearity of expectation, E[fixed points] = 1, regardless of n.
+    """
+    fixed_points = np.zeros(n_trials)
+
+    for trial in range(n_trials):
+        # Random permutation: person i gets hat perm[i]
+        perm = np.random.permutation(n_people)
+        # Count fixed points: positions where perm[i] == i
+        fixed_points[trial] = np.sum(perm == np.arange(n_people))
+
+    return fixed_points
+
+
+print("=== Hat Problem: Linearity of Expectation ===")
+print("E[fixed points] should be 1.0 for all n\n")
+
+for n in [5, 10, 50, 100, 1000]:
+    fp = hat_experiment(n, n_trials=50_000)
+    print(f"n = {n:>4d}: E[fixed points] = {fp.mean():.4f}, "
+          f"Var = {fp.var():.4f}")
+
+# Also demonstrate linearity with dependent variables
+print("\n=== Linearity with Dependent Variables ===")
+np.random.seed(42)
+n_sim = 500_000
+
+# X and Y are highly dependent (Y = X^2), but E[X+Y] = E[X] + E[Y] still
+X = np.random.normal(2, 1, n_sim)
+Y = X**2  # Y depends entirely on X
+
+print(f"E[X]       = {X.mean():.4f}")
+print(f"E[Y=X^2]   = {Y.mean():.4f}")
+print(f"E[X] + E[Y]= {X.mean() + Y.mean():.4f}")
+print(f"E[X + Y]   = {(X + Y).mean():.4f}")
+print("These are equal (linearity holds even with dependence)!")
+
+# Card trick: expected number of "matches" in a card game
+print("\n=== Card Matching Game ===")
+n_cards = 52
+n_trials = 200_000
+matches = np.zeros(n_trials)
+
+for i in range(n_trials):
+    deck1 = np.arange(n_cards)
+    deck2 = np.random.permutation(n_cards)
+    matches[i] = np.sum(deck1 == deck2)
+
+print(f"n_cards = {n_cards}")
+print(f"E[matches] = {matches.mean():.4f} (theory: 1.0)")
+print(f"Var(matches) = {matches.var():.4f} (theory: 1.0)")</code></pre>
+
+                <!-- Code Block 3: Covariance and Correlation -->
+                <h2 id="code-covariance">Covariance and Correlation</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+def covariance(X, Y):
+    """Compute Cov(X, Y) = E[XY] - E[X]E[Y]"""
+    return np.mean(X * Y) - np.mean(X) * np.mean(Y)
+
+
+def correlation(X, Y):
+    """Compute Cor(X, Y) = Cov(X, Y) / (SD(X) * SD(Y))"""
+    cov = covariance(X, Y)
+    return cov / (np.std(X) * np.std(Y))
+
+
+np.random.seed(42)
+n = 100_000
+
+# Example 1: Positively correlated
+Z = np.random.normal(0, 1, n)
+X1 = Z + np.random.normal(0, 0.5, n)
+Y1 = Z + np.random.normal(0, 0.5, n)
+print("=== Positively Correlated ===")
+print(f"Cov(X, Y) = {covariance(X1, Y1):.4f}")
+print(f"Cor(X, Y) = {correlation(X1, Y1):.4f}")
+print(f"numpy check: {np.corrcoef(X1, Y1)[0,1]:.4f}")
+
+# Example 2: Negatively correlated
+Y2 = -Z + np.random.normal(0, 0.5, n)
+print("\n=== Negatively Correlated ===")
+print(f"Cov(X, Y) = {covariance(X1, Y2):.4f}")
+print(f"Cor(X, Y) = {correlation(X1, Y2):.4f}")
+
+# Example 3: Uncorrelated but dependent (X and X^2)
+X3 = np.random.choice([-1, 0, 1], size=n)
+Y3 = X3**2
+print("\n=== Uncorrelated but Dependent ===")
+print(f"Cov(X, X^2)  = {covariance(X3, Y3):.4f}")
+print(f"Cor(X, X^2)  = {correlation(X3, Y3):.4f}")
+print(f"But P(X^2=1 | X=1) = {np.mean(Y3[X3==1]):.4f} != P(X^2=1) = {np.mean(Y3==1):.4f}")
+print("=> Dependent despite zero correlation!")
+
+# Variance of a sum
+print("\n=== Var(X+Y) Decomposition ===")
+A = np.random.normal(3, 2, n)
+B = 0.7 * A + np.random.normal(0, 1, n)
+
+var_sum_direct = np.var(A + B)
+var_sum_formula = np.var(A) + np.var(B) + 2 * covariance(A, B)
+
+print(f"Var(A+B) directly   = {var_sum_direct:.4f}")
+print(f"Var(A)+Var(B)+2Cov  = {var_sum_formula:.4f}")
+print(f"Cov(A, B)           = {covariance(A, B):.4f}")
+print(f"Cor(A, B)           = {correlation(A, B):.4f}")</code></pre>
+
+                <!-- Code Block 4: Law of Iterated Expectation -->
+                <h2 id="code-tower">Law of Iterated Expectation Simulation</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+np.random.seed(42)
+n_sim = 500_000
+
+# Scenario: Roll a die (N), flip N coins, count heads (X)
+# E[X] = E[E[X|N]] = E[N/2] = 3.5/2 = 1.75
+# Var(X) = E[Var(X|N)] + Var(E[X|N]) = E[N/4] + Var(N/2)
+#        = 3.5/4 + (35/12)/4 = 0.875 + 0.729 = 1.604
+
+N = np.random.randint(1, 7, size=n_sim)  # die roll: 1 to 6
+X = np.array([np.random.binomial(n, 0.5) for n in N])
+
+print("=== Law of Iterated Expectation ===")
+print(f"Theoretical E[X] = 1.75")
+print(f"Simulated   E[X] = {X.mean():.4f}")
+
+# Verify E[X] = E[E[X|N]]
+conditional_means = {n: X[N == n].mean() for n in range(1, 7)}
+print("\nConditional means E[X | N=n]:")
+for n, mean in sorted(conditional_means.items()):
+    print(f"  E[X | N={n}] = {mean:.4f} (theory: {n/2:.4f})")
+
+e_of_conditional = sum(conditional_means[n] * (1/6) for n in range(1, 7))
+print(f"\nE[E[X|N]] = {e_of_conditional:.4f} (should equal E[X] = {X.mean():.4f})")
+
+# Law of Total Variance
+print("\n=== Law of Total Variance ===")
+print(f"Theoretical Var(X) = {77/48:.4f}")
+print(f"Simulated   Var(X) = {X.var():.4f}")
+
+conditional_vars = {n: X[N == n].var() for n in range(1, 7)}
+e_var_given_n = sum(conditional_vars[n] * (1/6) for n in range(1, 7))
+var_e_given_n = np.var([conditional_means[n] for n in range(1, 7)])
+
+# Weight the variance of conditional means by P(N=n)
+cond_mean_values = np.array([conditional_means[n] for n in range(1, 7)])
+var_e_given_n_weighted = np.sum((cond_mean_values - cond_mean_values.mean())**2) / 6
+
+print(f"\nE[Var(X|N)]  = {e_var_given_n:.4f} (theory: {3.5/4:.4f})")
+print(f"Var(E[X|N])  = {var_e_given_n_weighted:.4f} (theory: {35/48:.4f})")
+print(f"Sum          = {e_var_given_n + var_e_given_n_weighted:.4f}")
+print(f"Total Var(X) = {X.var():.4f}")</code></pre>
+
+                <!-- Code Block 5: Bias-Variance Tradeoff -->
+                <h2 id="code-bias-variance">Bias-Variance Tradeoff Visualization</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+def true_function(x):
+    """The true underlying function we're trying to learn."""
+    return np.sin(2 * x) + 0.5 * np.cos(4 * x)
+
+
+def generate_data(n_points, noise_std=0.3):
+    """Generate noisy training data."""
+    X = np.sort(np.random.uniform(0, 2 * np.pi, n_points))
+    y = true_function(X) + np.random.normal(0, noise_std, n_points)
+    return X, y
+
+
+def polynomial_fit(X_train, y_train, X_test, degree):
+    """Fit a polynomial of given degree and return predictions."""
+    coeffs = np.polyfit(X_train, y_train, degree)
+    return np.polyval(coeffs, X_test)
+
+
+def bias_variance_experiment(degrees, n_train=20, n_datasets=200,
+                              noise_std=0.3):
+    """
+    Estimate bias^2, variance, and MSE for polynomial models
+    of different degrees.
+
+    For each degree:
+      - Generate many training datasets
+      - Fit a polynomial on each
+      - Compute predictions at test points
+      - Estimate Bias^2 = (E[f_hat] - f_true)^2
+      - Estimate Variance = Var(f_hat)
+      - MSE = Bias^2 + Variance + noise^2
+    """
+    X_test = np.linspace(0.1, 2 * np.pi - 0.1, 50)
+    y_true = true_function(X_test)
+
+    results = {'degree': [], 'bias_sq': [], 'variance': [], 'mse': []}
+
+    for deg in degrees:
+        predictions = np.zeros((n_datasets, len(X_test)))
+
+        for i in range(n_datasets):
+            X_train, y_train = generate_data(n_train, noise_std)
+            predictions[i] = polynomial_fit(X_train, y_train, X_test, deg)
+
+        # Average prediction across datasets
+        mean_pred = predictions.mean(axis=0)
+
+        # Bias^2: (E[f_hat(x)] - f(x))^2, averaged over test points
+        bias_sq = np.mean((mean_pred - y_true)**2)
+
+        # Variance: E[(f_hat(x) - E[f_hat(x)])^2], averaged over test points
+        variance = np.mean(predictions.var(axis=0))
+
+        # MSE: E[(f_hat(x) - y)^2] including noise
+        mse = bias_sq + variance + noise_std**2
+
+        results['degree'].append(deg)
+        results['bias_sq'].append(bias_sq)
+        results['variance'].append(variance)
+        results['mse'].append(mse)
+
+        print(f"Degree {deg:>2d}: Bias^2 = {bias_sq:.4f}, "
+              f"Var = {variance:.4f}, MSE = {mse:.4f}")
+
+    return results
+
+
+np.random.seed(42)
+degrees = [1, 2, 3, 4, 5, 7, 10, 15, 18]
+
+print("=== Bias-Variance Tradeoff ===")
+print(f"True function: sin(2x) + 0.5*cos(4x)")
+print(f"Training size: 20 points, Noise std: 0.3\n")
+
+results = bias_variance_experiment(degrees)
+
+best_idx = np.argmin(results['mse'])
+print(f"\nBest degree: {results['degree'][best_idx]} "
+      f"(MSE = {results['mse'][best_idx]:.4f})")
+print(f"  Bias^2   = {results['bias_sq'][best_idx]:.4f}")
+print(f"  Variance = {results['variance'][best_idx]:.4f}")
+print(f"  Noise^2  = {0.3**2:.4f}")</code></pre>
+
+            </article>
+
+            <!-- ============================================================
+                 EXERCISES TAB
+                 ============================================================ -->
+            <article class="article-content" id="exercises" style="display: none;">
+
+                <h1>Exercises: Expectation &amp; Variance</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    15 exercises organized by difficulty: 5 Easy, 5 Medium, 5 Hard. Each includes a complete solution.
+                    Click on any exercise to reveal its solution.
+                </p>
+
+                <!-- ============================================================
+                     EASY EXERCISES (1-5)
+                     ============================================================ -->
+                <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 0.5rem;">Easy Exercises (1&ndash;5)</h2>
+
+                <!-- EASY 1 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 1: Expected Value of Two Dice</h3>
+                        <p>You roll two fair six-sided dice. Let $S$ be the sum of the two dice. Compute $E[S]$ and $\text{Var}(S)$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Let $X_1$ and $X_2$ be the results of the two dice. Then $S = X_1 + X_2$.</p>
+                            <p><strong>Expectation:</strong> By linearity,</p>
+                            $$E[S] = E[X_1] + E[X_2] = 3.5 + 3.5 = 7$$
+                            <p><strong>Variance:</strong> Since the dice are independent,</p>
+                            $$\text{Var}(S) = \text{Var}(X_1) + \text{Var}(X_2) = \frac{35}{12} + \frac{35}{12} = \frac{35}{6} \approx 5.833$$
+                            <p><strong>Answer:</strong> $E[S] = 7$, $\text{Var}(S) = 35/6 \approx 5.83$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 2 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 2: Coin Flip Expectation</h3>
+                        <p>You flip a fair coin 100 times. Let $X$ be the number of heads. Find $E[X]$ and $\text{Var}(X)$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>$X \sim \text{Binomial}(n=100, p=1/2)$. We can write $X = \sum_{i=1}^{100} X_i$ where $X_i \sim \text{Bernoulli}(1/2)$.</p>
+                            <p><strong>Expectation:</strong></p>
+                            $$E[X] = \sum_{i=1}^{100} E[X_i] = 100 \cdot \frac{1}{2} = 50$$
+                            <p><strong>Variance:</strong> The $X_i$ are independent, and $\text{Var}(X_i) = p(1-p) = 1/4$.</p>
+                            $$\text{Var}(X) = \sum_{i=1}^{100} \text{Var}(X_i) = 100 \cdot \frac{1}{4} = 25$$
+                            <p><strong>Answer:</strong> $E[X] = 50$, $\text{Var}(X) = 25$, $\text{SD}(X) = 5$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 3 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 3: Scaling and Shifting</h3>
+                        <p>Let $X$ be a random variable with $E[X] = 5$ and $\text{Var}(X) = 4$. Define $Y = 3X - 7$. Find $E[Y]$ and $\text{Var}(Y)$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>Expectation:</strong> By linearity,</p>
+                            $$E[Y] = E[3X - 7] = 3E[X] - 7 = 3(5) - 7 = 8$$
+                            <p><strong>Variance:</strong> Constants do not affect variance, and scaling by $a$ multiplies variance by $a^2$:</p>
+                            $$\text{Var}(Y) = \text{Var}(3X - 7) = 3^2 \text{Var}(X) = 9 \cdot 4 = 36$$
+                            <p><strong>Answer:</strong> $E[Y] = 8$, $\text{Var}(Y) = 36$, $\text{SD}(Y) = 6$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 4 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 4: Expected Winnings</h3>
+                        <p>A lottery ticket costs $2. With probability 0.01 you win $100, with probability 0.001 you win $1000, and otherwise you win nothing. What is your expected net gain?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Let $W$ be the prize winnings (before subtracting the cost). The probability of winning nothing is $1 - 0.01 - 0.001 = 0.989$.</p>
+                            $$E[W] = 100 \cdot 0.01 + 1000 \cdot 0.001 + 0 \cdot 0.989 = 1 + 1 = 2$$
+                            <p>The expected net gain is:</p>
+                            $$E[\text{net gain}] = E[W] - 2 = 2 - 2 = 0$$
+                            <p><strong>Answer:</strong> The expected net gain is $\$0$. This is a fair game (break-even on average).</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 5 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 5: Linearity with Indicators</h3>
+                        <p>Ten cards labeled 1 through 10 are shuffled and laid in a row. A card is in a "correct" position if its label matches its position (e.g., card 3 is in position 3). Use linearity of expectation to find the expected number of cards in correct positions.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Let $X_i = 1$ if card $i$ is in position $i$, and $X_i = 0$ otherwise. The total number of matches is $X = \sum_{i=1}^{10} X_i$.</p>
+                            <p>For each card $i$, it is equally likely to be in any of the 10 positions, so $P(X_i = 1) = 1/10$.</p>
+                            <p>By linearity of expectation (regardless of dependence between the $X_i$'s):</p>
+                            $$E[X] = \sum_{i=1}^{10} E[X_i] = \sum_{i=1}^{10} \frac{1}{10} = 1$$
+                            <p><strong>Answer:</strong> The expected number of cards in correct positions is $1$, regardless of how many cards there are. (For $n$ cards, the answer is always $n \cdot \frac{1}{n} = 1$.)</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- ============================================================
+                     MEDIUM EXERCISES (6-10)
+                     ============================================================ -->
+                <h2 style="color: #f59e0b; border-bottom: 2px solid #f59e0b; padding-bottom: 0.5rem;">Medium Exercises (6&ndash;10)</h2>
+
+                <!-- MEDIUM 6 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 6: LOTUS Application</h3>
+                        <p>Let $X$ be a random variable with PMF $P(X = k) = \frac{1}{2^k}$ for $k = 1, 2, 3, \ldots$ Compute $E[X]$, $E[X^2]$, and $\text{Var}(X)$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>First, verify this is a valid PMF: $\sum_{k=1}^{\infty} \frac{1}{2^k} = 1$. (Geometric series.)</p>
+                            <p><strong>$E[X]$:</strong> We need $\sum_{k=1}^{\infty} \frac{k}{2^k}$.</p>
+                            <p>Using the identity $\sum_{k=1}^{\infty} k r^k = \frac{r}{(1-r)^2}$ with $r = 1/2$:</p>
+                            $$E[X] = \sum_{k=1}^{\infty} k \cdot \frac{1}{2^k} = \frac{1/2}{(1/2)^2} = 2$$
+
+                            <p><strong>$E[X^2]$:</strong> We need $\sum_{k=1}^{\infty} \frac{k^2}{2^k}$.</p>
+                            <p>Using the identity $\sum_{k=1}^{\infty} k^2 r^k = \frac{r(1+r)}{(1-r)^3}$ with $r = 1/2$:</p>
+                            $$E[X^2] = \frac{(1/2)(3/2)}{(1/2)^3} = \frac{3/4}{1/8} = 6$$
+
+                            <p><strong>$\text{Var}(X)$:</strong></p>
+                            $$\text{Var}(X) = E[X^2] - (E[X])^2 = 6 - 4 = 2$$
+                            <p><strong>Answer:</strong> $E[X] = 2$, $E[X^2] = 6$, $\text{Var}(X) = 2$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 7 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 7: Covariance Computation</h3>
+                        <p>Two dice are rolled. Let $X$ be the result of the first die, $Y$ be the maximum of the two dice. Compute $\text{Cov}(X, Y)$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>We use $\text{Cov}(X, Y) = E[XY] - E[X]E[Y]$.</p>
+                            <p>$E[X] = 3.5$ (fair die).</p>
+                            <p><strong>Finding $E[Y]$:</strong> $Y = \max(X_1, X_2)$. For two independent dice:</p>
+                            $$P(Y \leq k) = P(X_1 \leq k, X_2 \leq k) = \left(\frac{k}{6}\right)^2$$
+                            $$P(Y = k) = \frac{k^2 - (k-1)^2}{36} = \frac{2k - 1}{36}$$
+                            $$E[Y] = \sum_{k=1}^{6} k \cdot \frac{2k-1}{36} = \frac{1}{36}\sum_{k=1}^{6}(2k^2 - k) = \frac{1}{36}(2 \cdot 91 - 21) = \frac{161}{36} \approx 4.472$$
+                            <p><strong>Finding $E[XY]$:</strong> Since $Y = \max(X, X_2)$ where $X_2$ is the second die:</p>
+                            $$E[XY] = E[X \cdot \max(X, X_2)] = \frac{1}{36}\sum_{i=1}^{6}\sum_{j=1}^{6} i \cdot \max(i, j)$$
+                            <p>Computing this sum (enumerating all 36 pairs):</p>
+                            $$E[XY] = \frac{1}{36}(1 \cdot 1 + 1 \cdot 2 + \cdots + 6 \cdot 6) = \frac{1}{36}\cdot 602 = \frac{602}{36} = \frac{301}{18}$$
+                            <p><strong>Covariance:</strong></p>
+                            $$\text{Cov}(X, Y) = \frac{301}{18} - 3.5 \cdot \frac{161}{36} = \frac{301}{18} - \frac{563.5}{36} = \frac{602 - 563.5}{36} = \frac{38.5}{36} = \frac{77}{72} \approx 1.069$$
+                            <p><strong>Answer:</strong> $\text{Cov}(X, Y) = 77/72 \approx 1.07$. The positive covariance makes sense: a higher first die tends to lead to a higher maximum.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 8 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 8: Conditional Expectation</h3>
+                        <p>A box contains 3 red and 2 blue balls. You draw 2 balls without replacement. Let $X$ be the number of red balls drawn. Compute $E[X]$ by conditioning on the color of the first ball drawn.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Let $F$ denote the color of the first ball. We use the law of iterated expectation:</p>
+                            $$E[X] = E[E[X \mid F]]$$
+                            <p><strong>Case $F = \text{red}$:</strong> (probability $3/5$)</p>
+                            <p>We already have 1 red. Remaining box: 2 red, 2 blue. Second ball is red with probability $2/4 = 1/2$.</p>
+                            $$E[X \mid F = \text{red}] = 1 + \frac{1}{2} = \frac{3}{2}$$
+                            <p><strong>Case $F = \text{blue}$:</strong> (probability $2/5$)</p>
+                            <p>We have 0 red so far. Remaining box: 3 red, 1 blue. Second ball is red with probability $3/4$.</p>
+                            $$E[X \mid F = \text{blue}] = 0 + \frac{3}{4} = \frac{3}{4}$$
+                            <p><strong>Combining:</strong></p>
+                            $$E[X] = \frac{3}{5} \cdot \frac{3}{2} + \frac{2}{5} \cdot \frac{3}{4} = \frac{9}{10} + \frac{6}{20} = \frac{9}{10} + \frac{3}{10} = \frac{12}{10} = \frac{6}{5}$$
+                            <p><strong>Answer:</strong> $E[X] = 6/5 = 1.2$.</p>
+                            <p><em>Verification by linearity:</em> Let $X_i = 1$ if the $i$-th ball is red. $P(X_1 = 1) = 3/5$, $P(X_2 = 1) = 3/5$ (by symmetry). So $E[X] = 3/5 + 3/5 = 6/5$. $\checkmark$</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 9 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 9: Variance of Weighted Sum</h3>
+                        <p>Let $X$ and $Y$ be random variables with $E[X] = 2$, $E[Y] = 5$, $\text{Var}(X) = 9$, $\text{Var}(Y) = 16$, and $\text{Cov}(X, Y) = -6$. Find $E[Z]$, $\text{Var}(Z)$, and $\text{Cor}(X, Y)$, where $Z = 2X - 3Y + 1$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>Expectation:</strong></p>
+                            $$E[Z] = 2E[X] - 3E[Y] + 1 = 2(2) - 3(5) + 1 = 4 - 15 + 1 = -10$$
+                            <p><strong>Variance:</strong> Using $\text{Var}(aX + bY + c) = a^2\text{Var}(X) + b^2\text{Var}(Y) + 2ab\,\text{Cov}(X,Y)$:</p>
+                            $$\text{Var}(Z) = 2^2 \cdot 9 + (-3)^2 \cdot 16 + 2(2)(-3)(-6)$$
+                            $$= 36 + 144 + 72 = 252$$
+                            <p><strong>Correlation:</strong></p>
+                            $$\text{Cor}(X, Y) = \frac{\text{Cov}(X, Y)}{\sqrt{\text{Var}(X)} \cdot \sqrt{\text{Var}(Y)}} = \frac{-6}{\sqrt{9} \cdot \sqrt{16}} = \frac{-6}{3 \cdot 4} = -\frac{1}{2}$$
+                            <p><strong>Answer:</strong> $E[Z] = -10$, $\text{Var}(Z) = 252$, $\text{Cor}(X, Y) = -0.5$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 10 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 10: LOTUS for Continuous Variables</h3>
+                        <p>Let $X \sim \text{Uniform}(0, 1)$. Compute $E[\sin(\pi X)]$ and $E[e^X]$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>For $X \sim \text{Uniform}(0,1)$, we have $f(x) = 1$ on $[0, 1]$. By LOTUS:</p>
+                            <p><strong>$E[\sin(\pi X)]$:</strong></p>
+                            $$E[\sin(\pi X)] = \int_0^1 \sin(\pi x) \cdot 1 \, dx = \left[-\frac{\cos(\pi x)}{\pi}\right]_0^1$$
+                            $$= -\frac{\cos \pi}{\pi} + \frac{\cos 0}{\pi} = \frac{1}{\pi} + \frac{1}{\pi} = \frac{2}{\pi} \approx 0.6366$$
+                            <p><strong>$E[e^X]$:</strong></p>
+                            $$E[e^X] = \int_0^1 e^x \cdot 1 \, dx = \left[e^x\right]_0^1 = e - 1 \approx 1.7183$$
+                            <p><strong>Answer:</strong> $E[\sin(\pi X)] = 2/\pi \approx 0.637$, $E[e^X] = e - 1 \approx 1.718$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- ============================================================
+                     HARD EXERCISES (11-15)
+                     ============================================================ -->
+                <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 0.5rem;">Hard Exercises (11&ndash;15)</h2>
+
+                <!-- HARD 11 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 11: Proving Variance Properties</h3>
+                        <p>(a) Prove that $\text{Var}(X) \geq 0$ for any random variable $X$, with equality if and only if $X$ is a constant a.s.</p>
+                        <p>(b) Prove that for any constants $a, b$ and random variables $X, Y$: $\text{Cov}(aX + b, Y) = a\,\text{Cov}(X, Y)$.</p>
+                        <p>(c) Prove the Cauchy-Schwarz inequality for random variables: $|\text{Cov}(X, Y)| \leq \sqrt{\text{Var}(X)\,\text{Var}(Y)}$, i.e., $|\rho| \leq 1$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> $\text{Var}(X) = E[(X - \mu)^2]$. Since $(X - \mu)^2 \geq 0$ always, its expectation is non-negative. Equality holds iff $(X - \mu)^2 = 0$ a.s., i.e., $X = \mu$ with probability 1. $\square$</p>
+
+                            <p><strong>(b)</strong></p>
+                            $$\text{Cov}(aX + b, Y) = E[(aX + b)(Y)] - E[aX + b]E[Y]$$
+                            $$= E[aXY + bY] - (aE[X] + b)E[Y]$$
+                            $$= aE[XY] + bE[Y] - aE[X]E[Y] - bE[Y]$$
+                            $$= a(E[XY] - E[X]E[Y]) = a\,\text{Cov}(X, Y) \quad \square$$
+
+                            <p><strong>(c)</strong> For any $t \in \mathbb{R}$, consider $\text{Var}(X + tY) \geq 0$:</p>
+                            $$\text{Var}(X + tY) = \text{Var}(X) + 2t\,\text{Cov}(X,Y) + t^2\text{Var}(Y) \geq 0$$
+                            <p>This is a quadratic in $t$ that is always non-negative, so its discriminant must be non-positive:</p>
+                            $$\Delta = 4\,\text{Cov}(X,Y)^2 - 4\,\text{Var}(X)\,\text{Var}(Y) \leq 0$$
+                            $$\implies \text{Cov}(X,Y)^2 \leq \text{Var}(X)\,\text{Var}(Y)$$
+                            $$\implies |\text{Cov}(X,Y)| \leq \sqrt{\text{Var}(X)\,\text{Var}(Y)} \quad \square$$
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 12 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 12: Law of Total Variance Application</h3>
+                        <p>A factory has two machines. Machine A (used 60% of the time) produces items with mean weight 10g and standard deviation 1g. Machine B (used 40% of the time) produces items with mean weight 12g and standard deviation 2g. Find the overall mean and variance of item weights.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Let $W$ = weight, $M$ = machine used. $P(M=A) = 0.6$, $P(M=B) = 0.4$.</p>
+                            <p><strong>Overall mean (law of iterated expectation):</strong></p>
+                            $$E[W] = E[E[W \mid M]] = P(A) \cdot E[W \mid A] + P(B) \cdot E[W \mid B]$$
+                            $$= 0.6 \cdot 10 + 0.4 \cdot 12 = 6 + 4.8 = 10.8 \text{g}$$
+
+                            <p><strong>Law of total variance:</strong></p>
+                            $$\text{Var}(W) = E[\text{Var}(W \mid M)] + \text{Var}(E[W \mid M])$$
+
+                            <p><em>Within-group variance:</em></p>
+                            $$E[\text{Var}(W \mid M)] = 0.6 \cdot 1^2 + 0.4 \cdot 2^2 = 0.6 + 1.6 = 2.2$$
+
+                            <p><em>Between-group variance:</em> $E[W \mid M]$ takes value 10 with prob 0.6, and 12 with prob 0.4.</p>
+                            $$E[E[W \mid M]] = 10.8 \text{ (computed above)}$$
+                            $$\text{Var}(E[W \mid M]) = 0.6(10 - 10.8)^2 + 0.4(12 - 10.8)^2$$
+                            $$= 0.6(0.64) + 0.4(1.44) = 0.384 + 0.576 = 0.96$$
+
+                            <p><strong>Total variance:</strong></p>
+                            $$\text{Var}(W) = 2.2 + 0.96 = 3.16$$
+
+                            <p><strong>Answer:</strong> $E[W] = 10.8$g, $\text{Var}(W) = 3.16$g$^2$, $\text{SD}(W) \approx 1.78$g.</p>
+                            <p>Note that the total SD (1.78g) is larger than either machine's individual SD. The between-group variance (machines have different means) adds to the overall spread.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 13 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 13: Bias-Variance Decomposition</h3>
+                        <p>Consider estimating $\theta$ from i.i.d. samples $X_1, \ldots, X_n$ from $\text{Normal}(\theta, \sigma^2)$.</p>
+                        <p>(a) The MLE is $\hat{\theta}_1 = \bar{X}$. Show it is unbiased and compute its MSE.</p>
+                        <p>(b) Consider the "shrinkage" estimator $\hat{\theta}_2 = c\bar{X}$ for some constant $0 < c < 1$. Compute its bias, variance, and MSE. Show that for certain values of $\theta$ and $c$, $\hat{\theta}_2$ has lower MSE than $\hat{\theta}_1$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> $\bar{X} = \frac{1}{n}\sum_{i=1}^n X_i$.</p>
+                            <p>Bias: $E[\bar{X}] = \theta$, so $\text{Bias} = 0$ (unbiased).</p>
+                            <p>Variance: $\text{Var}(\bar{X}) = \sigma^2/n$.</p>
+                            <p>MSE: $\text{MSE}(\hat{\theta}_1) = 0 + \sigma^2/n = \sigma^2/n$.</p>
+
+                            <p><strong>(b)</strong> $\hat{\theta}_2 = c\bar{X}$.</p>
+                            <p>Bias: $E[\hat{\theta}_2] = c\theta$, so $\text{Bias} = c\theta - \theta = (c-1)\theta$.</p>
+                            <p>Variance: $\text{Var}(\hat{\theta}_2) = c^2 \cdot \sigma^2/n$.</p>
+                            <p>MSE:</p>
+                            $$\text{MSE}(\hat{\theta}_2) = (c-1)^2\theta^2 + \frac{c^2\sigma^2}{n}$$
+
+                            <p>We want $\text{MSE}(\hat{\theta}_2) < \text{MSE}(\hat{\theta}_1)$:</p>
+                            $$(c-1)^2\theta^2 + \frac{c^2\sigma^2}{n} < \frac{\sigma^2}{n}$$
+                            $$(c-1)^2\theta^2 < \frac{(1-c^2)\sigma^2}{n} = \frac{(1-c)(1+c)\sigma^2}{n}$$
+
+                            <p>Dividing by $(1-c) > 0$ (since $c < 1$):</p>
+                            $$(1-c)\theta^2 < \frac{(1+c)\sigma^2}{n}$$
+
+                            <p>For example, with $c = 0.9$, $\sigma^2 = 1$, $n = 10$:</p>
+                            $$0.1\theta^2 < \frac{1.9}{10} = 0.19 \implies \theta^2 < 1.9 \implies |\theta| < 1.38$$
+
+                            <p><strong>Answer:</strong> When $|\theta|$ is small relative to $\sigma/\sqrt{n}$, the biased shrinkage estimator achieves lower MSE. The variance reduction (from $\sigma^2/n$ to $c^2\sigma^2/n$) outweighs the introduced bias. This is the essence of regularization in ML.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 14 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 14: Conditional Expectation as Projection</h3>
+                        <p>Let $(X, Y)$ be jointly distributed with $E[X] = E[Y] = 0$, $\text{Var}(X) = \sigma_X^2$, $\text{Var}(Y) = \sigma_Y^2$, $\text{Cor}(X, Y) = \rho$.</p>
+                        <p>(a) Find the constant $c$ that minimizes $E[(Y - cX)^2]$ (the best linear predictor of $Y$ from $X$).</p>
+                        <p>(b) Show that the prediction error $Y - cX$ is uncorrelated with $X$.</p>
+                        <p>(c) Compute the mean squared prediction error $E[(Y - cX)^2]$ and interpret it.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> Expand and minimize:</p>
+                            $$E[(Y - cX)^2] = E[Y^2] - 2cE[XY] + c^2E[X^2] = \sigma_Y^2 - 2c\rho\sigma_X\sigma_Y + c^2\sigma_X^2$$
+                            <p>Taking the derivative with respect to $c$ and setting to zero:</p>
+                            $$-2\rho\sigma_X\sigma_Y + 2c\sigma_X^2 = 0 \implies c^* = \frac{\rho\sigma_Y}{\sigma_X} = \frac{\text{Cov}(X,Y)}{\text{Var}(X)}$$
+                            <p>This is the <strong>regression coefficient</strong>.</p>
+
+                            <p><strong>(b)</strong></p>
+                            $$\text{Cov}(Y - c^*X, X) = \text{Cov}(Y, X) - c^*\text{Var}(X)$$
+                            $$= \rho\sigma_X\sigma_Y - \frac{\rho\sigma_Y}{\sigma_X}\sigma_X^2 = \rho\sigma_X\sigma_Y - \rho\sigma_X\sigma_Y = 0 \quad \square$$
+                            <p>The residual is uncorrelated with the predictor. This is the <strong>orthogonality condition</strong>, analogous to a geometric projection.</p>
+
+                            <p><strong>(c)</strong></p>
+                            $$E[(Y - c^*X)^2] = \sigma_Y^2 - 2c^*\rho\sigma_X\sigma_Y + (c^*)^2\sigma_X^2$$
+                            $$= \sigma_Y^2 - 2\frac{\rho\sigma_Y}{\sigma_X}\rho\sigma_X\sigma_Y + \frac{\rho^2\sigma_Y^2}{\sigma_X^2}\sigma_X^2$$
+                            $$= \sigma_Y^2 - 2\rho^2\sigma_Y^2 + \rho^2\sigma_Y^2 = \sigma_Y^2(1 - \rho^2)$$
+
+                            <p><strong>Answer:</strong> The MSE is $\sigma_Y^2(1 - \rho^2)$.</p>
+                            <p>Interpretation: $\rho^2$ is the fraction of variance in $Y$ "explained" by $X$ ($R^2$ in regression). When $\rho = \pm 1$, the prediction is perfect. When $\rho = 0$, the best linear predictor is just 0 (the unconditional mean), and the error equals $\text{Var}(Y)$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 15 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 15: The Rao-Blackwell Theorem</h3>
+                        <p>Let $X_1, \ldots, X_n$ be i.i.d. $\text{Bernoulli}(p)$ and let $T = \sum_{i=1}^n X_i$ be the sufficient statistic.</p>
+                        <p>(a) Show that $\hat{p}_1 = X_1$ is an unbiased estimator of $p$ with $\text{Var}(\hat{p}_1) = p(1-p)$.</p>
+                        <p>(b) Compute $\hat{p}_2 = E[X_1 \mid T]$ and show it equals $T/n = \bar{X}$.</p>
+                        <p>(c) Show that $\text{Var}(\hat{p}_2) \leq \text{Var}(\hat{p}_1)$ and compute the variance reduction. Why is this guaranteed by the Rao-Blackwell theorem?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> $E[\hat{p}_1] = E[X_1] = p$ (unbiased). $\text{Var}(\hat{p}_1) = \text{Var}(X_1) = p(1-p)$.</p>
+
+                            <p><strong>(b)</strong> By symmetry, given $T = t$, each $X_i$ is equally likely to contribute to the sum. So:</p>
+                            $$E[X_1 \mid T = t] = \frac{t}{n}$$
+                            <p>Formally: given $T = t$, the conditional distribution of $(X_1, \ldots, X_n)$ is uniform over all binary vectors summing to $t$. In any such vector, $X_1 = 1$ for exactly $\binom{n-1}{t-1}$ of the $\binom{n}{t}$ vectors. So $P(X_1 = 1 \mid T = t) = \frac{\binom{n-1}{t-1}}{\binom{n}{t}} = \frac{t}{n}$.</p>
+                            <p>Therefore $\hat{p}_2 = E[X_1 \mid T] = T/n = \bar{X}$.</p>
+
+                            <p><strong>(c)</strong> $\text{Var}(\hat{p}_2) = \text{Var}(\bar{X}) = \frac{p(1-p)}{n}$.</p>
+
+                            <p>The variance reduction is:</p>
+                            $$\text{Var}(\hat{p}_1) - \text{Var}(\hat{p}_2) = p(1-p) - \frac{p(1-p)}{n} = p(1-p)\left(1 - \frac{1}{n}\right) = p(1-p) \cdot \frac{n-1}{n}$$
+
+                            <p>By the <strong>law of total variance</strong>:</p>
+                            $$\text{Var}(X_1) = E[\text{Var}(X_1 \mid T)] + \text{Var}(E[X_1 \mid T])$$
+                            $$p(1-p) = E[\text{Var}(X_1 \mid T)] + \text{Var}(\hat{p}_2)$$
+                            <p>Since $E[\text{Var}(X_1 \mid T)] \geq 0$, we get $\text{Var}(\hat{p}_2) \leq p(1-p) = \text{Var}(\hat{p}_1)$.</p>
+
+                            <p><strong>The Rao-Blackwell theorem</strong> guarantees: if $\hat{p}_1$ is any unbiased estimator and $T$ is a sufficient statistic, then $\hat{p}_2 = E[\hat{p}_1 \mid T]$ is also unbiased and has $\text{Var}(\hat{p}_2) \leq \text{Var}(\hat{p}_1)$. The proof is exactly the law of total variance argument above. Conditioning on a sufficient statistic can never increase variance. $\square$</p>
+                        </div>
+                    </details>
+                </div>
+
+            </article>
+
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="tutorial-toc">
+            <div class="toc-card">
+                <h3 class="toc-title">Key Concept</h3>
+                <div style="padding: 1rem; background: rgba(99, 102, 241, 0.08); border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.9rem;">
+                        <strong>Expectation</strong> summarizes a distribution's location (center),
+                        <strong>variance</strong> summarizes its spread&mdash;together they characterize
+                        a distribution's shape and are the foundation of statistical inference and machine learning.
+                    </p>
+                </div>
+                <h3 class="toc-title">Prerequisites</h3>
+                <ul style="padding-left: 1.25rem; font-size: 0.875rem;">
+                    <li>Random variables (discrete and continuous)</li>
+                    <li>Basic calculus (integration, series)</li>
+                    <li>PMFs and PDFs</li>
+                </ul>
+                <h3 class="toc-title" style="margin-top: 1.5rem;">Key Formulas</h3>
+                <div style="font-size: 0.85rem;">
+                    <p>$E[X] = \sum x \, p(x) = \int x \, f(x)\,dx$</p>
+                    <p>$\text{Var}(X) = E[X^2] - (E[X])^2$</p>
+                    <p>$E[g(X)] = \sum g(x)\,p(x)$ (LOTUS)</p>
+                    <p>$E[aX + bY] = aE[X] + bE[Y]$</p>
+                    <p>$\text{Cov}(X,Y) = E[XY] - E[X]E[Y]$</p>
+                    <p>$E[X] = E[E[X \mid Y]]$</p>
+                    <p>$\text{Var}(X) = E[\text{Var}(X|Y)] + \text{Var}(E[X|Y])$</p>
+                    <p>$\text{MSE} = \text{Bias}^2 + \text{Variance}$</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

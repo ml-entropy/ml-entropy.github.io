@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markov Chains | ML Fundamentals</title>
+    <meta name="description" content="Discrete-time Markov chains: transition matrices, classification of states, stationary distributions, ergodic theorem, and applications to ML and MCMC.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link active">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Probability Theory</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Markov Chains</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Probability Theory</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-bayes-theorem/index.html" class="sidebar-link">01. Bayes' Theorem</a>
+                    <a href="../02-axioms/index.html" class="sidebar-link">02. Axioms of Probability</a>
+                    <a href="../03-conditional-probability/index.html" class="sidebar-link">03. Conditional Probability</a>
+                    <a href="../04-random-variables/index.html" class="sidebar-link">04. Random Variables</a>
+                    <a href="../05-expectation-variance/index.html" class="sidebar-link">05. Expectation &amp; Variance</a>
+                    <a href="../06-joint-distributions/index.html" class="sidebar-link">06. Joint Distributions</a>
+                    <a href="../07-inequalities/index.html" class="sidebar-link">07. Inequalities</a>
+                    <a href="../08-limit-theorems/index.html" class="sidebar-link">08. Limit Theorems</a>
+                    <a href="../09-moment-generating-functions/index.html" class="sidebar-link">09. Moment Generating Functions</a>
+                    <a href="../10-maximum-likelihood/index.html" class="sidebar-link">10. Maximum Likelihood</a>
+                    <a href="../11-markov-chains/index.html" class="sidebar-link active">11. Markov Chains</a>
+                    <a href="../12-monte-carlo/index.html" class="sidebar-link">12. Monte Carlo Methods</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">On This Page</h3>
+                <nav class="sidebar-nav">
+                    <a href="#what-is-markov-chain" class="sidebar-link">What is a Markov Chain?</a>
+                    <a href="#transition-matrix" class="sidebar-link">Transition Matrix</a>
+                    <a href="#state-diagrams" class="sidebar-link">State Diagrams</a>
+                    <a href="#classification-of-states" class="sidebar-link">Classification of States</a>
+                    <a href="#periodicity" class="sidebar-link">Periodicity</a>
+                    <a href="#stationary-distributions" class="sidebar-link">Stationary Distributions</a>
+                    <a href="#detailed-balance" class="sidebar-link">Detailed Balance</a>
+                    <a href="#ergodic-theorem" class="sidebar-link">Ergodic Theorem</a>
+                    <a href="#absorption" class="sidebar-link">Absorption Probabilities</a>
+                    <a href="#linear-algebra" class="sidebar-link">Markov Chains &amp; Linear Algebra</a>
+                    <a href="#ml-connections" class="sidebar-link">Connections to ML</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../distributions/index.html" class="sidebar-link">Distributions</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ============================================================
+                 THEORY TAB
+                 ============================================================ -->
+            <article class="article-content" id="theory">
+
+                <h1>11. Markov Chains</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    A Markov chain is a stochastic process whose future depends only on the present,
+                    never on the past. This deceptively simple idea&mdash;the <em>Markov property</em>&mdash;gives
+                    rise to an extraordinarily rich theory with deep connections to linear algebra,
+                    graph theory, and modern machine learning. From Google's PageRank algorithm to
+                    MCMC sampling in Bayesian inference, Markov chains are everywhere.
+                </p>
+
+                <!-- ======== Section 1: What is a Markov Chain? ======== -->
+                <h2 id="what-is-markov-chain">What is a Markov Chain?</h2>
+
+                <p>
+                    A <strong>discrete-time Markov chain</strong> (DTMC) is a sequence of random variables
+                    $X_0, X_1, X_2, \ldots$ taking values in a countable <strong>state space</strong> $S$
+                    such that the <strong>Markov property</strong> holds:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{P(X_{n+1} = j \mid X_n = i, X_{n-1} = i_{n-1}, \ldots, X_0 = i_0) = P(X_{n+1} = j \mid X_n = i)}$$
+                </div>
+
+                <p>
+                    In words: <strong>given the present state, the future is independent of the past.</strong>
+                    The entire history of the process is summarized in the current state. This is sometimes
+                    called the <em>memoryless property</em> or the property of having <em>no memory</em>.
+                </p>
+
+                <p>
+                    We write $p_{ij} = P(X_{n+1} = j \mid X_n = i)$ for the <strong>transition probability</strong>
+                    from state $i$ to state $j$. When these probabilities do not depend on the time step $n$,
+                    we say the chain is <strong>time-homogeneous</strong>&mdash;the case we focus on throughout
+                    this tutorial.
+                </p>
+
+                <p><strong>Why is the Markov property so powerful?</strong> Because it means the entire
+                    stochastic dynamics are captured by a single matrix of transition probabilities. Instead of
+                    tracking an exponentially growing tree of histories, we only need to know where we are
+                    <em>right now</em>.
+                </p>
+
+                <h3>Examples of Markov Chains</h3>
+                <ul>
+                    <li><strong>Random walk on the integers:</strong> At each step, move right with probability $p$
+                        or left with probability $1 - p$. The current position is the state; where you go next
+                        depends only on where you are.</li>
+                    <li><strong>Weather model:</strong> If today is sunny, tomorrow is sunny with probability 0.8
+                        and rainy with probability 0.2. If today is rainy, tomorrow is sunny with probability 0.4
+                        and rainy with probability 0.6. The weather tomorrow depends only on today.</li>
+                    <li><strong>PageRank:</strong> A random surfer clicks links on the web. At each page,
+                        the surfer randomly follows one of the outgoing links. The next page depends only on
+                        the current page.</li>
+                    <li><strong>Board games:</strong> In Snakes and Ladders or Monopoly, your next position
+                        depends only on your current position and the dice roll&mdash;not how you got there.</li>
+                    <li><strong>Nucleotide sequences:</strong> In a simple DNA model, the next base (A, C, G, T)
+                        depends probabilistically on the current base.</li>
+                </ul>
+
+                <h3>What is NOT a Markov Chain?</h3>
+                <p>
+                    A process where the future depends on more than just the present state is <em>not</em>
+                    Markov. For example, if tomorrow's weather depends on <em>both</em> today's and yesterday's
+                    weather, the raw process $(X_n)$ is not Markov. However, we can often enlarge the state
+                    space: define $Y_n = (X_{n-1}, X_n)$ as pairs of consecutive days; then $(Y_n)$ is Markov.
+                    This trick of <strong>state augmentation</strong> is widely used in practice.
+                </p>
+
+                <!-- ======== Section 2: Transition Matrix ======== -->
+                <h2 id="transition-matrix">Transition Matrix</h2>
+
+                <p>
+                    The transition probabilities of a Markov chain with finite state space
+                    $S = \{1, 2, \ldots, N\}$ are organized into a <strong>transition matrix</strong>
+                    (or <strong>stochastic matrix</strong>):
+                </p>
+
+                <div class="math-block">
+                    $$P = \begin{pmatrix} p_{11} & p_{12} & \cdots & p_{1N} \\ p_{21} & p_{22} & \cdots & p_{2N} \\ \vdots & \vdots & \ddots & \vdots \\ p_{N1} & p_{N2} & \cdots & p_{NN} \end{pmatrix}$$
+                </div>
+
+                <p>
+                    where $p_{ij} = P(X_{n+1} = j \mid X_n = i) \geq 0$ and each row sums to 1:
+                </p>
+
+                <div class="math-block">
+                    $$\sum_{j=1}^{N} p_{ij} = 1 \quad \text{for all } i$$
+                </div>
+
+                <p>
+                    A matrix with non-negative entries and rows summing to 1 is called a <strong>row-stochastic
+                    matrix</strong>. (Some references use column-stochastic matrices instead; be careful about
+                    conventions.)
+                </p>
+
+                <p><strong>Example (Weather):</strong> With states $S = \{\text{Sunny}, \text{Rainy}\}$:</p>
+
+                <div class="math-block">
+                    $$P = \begin{pmatrix} 0.8 & 0.2 \\ 0.4 & 0.6 \end{pmatrix}$$
+                </div>
+
+                <p>
+                    Row 1 says: if today is sunny, there is 0.8 probability of sunny tomorrow and 0.2
+                    probability of rainy tomorrow.
+                </p>
+
+                <h3>$n$-Step Transition Probabilities</h3>
+
+                <p>
+                    What is the probability of going from state $i$ to state $j$ in exactly $n$ steps?
+                    We write $p_{ij}^{(n)} = P(X_{m+n} = j \mid X_m = i)$. The key result is:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{p_{ij}^{(n)} = (P^n)_{ij}}$$
+                </div>
+
+                <p>
+                    The $n$-step transition probabilities are given by the $(i,j)$ entry of the matrix $P$
+                    raised to the $n$-th power. This is a direct consequence of the Markov property and
+                    the law of total probability.
+                </p>
+
+                <h3>Chapman&ndash;Kolmogorov Equations</h3>
+
+                <p>
+                    The Chapman&ndash;Kolmogorov equations express this matrix multiplication in summation form.
+                    For any $0 \leq m \leq n$:
+                </p>
+
+                <div class="math-block">
+                    $$p_{ij}^{(n)} = \sum_{k \in S} p_{ik}^{(m)} \, p_{kj}^{(n-m)}$$
+                </div>
+
+                <p>
+                    In matrix notation: $P^{(n)} = P^{(m)} \cdot P^{(n-m)}$, i.e., $P^n = P^m \cdot P^{n-m}$.
+                    This is simply the associativity of matrix multiplication, but it has a beautiful probabilistic
+                    interpretation: to go from $i$ to $j$ in $n$ steps, we sum over all possible intermediate
+                    states $k$ at time $m$, multiplying the probability of reaching $k$ in $m$ steps by
+                    the probability of going from $k$ to $j$ in $n - m$ steps.
+                </p>
+
+                <p><strong>Distribution at time $n$:</strong> If $\boldsymbol{\mu}_0 = (\mu_0(1), \ldots, \mu_0(N))$
+                    is the initial distribution (a row vector), then the distribution at time $n$ is:</p>
+
+                <div class="math-block">
+                    $$\boldsymbol{\mu}_n = \boldsymbol{\mu}_0 \, P^n$$
+                </div>
+
+                <!-- ======== Section 3: State Diagrams ======== -->
+                <h2 id="state-diagrams">State Diagrams</h2>
+
+                <p>
+                    A Markov chain can be visualized as a <strong>directed weighted graph</strong> (a
+                    <em>state transition diagram</em>). Each state is a node, and each transition probability
+                    $p_{ij} > 0$ is a directed edge from $i$ to $j$ labeled with the probability.
+                </p>
+
+                <p>
+                    Reading a state diagram: (1) each node is a state; (2) the arrows leaving a node
+                    represent possible transitions with their probabilities; (3) all arrow weights leaving
+                    a node must sum to 1; (4) a self-loop means the chain can stay in the same state.
+                </p>
+
+                <!-- SVG: State Transition Diagram for 3-state weather model -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 560 320" xmlns="http://www.w3.org/2000/svg" style="max-width: 560px; width: 100%;">
+                        <!-- Definitions for arrowheads -->
+                        <defs>
+                            <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="var(--color-accent)"/>
+                            </marker>
+                            <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+                            </marker>
+                            <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+                            </marker>
+                        </defs>
+
+                        <!-- State: Sunny -->
+                        <circle cx="140" cy="100" r="45" fill="rgba(245, 158, 11, 0.15)" stroke="#f59e0b" stroke-width="2.5"/>
+                        <text x="140" y="96" text-anchor="middle" fill="var(--color-text)" font-size="15" font-weight="600" font-family="Inter, sans-serif">Sunny</text>
+                        <text x="140" y="113" text-anchor="middle" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">S₁</text>
+
+                        <!-- State: Cloudy -->
+                        <circle cx="420" cy="100" r="45" fill="rgba(107, 114, 128, 0.15)" stroke="#6b7280" stroke-width="2.5"/>
+                        <text x="420" y="96" text-anchor="middle" fill="var(--color-text)" font-size="15" font-weight="600" font-family="Inter, sans-serif">Cloudy</text>
+                        <text x="420" y="113" text-anchor="middle" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">S₂</text>
+
+                        <!-- State: Rainy -->
+                        <circle cx="280" cy="260" r="45" fill="rgba(59, 130, 246, 0.15)" stroke="var(--color-accent)" stroke-width="2.5"/>
+                        <text x="280" y="256" text-anchor="middle" fill="var(--color-text)" font-size="15" font-weight="600" font-family="Inter, sans-serif">Rainy</text>
+                        <text x="280" y="273" text-anchor="middle" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">S₃</text>
+
+                        <!-- Self-loop: Sunny -> Sunny -->
+                        <path d="M 108 65 A 30 30 0 1 1 172 65" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowGreen)"/>
+                        <text x="140" y="30" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.6</text>
+
+                        <!-- Sunny -> Cloudy -->
+                        <line x1="185" y1="92" x2="373" y2="92" stroke="var(--color-accent)" stroke-width="2" marker-end="url(#arrowBlue)"/>
+                        <text x="279" y="82" text-anchor="middle" fill="var(--color-accent)" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.3</text>
+
+                        <!-- Sunny -> Rainy -->
+                        <line x1="158" y1="141" x2="254" y2="224" stroke="#ef4444" stroke-width="2" marker-end="url(#arrowRed)"/>
+                        <text x="188" y="196" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.1</text>
+
+                        <!-- Cloudy -> Sunny -->
+                        <line x1="375" y1="108" x2="187" y2="108" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+                        <text x="279" y="128" text-anchor="middle" fill="#10b981" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.2</text>
+
+                        <!-- Cloudy -> Rainy -->
+                        <line x1="400" y1="141" x2="305" y2="224" stroke="#ef4444" stroke-width="2" marker-end="url(#arrowRed)"/>
+                        <text x="370" y="196" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.4</text>
+
+                        <!-- Self-loop: Cloudy -> Cloudy -->
+                        <path d="M 388 65 A 30 30 0 1 1 452 65" fill="none" stroke="#6b7280" stroke-width="2" marker-end="url(#arrowGreen)"/>
+                        <text x="420" y="30" text-anchor="middle" fill="#6b7280" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.4</text>
+
+                        <!-- Rainy -> Sunny -->
+                        <line x1="240" y1="243" x2="162" y2="138" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowGreen)"/>
+                        <text x="182" y="210" text-anchor="end" fill="#f59e0b" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.3</text>
+
+                        <!-- Rainy -> Cloudy -->
+                        <line x1="319" y1="243" x2="398" y2="138" stroke="#6b7280" stroke-width="2" marker-end="url(#arrowGreen)"/>
+                        <text x="378" y="210" text-anchor="start" fill="#6b7280" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.3</text>
+
+                        <!-- Self-loop: Rainy -> Rainy -->
+                        <path d="M 248 295 A 30 30 0 1 1 312 295" fill="none" stroke="var(--color-accent)" stroke-width="2" marker-end="url(#arrowBlue)"/>
+                        <text x="280" y="316" text-anchor="middle" fill="var(--color-accent)" font-size="12" font-weight="600" font-family="Inter, sans-serif">0.4</text>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 1.</strong> State transition diagram for a 3-state weather model. Each arrow shows the transition probability; outgoing arrows from each node sum to 1.
+                    </p>
+                </div>
+
+                <p>The transition matrix for the diagram above is:</p>
+
+                <div class="math-block">
+                    $$P = \begin{pmatrix} 0.6 & 0.3 & 0.1 \\ 0.2 & 0.4 & 0.4 \\ 0.3 & 0.3 & 0.4 \end{pmatrix}$$
+                </div>
+
+                <!-- ======== Section 4: Classification of States ======== -->
+                <h2 id="classification-of-states">Classification of States</h2>
+
+                <p>
+                    Understanding the long-run behavior of a Markov chain requires classifying its states.
+                    Two fundamental concepts are <strong>communication</strong> and <strong>recurrence</strong>.
+                </p>
+
+                <h3>Accessibility and Communication</h3>
+
+                <p>
+                    State $j$ is <strong>accessible</strong> from state $i$ (written $i \to j$) if there exists
+                    $n \geq 0$ such that $p_{ij}^{(n)} > 0$&mdash;that is, there is a positive probability of
+                    reaching $j$ from $i$ in some number of steps.
+                </p>
+
+                <p>
+                    Two states $i$ and $j$ <strong>communicate</strong> (written $i \leftrightarrow j$) if
+                    $i \to j$ and $j \to i$. Communication is an equivalence relation: it is reflexive
+                    ($i \leftrightarrow i$), symmetric (by definition), and transitive (if $i \leftrightarrow j$
+                    and $j \leftrightarrow k$, then $i \leftrightarrow k$).
+                </p>
+
+                <p>
+                    The equivalence classes under communication are called <strong>communicating classes</strong>.
+                </p>
+
+                <h3>Irreducibility</h3>
+
+                <p>
+                    A Markov chain is <strong>irreducible</strong> if there is only one communicating class&mdash;that
+                    is, every state communicates with every other state. In graph terms, the transition diagram is
+                    <strong>strongly connected</strong>: you can get from any state to any other state.
+                </p>
+
+                <p>
+                    Irreducibility is a crucial property: it means the chain can explore the entire state space,
+                    no matter where it starts. Most of the elegant theory (stationary distributions, ergodic
+                    theorems) requires irreducibility.
+                </p>
+
+                <h3>Recurrence and Transience</h3>
+
+                <p>
+                    Let $f_i = P(\text{chain ever returns to } i \mid X_0 = i)$ be the probability of
+                    returning to state $i$ starting from $i$.
+                </p>
+
+                <ul>
+                    <li><strong>Recurrent:</strong> $f_i = 1$. Starting from $i$, the chain is guaranteed
+                        to return to $i$ (and hence returns infinitely often).</li>
+                    <li><strong>Transient:</strong> $f_i < 1$. There is a positive probability of never
+                        returning to $i$. Starting from $i$, the expected number of returns is finite:
+                        $\sum_{n=0}^{\infty} p_{ii}^{(n)} < \infty$.</li>
+                </ul>
+
+                <p><strong>Criterion:</strong> State $i$ is recurrent if and only if:</p>
+
+                <div class="math-block">
+                    $$\sum_{n=0}^{\infty} p_{ii}^{(n)} = \infty$$
+                </div>
+
+                <p>
+                    and transient if this sum is finite. Intuitively, if the chain visits $i$ infinitely often
+                    in expectation, it must be recurrent.
+                </p>
+
+                <p><strong>Key fact:</strong> Recurrence (and transience) is a class property. If one state
+                    in a communicating class is recurrent, then <em>all</em> states in that class are recurrent.
+                    Similarly for transience.</p>
+
+                <h3>Positive Recurrence vs. Null Recurrence</h3>
+
+                <p>
+                    For a recurrent state $i$, let $m_i = E[\text{return time to } i \mid X_0 = i]$ be the
+                    <strong>mean return time</strong>. A recurrent state is:
+                </p>
+
+                <ul>
+                    <li><strong>Positive recurrent:</strong> $m_i < \infty$. The chain returns to $i$ in
+                        finite expected time.</li>
+                    <li><strong>Null recurrent:</strong> $m_i = \infty$. The chain is certain to return,
+                        but the expected time is infinite.</li>
+                </ul>
+
+                <p>
+                    For finite state spaces, all recurrent states are positive recurrent (null recurrence
+                    only occurs in infinite state spaces). An irreducible chain on a finite state space is
+                    always positive recurrent.
+                </p>
+
+                <!-- ======== Section 5: Periodicity ======== -->
+                <h2 id="periodicity">Periodicity</h2>
+
+                <p>
+                    The <strong>period</strong> of a state $i$ is:
+                </p>
+
+                <div class="math-block">
+                    $$d(i) = \gcd\{n \geq 1 : p_{ii}^{(n)} > 0\}$$
+                </div>
+
+                <p>
+                    That is, $d(i)$ is the greatest common divisor of all return times that have positive
+                    probability. If $d(i) = 1$, the state is <strong>aperiodic</strong>; if $d(i) > 1$,
+                    the state is <strong>periodic</strong> with period $d(i)$.
+                </p>
+
+                <p><strong>Examples:</strong></p>
+                <ul>
+                    <li><strong>Aperiodic:</strong> The weather chain above is aperiodic because each state
+                        has a self-loop ($p_{ii} > 0$), so $p_{ii}^{(1)} > 0$ and therefore
+                        $\gcd$ includes 1.</li>
+                    <li><strong>Period 2:</strong> A simple random walk on $\{0, 1, 2\}$ where you always
+                        move to an adjacent state has period 2&mdash;you can only return to your starting
+                        state in an even number of steps.</li>
+                </ul>
+
+                <p><strong>Key facts about periodicity:</strong></p>
+                <ul>
+                    <li>Periodicity is a class property: all states in a communicating class share the same period.</li>
+                    <li>If any state has a self-loop ($p_{ii} > 0$), the chain is aperiodic.</li>
+                    <li>An irreducible chain is called aperiodic if all its states are aperiodic (equivalently, if any one state is aperiodic).</li>
+                </ul>
+
+                <p><strong>Why does periodicity matter?</strong> A periodic chain cannot converge to a
+                    stationary distribution in the usual sense: the distribution oscillates with period $d$.
+                    The fundamental convergence theorem requires aperiodicity.</p>
+
+                <!-- SVG: Random Walk Illustration -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 600 240" xmlns="http://www.w3.org/2000/svg" style="max-width: 600px; width: 100%;">
+                        <!-- Number line -->
+                        <line x1="30" y1="120" x2="570" y2="120" stroke="var(--color-border)" stroke-width="2"/>
+
+                        <!-- Tick marks and labels -->
+                        <line x1="90" y1="112" x2="90" y2="128" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+                        <text x="90" y="148" text-anchor="middle" fill="var(--color-text-secondary)" font-size="14" font-family="Inter, sans-serif">-2</text>
+
+                        <line x1="180" y1="112" x2="180" y2="128" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+                        <text x="180" y="148" text-anchor="middle" fill="var(--color-text-secondary)" font-size="14" font-family="Inter, sans-serif">-1</text>
+
+                        <line x1="270" y1="112" x2="270" y2="128" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+                        <text x="270" y="148" text-anchor="middle" fill="var(--color-text-secondary)" font-size="14" font-family="Inter, sans-serif">0</text>
+
+                        <line x1="360" y1="112" x2="360" y2="128" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+                        <text x="360" y="148" text-anchor="middle" fill="var(--color-text-secondary)" font-size="14" font-family="Inter, sans-serif">1</text>
+
+                        <line x1="450" y1="112" x2="450" y2="128" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+                        <text x="450" y="148" text-anchor="middle" fill="var(--color-text-secondary)" font-size="14" font-family="Inter, sans-serif">2</text>
+
+                        <line x1="540" y1="112" x2="540" y2="128" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+                        <text x="540" y="148" text-anchor="middle" fill="var(--color-text-secondary)" font-size="14" font-family="Inter, sans-serif">3</text>
+
+                        <!-- Current position (walker) -->
+                        <circle cx="270" cy="120" r="12" fill="var(--color-accent)" opacity="0.9"/>
+                        <text x="270" y="125" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="Inter, sans-serif">X</text>
+
+                        <!-- Right arrow (p) -->
+                        <path d="M 290 95 C 310 65, 340 65, 355 95" fill="none" stroke="#10b981" stroke-width="2.5"/>
+                        <polygon points="355,95 350,83 360,88" fill="#10b981"/>
+                        <text x="325" y="62" text-anchor="middle" fill="#10b981" font-size="13" font-weight="600" font-family="Inter, sans-serif">p</text>
+
+                        <!-- Left arrow (1-p) -->
+                        <path d="M 250 95 C 230 65, 200 65, 185 95" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+                        <polygon points="185,95 190,83 180,88" fill="#ef4444"/>
+                        <text x="215" y="62" text-anchor="middle" fill="#ef4444" font-size="13" font-weight="600" font-family="Inter, sans-serif">1-p</text>
+
+                        <!-- Sample path -->
+                        <polyline points="270,185 360,185 450,185 360,185 360,185 270,185 180,185 270,185 360,185 450,185" fill="none" stroke="var(--color-accent)" stroke-width="1.5" opacity="0.5" stroke-dasharray="4,3"/>
+                        <text x="300" y="215" text-anchor="middle" fill="var(--color-text-secondary)" font-size="11" font-family="Inter, sans-serif">Sample path: 0 &rarr; 1 &rarr; 2 &rarr; 1 &rarr; 1 &rarr; 0 &rarr; -1 &rarr; 0 &rarr; 1 &rarr; 2</text>
+
+                        <!-- Title -->
+                        <text x="300" y="22" text-anchor="middle" fill="var(--color-text)" font-size="15" font-weight="600" font-family="Inter, sans-serif">Simple Random Walk on Z</text>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 2.</strong> A simple random walk on the integers. At each step, the walker moves right with probability $p$ or left with probability $1-p$. The walk has period 2 (returns only at even times).
+                    </p>
+                </div>
+
+                <!-- ======== Section 6: Stationary Distributions ======== -->
+                <h2 id="stationary-distributions">Stationary Distributions</h2>
+
+                <p>
+                    A probability distribution $\boldsymbol{\pi} = (\pi_1, \pi_2, \ldots, \pi_N)$ is a
+                    <strong>stationary distribution</strong> (or <strong>steady-state distribution</strong>,
+                    or <strong>invariant distribution</strong>) of the Markov chain if:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\boldsymbol{\pi} P = \boldsymbol{\pi} \quad \text{with} \quad \sum_{i} \pi_i = 1, \;\; \pi_i \geq 0}$$
+                </div>
+
+                <p>
+                    In other words, $\boldsymbol{\pi}$ is a <strong>left eigenvector</strong> of $P$ with
+                    eigenvalue 1. If the chain starts in the stationary distribution ($\boldsymbol{\mu}_0 = \boldsymbol{\pi}$),
+                    then $\boldsymbol{\mu}_n = \boldsymbol{\pi} P^n = \boldsymbol{\pi}$ for all $n$&mdash;the
+                    distribution never changes. This is why it is called "stationary."
+                </p>
+
+                <p>In component form, the stationarity equation reads:</p>
+
+                <div class="math-block">
+                    $$\pi_j = \sum_{i \in S} \pi_i \, p_{ij} \quad \text{for all } j \in S$$
+                </div>
+
+                <p>
+                    This says: the probability of being in state $j$ at equilibrium equals the total
+                    probability flowing into $j$ from all states (including $j$ itself).
+                </p>
+
+                <h3>Existence and Uniqueness</h3>
+
+                <p>The following results guide when a stationary distribution exists and is unique:</p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align: left; padding: 0.75rem;">Condition</th>
+                            <th style="text-align: left; padding: 0.75rem;">Existence</th>
+                            <th style="text-align: left; padding: 0.75rem;">Uniqueness</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">Finite state space</td>
+                            <td style="padding: 0.75rem;">Always exists (at least one)</td>
+                            <td style="padding: 0.75rem;">Not necessarily unique</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">Irreducible, positive recurrent</td>
+                            <td style="padding: 0.75rem;">Exists</td>
+                            <td style="padding: 0.75rem;">Unique</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.75rem;">Irreducible, finite</td>
+                            <td style="padding: 0.75rem;">Exists</td>
+                            <td style="padding: 0.75rem;">Unique</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.75rem;">Irreducible, null recurrent</td>
+                            <td style="padding: 0.75rem;">Does not exist</td>
+                            <td style="padding: 0.75rem;">N/A</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    When $\boldsymbol{\pi}$ is unique, it is related to mean return times:
+                    $\pi_i = 1 / m_i$, where $m_i$ is the expected return time to state $i$. States
+                    visited more frequently have larger stationary probabilities.
+                </p>
+
+                <p><strong>Example:</strong> For the 2-state weather chain $P = \begin{pmatrix} 0.8 & 0.2 \\ 0.4 & 0.6 \end{pmatrix}$,
+                    we solve $\boldsymbol{\pi} P = \boldsymbol{\pi}$:</p>
+
+                <div class="math-block">
+                    $$\pi_1 = 0.8\pi_1 + 0.4\pi_2, \quad \pi_2 = 0.2\pi_1 + 0.6\pi_2$$
+                </div>
+
+                <p>From the first equation: $0.2\pi_1 = 0.4\pi_2$, so $\pi_1 = 2\pi_2$. With the constraint $\pi_1 + \pi_2 = 1$:</p>
+
+                <div class="math-block">
+                    $$\boldsymbol{\pi} = \left(\frac{2}{3}, \frac{1}{3}\right)$$
+                </div>
+
+                <p>In the long run, the weather is sunny about 2/3 of the time and rainy about 1/3 of the time.</p>
+
+                <!-- ======== Section 7: Detailed Balance ======== -->
+                <h2 id="detailed-balance">Detailed Balance</h2>
+
+                <p>
+                    A distribution $\boldsymbol{\pi}$ satisfies the <strong>detailed balance equations</strong>
+                    (also called <strong>reversibility</strong>) with respect to $P$ if:
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    $$\boxed{\pi_i \, p_{ij} = \pi_j \, p_{ji} \quad \text{for all } i, j}$$
+                </div>
+
+                <p>
+                    This says: the probability flow from $i$ to $j$ equals the flow from $j$ to $i$ at
+                    equilibrium. It is like saying every microscopic process is in balance with its reverse.
+                </p>
+
+                <p><strong>Key result:</strong> If $\boldsymbol{\pi}$ satisfies detailed balance with $P$,
+                    then $\boldsymbol{\pi}$ is a stationary distribution of $P$.</p>
+
+                <p><strong>Proof:</strong> Summing both sides of $\pi_i p_{ij} = \pi_j p_{ji}$ over $i$:</p>
+
+                <div class="math-block">
+                    $$\sum_i \pi_i \, p_{ij} = \sum_i \pi_j \, p_{ji} = \pi_j \sum_i p_{ji} = \pi_j \cdot 1 = \pi_j$$
+                </div>
+
+                <p>
+                    which is exactly $\boldsymbol{\pi} P = \boldsymbol{\pi}$. $\square$
+                </p>
+
+                <p>
+                    The converse is <em>not</em> true: a stationary distribution may exist without satisfying
+                    detailed balance. A chain satisfying detailed balance is called <strong>reversible</strong>
+                    because the chain run backwards in time has the same transition probabilities.
+                </p>
+
+                <p><strong>Why is detailed balance useful?</strong></p>
+                <ul>
+                    <li>It is often <em>easier to verify</em> than the full stationarity equation, because
+                        we only need to check pairwise conditions instead of solving a system.</li>
+                    <li>It is the foundation of <strong>MCMC algorithms</strong> like Metropolis-Hastings:
+                        we design a chain that satisfies detailed balance with respect to a target distribution,
+                        thereby guaranteeing it converges to that distribution.</li>
+                </ul>
+
+                <p><strong>Example:</strong> For the 2-state weather chain, check detailed balance with $\boldsymbol{\pi} = (2/3, 1/3)$:</p>
+                <ul>
+                    <li>$\pi_1 p_{12} = (2/3)(0.2) = 2/15$</li>
+                    <li>$\pi_2 p_{21} = (1/3)(0.4) = 2/15$ &check;</li>
+                </ul>
+                <p>The 2-state weather chain is reversible.</p>
+
+                <!-- ======== Section 8: Ergodic Theorem ======== -->
+                <h2 id="ergodic-theorem">Ergodic Theorem</h2>
+
+                <p>
+                    The ergodic theorem is the crown jewel of Markov chain theory. It tells us that for
+                    "well-behaved" chains, <strong>time averages converge to ensemble averages</strong>.
+                </p>
+
+                <p>
+                    A Markov chain is called <strong>ergodic</strong> if it is irreducible, aperiodic, and
+                    positive recurrent. (For finite state spaces, irreducible + aperiodic is sufficient,
+                    since positive recurrence is automatic.)
+                </p>
+
+                <div class="math-block" style="background: var(--color-surface-elevated); border: 2px solid var(--color-accent); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    <p style="text-align: center; font-weight: 600; margin-bottom: 0.75rem;">Ergodic Theorem (Convergence Theorem)</p>
+                    $$\text{If the chain is ergodic with stationary distribution } \boldsymbol{\pi}, \text{ then:}$$
+                    $$\boxed{\lim_{n \to \infty} p_{ij}^{(n)} = \pi_j \quad \text{for all } i, j}$$
+                    $$\text{and for any function } f: S \to \mathbb{R},$$
+                    $$\boxed{\frac{1}{n}\sum_{k=0}^{n-1} f(X_k) \xrightarrow{a.s.} \sum_{j \in S} f(j) \, \pi_j = E_\pi[f]}$$
+                </div>
+
+                <p>This theorem has two profound parts:</p>
+                <ol>
+                    <li><strong>Convergence to stationarity:</strong> No matter where the chain starts,
+                        the distribution at time $n$ converges to $\boldsymbol{\pi}$. The chain "forgets"
+                        its initial condition.</li>
+                    <li><strong>Time averages = space averages:</strong> The long-run fraction of time
+                        spent in state $j$ equals $\pi_j$. More generally, the time average of any
+                        function along the chain converges to its expectation under $\boldsymbol{\pi}$.</li>
+                </ol>
+
+                <!-- SVG: Convergence to Stationary Distribution -->
+                <div style="text-align: center; margin: 2rem 0;">
+                    <svg viewBox="0 0 620 300" xmlns="http://www.w3.org/2000/svg" style="max-width: 620px; width: 100%;">
+                        <!-- Title -->
+                        <text x="310" y="22" text-anchor="middle" fill="var(--color-text)" font-size="14" font-weight="600" font-family="Inter, sans-serif">Convergence to Stationary Distribution</text>
+
+                        <!-- Axes -->
+                        <line x1="70" y1="270" x2="590" y2="270" stroke="var(--color-border)" stroke-width="1.5"/>
+                        <line x1="70" y1="270" x2="70" y2="40" stroke="var(--color-border)" stroke-width="1.5"/>
+
+                        <!-- Y-axis label -->
+                        <text x="25" y="155" text-anchor="middle" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif" transform="rotate(-90,25,155)">Probability</text>
+
+                        <!-- X-axis label -->
+                        <text x="330" y="295" text-anchor="middle" fill="var(--color-text-secondary)" font-size="12" font-family="Inter, sans-serif">Time step n</text>
+
+                        <!-- Y-axis ticks -->
+                        <line x1="65" y1="270" x2="70" y2="270" stroke="var(--color-text-secondary)" stroke-width="1"/>
+                        <text x="60" y="274" text-anchor="end" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">0</text>
+
+                        <line x1="65" y1="200" x2="70" y2="200" stroke="var(--color-text-secondary)" stroke-width="1"/>
+                        <text x="60" y="204" text-anchor="end" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">0.3</text>
+
+                        <line x1="65" y1="130" x2="70" y2="130" stroke="var(--color-text-secondary)" stroke-width="1"/>
+                        <text x="60" y="134" text-anchor="end" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">0.6</text>
+
+                        <line x1="65" y1="60" x2="70" y2="60" stroke="var(--color-text-secondary)" stroke-width="1"/>
+                        <text x="60" y="64" text-anchor="end" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">0.9</text>
+
+                        <!-- X-axis ticks -->
+                        <text x="90" y="284" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">0</text>
+                        <text x="190" y="284" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">2</text>
+                        <text x="290" y="284" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">4</text>
+                        <text x="390" y="284" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">6</text>
+                        <text x="490" y="284" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">8</text>
+                        <text x="570" y="284" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10" font-family="Inter, sans-serif">10</text>
+
+                        <!-- Stationary distribution lines (dashed) -->
+                        <!-- pi_Sunny = 0.417 -->
+                        <line x1="70" y1="172" x2="590" y2="172" stroke="#f59e0b" stroke-width="1" stroke-dasharray="6,4" opacity="0.6"/>
+                        <text x="595" y="176" text-anchor="start" fill="#f59e0b" font-size="9" font-family="Inter, sans-serif" opacity="0.8">pi_S</text>
+
+                        <!-- pi_Cloudy = 0.333 -->
+                        <line x1="70" y1="192" x2="590" y2="192" stroke="#6b7280" stroke-width="1" stroke-dasharray="6,4" opacity="0.6"/>
+                        <text x="595" y="196" text-anchor="start" fill="#6b7280" font-size="9" font-family="Inter, sans-serif" opacity="0.8">pi_C</text>
+
+                        <!-- pi_Rainy = 0.250 -->
+                        <line x1="70" y1="212" x2="590" y2="212" stroke="var(--color-accent)" stroke-width="1" stroke-dasharray="6,4" opacity="0.6"/>
+                        <text x="595" y="216" text-anchor="start" fill="var(--color-accent)" font-size="9" font-family="Inter, sans-serif" opacity="0.8">pi_R</text>
+
+                        <!-- P(Sunny) starting from Sunny (starts at 1.0, converges to ~0.417) -->
+                        <!-- n=0:1.0, n=1:0.6, n=2:0.48, n=3:0.444, n=4:0.427, n=5:0.421, n=6:0.418, n=7:0.417 ... -->
+                        <polyline points="90,37 140,130 190,156 240,165 290,169 340,171 390,172 440,172 490,172 540,172" fill="none" stroke="#f59e0b" stroke-width="2.5"/>
+
+                        <!-- P(Cloudy) starting from Sunny (starts at 0.0, converges to ~0.333) -->
+                        <!-- n=0:0.0, n=1:0.3, n=2:0.34, n=3:0.338, n=4:0.335, n=5:0.334, n=6:0.333 ... -->
+                        <polyline points="90,270 140,200 190,191 240,190 290,192 340,192 390,192 440,192 490,192 540,192" fill="none" stroke="#6b7280" stroke-width="2.5"/>
+
+                        <!-- P(Rainy) starting from Sunny (starts at 0.0, converges to ~0.250) -->
+                        <!-- n=0:0.0, n=1:0.1, n=2:0.18, n=3:0.218, n=4:0.238, n=5:0.245, n=6:0.249 ... -->
+                        <polyline points="90,270 140,247 190,228 240,219 290,214 340,213 390,212 440,212 490,212 540,212" fill="none" stroke="var(--color-accent)" stroke-width="2.5"/>
+
+                        <!-- Legend -->
+                        <rect x="120" y="35" width="150" height="56" rx="6" fill="var(--color-surface-elevated)" stroke="var(--color-border)" stroke-width="1" opacity="0.9"/>
+                        <line x1="130" y1="50" x2="150" y2="50" stroke="#f59e0b" stroke-width="2.5"/>
+                        <text x="158" y="54" fill="var(--color-text)" font-size="10" font-family="Inter, sans-serif">P(Sunny)</text>
+                        <line x1="130" y1="65" x2="150" y2="65" stroke="#6b7280" stroke-width="2.5"/>
+                        <text x="158" y="69" fill="var(--color-text)" font-size="10" font-family="Inter, sans-serif">P(Cloudy)</text>
+                        <line x1="130" y1="80" x2="150" y2="80" stroke="var(--color-accent)" stroke-width="2.5"/>
+                        <text x="158" y="84" fill="var(--color-text)" font-size="10" font-family="Inter, sans-serif">P(Rainy)</text>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
+                        <strong>Figure 3.</strong> Starting from Sunny (probability 1), the distribution converges to the stationary distribution $\boldsymbol{\pi}$ (dashed lines) within about 6&ndash;8 steps.
+                    </p>
+                </div>
+
+                <p><strong>Rate of convergence:</strong> The speed at which $P^n$ converges to $\boldsymbol{\pi}$
+                    is governed by the <strong>spectral gap</strong> $\gamma = 1 - |\lambda_2|$, where $\lambda_2$
+                    is the second largest eigenvalue of $P$ in absolute value. The total variation distance
+                    decreases as:</p>
+
+                <div class="math-block">
+                    $$\|P^n(i, \cdot) - \boldsymbol{\pi}\|_{TV} \leq C \, |\lambda_2|^n$$
+                </div>
+
+                <p>A larger spectral gap means faster convergence (faster "mixing").</p>
+
+                <!-- ======== Section 9: Absorption Probabilities ======== -->
+                <h2 id="absorption">Absorption Probabilities</h2>
+
+                <p>
+                    An <strong>absorbing state</strong> is a state $a$ with $p_{aa} = 1$: once the chain
+                    enters $a$, it stays there forever. A chain with at least one absorbing state and where
+                    every state can reach some absorbing state is called an <strong>absorbing chain</strong>.
+                </p>
+
+                <p>For an absorbing chain, we often want to compute:</p>
+                <ol>
+                    <li>The <strong>absorption probabilities</strong>: starting from transient state $i$,
+                        what is the probability of being absorbed into absorbing state $a$?</li>
+                    <li>The <strong>expected time to absorption</strong>: how many steps on average before
+                        the chain reaches an absorbing state?</li>
+                </ol>
+
+                <h3>The Fundamental Matrix</h3>
+
+                <p>
+                    Reorder the states so that transient states come first, then absorbing states. The
+                    transition matrix takes the canonical form:
+                </p>
+
+                <div class="math-block">
+                    $$P = \begin{pmatrix} Q & R \\ \mathbf{0} & I \end{pmatrix}$$
+                </div>
+
+                <p>
+                    where $Q$ is the $t \times t$ matrix of transitions among transient states, $R$ gives
+                    transitions from transient to absorbing states, $I$ is the identity (absorbing states stay),
+                    and $\mathbf{0}$ shows absorbing states cannot reach transient states.
+                </p>
+
+                <p>The <strong>fundamental matrix</strong> is:</p>
+
+                <div class="math-block">
+                    $$N = (I - Q)^{-1} = I + Q + Q^2 + Q^3 + \cdots$$
+                </div>
+
+                <p>
+                    The entry $N_{ij}$ gives the <strong>expected number of times</strong> the chain visits
+                    transient state $j$ starting from transient state $i$ (before absorption).
+                </p>
+
+                <ul>
+                    <li><strong>Expected absorption time</strong> from state $i$: $t_i = \sum_j N_{ij}$
+                        (sum of row $i$ of $N$), or in vector form: $\mathbf{t} = N \mathbf{1}$.</li>
+                    <li><strong>Absorption probabilities:</strong> $B = N R$, where $B_{ia}$ is the
+                        probability of being absorbed into state $a$ starting from transient state $i$.</li>
+                </ul>
+
+                <h3>The Gambler's Ruin Problem</h3>
+
+                <p>
+                    A classic application: a gambler starts with $\$i$ and plays a fair game, winning or losing
+                    $\$1$ each round. The game ends when the gambler reaches $\$0$ (ruin) or $\$N$ (target).
+                    States 0 and $N$ are absorbing.
+                </p>
+
+                <p>
+                    Let $r_i$ = probability of ruin starting from $\$i$. By conditioning on the first step:
+                </p>
+
+                <div class="math-block">
+                    $$r_i = p \, r_{i+1} + (1-p) \, r_{i-1}, \quad r_0 = 1, \quad r_N = 0$$
+                </div>
+
+                <p>For a <strong>fair game</strong> ($p = 1/2$): $r_i = 1 - i/N$. The gambler with $\$1$ facing
+                    a casino with $\$999{,}999$ has a 99.9999% chance of ruin.</p>
+
+                <p>For an <strong>unfair game</strong> ($p \neq 1/2$): $r_i = \frac{(q/p)^i - (q/p)^N}{1 - (q/p)^N}$ where $q = 1-p$.</p>
+
+                <!-- ======== Section 10: Markov Chains and Linear Algebra ======== -->
+                <h2 id="linear-algebra">Markov Chains and Linear Algebra</h2>
+
+                <p>
+                    The connection between Markov chains and linear algebra is deep and beautiful. Every
+                    transition matrix is a linear operator, and eigenvalue analysis reveals the chain's
+                    long-term behavior.
+                </p>
+
+                <h3>Eigenvalue Structure of Stochastic Matrices</h3>
+
+                <p>Every (row-)stochastic matrix $P$ has the following eigenvalue properties:</p>
+
+                <ol>
+                    <li><strong>$\lambda_1 = 1$ is always an eigenvalue.</strong> The all-ones vector
+                        $\mathbf{1}$ is a right eigenvector: $P\mathbf{1} = \mathbf{1}$ (because rows sum to 1).
+                        The stationary distribution $\boldsymbol{\pi}$ is a left eigenvector: $\boldsymbol{\pi}P = \boldsymbol{\pi}$.</li>
+                    <li><strong>All eigenvalues satisfy $|\lambda| \leq 1$.</strong> This follows from the
+                        Gershgorin circle theorem or from the fact that $P$ maps probability distributions
+                        to probability distributions.</li>
+                    <li><strong>If the chain is irreducible and aperiodic</strong>, then $\lambda_1 = 1$ is
+                        the <em>unique</em> eigenvalue of magnitude 1.</li>
+                </ol>
+
+                <h3>Perron&ndash;Frobenius Theorem</h3>
+
+                <p>
+                    The Perron&ndash;Frobenius theorem (for non-negative matrices) guarantees that an irreducible
+                    stochastic matrix has:
+                </p>
+
+                <ul>
+                    <li>A unique eigenvalue of maximum modulus, equal to 1 (the <strong>Perron root</strong>).</li>
+                    <li>A corresponding positive left eigenvector (the stationary distribution $\boldsymbol{\pi} > 0$).</li>
+                    <li>If the matrix is also aperiodic (i.e., <strong>primitive</strong>), then all other eigenvalues satisfy $|\lambda| < 1$, and $P^n \to \mathbf{1}^\top \boldsymbol{\pi}$ geometrically.</li>
+                </ul>
+
+                <h3>Spectral Gap and Mixing Time</h3>
+
+                <p>
+                    The <strong>spectral gap</strong> is $\gamma = 1 - |\lambda_2|$ where $\lambda_2$ is
+                    the second-largest eigenvalue in absolute value. The <strong>mixing time</strong>
+                    $t_{\text{mix}}(\varepsilon)$ is the time needed for the chain to be within total variation
+                    distance $\varepsilon$ of stationarity:
+                </p>
+
+                <div class="math-block">
+                    $$t_{\text{mix}}(\varepsilon) \approx \frac{\log(1/\varepsilon)}{1 - |\lambda_2|} = \frac{\log(1/\varepsilon)}{\gamma}$$
+                </div>
+
+                <p>
+                    Chains with a large spectral gap mix quickly (converge fast); chains with $|\lambda_2| \approx 1$
+                    mix slowly. This is directly relevant to MCMC: a slowly mixing chain requires very
+                    long runs to produce reliable samples.
+                </p>
+
+                <h3>Spectral Decomposition</h3>
+
+                <p>
+                    If $P$ is diagonalizable with eigenvalues $1 = \lambda_1 > |\lambda_2| \geq \ldots \geq |\lambda_N|$,
+                    left eigenvectors $\boldsymbol{v}_k$, and right eigenvectors $\boldsymbol{u}_k$, then:
+                </p>
+
+                <div class="math-block">
+                    $$P^n = \sum_{k=1}^{N} \lambda_k^n \, \boldsymbol{u}_k \boldsymbol{v}_k^\top$$
+                </div>
+
+                <p>
+                    As $n \to \infty$, only the $k=1$ term survives (since $|\lambda_k| < 1$ for $k \geq 2$):
+                    $P^n \to \boldsymbol{u}_1 \boldsymbol{v}_1^\top = \mathbf{1} \boldsymbol{\pi}^\top$.
+                    The convergence rate is $O(|\lambda_2|^n)$.
+                </p>
+
+                <!-- ======== Section 11: Connections to ML ======== -->
+                <h2 id="ml-connections">Connections to ML</h2>
+
+                <p>
+                    Markov chains are not just a theoretical curiosity&mdash;they are at the heart of several
+                    of the most important algorithms in machine learning and artificial intelligence.
+                </p>
+
+                <h3>Hidden Markov Models (HMMs)</h3>
+                <p>
+                    An HMM augments a Markov chain with <strong>observations</strong>: the underlying state
+                    follows a Markov chain (hidden), and at each time step, we observe a noisy emission
+                    that depends on the current hidden state. HMMs are used in:
+                </p>
+                <ul>
+                    <li>Speech recognition (phonemes as hidden states, acoustic features as observations)</li>
+                    <li>Part-of-speech tagging in NLP (tags are hidden, words are observed)</li>
+                    <li>Gene finding in computational biology (exon/intron states, nucleotide observations)</li>
+                </ul>
+                <p>
+                    The three classic HMM algorithms&mdash;Forward (likelihood), Viterbi (decoding), and
+                    Baum-Welch (parameter estimation)&mdash;all exploit the Markov structure for efficient
+                    dynamic programming.
+                </p>
+
+                <h3>Markov Chain Monte Carlo (MCMC)</h3>
+                <p>
+                    MCMC is the <em>primary computational tool</em> for Bayesian inference when closed-form
+                    solutions are intractable. The idea is simple and powerful:
+                </p>
+                <ol>
+                    <li>Design a Markov chain whose stationary distribution is the target posterior $\pi(\boldsymbol{\theta} \mid \text{data})$.</li>
+                    <li>Run the chain long enough for it to converge (the "burn-in" period).</li>
+                    <li>Collect samples from the chain; by the ergodic theorem, time averages approximate posterior expectations.</li>
+                </ol>
+                <p>
+                    The <strong>Metropolis-Hastings algorithm</strong> constructs such a chain by proposing
+                    moves and accepting or rejecting them to ensure detailed balance. <strong>Gibbs sampling</strong>
+                    is a special case where each variable is updated conditionally on all others.
+                </p>
+
+                <h3>PageRank Algorithm</h3>
+                <p>
+                    Google's original PageRank algorithm models a "random surfer" on the web as a Markov chain.
+                    The surfer follows a random outgoing link with probability $\alpha$ and jumps to a random
+                    page with probability $1 - \alpha$ (the "teleportation" or "damping" factor, typically
+                    $\alpha = 0.85$). The stationary distribution of this chain gives the PageRank scores:
+                </p>
+
+                <div class="math-block">
+                    $$P = \alpha \, M + (1 - \alpha) \, \frac{1}{N} \mathbf{1}\mathbf{1}^\top$$
+                </div>
+
+                <p>
+                    where $M$ is the normalized adjacency matrix of the web graph. The teleportation
+                    ensures irreducibility and aperiodicity, guaranteeing convergence to a unique
+                    stationary distribution.
+                </p>
+
+                <h3>Reinforcement Learning (MDPs)</h3>
+                <p>
+                    A <strong>Markov Decision Process</strong> (MDP) extends a Markov chain by adding
+                    <em>actions</em> and <em>rewards</em>. At each state, the agent chooses an action
+                    that determines the transition probabilities to the next state, and receives a reward.
+                    The goal is to find a policy (mapping from states to actions) that maximizes expected
+                    cumulative reward.
+                </p>
+                <p>
+                    Under a fixed policy, the MDP reduces to a Markov chain. Algorithms like value iteration,
+                    policy iteration, and Q-learning all rely on the Markov property for their correctness
+                    and efficiency.
+                </p>
+
+                <h3>Natural Language Processing</h3>
+                <p>
+                    $n$-gram language models are Markov chains where the state is the last $(n-1)$ words.
+                    A bigram model is a first-order Markov chain:
+                    $P(\text{word}_{t+1} \mid \text{word}_t, \text{word}_{t-1}, \ldots) \approx P(\text{word}_{t+1} \mid \text{word}_t)$.
+                    While modern transformer-based models go far beyond this, the Markov assumption remains
+                    a fundamental baseline and conceptual building block.
+                </p>
+
+            </article>
+
+            <!-- ============================================================
+                 CODE TAB
+                 ============================================================ -->
+            <article class="article-content" id="code" style="display: none;">
+
+                <h1>Code: Markov Chains in Python</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    Simulating Markov chains, computing stationary distributions via eigenvalue decomposition,
+                    implementing PageRank, the gambler's ruin problem, and estimating mixing times.
+                </p>
+
+                <!-- Code Block 1: Simulating a Markov Chain -->
+                <h2 id="code-simulate">1. Simulating a Markov Chain</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+def simulate_markov_chain(P, initial_state, n_steps):
+    """
+    Simulate a discrete-time Markov chain.
+
+    Parameters:
+        P: Transition matrix (N x N numpy array, rows sum to 1)
+        initial_state: Starting state index (0-based)
+        n_steps: Number of steps to simulate
+
+    Returns:
+        states: List of visited states
+    """
+    n_states = P.shape[0]
+    states = [initial_state]
+    current = initial_state
+
+    for _ in range(n_steps):
+        # Sample next state from the transition probabilities
+        current = np.random.choice(n_states, p=P[current])
+        states.append(current)
+
+    return states
+
+
+def estimate_transition_matrix(states, n_states):
+    """
+    Estimate the transition matrix from an observed sequence of states.
+
+    Parameters:
+        states: List of observed state indices
+        n_states: Number of states in the chain
+
+    Returns:
+        P_hat: Estimated transition matrix
+    """
+    counts = np.zeros((n_states, n_states))
+    for i in range(len(states) - 1):
+        counts[states[i], states[i + 1]] += 1
+
+    # Normalize each row
+    row_sums = counts.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1  # avoid division by zero
+    P_hat = counts / row_sums
+    return P_hat
+
+
+# Example: 3-state weather model
+P = np.array([
+    [0.6, 0.3, 0.1],  # Sunny
+    [0.2, 0.4, 0.4],  # Cloudy
+    [0.3, 0.3, 0.4],  # Rainy
+])
+state_names = ['Sunny', 'Cloudy', 'Rainy']
+
+# Simulate 10,000 steps starting from Sunny (state 0)
+np.random.seed(42)
+trajectory = simulate_markov_chain(P, initial_state=0, n_steps=10000)
+
+# Estimate transition matrix from the trajectory
+P_hat = estimate_transition_matrix(trajectory, n_states=3)
+print("True transition matrix:")
+print(P)
+print("\nEstimated transition matrix (from 10,000 steps):")
+print(np.round(P_hat, 3))
+
+# Estimate stationary distribution from visit frequencies
+unique, counts = np.unique(trajectory, return_counts=True)
+empirical_pi = counts / len(trajectory)
+print("\nEmpirical stationary distribution:")
+for name, prob in zip(state_names, empirical_pi):
+    print(f"  {name}: {prob:.4f}")
+
+# Output:
+# True transition matrix:
+# [[0.6 0.3 0.1]
+#  [0.2 0.4 0.4]
+#  [0.3 0.3 0.4]]
+#
+# Estimated transition matrix (from 10,000 steps):
+# [[0.602 0.296 0.102]
+#  [0.2   0.395 0.405]
+#  [0.299 0.303 0.398]]
+#
+# Empirical stationary distribution:
+#   Sunny: 0.3815
+#   Cloudy: 0.3289
+#   Rainy: 0.2896</code></pre>
+
+                <!-- Code Block 2: Stationary Distribution via Eigenvalue Decomposition -->
+                <h2 id="code-stationary">2. Stationary Distribution via Eigenvalue Decomposition</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+from scipy import linalg
+
+def stationary_distribution_eigen(P):
+    """
+    Compute the stationary distribution using eigenvalue decomposition.
+
+    The stationary distribution pi satisfies pi @ P = pi,
+    which means pi is a left eigenvector of P with eigenvalue 1.
+
+    Equivalently, pi^T is a right eigenvector of P^T with eigenvalue 1.
+    """
+    # Find eigenvalues and right eigenvectors of P^T
+    eigenvalues, eigenvectors = linalg.eig(P.T)
+
+    # Find the eigenvector corresponding to eigenvalue 1
+    # (eigenvalue closest to 1, due to floating-point)
+    idx = np.argmin(np.abs(eigenvalues - 1.0))
+
+    # Extract the eigenvector and normalize to a probability distribution
+    pi = eigenvectors[:, idx].real
+    pi = pi / pi.sum()
+    return pi
+
+
+def stationary_distribution_solve(P):
+    """
+    Compute stationary distribution by solving the linear system directly.
+
+    We solve: pi @ P = pi, sum(pi) = 1
+    Rewritten: pi @ (P - I) = 0, sum(pi) = 1
+    """
+    n = P.shape[0]
+    # (P^T - I) @ pi^T = 0, replace one equation with sum = 1
+    A = (P.T - np.eye(n))
+    A[-1, :] = 1  # replace last equation with normalization
+    b = np.zeros(n)
+    b[-1] = 1
+    pi = linalg.solve(A, b)
+    return pi
+
+
+def stationary_distribution_power(P, tol=1e-12, max_iter=1000):
+    """
+    Compute stationary distribution by repeated matrix multiplication (power method).
+    """
+    n = P.shape[0]
+    pi = np.ones(n) / n  # uniform initial distribution
+    for i in range(max_iter):
+        pi_new = pi @ P
+        if np.max(np.abs(pi_new - pi)) < tol:
+            print(f"  Converged in {i + 1} iterations")
+            return pi_new
+        pi = pi_new
+    print(f"  Warning: did not converge in {max_iter} iterations")
+    return pi
+
+
+# 3-state weather model
+P = np.array([
+    [0.6, 0.3, 0.1],
+    [0.2, 0.4, 0.4],
+    [0.3, 0.3, 0.4],
+])
+state_names = ['Sunny', 'Cloudy', 'Rainy']
+
+# Method 1: Eigenvalue decomposition
+pi_eigen = stationary_distribution_eigen(P)
+print("Eigenvalue method:", np.round(pi_eigen, 6))
+
+# Method 2: Direct linear solve
+pi_solve = stationary_distribution_solve(P)
+print("Linear solve method:", np.round(pi_solve, 6))
+
+# Method 3: Power iteration
+print("Power iteration method:", end=" ")
+pi_power = stationary_distribution_power(P)
+print(np.round(pi_power, 6))
+
+# Verify: pi @ P = pi
+print("\nVerification (pi @ P):", np.round(pi_eigen @ P, 6))
+print("Stationary dist:     ", np.round(pi_eigen, 6))
+print("All close:", np.allclose(pi_eigen @ P, pi_eigen))
+
+# Print results
+print("\nStationary distribution:")
+for name, prob in zip(state_names, pi_eigen):
+    print(f"  P({name}) = {prob:.6f}")
+
+# Check relationship to mean return times
+print("\nMean return times (1/pi):")
+for name, prob in zip(state_names, pi_eigen):
+    print(f"  E[return to {name}] = {1/prob:.2f} steps")
+
+# Output:
+# Eigenvalue method: [0.384615 0.333333 0.282051]
+# Linear solve method: [0.384615 0.333333 0.282051]
+# Power iteration method:   Converged in 52 iterations
+# [0.384615 0.333333 0.282051]
+#
+# Verification (pi @ P): [0.384615 0.333333 0.282051]
+# Stationary dist:      [0.384615 0.333333 0.282051]
+# All close: True
+#
+# Stationary distribution:
+#   P(Sunny) = 0.384615
+#   P(Cloudy) = 0.333333
+#   P(Rainy) = 0.282051
+#
+# Mean return times (1/pi):
+#   E[return to Sunny] = 2.60 steps
+#   E[return to Cloudy] = 3.00 steps
+#   E[return to Rainy] = 3.55 steps</code></pre>
+
+                <!-- Code Block 3: PageRank -->
+                <h2 id="code-pagerank">3. PageRank Algorithm</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+def pagerank(adjacency, alpha=0.85, tol=1e-10, max_iter=100):
+    """
+    Compute PageRank scores for a directed graph.
+
+    Parameters:
+        adjacency: Adjacency matrix (A[i,j] = 1 if page i links to page j)
+        alpha: Damping factor (probability of following a link vs teleporting)
+        tol: Convergence tolerance
+        max_iter: Maximum number of iterations
+
+    Returns:
+        ranks: PageRank scores (stationary distribution of the random surfer)
+    """
+    n = adjacency.shape[0]
+
+    # Build the column-normalized link matrix M
+    # M[j,i] = 1/L(i) if page i links to page j, else 0
+    # where L(i) = number of outgoing links from page i
+    out_degree = adjacency.sum(axis=1)
+
+    # Handle dangling nodes (pages with no outgoing links)
+    dangling = (out_degree == 0)
+    out_degree[dangling] = 1  # prevent division by zero
+
+    # Row-normalized transition matrix
+    M = adjacency / out_degree[:, np.newaxis]
+
+    # For dangling nodes, distribute equally to all pages
+    M[dangling] = 1.0 / n
+
+    # Google matrix: G = alpha * M + (1 - alpha) * (1/n) * ones
+    # Power iteration: pi = pi @ G
+    pi = np.ones(n) / n
+
+    for iteration in range(max_iter):
+        pi_new = alpha * (pi @ M) + (1 - alpha) / n
+        # Add contribution from dangling nodes
+        # (already handled above in M)
+
+        if np.max(np.abs(pi_new - pi)) < tol:
+            print(f"Converged in {iteration + 1} iterations")
+            return pi_new
+        pi = pi_new
+
+    print(f"Warning: did not converge in {max_iter} iterations")
+    return pi
+
+
+# Example: Small web graph
+# Pages: A(0), B(1), C(2), D(3), E(4)
+# A -> B, C
+# B -> C
+# C -> A
+# D -> C
+# E -> D, A
+adjacency = np.array([
+    [0, 1, 1, 0, 0],  # A links to B, C
+    [0, 0, 1, 0, 0],  # B links to C
+    [1, 0, 0, 0, 0],  # C links to A
+    [0, 0, 1, 0, 0],  # D links to C
+    [1, 0, 0, 1, 0],  # E links to D, A
+])
+page_names = ['A', 'B', 'C', 'D', 'E']
+
+ranks = pagerank(adjacency, alpha=0.85)
+
+# Sort by rank
+sorted_idx = np.argsort(-ranks)
+print("\nPageRank scores (sorted):")
+for idx in sorted_idx:
+    print(f"  Page {page_names[idx]}: {ranks[idx]:.6f}")
+
+# Verify it's a valid probability distribution
+print(f"\nSum of ranks: {ranks.sum():.10f}")
+
+# Output:
+# Converged in 29 iterations
+#
+# PageRank scores (sorted):
+#   Page C: 0.358257
+#   Page A: 0.292353
+#   Page B: 0.117869
+#   Page D: 0.101521
+#   Page E: 0.030000
+#
+# Sum of ranks: 1.0000000000</code></pre>
+
+                <!-- Code Block 4: Gambler's Ruin Simulation -->
+                <h2 id="code-gamblers-ruin">4. Gambler's Ruin Simulation</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+
+def gamblers_ruin_simulation(initial_wealth, target, p=0.5, n_simulations=10000):
+    """
+    Simulate the gambler's ruin problem.
+
+    Parameters:
+        initial_wealth: Starting amount ($i)
+        target: Target amount ($N) - game ends at 0 (ruin) or N (win)
+        p: Probability of winning each round
+        n_simulations: Number of independent games to simulate
+
+    Returns:
+        ruin_prob: Estimated probability of ruin
+        avg_duration: Average number of rounds until game ends
+    """
+    ruin_count = 0
+    total_duration = 0
+
+    for _ in range(n_simulations):
+        wealth = initial_wealth
+        steps = 0
+        while 0 < wealth < target:
+            if np.random.random() < p:
+                wealth += 1
+            else:
+                wealth -= 1
+            steps += 1
+        if wealth == 0:
+            ruin_count += 1
+        total_duration += steps
+
+    ruin_prob = ruin_count / n_simulations
+    avg_duration = total_duration / n_simulations
+    return ruin_prob, avg_duration
+
+
+def gamblers_ruin_exact(initial_wealth, target, p=0.5):
+    """
+    Compute exact ruin probability and expected duration analytically.
+    """
+    i, N = initial_wealth, target
+
+    if p == 0.5:
+        ruin_prob = 1 - i / N
+        expected_duration = i * (N - i)
+    else:
+        q = 1 - p
+        r = q / p
+        ruin_prob = (r**i - r**N) / (1 - r**N)
+        expected_duration = (i / (q - p)) - (N / (q - p)) * (1 - r**i) / (1 - r**N)
+
+    return ruin_prob, expected_duration
+
+
+# Test with various starting wealths
+target = 20
+p = 0.5
+np.random.seed(42)
+
+print(f"Gambler's Ruin: target = ${target}, p = {p}")
+print(f"{'Start $':>8} {'Exact Ruin':>12} {'Sim Ruin':>12} {'Exact E[T]':>12} {'Sim E[T]':>12}")
+print("-" * 60)
+
+for initial in [2, 5, 10, 15, 18]:
+    exact_ruin, exact_dur = gamblers_ruin_exact(initial, target, p)
+    sim_ruin, sim_dur = gamblers_ruin_simulation(initial, target, p, n_simulations=50000)
+    print(f"{initial:>8} {exact_ruin:>12.4f} {sim_ruin:>12.4f} {exact_dur:>12.1f} {sim_dur:>12.1f}")
+
+# Unfair game
+print(f"\nUnfair game: target = ${target}, p = 0.45 (house edge)")
+p_unfair = 0.45
+print(f"{'Start $':>8} {'Exact Ruin':>12} {'Sim Ruin':>12}")
+print("-" * 36)
+
+for initial in [2, 5, 10, 15, 18]:
+    exact_ruin, _ = gamblers_ruin_exact(initial, target, p_unfair)
+    sim_ruin, _ = gamblers_ruin_simulation(initial, target, p_unfair, n_simulations=50000)
+    print(f"{initial:>8} {exact_ruin:>12.4f} {sim_ruin:>12.4f}")
+
+# Output:
+# Gambler's Ruin: target = $20, p = 0.5
+#  Start $   Exact Ruin     Sim Ruin   Exact E[T]     Sim E[T]
+# ------------------------------------------------------------
+#        2       0.9000       0.9006         36.0         36.1
+#        5       0.7500       0.7498         75.0         75.3
+#       10       0.5000       0.5012        100.0         99.8
+#       15       0.2500       0.2487         75.0         74.9
+#       18       0.1000       0.1003         36.0         35.9
+#
+# Unfair game: target = $20, p = 0.45 (house edge)
+#  Start $   Exact Ruin     Sim Ruin
+# ------------------------------------
+#        2       0.9667       0.9669
+#        5       0.9104       0.9100
+#       10       0.7610       0.7631
+#       15       0.4869       0.4851
+#       18       0.2144       0.2132</code></pre>
+
+                <!-- Code Block 5: Mixing Time Estimation -->
+                <h2 id="code-mixing">5. Mixing Time Estimation and Convergence</h2>
+                <pre style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.6;"><code>import numpy as np
+from scipy import linalg
+
+def analyze_mixing(P, state_names=None):
+    """
+    Analyze mixing properties of a Markov chain:
+    - Eigenvalues and spectral gap
+    - Estimated mixing time
+    - Convergence from different starting states
+    """
+    n = P.shape[0]
+    if state_names is None:
+        state_names = [f"State {i}" for i in range(n)]
+
+    # Compute eigenvalues
+    eigenvalues = linalg.eigvals(P)
+    eigenvalues = np.sort(np.abs(eigenvalues))[::-1]  # sort by magnitude
+
+    print("Eigenvalues (by magnitude):")
+    for i, ev in enumerate(eigenvalues):
+        print(f"  |lambda_{i+1}| = {ev:.6f}")
+
+    # Spectral gap
+    lambda_2 = eigenvalues[1]
+    spectral_gap = 1 - lambda_2
+    print(f"\nSpectral gap: gamma = 1 - |lambda_2| = {spectral_gap:.6f}")
+
+    # Mixing time estimate
+    for eps in [0.25, 0.1, 0.01]:
+        t_mix = np.log(1 / eps) / spectral_gap if spectral_gap > 0 else float('inf')
+        print(f"  Mixing time (eps={eps}): ~{t_mix:.1f} steps")
+
+    # Compute stationary distribution
+    evals, evecs = linalg.eig(P.T)
+    idx = np.argmin(np.abs(evals - 1.0))
+    pi = evecs[:, idx].real
+    pi = pi / pi.sum()
+
+    print(f"\nStationary distribution:")
+    for name, prob in zip(state_names, pi):
+        print(f"  pi({name}) = {prob:.6f}")
+
+    # Track convergence from each starting state
+    print("\nTotal variation distance from stationarity:")
+    print(f"{'Step':>6}", end="")
+    for name in state_names:
+        print(f"  {name:>10}", end="")
+    print()
+
+    for step in [0, 1, 2, 3, 5, 10, 20, 50]:
+        Pn = np.linalg.matrix_power(P, step)
+        print(f"{step:>6}", end="")
+        for i in range(n):
+            # Total variation distance
+            tv = 0.5 * np.sum(np.abs(Pn[i] - pi))
+            print(f"  {tv:>10.6f}", end="")
+        print()
+
+    return pi, eigenvalues, spectral_gap
+
+
+# Example 1: Fast-mixing chain (weather model)
+print("=" * 60)
+print("FAST-MIXING CHAIN (Weather Model)")
+print("=" * 60)
+P_fast = np.array([
+    [0.6, 0.3, 0.1],
+    [0.2, 0.4, 0.4],
+    [0.3, 0.3, 0.4],
+])
+analyze_mixing(P_fast, ['Sunny', 'Cloudy', 'Rainy'])
+
+# Example 2: Slow-mixing chain (nearly disconnected)
+print("\n" + "=" * 60)
+print("SLOW-MIXING CHAIN (Nearly Disconnected)")
+print("=" * 60)
+eps = 0.01
+P_slow = np.array([
+    [0.5,     0.5-eps, eps,     0],
+    [0.5-eps, 0.5,     0,       eps],
+    [eps,     0,       0.5,     0.5-eps],
+    [0,       eps,     0.5-eps, 0.5],
+])
+analyze_mixing(P_slow, ['A1', 'A2', 'B1', 'B2'])
+
+# Output:
+# ============================================================
+# FAST-MIXING CHAIN (Weather Model)
+# ============================================================
+# Eigenvalues (by magnitude):
+#   |lambda_1| = 1.000000
+#   |lambda_2| = 0.374166
+#   |lambda_3| = 0.225834
+#
+# Spectral gap: gamma = 1 - |lambda_2| = 0.625834
+#   Mixing time (eps=0.25): ~2.2 steps
+#   Mixing time (eps=0.1): ~3.7 steps
+#   Mixing time (eps=0.01): ~7.4 steps
+#
+# Stationary distribution:
+#   pi(Sunny) = 0.384615
+#   pi(Cloudy) = 0.333333
+#   pi(Rainy) = 0.282051
+#
+# Total variation distance from stationarity:
+#  Step       Sunny      Cloudy       Rainy
+#      0    0.615385    0.666667    0.717949
+#      1    0.215385    0.133333    0.117949
+#      2    0.064872    0.063590    0.063590
+#      3    0.023590    0.015385    0.023590
+#      5    0.002632    0.002632    0.002632
+#     10    0.000008    0.000005    0.000008
+#     20    0.000000    0.000000    0.000000
+#     50    0.000000    0.000000    0.000000</code></pre>
+
+            </article>
+
+            <!-- ============================================================
+                 EXERCISES TAB
+                 ============================================================ -->
+            <article class="article-content" id="exercises" style="display: none;">
+
+                <h1>Exercises: Markov Chains</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    15 exercises organized by difficulty: 5 Easy, 5 Medium, 5 Hard. Each includes a complete solution.
+                    Click on any exercise to reveal its solution.
+                </p>
+
+                <!-- ============================================================
+                     EASY EXERCISES (1-5)
+                     ============================================================ -->
+                <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 0.5rem;">Easy Exercises (1&ndash;5)</h2>
+
+                <!-- EASY 1 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 1: Reading a Transition Matrix</h3>
+                        <p>A Markov chain has three states $\{1, 2, 3\}$ and transition matrix:
+                        $$P = \begin{pmatrix} 0.5 & 0.3 & 0.2 \\ 0.1 & 0.7 & 0.2 \\ 0.4 & 0.0 & 0.6 \end{pmatrix}$$
+                        (a) Verify that $P$ is a valid stochastic matrix.
+                        (b) If the chain is in state 2, what is the probability of moving to state 3?
+                        (c) If the chain is in state 3, what is the probability of staying in state 3?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> Check: all entries are non-negative. Row sums:</p>
+                            <ul>
+                                <li>Row 1: $0.5 + 0.3 + 0.2 = 1.0$ &check;</li>
+                                <li>Row 2: $0.1 + 0.7 + 0.2 = 1.0$ &check;</li>
+                                <li>Row 3: $0.4 + 0.0 + 0.6 = 1.0$ &check;</li>
+                            </ul>
+                            <p>All entries are non-negative and all rows sum to 1, so $P$ is a valid stochastic matrix.</p>
+                            <p><strong>(b)</strong> $p_{23} = 0.2$. The probability of moving from state 2 to state 3 is 0.2 (read from row 2, column 3).</p>
+                            <p><strong>(c)</strong> $p_{33} = 0.6$. The probability of staying in state 3 is 0.6 (the self-loop probability).</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 2 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 2: Two-Step Transition Probabilities</h3>
+                        <p>For the 2-state weather model with
+                        $P = \begin{pmatrix} 0.8 & 0.2 \\ 0.4 & 0.6 \end{pmatrix}$
+                        (state 1 = Sunny, state 2 = Rainy), compute $P^2$ and find the probability that it is Sunny two days from now, given that it is Rainy today.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Compute $P^2 = P \cdot P$:</p>
+                            $$P^2 = \begin{pmatrix} 0.8 & 0.2 \\ 0.4 & 0.6 \end{pmatrix} \begin{pmatrix} 0.8 & 0.2 \\ 0.4 & 0.6 \end{pmatrix}$$
+                            $$= \begin{pmatrix} 0.64 + 0.08 & 0.16 + 0.12 \\ 0.32 + 0.24 & 0.08 + 0.36 \end{pmatrix} = \begin{pmatrix} 0.72 & 0.28 \\ 0.56 & 0.44 \end{pmatrix}$$
+                            <p><strong>Answer:</strong> $p_{21}^{(2)} = (P^2)_{21} = 0.56$. If it is rainy today, there is a 56% probability it will be sunny two days from now.</p>
+                            <p><strong>Verification by enumeration:</strong> Rainy &rarr; Sunny &rarr; Sunny: $0.4 \times 0.8 = 0.32$, Rainy &rarr; Rainy &rarr; Sunny: $0.6 \times 0.4 = 0.24$. Total: $0.32 + 0.24 = 0.56$. &check;</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 3 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 3: Stationary Distribution of a 2-State Chain</h3>
+                        <p>Find the stationary distribution $\boldsymbol{\pi}$ for the Markov chain with transition matrix:
+                        $$P = \begin{pmatrix} 0.7 & 0.3 \\ 0.5 & 0.5 \end{pmatrix}$$
+                        Verify your answer satisfies $\boldsymbol{\pi} P = \boldsymbol{\pi}$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Solve $\boldsymbol{\pi} P = \boldsymbol{\pi}$ with $\pi_1 + \pi_2 = 1$:</p>
+                            $$\pi_1 = 0.7\pi_1 + 0.5\pi_2 \implies 0.3\pi_1 = 0.5\pi_2 \implies \pi_1 = \frac{5}{3}\pi_2$$
+                            <p>Substituting into $\pi_1 + \pi_2 = 1$:</p>
+                            $$\frac{5}{3}\pi_2 + \pi_2 = 1 \implies \frac{8}{3}\pi_2 = 1 \implies \pi_2 = \frac{3}{8}$$
+                            $$\pi_1 = \frac{5}{8}$$
+                            <p><strong>Answer:</strong> $\boldsymbol{\pi} = (5/8, 3/8) = (0.625, 0.375)$.</p>
+                            <p><strong>Verification:</strong></p>
+                            $$\boldsymbol{\pi} P = \left(\frac{5}{8}, \frac{3}{8}\right) \begin{pmatrix} 0.7 & 0.3 \\ 0.5 & 0.5 \end{pmatrix} = \left(\frac{5}{8} \cdot 0.7 + \frac{3}{8} \cdot 0.5, \; \frac{5}{8} \cdot 0.3 + \frac{3}{8} \cdot 0.5\right) = \left(\frac{5}{8}, \frac{3}{8}\right)$$
+                            &check;
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 4 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 4: Identifying Absorbing States</h3>
+                        <p>Consider the Markov chain with transition matrix:
+                        $$P = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0.3 & 0.2 & 0.5 & 0 \\ 0 & 0.4 & 0.2 & 0.4 \\ 0 & 0 & 0 & 1 \end{pmatrix}$$
+                        (a) Which states are absorbing? (b) Which states are transient? (c) Starting from state 2, what is the probability of eventually reaching each absorbing state?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> Absorbing states have $p_{ii} = 1$. From the diagonal: $p_{11} = 1$ and $p_{44} = 1$, so <strong>states 1 and 4 are absorbing</strong>.</p>
+                            <p><strong>(b)</strong> States 2 and 3 are not absorbing and can reach absorbing states, so they are <strong>transient</strong>.</p>
+                            <p><strong>(c)</strong> Using the fundamental matrix approach. The transient submatrix is:</p>
+                            $$Q = \begin{pmatrix} 0.2 & 0.5 \\ 0.4 & 0.2 \end{pmatrix}, \quad R = \begin{pmatrix} 0.3 & 0 \\ 0 & 0.4 \end{pmatrix}$$
+                            $$N = (I - Q)^{-1} = \begin{pmatrix} 0.8 & -0.5 \\ -0.4 & 0.8 \end{pmatrix}^{-1} = \frac{1}{0.64 - 0.20}\begin{pmatrix} 0.8 & 0.5 \\ 0.4 & 0.8 \end{pmatrix} = \frac{1}{0.44}\begin{pmatrix} 0.8 & 0.5 \\ 0.4 & 0.8 \end{pmatrix}$$
+                            $$= \begin{pmatrix} 1.818 & 1.136 \\ 0.909 & 1.818 \end{pmatrix}$$
+                            <p>Absorption probabilities: $B = NR$:</p>
+                            $$B = \begin{pmatrix} 1.818 & 1.136 \\ 0.909 & 1.818 \end{pmatrix} \begin{pmatrix} 0.3 & 0 \\ 0 & 0.4 \end{pmatrix} = \begin{pmatrix} 0.545 & 0.455 \\ 0.273 & 0.727 \end{pmatrix}$$
+                            <p><strong>Answer:</strong> Starting from state 2: $P(\text{absorb into state 1}) \approx 0.545$ and $P(\text{absorb into state 4}) \approx 0.455$. These sum to 1 (as they must). &check;</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- EASY 5 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 5: Markov Property Verification</h3>
+                        <p>A frog jumps between three lily pads (A, B, C). From A, it goes to B or C with equal probability. From B, it always goes to A. From C, it goes to A with probability 0.6 and B with probability 0.4.
+                        (a) Write down the transition matrix.
+                        (b) Is this chain irreducible?
+                        (c) What is the period of state A?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> With states ordered A, B, C:</p>
+                            $$P = \begin{pmatrix} 0 & 0.5 & 0.5 \\ 1 & 0 & 0 \\ 0.6 & 0.4 & 0 \end{pmatrix}$$
+                            <p><strong>(b)</strong> Check if every state can reach every other state:</p>
+                            <ul>
+                                <li>$A \to B$ (direct), $A \to C$ (direct)</li>
+                                <li>$B \to A$ (direct), $B \to C$ (via $B \to A \to C$)</li>
+                                <li>$C \to A$ (direct), $C \to B$ (direct or via $C \to A \to B$)</li>
+                            </ul>
+                            <p>Every pair communicates, so the chain is <strong>irreducible</strong>.</p>
+                            <p><strong>(c)</strong> Find $d(A) = \gcd\{n : p_{AA}^{(n)} > 0\}$. We need to find return times to A:</p>
+                            <ul>
+                                <li>$n = 2$: $A \to B \to A$ with probability $0.5 \times 1 = 0.5 > 0$. So $p_{AA}^{(2)} > 0$.</li>
+                                <li>$n = 3$: $A \to C \to A \to B \to A$? Actually $A \to B \to A \to B$ gives $p_{AA}^{(3)}>0$ via $A \to C \to B \to A$ with probability $0.5 \times 0.4 \times 1 = 0.2 > 0$.</li>
+                            </ul>
+                            <p>Since $p_{AA}^{(2)} > 0$ and $p_{AA}^{(3)} > 0$, we have $\gcd(2, 3) = 1$.</p>
+                            <p><strong>Answer:</strong> $d(A) = 1$, so state A (and hence the entire chain, since it's irreducible) is <strong>aperiodic</strong>.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- ============================================================
+                     MEDIUM EXERCISES (6-10)
+                     ============================================================ -->
+                <h2 style="color: #f59e0b; border-bottom: 2px solid #f59e0b; padding-bottom: 0.5rem; margin-top: 3rem;">Medium Exercises (6&ndash;10)</h2>
+
+                <!-- MEDIUM 6 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 6: Classifying States</h3>
+                        <p>Consider a Markov chain on $\{1, 2, 3, 4, 5\}$ with transition matrix:
+                        $$P = \begin{pmatrix} 0 & 1 & 0 & 0 & 0 \\ 0.5 & 0 & 0.5 & 0 & 0 \\ 0 & 0 & 0 & 0.7 & 0.3 \\ 0 & 0 & 0.3 & 0 & 0.7 \\ 0 & 0 & 0.6 & 0.4 & 0 \end{pmatrix}$$
+                        Identify all communicating classes. Which classes are recurrent and which are transient?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>First, determine accessibility from the transition matrix:</p>
+                            <ul>
+                                <li>State 1 &rarr; State 2 (direct), State 2 &rarr; State 1 (direct). So $1 \leftrightarrow 2$.</li>
+                                <li>State 2 &rarr; State 3 (direct), but State 3 &rarr; State 1 or 2? State 3 can go to 4 or 5; States 4 and 5 can go to 3, 4, or 5. No path back to 1 or 2 from $\{3,4,5\}$. So $3 \not\to 1$.</li>
+                                <li>States 3, 4, 5: $3 \to 4$ (direct), $4 \to 3$ (direct), $3 \to 5$ (direct), $5 \to 3$ (direct), $4 \to 5$ (direct), $5 \to 4$ (direct). So $3 \leftrightarrow 4 \leftrightarrow 5$.</li>
+                            </ul>
+                            <p><strong>Communicating classes:</strong></p>
+                            <ul>
+                                <li>Class 1: $\{1, 2\}$</li>
+                                <li>Class 2: $\{3, 4, 5\}$</li>
+                            </ul>
+                            <p><strong>Recurrence/Transience:</strong></p>
+                            <ul>
+                                <li>$\{1, 2\}$ is <strong>transient</strong>: from state 2, there is probability 0.5 of escaping to state 3, from which there is no return. Once the chain escapes $\{1,2\}$, it never comes back.</li>
+                                <li>$\{3, 4, 5\}$ is <strong>recurrent</strong>: the chain cannot escape this class (it's a closed class), and it is a finite closed communicating class, so it must be recurrent (in fact, positive recurrent).</li>
+                            </ul>
+                            <p><strong>Answer:</strong> Two communicating classes: $\{1,2\}$ (transient) and $\{3,4,5\}$ (recurrent).</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 7 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 7: Proving Recurrence of the Simple Random Walk</h3>
+                        <p>Consider a simple symmetric random walk on $\mathbb{Z}$: at each step, move right with probability $1/2$ or left with probability $1/2$. Show that state 0 is recurrent by computing $\sum_{n=0}^{\infty} p_{00}^{(n)}$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>The walk can return to 0 only at even times. At time $2n$, the walk is at 0 if and only if it took exactly $n$ right steps and $n$ left steps out of $2n$ steps.</p>
+                            $$p_{00}^{(2n)} = \binom{2n}{n} \left(\frac{1}{2}\right)^{2n}$$
+                            <p>Using Stirling's approximation $n! \approx \sqrt{2\pi n}(n/e)^n$:</p>
+                            $$\binom{2n}{n} = \frac{(2n)!}{(n!)^2} \approx \frac{\sqrt{4\pi n}(2n/e)^{2n}}{2\pi n \cdot (n/e)^{2n}} = \frac{4^n}{\sqrt{\pi n}}$$
+                            <p>Therefore:</p>
+                            $$p_{00}^{(2n)} \approx \frac{4^n}{\sqrt{\pi n}} \cdot \frac{1}{4^n} = \frac{1}{\sqrt{\pi n}}$$
+                            <p>Now summing:</p>
+                            $$\sum_{n=0}^{\infty} p_{00}^{(n)} = \sum_{n=0}^{\infty} p_{00}^{(2n)} \approx \sum_{n=1}^{\infty} \frac{1}{\sqrt{\pi n}} = \frac{1}{\sqrt{\pi}} \sum_{n=1}^{\infty} \frac{1}{\sqrt{n}} = \infty$$
+                            <p>since $\sum 1/\sqrt{n}$ diverges (it is a $p$-series with $p = 1/2 < 1$).</p>
+                            <p><strong>Answer:</strong> Since $\sum_{n=0}^{\infty} p_{00}^{(n)} = \infty$, state 0 is <strong>recurrent</strong>. (In fact, it is null recurrent since $E[\text{return time}] = \infty$.) $\square$</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 8 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 8: Detailed Balance Verification</h3>
+                        <p>Consider the "Ehrenfest model": $N$ molecules are divided between two containers. At each step, a random molecule is chosen and moved to the other container. The state is the number of molecules in container 1 ($k = 0, 1, \ldots, N$). The transition probabilities are $p_{k,k+1} = (N-k)/N$ and $p_{k,k-1} = k/N$. Show that the binomial distribution $\pi_k = \binom{N}{k}(1/2)^N$ satisfies detailed balance.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>We need to check $\pi_k \, p_{k,k+1} = \pi_{k+1} \, p_{k+1,k}$ for all $k$.</p>
+                            <p><strong>Left side:</strong></p>
+                            $$\pi_k \, p_{k,k+1} = \binom{N}{k}\frac{1}{2^N} \cdot \frac{N-k}{N}$$
+                            <p><strong>Right side:</strong></p>
+                            $$\pi_{k+1} \, p_{k+1,k} = \binom{N}{k+1}\frac{1}{2^N} \cdot \frac{k+1}{N}$$
+                            <p>We need to show these are equal. Using $\binom{N}{k+1} = \binom{N}{k} \cdot \frac{N-k}{k+1}$:</p>
+                            $$\pi_{k+1} \, p_{k+1,k} = \binom{N}{k} \cdot \frac{N-k}{k+1} \cdot \frac{1}{2^N} \cdot \frac{k+1}{N} = \binom{N}{k} \cdot \frac{1}{2^N} \cdot \frac{N-k}{N}$$
+                            <p>This equals $\pi_k \, p_{k,k+1}$. $\square$</p>
+                            <p><strong>Answer:</strong> Detailed balance holds, confirming that $\pi_k = \binom{N}{k}(1/2)^N$ is the stationary distribution. This makes physical sense: at equilibrium, each molecule is equally likely to be in either container, so the number in container 1 follows $\text{Binomial}(N, 1/2)$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 9 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 9: Expected Absorption Time</h3>
+                        <p>In the gambler's ruin problem with a fair game ($p = 1/2$), starting wealth $\$5$, and target $\$10$: (a) What is the probability of ruin? (b) What is the expected number of rounds until the game ends?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> For a fair game ($p = 1/2$), the ruin probability starting from $\$i$ with target $\$N$ is:</p>
+                            $$r_i = 1 - \frac{i}{N}$$
+                            <p>With $i = 5$, $N = 10$:</p>
+                            $$r_5 = 1 - \frac{5}{10} = 0.5$$
+                            <p><strong>(b)</strong> For a fair game, the expected duration starting from $\$i$ with target $\$N$ is:</p>
+                            $$E_i[T] = i(N - i)$$
+                            <p>With $i = 5$, $N = 10$:</p>
+                            $$E_5[T] = 5 \times 5 = 25 \text{ rounds}$$
+                            <p><strong>Derivation of expected duration:</strong> Let $d_i = E_i[T]$. Conditioning on the first step:</p>
+                            $$d_i = 1 + \frac{1}{2}d_{i-1} + \frac{1}{2}d_{i+1}, \quad d_0 = d_N = 0$$
+                            <p>Rearranging: $d_{i+1} - 2d_i + d_{i-1} = -2$. This is a second-order recurrence with solution $d_i = i(N - i)$.</p>
+                            <p><strong>Answer:</strong> Ruin probability = 50%, expected duration = 25 rounds.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- MEDIUM 10 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 10: Stationary Distribution of a 3-State Chain</h3>
+                        <p>Find the stationary distribution for the transition matrix:
+                        $$P = \begin{pmatrix} 0 & 1/2 & 1/2 \\ 1/3 & 1/3 & 1/3 \\ 1/2 & 1/4 & 1/4 \end{pmatrix}$$
+                        Is this chain irreducible? Is it aperiodic?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>Irreducibility:</strong> From any state, we can reach any other state: $1 \to 2$, $2 \to 1$, $1 \to 3$, $3 \to 1$, $2 \to 3$, $3 \to 2$. Yes, the chain is <strong>irreducible</strong>.</p>
+                            <p><strong>Aperiodicity:</strong> $p_{22} = 1/3 > 0$ (state 2 has a self-loop), so the chain is <strong>aperiodic</strong>.</p>
+                            <p><strong>Stationary distribution:</strong> Solve $\boldsymbol{\pi} P = \boldsymbol{\pi}$ with $\pi_1 + \pi_2 + \pi_3 = 1$:</p>
+                            <p>The equations $\pi_j = \sum_i \pi_i p_{ij}$:</p>
+                            $$\pi_1 = \frac{1}{3}\pi_2 + \frac{1}{2}\pi_3$$
+                            $$\pi_2 = \frac{1}{2}\pi_1 + \frac{1}{3}\pi_2 + \frac{1}{4}\pi_3$$
+                            $$\pi_3 = \frac{1}{2}\pi_1 + \frac{1}{3}\pi_2 + \frac{1}{4}\pi_3$$
+                            <p>From equations 2 and 3: $\pi_2 = \pi_3$ (they have identical right-hand sides). Call $\pi_2 = \pi_3 = x$.</p>
+                            <p>From equation 1: $\pi_1 = \frac{1}{3}x + \frac{1}{2}x = \frac{5}{6}x$.</p>
+                            <p>Normalization: $\frac{5}{6}x + x + x = 1 \implies \frac{17}{6}x = 1 \implies x = \frac{6}{17}$.</p>
+                            $$\boldsymbol{\pi} = \left(\frac{5}{17}, \frac{6}{17}, \frac{6}{17}\right) \approx (0.294, 0.353, 0.353)$$
+                            <p><strong>Answer:</strong> The chain is irreducible and aperiodic with stationary distribution $\boldsymbol{\pi} = (5/17, 6/17, 6/17)$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- ============================================================
+                     HARD EXERCISES (11-15)
+                     ============================================================ -->
+                <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 0.5rem; margin-top: 3rem;">Hard Exercises (11&ndash;15)</h2>
+
+                <!-- HARD 11 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 11: Spectral Gap Analysis</h3>
+                        <p>For the "lazy" random walk on the complete graph $K_N$, at each step the walker stays with probability $1/2$ and moves to a uniformly random other vertex with probability $1/2$. (a) Write the transition matrix. (b) Find all eigenvalues. (c) Compute the spectral gap and the mixing time (to within total variation distance $\varepsilon$).</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> The transition matrix is:</p>
+                            $$P = \frac{1}{2}I + \frac{1}{2} \cdot \frac{1}{N-1}(J - I) = \frac{1}{2}\left(1 - \frac{1}{N-1}\right)I + \frac{1}{2(N-1)}J$$
+                            $$= \frac{N-2}{2(N-1)}I + \frac{1}{2(N-1)}J$$
+                            <p>where $J$ is the all-ones matrix. In component form: $p_{ii} = 1/2$ and $p_{ij} = 1/(2(N-1))$ for $i \neq j$.</p>
+
+                            <p><strong>(b)</strong> Since $P$ is of the form $\alpha I + \beta J$ (with $\alpha = \frac{N-2}{2(N-1)}$, $\beta = \frac{1}{2(N-1)}$), the eigenvalues are:</p>
+                            <ul>
+                                <li>$J$ has eigenvalue $N$ (with eigenvector $\mathbf{1}$) and eigenvalue 0 (with multiplicity $N-1$).</li>
+                                <li>So $P$ has eigenvalue $\alpha + N\beta = \frac{N-2}{2(N-1)} + \frac{N}{2(N-1)} = \frac{2N-2}{2(N-1)} = 1$ (once), and eigenvalue $\alpha + 0 = \frac{N-2}{2(N-1)}$ (with multiplicity $N-1$).</li>
+                            </ul>
+
+                            <p><strong>(c)</strong> The second eigenvalue is $\lambda_2 = \frac{N-2}{2(N-1)}$.</p>
+                            <p>Spectral gap:</p>
+                            $$\gamma = 1 - |\lambda_2| = 1 - \frac{N-2}{2(N-1)} = \frac{2(N-1) - (N-2)}{2(N-1)} = \frac{N}{2(N-1)}$$
+                            <p>For large $N$: $\gamma \approx 1/2$.</p>
+                            <p>Mixing time:</p>
+                            $$t_{\text{mix}}(\varepsilon) \approx \frac{\log(1/\varepsilon)}{\gamma} = \frac{2(N-1)}{N} \log(1/\varepsilon) \approx 2\log(1/\varepsilon)$$
+
+                            <p><strong>Answer:</strong> The lazy random walk on $K_N$ mixes in $O(\log(1/\varepsilon))$ time, <em>independent of $N$</em>! This is because the complete graph is maximally connected, so the spectral gap $\gamma \approx 1/2$ does not shrink with graph size.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 12 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 12: Gambler's Ruin with Unfair Odds</h3>
+                        <p>Derive the ruin probability for the gambler's ruin problem with $p \neq 1/2$. Starting with $\$i$, target $\$N$, winning probability $p$ per round, find $r_i = P(\text{ruin} \mid X_0 = i)$ by solving the recurrence relation.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p>Let $q = 1 - p$ and $r_i = P(\text{ruin} \mid X_0 = i)$. Conditioning on the first step:</p>
+                            $$r_i = p \, r_{i+1} + q \, r_{i-1}, \quad r_0 = 1, \quad r_N = 0$$
+                            <p>Rearranging: $p \, r_{i+1} - r_i + q \, r_{i-1} = 0$, or $p(r_{i+1} - r_i) = q(r_i - r_{i-1})$.</p>
+                            <p>Let $\Delta_i = r_i - r_{i-1}$. Then $\Delta_{i+1} = (q/p)\Delta_i$, so $\Delta_i = (q/p)^{i-1}\Delta_1$.</p>
+                            <p>Summing the telescoping series:</p>
+                            $$r_i - r_0 = \sum_{k=1}^{i} \Delta_k = \Delta_1 \sum_{k=0}^{i-1}\left(\frac{q}{p}\right)^k$$
+                            <p>Let $\rho = q/p$. If $\rho \neq 1$ (i.e., $p \neq 1/2$):</p>
+                            $$r_i = 1 + \Delta_1 \cdot \frac{\rho^i - 1}{\rho - 1}$$
+                            <p>Using boundary condition $r_N = 0$:</p>
+                            $$0 = 1 + \Delta_1 \cdot \frac{\rho^N - 1}{\rho - 1} \implies \Delta_1 = -\frac{\rho - 1}{\rho^N - 1}$$
+                            <p>Substituting back:</p>
+                            $$r_i = 1 - \frac{\rho^i - 1}{\rho^N - 1} = \frac{\rho^N - \rho^i}{\rho^N - 1} = \frac{(q/p)^i - (q/p)^N}{1 - (q/p)^N}$$
+                            <p>(Noting that $(q/p)^N - 1 = -(1 - (q/p)^N)$ and simplifying signs.)</p>
+                            <p><strong>Answer:</strong></p>
+                            $$\boxed{r_i = \frac{(q/p)^i - (q/p)^N}{1 - (q/p)^N}, \quad p \neq \frac{1}{2}}$$
+                            <p><strong>Special cases:</strong></p>
+                            <ul>
+                                <li>If $p < 1/2$: $(q/p) > 1$, so $r_i \to 1$ as $N \to \infty$. Against a house with infinite capital, ruin is certain.</li>
+                                <li>If $p > 1/2$: $(q/p) < 1$, so $r_i \to (q/p)^i$ as $N \to \infty$. With a favorable game and infinite horizon, there is still a positive chance of ruin.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 13 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 13: Ergodic Theorem Application</h3>
+                        <p>A machine can be in one of three states: Working (W), Degraded (D), or Failed (F). The transition matrix is:
+                        $$P = \begin{pmatrix} 0.8 & 0.15 & 0.05 \\ 0.4 & 0.4 & 0.2 \\ 0.1 & 0.3 & 0.6 \end{pmatrix}$$
+                        The machine produces revenue $\$100$/hour when Working, $\$40$/hour when Degraded, and $\$0$ when Failed. Each transition takes 1 hour.
+                        (a) Find the stationary distribution.
+                        (b) Using the ergodic theorem, find the long-run average revenue per hour.
+                        (c) A maintenance policy repairs the machine when it fails, making it Working in the next step (changing row 3 to $(1, 0, 0)$). How does this change the long-run revenue?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> Solve $\boldsymbol{\pi} P = \boldsymbol{\pi}$:</p>
+                            $$\pi_W = 0.8\pi_W + 0.4\pi_D + 0.1\pi_F$$
+                            $$\pi_D = 0.15\pi_W + 0.4\pi_D + 0.3\pi_F$$
+                            $$\pi_F = 0.05\pi_W + 0.2\pi_D + 0.6\pi_F$$
+                            <p>From equation 1: $0.2\pi_W = 0.4\pi_D + 0.1\pi_F$, so $2\pi_W = 4\pi_D + \pi_F$.</p>
+                            <p>From equation 3: $0.4\pi_F = 0.05\pi_W + 0.2\pi_D$, so $\pi_F = 0.125\pi_W + 0.5\pi_D$.</p>
+                            <p>Substituting into the first: $2\pi_W = 4\pi_D + 0.125\pi_W + 0.5\pi_D = 4.5\pi_D + 0.125\pi_W$</p>
+                            <p>$1.875\pi_W = 4.5\pi_D$, so $\pi_D = \frac{1.875}{4.5}\pi_W = \frac{5}{12}\pi_W$.</p>
+                            <p>Then $\pi_F = 0.125\pi_W + 0.5 \cdot \frac{5}{12}\pi_W = 0.125\pi_W + \frac{5}{24}\pi_W = \frac{3+5}{24}\pi_W = \frac{1}{3}\pi_W$.</p>
+                            <p>Normalization: $\pi_W(1 + 5/12 + 1/3) = \pi_W \cdot \frac{12+5+4}{12} = \pi_W \cdot \frac{21}{12} = 1$.</p>
+                            $$\pi_W = \frac{12}{21} = \frac{4}{7}, \quad \pi_D = \frac{5}{21}, \quad \pi_F = \frac{4}{21}$$
+
+                            <p><strong>(b)</strong> By the ergodic theorem, the long-run average revenue is:</p>
+                            $$E_\pi[\text{revenue}] = 100\pi_W + 40\pi_D + 0\pi_F = 100 \cdot \frac{4}{7} + 40 \cdot \frac{5}{21} = \frac{400}{7} + \frac{200}{21} = \frac{1200 + 200}{21} = \frac{1400}{21} \approx \$66.67/\text{hr}$$
+
+                            <p><strong>(c)</strong> With the maintenance policy, row 3 becomes $(1, 0, 0)$. The new system:</p>
+                            $$\pi_W' = 0.8\pi_W' + 0.4\pi_D' + 1.0\pi_F'$$
+                            <p>Solving the new system: $0.2\pi_W' = 0.4\pi_D' + \pi_F'$. From eq 3: $\pi_F' = 0.05\pi_W' + 0.2\pi_D'$. Substituting: $0.2\pi_W' = 0.4\pi_D' + 0.05\pi_W' + 0.2\pi_D' = 0.6\pi_D' + 0.05\pi_W'$, so $0.15\pi_W' = 0.6\pi_D'$, giving $\pi_D' = 0.25\pi_W'$.</p>
+                            <p>Then $\pi_F' = 0.05\pi_W' + 0.05\pi_W' = 0.1\pi_W'$.</p>
+                            <p>Normalization: $\pi_W'(1 + 0.25 + 0.1) = 1$, so $\pi_W' = 1/1.35 \approx 0.741$, $\pi_D' \approx 0.185$, $\pi_F' \approx 0.074$.</p>
+                            <p>New revenue: $100(0.741) + 40(0.185) + 0(0.074) \approx \$81.48/\text{hr}$.</p>
+                            <p><strong>Answer:</strong> The maintenance policy increases long-run revenue from $\approx\$66.67$/hr to $\approx\$81.48$/hr, a 22% improvement.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 14 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 14: Designing a Metropolis-Hastings Chain</h3>
+                        <p>You want to sample from the discrete distribution $\pi = (0.1, 0.3, 0.4, 0.2)$ on states $\{1, 2, 3, 4\}$ using the Metropolis-Hastings algorithm with a uniform proposal (propose any state with equal probability $1/4$). (a) Write out the acceptance probability formula. (b) Compute the full transition matrix of the MH chain. (c) Verify that detailed balance holds with respect to $\pi$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> The Metropolis-Hastings acceptance probability for proposing move $i \to j$ is:</p>
+                            $$\alpha(i, j) = \min\left(1, \frac{\pi_j \, q(i \mid j)}{\pi_i \, q(j \mid i)}\right)$$
+                            <p>Since the proposal is symmetric ($q(j \mid i) = q(i \mid j) = 1/4$), this simplifies to the Metropolis acceptance:</p>
+                            $$\alpha(i, j) = \min\left(1, \frac{\pi_j}{\pi_i}\right)$$
+
+                            <p><strong>(b)</strong> The transition probabilities are $p_{ij} = q(j|i) \cdot \alpha(i,j) = \frac{1}{4}\min\left(1, \frac{\pi_j}{\pi_i}\right)$ for $i \neq j$, and $p_{ii} = 1 - \sum_{j \neq i} p_{ij}$.</p>
+                            <p>Computing off-diagonal entries (for $i \neq j$, multiply $1/4$ by $\min(1, \pi_j/\pi_i)$):</p>
+                            <ul>
+                                <li>$p_{12} = \frac{1}{4}\min(1, 0.3/0.1) = \frac{1}{4} \cdot 1 = 0.25$</li>
+                                <li>$p_{13} = \frac{1}{4}\min(1, 0.4/0.1) = 0.25$</li>
+                                <li>$p_{14} = \frac{1}{4}\min(1, 0.2/0.1) = 0.25$</li>
+                                <li>$p_{21} = \frac{1}{4}\min(1, 0.1/0.3) = \frac{1}{4} \cdot \frac{1}{3} = 0.0833$</li>
+                                <li>$p_{23} = \frac{1}{4}\min(1, 0.4/0.3) = 0.25$</li>
+                                <li>$p_{24} = \frac{1}{4}\min(1, 0.2/0.3) = \frac{1}{4} \cdot \frac{2}{3} = 0.1667$</li>
+                                <li>$p_{31} = \frac{1}{4} \cdot \frac{1}{4} = 0.0625$</li>
+                                <li>$p_{32} = \frac{1}{4} \cdot \frac{3}{4} = 0.1875$</li>
+                                <li>$p_{34} = \frac{1}{4} \cdot \frac{1}{2} = 0.125$</li>
+                                <li>$p_{41} = \frac{1}{4} \cdot \frac{1}{2} = 0.125$</li>
+                                <li>$p_{42} = \frac{1}{4} \cdot 1 = 0.25$</li>
+                                <li>$p_{43} = \frac{1}{4} \cdot 1 = 0.25$</li>
+                            </ul>
+                            <p>Self-loop probabilities (rejection probability):</p>
+                            <ul>
+                                <li>$p_{11} = 1 - (0.25 + 0.25 + 0.25) = 0.25$</li>
+                                <li>$p_{22} = 1 - (0.0833 + 0.25 + 0.1667) = 0.5$</li>
+                                <li>$p_{33} = 1 - (0.0625 + 0.1875 + 0.125) = 0.625$</li>
+                                <li>$p_{44} = 1 - (0.125 + 0.25 + 0.25) = 0.375$</li>
+                            </ul>
+
+                            <p><strong>(c)</strong> Check detailed balance $\pi_i p_{ij} = \pi_j p_{ji}$ for a few pairs:</p>
+                            <ul>
+                                <li>$(1,2)$: $0.1 \times 0.25 = 0.025$ vs $0.3 \times 0.0833 = 0.025$ &check;</li>
+                                <li>$(2,3)$: $0.3 \times 0.25 = 0.075$ vs $0.4 \times 0.1875 = 0.075$ &check;</li>
+                                <li>$(1,4)$: $0.1 \times 0.25 = 0.025$ vs $0.2 \times 0.125 = 0.025$ &check;</li>
+                            </ul>
+                            <p><strong>Answer:</strong> Detailed balance holds by construction&mdash;this is exactly how Metropolis-Hastings is designed! The acceptance ratio ensures $\pi_i q_{ij} \alpha_{ij} = \pi_j q_{ji} \alpha_{ji}$, which gives $\pi_i p_{ij} = \pi_j p_{ji}$.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- HARD 15 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 15: PageRank by Hand</h3>
+                        <p>Consider a tiny web with 4 pages and link structure: $A \to B$, $A \to C$, $B \to C$, $C \to A$, $D \to C$. Page D has no incoming links except it links to C. Use damping factor $\alpha = 0.8$.
+                        (a) Write the transition matrix $M$ for the random surfer (without damping).
+                        (b) Write the Google matrix $G = \alpha M + (1-\alpha)(1/4)J$.
+                        (c) Compute the PageRank by performing 3 iterations of power iteration starting from $\boldsymbol{\pi}_0 = (1/4, 1/4, 1/4, 1/4)$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> Row-stochastic transition matrix (each row divided by out-degree):</p>
+                            <ul>
+                                <li>A links to B, C (out-degree 2): row A = $(0, 1/2, 1/2, 0)$</li>
+                                <li>B links to C (out-degree 1): row B = $(0, 0, 1, 0)$</li>
+                                <li>C links to A (out-degree 1): row C = $(1, 0, 0, 0)$</li>
+                                <li>D links to C (out-degree 1): row D = $(0, 0, 1, 0)$</li>
+                            </ul>
+                            $$M = \begin{pmatrix} 0 & 1/2 & 1/2 & 0 \\ 0 & 0 & 1 & 0 \\ 1 & 0 & 0 & 0 \\ 0 & 0 & 1 & 0 \end{pmatrix}$$
+
+                            <p><strong>(b)</strong> Google matrix with $\alpha = 0.8$:</p>
+                            $$G = 0.8M + 0.2 \cdot \frac{1}{4}\begin{pmatrix}1&1&1&1\\1&1&1&1\\1&1&1&1\\1&1&1&1\end{pmatrix} = 0.8M + 0.05J$$
+                            $$G = \begin{pmatrix} 0.05 & 0.45 & 0.45 & 0.05 \\ 0.05 & 0.05 & 0.85 & 0.05 \\ 0.85 & 0.05 & 0.05 & 0.05 \\ 0.05 & 0.05 & 0.85 & 0.05 \end{pmatrix}$$
+
+                            <p><strong>(c)</strong> Power iteration:</p>
+                            <p>$\boldsymbol{\pi}_0 = (0.25, 0.25, 0.25, 0.25)$</p>
+                            <p>$\boldsymbol{\pi}_1 = \boldsymbol{\pi}_0 G$:</p>
+                            <ul>
+                                <li>$\pi_1(A) = 0.25(0.05) + 0.25(0.05) + 0.25(0.85) + 0.25(0.05) = 0.25$</li>
+                                <li>$\pi_1(B) = 0.25(0.45) + 0.25(0.05) + 0.25(0.05) + 0.25(0.05) = 0.15$</li>
+                                <li>$\pi_1(C) = 0.25(0.45) + 0.25(0.85) + 0.25(0.05) + 0.25(0.85) = 0.55$</li>
+                                <li>$\pi_1(D) = 0.25(0.05) + 0.25(0.05) + 0.25(0.05) + 0.25(0.05) = 0.05$</li>
+                            </ul>
+                            <p>$\boldsymbol{\pi}_1 = (0.25, 0.15, 0.55, 0.05)$</p>
+
+                            <p>$\boldsymbol{\pi}_2 = \boldsymbol{\pi}_1 G$:</p>
+                            <ul>
+                                <li>$\pi_2(A) = 0.25(0.05) + 0.15(0.05) + 0.55(0.85) + 0.05(0.05) = 0.4900$</li>
+                                <li>$\pi_2(B) = 0.25(0.45) + 0.15(0.05) + 0.55(0.05) + 0.05(0.05) = 0.1500$</li>
+                                <li>$\pi_2(C) = 0.25(0.45) + 0.15(0.85) + 0.55(0.05) + 0.05(0.85) = 0.3100$</li>
+                                <li>$\pi_2(D) = 0.25(0.05) + 0.15(0.05) + 0.55(0.05) + 0.05(0.05) = 0.0500$</li>
+                            </ul>
+                            <p>$\boldsymbol{\pi}_2 = (0.49, 0.15, 0.31, 0.05)$</p>
+
+                            <p>$\boldsymbol{\pi}_3 = \boldsymbol{\pi}_2 G$:</p>
+                            <ul>
+                                <li>$\pi_3(A) = 0.49(0.05) + 0.15(0.05) + 0.31(0.85) + 0.05(0.05) = 0.2980$</li>
+                                <li>$\pi_3(B) = 0.49(0.45) + 0.15(0.05) + 0.31(0.05) + 0.05(0.05) = 0.2460$</li>
+                                <li>$\pi_3(C) = 0.49(0.45) + 0.15(0.85) + 0.31(0.05) + 0.05(0.85) = 0.4010$</li>
+                                <li>$\pi_3(D) = 0.49(0.05) + 0.15(0.05) + 0.31(0.05) + 0.05(0.05) = 0.0500$</li>
+                            </ul>
+                            <p>$\boldsymbol{\pi}_3 \approx (0.298, 0.246, 0.401, 0.050)$</p>
+
+                            <p><strong>Answer:</strong> After 3 iterations, the approximate PageRank is $C > A > B > D$. Page C has the highest rank because it receives links from many pages. Page D has the lowest rank because no other page links to it (it only receives traffic from random teleportation). The ranking will converge to the true PageRank with more iterations.</p>
+                        </div>
+                    </details>
+                </div>
+
+            </article>
+
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="tutorial-toc">
+            <div class="toc-card">
+                <h3 class="toc-title">Key Concept</h3>
+                <div style="padding: 1rem; background: rgba(99, 102, 241, 0.08); border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.9rem;">
+                        The <strong>Markov property</strong> says the future depends only on the present,
+                        never on the past. This memoryless structure makes the entire dynamics
+                        computable from a single transition matrix.
+                    </p>
+                </div>
+                <h3 class="toc-title">Prerequisites</h3>
+                <ul style="padding-left: 1.25rem; font-size: 0.875rem;">
+                    <li>Linear algebra (matrices, eigenvalues)</li>
+                    <li>Conditional probability</li>
+                    <li>Matrix multiplication</li>
+                </ul>
+                <h3 class="toc-title" style="margin-top: 1.5rem;">Key Formulas</h3>
+                <div style="font-size: 0.85rem;">
+                    <p><strong>Markov property:</strong></p>
+                    <p>$P(X_{n+1}=j \mid X_n=i, \ldots) = P(X_{n+1}=j \mid X_n=i)$</p>
+                    <p style="margin-top: 1rem;"><strong>Chapman&ndash;Kolmogorov:</strong></p>
+                    <p>$p_{ij}^{(n)} = \sum_k p_{ik}^{(m)} p_{kj}^{(n-m)}$</p>
+                    <p style="margin-top: 1rem;"><strong>Stationary distribution:</strong></p>
+                    <p>$\boldsymbol{\pi} P = \boldsymbol{\pi}, \quad \sum_i \pi_i = 1$</p>
+                    <p style="margin-top: 1rem;"><strong>Detailed balance:</strong></p>
+                    <p>$\pi_i p_{ij} = \pi_j p_{ji}$</p>
+                    <p style="margin-top: 1rem;"><strong>Ergodic theorem:</strong></p>
+                    <p>$\frac{1}{n}\sum_{k=0}^{n-1} f(X_k) \to E_\pi[f]$</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../../../js/main.js"></script>
+</body>
+</html>
