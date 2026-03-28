@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grad-TTS &amp; Diffusion | ML Fundamentals</title>
+    <meta name="description" content="Diffusion-based text-to-speech: score matching, stochastic differential equations, Grad-TTS architecture, classifier-free guidance, and accelerated sampling for speech synthesis.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+
+
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Grad-TTS &amp; Diffusion</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Text-to-Speech</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-f5-tts/index.html" class="sidebar-link">01. F5-TTS: Flow Matching</a>
+                    <a href="../02-qwen-tts/index.html" class="sidebar-link">02. Qwen-TTS: LLM Audio</a>
+                    <a href="../03-tts-fundamentals/index.html" class="sidebar-link">03. TTS Fundamentals</a>
+                    <a href="../04-neural-vocoders/index.html" class="sidebar-link">04. Neural Vocoders</a>
+                    <a href="../05-tacotron/index.html" class="sidebar-link">05. Tacotron &amp; Attention TTS</a>
+                    <a href="../06-fastspeech/index.html" class="sidebar-link">06. FastSpeech &amp; Non-AR TTS</a>
+                    <a href="../07-glow-tts/index.html" class="sidebar-link">07. Glow-TTS &amp; Flows</a>
+                    <a href="../08-vits/index.html" class="sidebar-link">08. VITS: End-to-End TTS</a>
+                    <a href="../09-bilingual-tts/index.html" class="sidebar-link">09. Bilingual TTS: RU+KY</a>
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs</a>
+                    <a href="../11-grad-tts/index.html" class="sidebar-link active">11. Grad-TTS &amp; Diffusion</a>
+                    <a href="../12-vall-e/index.html" class="sidebar-link">12. VALL-E &amp; Speech LLMs</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linguistics/index.html" class="sidebar-link">Linguistics</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: From Deterministic to Stochastic TTS -->
+                <h2 id="deterministic-to-stochastic">From Deterministic to Stochastic TTS</h2>
+
+                <p>
+                    Every TTS system faces a fundamental challenge: the mapping from text to speech is <em>one-to-many</em>. A single sentence can be spoken in countless valid ways &mdash; varying in pitch contour, speaking rate, emphasis, breathiness, micro-pauses, and vocal fry. Any particular recording of a sentence is just one sample from this vast space of valid realizations. The question is: how should a generative model handle this inherent variability?
+                </p>
+
+                <p>
+                    <strong>Deterministic models and the oversmoothing problem.</strong> Early neural TTS systems like Tacotron 2 and FastSpeech 2 are trained with mean squared error (MSE) losses against ground-truth mel spectrograms. Given text input $\mathbf{c}$, the model predicts:
+                </p>
+
+                $$\hat{\mathbf{x}} = f_\theta(\mathbf{c}), \quad \mathcal{L} = \|\hat{\mathbf{x}} - \mathbf{x}\|^2$$
+
+                <p>
+                    When trained this way, the model learns to predict the <em>conditional mean</em> $\mathbb{E}[\mathbf{x} \mid \mathbf{c}]$. If there are multiple valid mel spectrograms $\mathbf{x}_1, \mathbf{x}_2, \ldots$ for the same text $\mathbf{c}$ (differing in prosody, pitch, timing), the MSE-optimal prediction is their average. This averaging produces spectrograms that are blurry in the frequency domain &mdash; the infamous <strong>oversmoothing</strong> artifact that makes deterministic TTS sound flat and robotic, lacking the crisp harmonic structure of natural speech.
+                </p>
+
+                <p>
+                    Mathematically, oversmoothing is a consequence of Jensen's inequality. The expected spectrogram $\mathbb{E}[\mathbf{x} \mid \mathbf{c}]$ is not itself a typical sample from the conditional distribution $p(\mathbf{x} \mid \mathbf{c})$. Just as the average of many human faces is an unnaturally smooth face, the average of many valid mel spectrograms is an unnaturally smooth spectrogram.
+                </p>
+
+                <p>
+                    <strong>Stochastic models as a solution.</strong> Instead of predicting a single output, stochastic models learn the full conditional distribution $p(\mathbf{x} \mid \mathbf{c})$ and generate outputs by <em>sampling</em> from it. Each sample is a sharp, realistic mel spectrogram &mdash; one particular valid realization of the speech. The key stochastic approaches for TTS are:
+                </p>
+
+                <ul>
+                    <li><strong>Normalizing flows</strong> (Glow-TTS, see <a href="../07-glow-tts/index.html">Tutorial 07</a>): learn an invertible mapping between a simple prior and the data distribution. Exact likelihood, but architectural constraints limit expressiveness.</li>
+                    <li><strong>Variational autoencoders</strong> (VITS, see <a href="../08-vits/index.html">Tutorial 08</a>): learn a latent space with an encoder-decoder structure. Flexible, but the ELBO objective introduces a gap between the bound and true likelihood.</li>
+                    <li><strong>Diffusion models</strong> (Grad-TTS, DiffSinger, Diff-TTS): learn to reverse a gradual noising process. No architectural constraints, strong theoretical guarantees, state-of-the-art sample quality &mdash; but historically slow at inference due to iterative sampling.</li>
+                    <li><strong>Flow matching</strong> (F5-TTS, see <a href="../01-f5-tts/index.html">Tutorial 01</a>): learn a vector field that transports noise to data. Simpler training than diffusion, fast inference with ODE solvers.</li>
+                </ul>
+
+                <p>
+                    This tutorial focuses on <strong>diffusion models for TTS</strong>, with Grad-TTS as the central architecture. We will develop the mathematical foundations (score matching, SDEs), the architecture (informed prior, diffusion decoder), and the practical techniques (fast sampling, classifier-free guidance) that make diffusion TTS competitive.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Diffusion Model for TTS</div>
+                    <p>
+                        A <strong>diffusion-based TTS system</strong> generates mel spectrograms $\mathbf{x}_0 \in \mathbb{R}^{F \times T}$ (with $F$ mel bins and $T$ time frames) by learning to reverse a forward noising process. Given text conditioning $\mathbf{c}$, the forward process gradually corrupts data:
+                    </p>
+                    $$q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t; \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I})$$
+                    <p>
+                        The model $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \mathbf{c})$ learns to predict the noise $\boldsymbol{\epsilon}$ added at each step. At inference, starting from noise $\mathbf{x}_T$, the model iteratively denoises to produce a clean mel spectrogram $\mathbf{x}_0$, which is then converted to a waveform by a vocoder.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why diffusion for speech specifically?</strong> Speech has several properties that make diffusion models particularly well-suited. First, mel spectrograms are continuous, high-dimensional signals where the smoothness assumptions of diffusion (Gaussian noise, continuous-time processes) are natural. Second, the one-to-many nature of TTS means we genuinely need a stochastic model &mdash; we want <em>different</em> valid outputs on different runs. Third, the iterative refinement in diffusion mirrors how humans might mentally "sharpen" a vague idea of an utterance into a precise acoustic realization. Fourth, diffusion models are highly flexible: they impose no constraints on the score network architecture, allowing us to use powerful U-Nets and transformers.
+                </p>
+
+                <!-- Section 2: Score Matching Fundamentals -->
+                <h2 id="score-matching">Score Matching Fundamentals</h2>
+
+                <p>
+                    At the heart of diffusion models lies the concept of the <strong>score function</strong>. Rather than learning the density $p(\mathbf{x})$ directly (which requires intractable normalization constants), we learn its gradient with respect to the data &mdash; the score.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Score Function</div>
+                    <p>
+                        For a probability density $p(\mathbf{x})$, the <strong>score function</strong> is the gradient of the log-density:
+                    </p>
+                    $$\mathbf{s}(\mathbf{x}) = \nabla_{\mathbf{x}} \log p(\mathbf{x})$$
+                    <p>
+                        The score is a vector field: at each point $\mathbf{x}$ in data space, it points in the direction of steepest increase of log-probability. Crucially, the score does not depend on the normalizing constant of $p(\mathbf{x})$, since $\nabla_{\mathbf{x}} \log Z = 0$ for any constant $Z$.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why scores instead of densities?</strong> If $p(\mathbf{x}) = \frac{1}{Z} \tilde{p}(\mathbf{x})$ where $Z = \int \tilde{p}(\mathbf{x}) d\mathbf{x}$ is intractable, then $\log p(\mathbf{x}) = \log \tilde{p}(\mathbf{x}) - \log Z$, and $\nabla_{\mathbf{x}} \log p(\mathbf{x}) = \nabla_{\mathbf{x}} \log \tilde{p}(\mathbf{x})$. The partition function vanishes under differentiation. This makes score-based modeling possible even when maximum likelihood is intractable.
+                </p>
+
+                <p>
+                    <strong>Score matching objective.</strong> We want to train a neural network $\mathbf{s}_\theta(\mathbf{x})$ to approximate the true score $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. The natural loss function is:
+                </p>
+
+                $$\mathcal{L}_{SM} = \frac{1}{2}\mathbb{E}_{p(\mathbf{x})}\left[\|\mathbf{s}_\theta(\mathbf{x}) - \nabla_{\mathbf{x}} \log p(\mathbf{x})\|^2\right]$$
+
+                <p>
+                    This is impractical because we do not know $\nabla_{\mathbf{x}} \log p(\mathbf{x})$ (that is what we are trying to learn). Hyvarinen (2005) showed that this objective can be rewritten without access to the true score, using integration by parts:
+                </p>
+
+                $$\mathcal{L}_{SM} = \mathbb{E}_{p(\mathbf{x})}\left[\text{tr}(\nabla_{\mathbf{x}} \mathbf{s}_\theta(\mathbf{x})) + \frac{1}{2}\|\mathbf{s}_\theta(\mathbf{x})\|^2\right] + C$$
+
+                <p>
+                    where $C$ is a constant independent of $\theta$, and $\text{tr}(\nabla_{\mathbf{x}} \mathbf{s}_\theta)$ is the trace of the Jacobian of the score model. This <strong>explicit score matching</strong> objective requires computing second-order derivatives (the Jacobian), which is expensive in high dimensions.
+                </p>
+
+                <p>
+                    <strong>Denoising score matching (DSM).</strong> Vincent (2011) proposed a far more practical alternative. Instead of matching the score of the data distribution, we match the score of a <em>noised</em> data distribution. Given a noise kernel $q_\sigma(\tilde{\mathbf{x}} \mid \mathbf{x}) = \mathcal{N}(\tilde{\mathbf{x}}; \mathbf{x}, \sigma^2 \mathbf{I})$, the noised distribution is $q_\sigma(\tilde{\mathbf{x}}) = \int q_\sigma(\tilde{\mathbf{x}} \mid \mathbf{x}) p(\mathbf{x}) d\mathbf{x}$. The denoising score matching objective is:
+                </p>
+
+                $$\mathcal{L}_{DSM} = \frac{1}{2}\mathbb{E}_{\mathbf{x} \sim p(\mathbf{x})}\mathbb{E}_{\tilde{\mathbf{x}} \sim q_\sigma(\tilde{\mathbf{x}} \mid \mathbf{x})}\left[\|\mathbf{s}_\theta(\tilde{\mathbf{x}}) - \nabla_{\tilde{\mathbf{x}}} \log q_\sigma(\tilde{\mathbf{x}} \mid \mathbf{x})\|^2\right]$$
+
+                <p>
+                    The key insight is that we <em>do</em> know $\nabla_{\tilde{\mathbf{x}}} \log q_\sigma(\tilde{\mathbf{x}} \mid \mathbf{x})$ in closed form. For Gaussian noise:
+                </p>
+
+                $$q_\sigma(\tilde{\mathbf{x}} \mid \mathbf{x}) = \mathcal{N}(\tilde{\mathbf{x}}; \mathbf{x}, \sigma^2 \mathbf{I}) \implies \nabla_{\tilde{\mathbf{x}}} \log q_\sigma(\tilde{\mathbf{x}} \mid \mathbf{x}) = -\frac{\tilde{\mathbf{x}} - \mathbf{x}}{\sigma^2} = -\frac{\boldsymbol{\epsilon}}{\sigma}$$
+
+                <p>
+                    where $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ and $\tilde{\mathbf{x}} = \mathbf{x} + \sigma \boldsymbol{\epsilon}$. So the denoising score matching loss reduces to predicting the noise direction:
+                </p>
+
+                $$\mathcal{L}_{DSM} = \frac{1}{2}\mathbb{E}_{\mathbf{x}, \boldsymbol{\epsilon}}\left[\left\|\mathbf{s}_\theta(\mathbf{x} + \sigma\boldsymbol{\epsilon}) + \frac{\boldsymbol{\epsilon}}{\sigma}\right\|^2\right]$$
+
+                <p>
+                    Vincent proved that the minimizer of $\mathcal{L}_{DSM}$ also minimizes $\mathcal{L}_{SM}$ for the noised distribution $q_\sigma$. As $\sigma \to 0$, this approaches the score of the true data distribution.
+                </p>
+
+                <p>
+                    <strong>Tweedie's formula.</strong> There is a beautiful connection between denoising and score estimation via Tweedie's formula. If $\tilde{\mathbf{x}} \sim \mathcal{N}(\mathbf{x}, \sigma^2 \mathbf{I})$ with prior $\mathbf{x} \sim p(\mathbf{x})$, then the posterior mean (the optimal denoiser) is:
+                </p>
+
+                $$\mathbb{E}[\mathbf{x} \mid \tilde{\mathbf{x}}] = \tilde{\mathbf{x}} + \sigma^2 \nabla_{\tilde{\mathbf{x}}} \log q_\sigma(\tilde{\mathbf{x}})$$
+
+                <p>
+                    This says that the score of the noised distribution tells us exactly how to denoise: take the noisy sample and shift it by $\sigma^2$ times the score. Conversely, if we can denoise optimally, we know the score. This equivalence between denoising and score estimation is the theoretical foundation of diffusion models.
+                </p>
+
+                <p>
+                    <strong>Noise conditional score networks (NCSN).</strong> Song and Ermon (2019) extended DSM to multiple noise scales. The idea is to train a single network $\mathbf{s}_\theta(\mathbf{x}, \sigma)$ that estimates the score at any noise level $\sigma$ from a geometric sequence $\sigma_1 > \sigma_2 > \cdots > \sigma_L$. The multi-scale objective is:
+                </p>
+
+                $$\mathcal{L}_{NCSN} = \frac{1}{L}\sum_{i=1}^{L} \lambda(\sigma_i) \mathbb{E}_{\mathbf{x} \sim p(\mathbf{x})}\mathbb{E}_{\tilde{\mathbf{x}} \sim \mathcal{N}(\mathbf{x}, \sigma_i^2 \mathbf{I})}\left[\left\|\mathbf{s}_\theta(\tilde{\mathbf{x}}, \sigma_i) + \frac{\tilde{\mathbf{x}} - \mathbf{x}}{\sigma_i^2}\right\|^2\right]$$
+
+                <p>
+                    where $\lambda(\sigma_i) = \sigma_i^2$ is a weighting that balances the contributions across noise scales. At inference, samples are generated using annealed Langevin dynamics: starting from random noise, we run Langevin MCMC at each noise level, gradually decreasing $\sigma$ to produce clean samples. This was the precursor to the continuous-time diffusion framework.
+                </p>
+
+                <!-- Section 3: Stochastic Differential Equations for Generation -->
+                <h2 id="sde-generation">Stochastic Differential Equations for Generation</h2>
+
+                <p>
+                    Song et al. (2021) unified DDPM and NCSN into a continuous-time framework using stochastic differential equations (SDEs). This provides a principled mathematical foundation for diffusion models and reveals deep connections between different model families.
+                </p>
+
+                <p>
+                    <strong>Forward SDE.</strong> The forward noising process is described by an Ito SDE:
+                </p>
+
+                $$d\mathbf{x} = \mathbf{f}(\mathbf{x}, t)\,dt + g(t)\,d\mathbf{w}$$
+
+                <p>
+                    where $\mathbf{f}(\mathbf{x}, t)$ is the drift coefficient, $g(t)$ is the scalar diffusion coefficient, and $\mathbf{w}$ is a standard Wiener process (Brownian motion). Time runs from $t = 0$ (clean data) to $t = T$ (pure noise). The forward SDE gradually transforms the data distribution $p_0(\mathbf{x}) = p_{\text{data}}(\mathbf{x})$ into a tractable prior $p_T(\mathbf{x}) \approx \pi(\mathbf{x})$ (typically Gaussian).
+                </p>
+
+                <p>
+                    <strong>Reverse SDE.</strong> Anderson (1982) showed that any forward SDE has a corresponding reverse-time SDE:
+                </p>
+
+                $$d\mathbf{x} = \left[\mathbf{f}(\mathbf{x}, t) - g(t)^2 \nabla_{\mathbf{x}} \log p_t(\mathbf{x})\right] dt + g(t)\,d\bar{\mathbf{w}}$$
+
+                <p>
+                    where $\bar{\mathbf{w}}$ is a reverse-time Wiener process and $dt$ is an infinitesimal <em>negative</em> time step (time runs backward from $T$ to $0$). The only unknown quantity is the score $\nabla_{\mathbf{x}} \log p_t(\mathbf{x})$ at each time $t$. If we train a time-dependent score model $\mathbf{s}_\theta(\mathbf{x}, t) \approx \nabla_{\mathbf{x}} \log p_t(\mathbf{x})$, we can simulate the reverse SDE to generate samples.
+                </p>
+
+                <p>
+                    <strong>Probability flow ODE.</strong> For any forward SDE, there exists a deterministic ODE whose trajectories have the same marginal distributions $p_t(\mathbf{x})$ at every time $t$:
+                </p>
+
+                $$d\mathbf{x} = \left[\mathbf{f}(\mathbf{x}, t) - \frac{1}{2}g(t)^2 \nabla_{\mathbf{x}} \log p_t(\mathbf{x})\right] dt$$
+
+                <p>
+                    This <strong>probability flow ODE</strong> is crucial for TTS because: (1) it enables deterministic, reproducible synthesis (same noise input produces same output), (2) ODE solvers can take larger steps than SDE solvers, enabling faster inference, and (3) it enables exact likelihood computation via the instantaneous change-of-variables formula. Most diffusion TTS systems use the probability flow ODE at inference rather than the full stochastic reverse SDE.
+                </p>
+
+                <p>
+                    <strong>Common SDE families.</strong> Different choices of $\mathbf{f}$ and $g$ yield different SDE types, each with distinct properties:
+                </p>
+
+                <p>
+                    <strong>VP-SDE (Variance Preserving):</strong> This corresponds to the DDPM noise schedule. The forward process is:
+                </p>
+
+                $$d\mathbf{x} = -\frac{1}{2}\beta(t)\mathbf{x}\,dt + \sqrt{\beta(t)}\,d\mathbf{w}$$
+
+                <p>
+                    where $\beta(t)$ is the noise schedule (e.g., linearly increasing from $\beta_{\min} = 0.1$ to $\beta_{\max} = 20$). The drift term $-\frac{1}{2}\beta(t)\mathbf{x}$ shrinks the signal while the diffusion term $\sqrt{\beta(t)}\,d\mathbf{w}$ adds noise, keeping the overall variance bounded. The transition kernel is:
+                </p>
+
+                $$p_{0t}(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\left(\mathbf{x}_t; \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I}\right), \quad \bar{\alpha}_t = e^{-\int_0^t \beta(s)\,ds}$$
+
+                <p>
+                    VP-SDE is the most common choice for TTS because it naturally maps data to a standard Gaussian at $t = T$, has well-studied noise schedules, and is numerically stable.
+                </p>
+
+                <p>
+                    <strong>VE-SDE (Variance Exploding):</strong> This corresponds to the NCSN/SMLD framework:
+                </p>
+
+                $$d\mathbf{x} = \sqrt{\frac{d[\sigma^2(t)]}{dt}}\,d\mathbf{w}$$
+
+                <p>
+                    There is no drift term: the data mean is preserved, but variance grows without bound. The transition kernel is $p_{0t}(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t; \mathbf{x}_0, [\sigma^2(t) - \sigma^2(0)]\mathbf{I})$. VE-SDE can capture fine details well but requires careful tuning of the noise schedule.
+                </p>
+
+                <p>
+                    <strong>sub-VP-SDE:</strong> A variant that maintains variance strictly below the VP-SDE:
+                </p>
+
+                $$d\mathbf{x} = -\frac{1}{2}\beta(t)\mathbf{x}\,dt + \sqrt{\beta(t)(1 - e^{-2\int_0^t \beta(s)\,ds})}\,d\mathbf{w}$$
+
+                <p>
+                    The diffusion coefficient is smaller than in VP-SDE, which means less stochasticity. The sub-VP-SDE has been shown to achieve better likelihood bounds in some settings but is less commonly used in TTS.
+                </p>
+
+                <p>
+                    <strong>The score matching loss in continuous time.</strong> With the SDE framework, the training objective becomes:
+                </p>
+
+                $$\mathcal{L}_{DSM} = \mathbb{E}_{t \sim \mathcal{U}(0,T)}\mathbb{E}_{\mathbf{x}_0 \sim p_0}\mathbb{E}_{\mathbf{x}_t \sim p_{0t}(\mathbf{x}_t \mid \mathbf{x}_0)}\left[\lambda(t)\|\mathbf{s}_\theta(\mathbf{x}_t, t) - \nabla_{\mathbf{x}_t}\log p_{0t}(\mathbf{x}_t \mid \mathbf{x}_0)\|^2\right]$$
+
+                <p>
+                    where $\lambda(t)$ is a weighting function. For VP-SDE with the standard parameterization, the closed-form score of the transition kernel is:
+                </p>
+
+                $$\nabla_{\mathbf{x}_t}\log p_{0t}(\mathbf{x}_t \mid \mathbf{x}_0) = -\frac{\mathbf{x}_t - \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0}{1 - \bar{\alpha}_t} = -\frac{\boldsymbol{\epsilon}}{\sqrt{1 - \bar{\alpha}_t}}$$
+
+                <p>
+                    where $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ is the noise used to construct $\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\epsilon}$. In practice, most implementations reparameterize the score network as a noise prediction network $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$, and the loss becomes the familiar DDPM objective:
+                </p>
+
+                $$\mathcal{L}_{\text{simple}} = \mathbb{E}_{t, \mathbf{x}_0, \boldsymbol{\epsilon}}\left[\|\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) - \boldsymbol{\epsilon}\|^2\right]$$
+
+
+                <!-- Section 4: Grad-TTS Architecture -->
+                <h2 id="grad-tts-architecture">Grad-TTS Architecture</h2>
+
+                <p>
+                    Grad-TTS (Popov et al., 2021) is a diffusion-based TTS model that introduced a key architectural innovation: the <strong>informed prior</strong>. Instead of starting the reverse diffusion from pure Gaussian noise $\mathcal{N}(\mathbf{0}, \mathbf{I})$ as in standard image diffusion models, Grad-TTS starts from a Gaussian centered on the encoder output &mdash; a rough estimate of the mel spectrogram derived from the text. This dramatically reduces the "distance" the diffusion process must travel, enabling high quality with far fewer sampling steps.
+                </p>
+
+                <p>
+                    <strong>Overall architecture.</strong> Grad-TTS has three main components:
+                </p>
+
+                <ol>
+                    <li><strong>Text encoder:</strong> Processes the input phoneme sequence and produces a per-phoneme hidden representation.</li>
+                    <li><strong>Duration predictor + Monotonic Alignment Search (MAS):</strong> Determines how many mel frames each phoneme should occupy, then expands the encoder output to mel-spectrogram length.</li>
+                    <li><strong>Diffusion decoder (U-Net):</strong> Takes the expanded encoder output as a prior mean and refines it through reverse diffusion to produce a high-quality mel spectrogram.</li>
+                </ol>
+
+<pre><code>Phonemes &rarr; [Text Encoder] &rarr; h_1..h_K
+                                    |
+                              [Duration Predictor + MAS]
+                                    |
+                              &mu; = Expand(h, durations)    (mel-length sequence)
+                                    |
+                              x_T ~ N(&mu;, I)               (informed prior)
+                                    |
+                              [Reverse Diffusion / ODE]
+                                    |
+                              x_0 = denoised mel spectrogram
+                                    |
+                              [Vocoder (HiFi-GAN)]
+                                    |
+                              Waveform</code></pre>
+
+                <p>
+                    <strong>Text encoder.</strong> The encoder is a standard transformer-based architecture similar to Glow-TTS. It takes a phoneme sequence $\mathbf{p} = (p_1, \ldots, p_K)$ and produces hidden representations $\mathbf{h} = (h_1, \ldots, h_K)$. Each $h_k \in \mathbb{R}^{F}$ is a vector of dimension $F$ (typically $F = 80$, matching the mel bin count). The encoder also predicts the mean and log-variance of each phoneme's acoustic realization:
+                </p>
+
+                $$\boldsymbol{\mu}_k, \log \boldsymbol{\sigma}_k^2 = \text{EncoderHead}(h_k)$$
+
+                <p>
+                    <strong>Monotonic Alignment Search (MAS).</strong> During training, Grad-TTS uses MAS (from Glow-TTS) to find the optimal alignment between the encoder outputs and the ground-truth mel spectrogram. MAS finds the monotonic alignment $A^*$ that maximizes:
+                </p>
+
+                $$A^* = \arg\max_{A \in \mathcal{A}} \sum_{j=1}^{T} \log \mathcal{N}(\mathbf{x}_{0,j}; \boldsymbol{\mu}_{A(j)}, \boldsymbol{\sigma}_{A(j)}^2)$$
+
+                <p>
+                    where $\mathcal{A}$ is the set of all valid monotonic alignments, $\mathbf{x}_{0,j}$ is the $j$-th mel frame, and $A(j)$ maps frame $j$ to its aligned phoneme. This is solved efficiently by dynamic programming in $O(KT)$ time. At inference, the duration predictor replaces MAS:
+                </p>
+
+                $$\hat{d}_k = \text{DurationPredictor}(h_k), \quad d_k = \text{round}(\hat{d}_k)$$
+
+                <p>
+                    <strong>The informed prior.</strong> Given the alignment, the encoder output is expanded to mel-spectrogram length:
+                </p>
+
+                $$\boldsymbol{\mu}_\theta = \text{Expand}(\boldsymbol{\mu}, A^*) \in \mathbb{R}^{F \times T}$$
+
+                <p>
+                    Instead of sampling $\mathbf{x}_T \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$, Grad-TTS samples:
+                </p>
+
+                $$\mathbf{x}_T \sim \mathcal{N}(\boldsymbol{\mu}_\theta, \mathbf{I})$$
+
+                <p>
+                    This is the <strong>informed prior</strong> (also called the <strong>data-dependent prior</strong>). The mean $\boldsymbol{\mu}_\theta$ is already a coarse approximation of the target mel spectrogram &mdash; it captures the right phoneme sequence, approximate durations, and rough spectral shape. The diffusion decoder only needs to add the fine details: precise harmonic structure, natural pitch contours, and prosodic variation.
+                </p>
+
+                <p>
+                    <strong>Why informed priors help.</strong> In standard diffusion (uninformed prior), the model must transform pure noise into structured speech &mdash; a massive transformation that requires many sampling steps. With an informed prior, the reverse process starts much closer to the target, so fewer steps are needed. Empirically, Grad-TTS achieves good quality with just 10 steps (compared to 50&ndash;1000 for uninformed diffusion), because the encoder provides the coarse structure and the diffusion only refines it.
+                </p>
+
+                <p>
+                    <strong>Diffusion decoder (U-Net).</strong> The decoder is a 1D U-Net operating on the mel spectrogram (treating it as a 2D image with $F$ channels and $T$ time steps, or equivalently as a 1D signal with $F$-dimensional features). It follows the standard architecture:
+                </p>
+
+                <ul>
+                    <li><strong>Downsampling path:</strong> Residual blocks with GroupNorm and SiLU activations, interleaved with downsampling operations (strided convolutions).</li>
+                    <li><strong>Middle block:</strong> Residual blocks with self-attention layers at the lowest resolution.</li>
+                    <li><strong>Upsampling path:</strong> Mirror of the downsampling path with skip connections, using transposed convolutions for upsampling.</li>
+                    <li><strong>Time embedding:</strong> Sinusoidal position embeddings for the diffusion timestep $t$, projected through a small MLP and added to each residual block.</li>
+                    <li><strong>Conditioning:</strong> The encoder mean $\boldsymbol{\mu}_\theta$ is concatenated with $\mathbf{x}_t$ as input to the U-Net.</li>
+                </ul>
+
+                <p>
+                    The decoder predicts the score $\mathbf{s}_\theta(\mathbf{x}_t, \boldsymbol{\mu}_\theta, t) \approx \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t \mid \boldsymbol{\mu}_\theta)$, which is used in the reverse ODE to generate the mel spectrogram.
+                </p>
+
+
+                <!-- Section 5: The Grad-TTS Loss -->
+                <h2 id="grad-tts-loss">The Grad-TTS Loss</h2>
+
+                <p>
+                    Grad-TTS is trained end-to-end with a combined loss function that has three components:
+                </p>
+
+                $$\mathcal{L} = \mathcal{L}_{\text{dur}} + \mathcal{L}_{\text{prior}} + \mathcal{L}_{\text{diff}}$$
+
+                <p>
+                    <strong>Prior loss $\mathcal{L}_{\text{prior}}$.</strong> This loss trains the encoder to produce a good informed prior. Given the ground-truth mel spectrogram $\mathbf{x}_0$ and the MAS alignment $A^*$, the prior loss is the negative log-likelihood of $\mathbf{x}_0$ under the encoder's predicted Gaussian:
+                </p>
+
+                $$\mathcal{L}_{\text{prior}} = -\sum_{j=1}^{T} \log \mathcal{N}(\mathbf{x}_{0,j}; \boldsymbol{\mu}_{A^*(j)}, \boldsymbol{\sigma}_{A^*(j)}^2)$$
+
+                <p>
+                    Expanding the Gaussian log-likelihood:
+                </p>
+
+                $$\mathcal{L}_{\text{prior}} = \frac{1}{2}\sum_{j=1}^{T}\sum_{f=1}^{F}\left[\log(2\pi) + \log \sigma_{A^*(j),f}^2 + \frac{(x_{0,j,f} - \mu_{A^*(j),f})^2}{\sigma_{A^*(j),f}^2}\right]$$
+
+                <p>
+                    This encourages the encoder to predict mel spectrogram values that are close to the ground truth, frame by frame. The variance terms $\sigma^2$ allow the encoder to express uncertainty: regions of high variability (e.g., unvoiced consonants) can have larger variance, while stable regions (e.g., sustained vowels) have smaller variance. A better prior means less work for the diffusion decoder.
+                </p>
+
+                <p>
+                    <strong>Duration loss $\mathcal{L}_{\text{dur}}$.</strong> The duration predictor is trained with MSE in log-domain against the MAS-derived durations:
+                </p>
+
+                $$\mathcal{L}_{\text{dur}} = \sum_{k=1}^{K} \left(\log \hat{d}_k - \log d_k^*\right)^2$$
+
+                <p>
+                    where $d_k^* = \sum_{j=1}^{T} \mathbf{1}[A^*(j) = k]$ is the number of mel frames assigned to phoneme $k$ by MAS, and $\hat{d}_k$ is the predicted duration. The log-domain loss is standard in TTS because durations span a wide range (from 1&ndash;2 frames for short consonants to 20+ frames for long vowels), and log-domain MSE prevents long durations from dominating the loss.
+                </p>
+
+                <p>
+                    <strong>Diffusion loss $\mathcal{L}_{\text{diff}}$.</strong> The core diffusion objective trains the U-Net decoder to estimate the score. Using the VP-SDE formulation with the informed prior:
+                </p>
+
+                $$\mathcal{L}_{\text{diff}} = \mathbb{E}_{t \sim \mathcal{U}(0,1)}\mathbb{E}_{\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0},\mathbf{I})}\left[\lambda(t)\left\|\mathbf{s}_\theta\left(\mathbf{x}_t, \boldsymbol{\mu}_\theta, t\right) - \nabla_{\mathbf{x}_t}\log p_{0t}(\mathbf{x}_t \mid \mathbf{x}_0)\right\|^2\right]$$
+
+                <p>
+                    where $\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1-\bar{\alpha}_t}\,\boldsymbol{\epsilon}$. Note that the U-Net receives both $\mathbf{x}_t$ (the noisy mel) and $\boldsymbol{\mu}_\theta$ (the encoder prior) as input. The model learns to predict the noise direction at each timestep, conditioned on the linguistic information encoded in $\boldsymbol{\mu}_\theta$.
+                </p>
+
+                <p>
+                    <strong>Training procedure.</strong> At each training step: (1) run the encoder to get per-phoneme means and variances, (2) run MAS to find the optimal alignment with the ground-truth mel spectrogram, (3) expand encoder outputs using the alignment, (4) compute $\mathcal{L}_{\text{prior}}$ and $\mathcal{L}_{\text{dur}}$, (5) sample a random timestep $t$ and noise $\boldsymbol{\epsilon}$, construct $\mathbf{x}_t$, and compute $\mathcal{L}_{\text{diff}}$, (6) backpropagate the total loss $\mathcal{L}$. The encoder, duration predictor, and diffusion decoder are all trained jointly.
+                </p>
+
+                <p>
+                    <strong>Inference procedure.</strong> At inference: (1) run the encoder on the input phoneme sequence, (2) predict durations with the duration predictor and expand encoder outputs, (3) sample $\mathbf{x}_T \sim \mathcal{N}(\boldsymbol{\mu}_\theta, \mathbf{I})$, (4) run the reverse ODE for $N$ steps (typically $N = 4$ to $10$) to get $\mathbf{x}_0$, (5) pass $\mathbf{x}_0$ through a vocoder (e.g., HiFi-GAN) to get the waveform.
+                </p>
+
+
+                <!-- Section 6: DiffSinger and Diff-TTS -->
+                <h2 id="diffsinger-diff-tts">DiffSinger and Diff-TTS</h2>
+
+                <p>
+                    Grad-TTS was not the only diffusion model proposed for speech synthesis. Several concurrent and subsequent works explored different ways to apply diffusion to TTS, each with interesting architectural variations.
+                </p>
+
+                <p>
+                    <strong>Diff-TTS (Jeong et al., 2021)</strong> proposed a denoising diffusion model for TTS with a similar overall structure to Grad-TTS but with some differences. Diff-TTS uses a step-unrolled denoising approach during training and employs a non-causal WaveNet-style architecture instead of a U-Net for the denoiser. Notably, Diff-TTS demonstrated that diffusion TTS could match or exceed autoregressive Tacotron 2 quality while being significantly faster due to non-autoregressive generation.
+                </p>
+
+                <p>
+                    <strong>DiffSinger (Liu et al., 2022)</strong> applied diffusion to singing voice synthesis (SVS), which is a more constrained version of TTS where the text is lyrics and additional musical score information (pitch, rhythm, note durations) is provided. DiffSinger introduced <strong>shallow diffusion</strong>:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Shallow Diffusion</div>
+                    <p>
+                        In <strong>shallow diffusion</strong>, instead of starting the reverse process from timestep $T$ (pure noise or informed prior), we start from an intermediate timestep $t_s < T$. A deterministic model (e.g., FastSpeech 2) first generates a rough mel spectrogram $\hat{\mathbf{x}}_0$. This is partially noised to timestep $t_s$:
+                    </p>
+                    $$\mathbf{x}_{t_s} = \sqrt{\bar{\alpha}_{t_s}}\,\hat{\mathbf{x}}_0 + \sqrt{1 - \bar{\alpha}_{t_s}}\,\boldsymbol{\epsilon}$$
+                    <p>
+                        The diffusion model then denoises from $t_s$ to $0$, refining the rough prediction. Since $t_s \ll T$, this requires far fewer sampling steps (typically 20&ndash;40% of the full process) while still correcting oversmoothing artifacts. Shallow diffusion combines the speed of deterministic models with the quality of diffusion.
+                    </p>
+                </div>
+
+                <p>
+                    The intuition behind shallow diffusion is elegant: a deterministic model already gets the coarse structure right (correct phonemes, approximate durations, rough spectral shape). The remaining errors are relatively small &mdash; analogous to low-level noise. We only need diffusion for the final refinement, not the entire generation process.
+                </p>
+
+                <p>
+                    <strong>Boundary diffusion</strong> is a related concept where the diffusion process is defined on a bounded domain rather than all of $\mathbb{R}^d$. Since mel spectrograms have natural bounds (e.g., $[-12, 2]$ in log scale), boundary diffusion can be more efficient by restricting the noise process to this domain. The forward process becomes a reflected Brownian motion that bounces off the boundaries rather than exploding to infinity.
+                </p>
+
+                <p>
+                    <strong>Progressive distillation for diffusion TTS.</strong> Salimans and Ho (2022) introduced progressive distillation, which trains a student model to perform two teacher steps in a single step. Applied iteratively, this halves the number of steps at each round: $1000 \to 500 \to 250 \to \cdots \to 4 \to 2 \to 1$. For TTS, this means:
+                </p>
+
+                <ol>
+                    <li>Train a teacher diffusion TTS model with $N$ steps (e.g., $N = 1000$).</li>
+                    <li>Train a student model where each student step corresponds to two teacher steps. The student is trained to match the teacher's two-step denoising output in a single step.</li>
+                    <li>The student becomes the new teacher, and the process repeats.</li>
+                    <li>After $\log_2(N)$ rounds, we have a model that generates in a single step.</li>
+                </ol>
+
+                <p>
+                    Each distillation round incurs a small quality loss, but the cumulative effect is modest. Progressive distillation has been successfully applied to reduce Grad-TTS-style models from 1000 steps to 4 steps with minimal quality degradation.
+                </p>
+
+
+                <!-- Section 7: Accelerating Diffusion for TTS -->
+                <h2 id="accelerating-diffusion">Accelerating Diffusion for TTS</h2>
+
+                <p>
+                    The main practical limitation of diffusion models is inference speed. A standard DDPM requires 1000 sequential denoising steps, each involving a full forward pass through the U-Net. For a mel spectrogram of size $80 \times 200$, this means 1000 neural network evaluations &mdash; far too slow for real-time TTS. Several techniques address this.
+                </p>
+
+                <p>
+                    <strong>DDIM (Denoising Diffusion Implicit Models).</strong> Song et al. (2020) showed that the DDPM training objective is compatible with a family of non-Markovian generative processes. DDIM defines the reverse step as:
+                </p>
+
+                $$\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\underbrace{\left(\frac{\mathbf{x}_t - \sqrt{1-\bar{\alpha}_t}\,\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}}\right)}_{\text{predicted } \mathbf{x}_0} + \sqrt{1 - \bar{\alpha}_{t-1} - \sigma_t^2}\,\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) + \sigma_t \mathbf{z}$$
+
+                <p>
+                    where $\mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ and $\sigma_t$ controls the stochasticity. Setting $\sigma_t = 0$ gives the fully deterministic DDIM update (equivalent to the probability flow ODE discretized with a particular scheme). The key advantage is that DDIM can skip timesteps: instead of going through all 1000 steps, we select a subsequence (e.g., $\{0, 100, 200, \ldots, 1000\}$) and only denoise at those timesteps. This reduces inference from 1000 steps to 10 steps with modest quality loss.
+                </p>
+
+                <p>
+                    <strong>DPM-Solver.</strong> Lu et al. (2022) observed that the probability flow ODE is a semi-linear ODE that can be solved analytically in parts. DPM-Solver applies exponential integrator techniques to compute higher-order (2nd and 3rd order) updates that are far more accurate than the Euler discretization used by DDIM. DPM-Solver achieves quality comparable to 1000-step DDPM in just 10&ndash;20 steps, and DPM-Solver++ further improves this to 5&ndash;10 steps for high-quality generation.
+                </p>
+
+                <p>
+                    The key formula for DPM-Solver (2nd order) introduces an intermediate point to estimate the curvature of the ODE trajectory:
+                </p>
+
+                $$\mathbf{x}_{t_{i-1}} = \frac{\alpha_{t_{i-1}}}{\alpha_{t_i}}\mathbf{x}_{t_i} - \sigma_{t_{i-1}}\left(e^{h_i} - 1\right)\boldsymbol{\epsilon}_\theta(\mathbf{x}_{t_i}, t_i) - \frac{\sigma_{t_{i-1}}}{2}\left(e^{h_i} - 1\right)\left(\boldsymbol{\epsilon}_\theta(\mathbf{x}_{s_i}, s_i) - \boldsymbol{\epsilon}_\theta(\mathbf{x}_{t_i}, t_i)\right)$$
+
+                <p>
+                    where $h_i = \lambda_{t_{i-1}} - \lambda_{t_i}$ is the step size in the log-SNR schedule, and $s_i$ is an intermediate time point.
+                </p>
+
+                <p>
+                    <strong>Consistency models.</strong> Song et al. (2023) proposed consistency models, which learn a function $f_\theta(\mathbf{x}_t, t)$ that maps any point on an ODE trajectory directly to the trajectory's endpoint $\mathbf{x}_0$. The key property is self-consistency: $f_\theta(\mathbf{x}_t, t) = f_\theta(\mathbf{x}_{t'}, t')$ for any $t, t'$ on the same trajectory. This enables single-step generation: given noise $\mathbf{x}_T$, compute $\mathbf{x}_0 = f_\theta(\mathbf{x}_T, T)$ in one forward pass. Consistency models can be trained either by distillation from a pre-trained diffusion model or from scratch.
+                </p>
+
+                <p>
+                    <strong>Knowledge distillation.</strong> Beyond progressive distillation, direct knowledge distillation approaches train a student model (often with a different, simpler architecture) to match the outputs of a many-step teacher. For TTS, the teacher generates high-quality mel spectrograms with 1000 steps, and the student is trained to produce the same output in 1&ndash;4 steps. The student can be a completely different architecture (e.g., a single-pass feed-forward network), with the diffusion teacher providing synthetic training targets.
+                </p>
+
+                <p>
+                    <strong>Comparison of samplers for TTS.</strong> In practice, the following hierarchy emerges for diffusion TTS:
+                </p>
+
+                <ul>
+                    <li><strong>1000-step DDPM:</strong> Highest quality reference, impractical for deployment ($\sim$50 seconds for a 3-second utterance on GPU).</li>
+                    <li><strong>50-step DDIM:</strong> Near-reference quality, $\sim$2.5 seconds. Usable for offline batch synthesis.</li>
+                    <li><strong>10-step DPM-Solver++:</strong> Excellent quality, $\sim$0.5 seconds. Suitable for near-real-time applications.</li>
+                    <li><strong>4-step distilled model:</strong> Good quality with minor artifacts, $\sim$0.2 seconds. Real-time capable.</li>
+                    <li><strong>1-step consistency model:</strong> Acceptable quality, $\sim$0.05 seconds. Ultra-fast, competitive with non-diffusion models.</li>
+                </ul>
+
+                <p>
+                    For Grad-TTS specifically, the informed prior makes the model particularly amenable to few-step inference. With just 4 steps using the probability flow ODE, Grad-TTS achieves a MOS score only 0.05&ndash;0.10 below the 1000-step version, because the encoder prior already provides the coarse structure.
+                </p>
+
+
+                <!-- Section 8: Classifier-Free Guidance in TTS -->
+                <h2 id="classifier-free-guidance">Classifier-Free Guidance in TTS</h2>
+
+                <p>
+                    Classifier-free guidance (CFG), introduced by Ho and Salimans (2022), is a technique for strengthening the influence of conditioning information during sampling. Originally developed for class-conditional image generation, CFG has become essential for conditional diffusion models including TTS.
+                </p>
+
+                <p>
+                    <strong>The core idea.</strong> During training, the conditioning information $\mathbf{c}$ (text, speaker ID, etc.) is randomly dropped with some probability $p_{\text{uncond}}$ (typically 10&ndash;20%), replaced by a null token $\varnothing$. This trains the model to function both conditionally and unconditionally:
+                </p>
+
+                <ul>
+                    <li>With conditioning: $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \mathbf{c})$ &mdash; predicts noise given the text.</li>
+                    <li>Without conditioning: $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \varnothing)$ &mdash; predicts noise without knowing the text (generates "generic speech").</li>
+                </ul>
+
+                <p>
+                    At inference, the two predictions are combined with a guidance scale $w \geq 0$:
+                </p>
+
+                $$\hat{\boldsymbol{\epsilon}}_\theta(\mathbf{x}_t, t, \mathbf{c}) = (1 + w)\,\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \mathbf{c}) - w\,\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \varnothing)$$
+
+                <p>
+                    This can be rewritten as:
+                </p>
+
+                $$\hat{\boldsymbol{\epsilon}}_\theta = \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \varnothing) + (1 + w)\left[\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \mathbf{c}) - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \varnothing)\right]$$
+
+                <p>
+                    The term in brackets is the "direction toward the conditioning" &mdash; the difference between the conditional and unconditional predictions. The guidance scale $w$ amplifies this direction, pushing the sample more strongly toward outputs that are consistent with the conditioning.
+                </p>
+
+                <p>
+                    <strong>Interpretation via score functions.</strong> In score-function terms, CFG modifies the score as:
+                </p>
+
+                $$\hat{\mathbf{s}}(\mathbf{x}_t, t, \mathbf{c}) = \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) + (1+w)\nabla_{\mathbf{x}_t}\log p_t(\mathbf{c} \mid \mathbf{x}_t)$$
+
+                <p>
+                    Compared to the standard conditional score $\nabla_{\mathbf{x}_t}\log p_t(\mathbf{x}_t \mid \mathbf{c}) = \nabla_{\mathbf{x}_t}\log p_t(\mathbf{x}_t) + \nabla_{\mathbf{x}_t}\log p_t(\mathbf{c} \mid \mathbf{x}_t)$, CFG scales the "classifier gradient" $\nabla_{\mathbf{x}_t}\log p_t(\mathbf{c} \mid \mathbf{x}_t)$ by a factor of $(1+w)$. With $w = 0$, we recover standard conditional sampling. With $w > 0$, we amplify the conditioning signal at the cost of reduced diversity.
+                </p>
+
+                <p>
+                    <strong>CFG effects on speech synthesis.</strong> The guidance scale $w$ trades off between quality/intelligibility and diversity/naturalness:
+                </p>
+
+                <ul>
+                    <li><strong>$w = 0$ (no guidance):</strong> Standard conditional sampling. Maximum diversity, but the text conditioning may be weak, leading to occasional mispronunciations or mumbling.</li>
+                    <li><strong>$w = 1\text{--}3$ (moderate guidance):</strong> Sweet spot for TTS. Speech is clear, well-articulated, and closely follows the text. Prosodic diversity is slightly reduced but still natural.</li>
+                    <li><strong>$w = 5\text{--}10$ (strong guidance):</strong> Very clear articulation but speech becomes "over-enunciated" &mdash; unnatural emphasis, reduced prosodic variation, potential for spectral artifacts (buzzy or metallic quality).</li>
+                    <li><strong>$w > 10$ (excessive guidance):</strong> Severe artifacts. The model "overshoots" the conditioning, producing speech that sounds distorted. In images, excessive CFG produces oversaturated colors; in speech, it produces harsh, clipped spectrograms.</li>
+                </ul>
+
+                <p>
+                    <strong>Practical considerations for TTS.</strong> CFG roughly doubles inference cost because we need two forward passes per step (conditional and unconditional). Several optimizations exist: (1) <strong>cached unconditional predictions</strong> &mdash; since the unconditional path does not depend on the text, its intermediate features can be partially cached; (2) <strong>guidance annealing</strong> &mdash; use high guidance at early timesteps (where coarse structure is determined) and reduce it at later timesteps (where fine details are added); (3) <strong>guidance distillation</strong> &mdash; train a single model to approximate the guided output directly, eliminating the need for two passes.
+                </p>
+
+                <p>
+                    <strong>Multi-condition guidance.</strong> TTS often involves multiple conditioning signals: text, speaker identity, emotion, speaking style. CFG can be extended to guide on each condition independently:
+                </p>
+
+                $$\hat{\boldsymbol{\epsilon}} = \boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \varnothing) + w_{\text{text}}[\boldsymbol{\epsilon}(\mathbf{x}_t, \mathbf{c}_{\text{text}}, \varnothing) - \boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \varnothing)] + w_{\text{spk}}[\boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \mathbf{c}_{\text{spk}}) - \boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \varnothing)]$$
+
+                <p>
+                    This allows independent control over how strongly the model adheres to the text versus the target speaker identity &mdash; a powerful tool for multi-speaker TTS.
+                </p>
+
+
+                <!-- Section 9: Diffusion vs Flow Matching vs AR -->
+                <h2 id="diffusion-vs-alternatives">Diffusion vs Flow Matching vs AR</h2>
+
+                <p>
+                    Having studied diffusion TTS in depth, it is valuable to place it in the broader landscape of generative approaches for speech synthesis. The three dominant paradigms &mdash; diffusion, flow matching, and autoregressive models &mdash; each have distinct strengths and weaknesses.
+                </p>
+
+                <p>
+                    <strong>Diffusion models (Grad-TTS, DiffSinger).</strong>
+                </p>
+                <ul>
+                    <li><strong>Quality:</strong> Excellent. Diffusion models produce sharp, detailed mel spectrograms with natural harmonic structure. MOS scores are typically 4.0&ndash;4.3 (near human quality at 4.5).</li>
+                    <li><strong>Speed:</strong> Moderate to slow. Standard DDPM is impractical. With fast samplers (DDIM, DPM-Solver) and informed priors, 4&ndash;10 steps yield real-time or near-real-time inference. With distillation, 1&ndash;2 steps are possible.</li>
+                    <li><strong>Controllability:</strong> Good. CFG provides explicit control over conditioning strength. The stochastic nature allows diversity via different random seeds. Temperature can be adjusted.</li>
+                    <li><strong>Robustness:</strong> Good. Non-autoregressive generation avoids the exposure bias and attention collapse problems of AR models. However, the duration predictor can sometimes produce unnatural timing.</li>
+                    <li><strong>Diversity:</strong> Excellent. Each sample from the diffusion process is a different valid realization. The degree of diversity is controllable via guidance and noise level.</li>
+                </ul>
+
+                <p>
+                    <strong>Flow matching models (F5-TTS, Voicebox, E2 TTS).</strong>
+                </p>
+                <ul>
+                    <li><strong>Quality:</strong> Excellent, comparable to diffusion. Flow matching produces similarly sharp outputs with potentially smoother trajectories.</li>
+                    <li><strong>Speed:</strong> Generally faster than diffusion. Straighter transport paths mean ODE solvers converge in fewer steps (typically 5&ndash;16). The optimal transport formulation of flow matching further reduces path curvature.</li>
+                    <li><strong>Controllability:</strong> Good. Similar CFG mechanisms apply. Additionally, flow matching's interpolation formulation ($\mathbf{x}_t = (1-t)\mathbf{x}_0 + t\boldsymbol{\epsilon}$) is simpler than diffusion's noise schedule.</li>
+                    <li><strong>Robustness:</strong> Good. Same non-autoregressive advantages as diffusion. The simpler training objective (regressing a velocity field) may offer more stable training.</li>
+                    <li><strong>Diversity:</strong> Good, comparable to diffusion. Different noise samples produce different outputs.</li>
+                </ul>
+
+                <p>
+                    <strong>Autoregressive models (VALL-E, Tortoise-TTS, XTTS).</strong>
+                </p>
+                <ul>
+                    <li><strong>Quality:</strong> Highest when well-conditioned (especially for zero-shot voice cloning). AR models can capture long-range prosodic patterns naturally.</li>
+                    <li><strong>Speed:</strong> Slow. Each token is generated sequentially. For codec-based models generating discrete tokens, the sequence length can be thousands of tokens for a few seconds of speech.</li>
+                    <li><strong>Controllability:</strong> Limited direct control, but prompt-based control (voice prompts, text prompts) is natural and powerful.</li>
+                    <li><strong>Robustness:</strong> Weakest. AR models suffer from error accumulation (exposure bias), hallucination (repeating or skipping words), and are sensitive to the audio prompt quality.</li>
+                    <li><strong>Diversity:</strong> High (via temperature sampling), but harder to control than diffusion. High temperature increases diversity but also error rate.</li>
+                </ul>
+
+                <p>
+                    <strong>The convergence toward flow matching.</strong> As of 2024&ndash;2025, the TTS field has been increasingly moving toward flow matching over classical diffusion. The reasons are:
+                </p>
+
+                <ol>
+                    <li><strong>Simpler training:</strong> Flow matching uses a direct regression loss on the velocity field, avoiding the complex noise schedule design of diffusion.</li>
+                    <li><strong>Straighter paths:</strong> Optimal transport flow matching learns nearly straight trajectories from noise to data, enabling accurate generation in fewer ODE steps.</li>
+                    <li><strong>Unified framework:</strong> Flow matching subsumes diffusion as a special case (specific choices of interpolation paths recover VP-SDE and VE-SDE dynamics).</li>
+                    <li><strong>Scalability:</strong> Models like F5-TTS and Voicebox have demonstrated that flow matching scales well to large datasets and long utterances.</li>
+                </ol>
+
+                <p>
+                    However, diffusion models remain important for several reasons. The extensive theoretical understanding of diffusion (score matching, SDEs, likelihood bounds) provides rigorous tools for analysis. Techniques developed for diffusion (CFG, distillation, consistency models) transfer to flow matching. And for applications requiring maximum quality with no speed constraints (e.g., audiobook production), diffusion with many steps remains competitive.
+                </p>
+
+                <p>
+                    <strong>The hybrid future.</strong> The most capable modern TTS systems often combine ideas from multiple paradigms. VALL-E 2 uses an AR model for coarse token generation and a non-AR model for refinement. CosyVoice uses flow matching with a language model frontend. NaturalSpeech 3 factorizes speech into discrete and continuous components, using different generative models for each. The lesson is that diffusion, flow matching, and AR are not competing paradigms but complementary tools, and the best systems use each where it is most effective.
+                </p>
+
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>PyTorch pseudocode illustrating the core components of a diffusion-based TTS system: the forward noising process, score network architecture, Grad-TTS training step, DDIM sampling, and classifier-free guidance inference.</p>
+
+                <!-- Code Example 1: Forward Diffusion Process -->
+                <h3>1. Forward Diffusion Process (Noise Schedule)</h3>
+                <p>The forward process adds noise to a mel spectrogram according to a variance-preserving schedule. This is used during training to create noisy inputs at random timesteps.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+
+class DiffusionSchedule:
+    """VP-SDE noise schedule for diffusion TTS."""
+    def __init__(self, beta_min=0.05, beta_max=20.0, T=1.0, n_steps=1000):
+        self.beta_min = beta_min
+        self.beta_max = beta_max
+        self.T = T
+        self.n_steps = n_steps
+
+    def beta(self, t):
+        """Linear noise schedule beta(t) = beta_min + t * (beta_max - beta_min)."""
+        return self.beta_min + t * (self.beta_max - self.beta_min)
+
+    def alpha_bar(self, t):
+        """Cumulative signal retention: alpha_bar(t) = exp(-0.5 * integral of beta)."""
+        # For linear schedule: integral_0^t beta(s) ds = beta_min*t + 0.5*(beta_max - beta_min)*t^2
+        log_alpha = -0.5 * (self.beta_min * t + 0.5 * (self.beta_max - self.beta_min) * t**2)
+        return torch.exp(log_alpha)
+
+    def forward_process(self, x_0, t, noise=None):
+        """
+        Add noise to clean mel spectrogram x_0 at time t.
+        q(x_t | x_0) = N(x_t; sqrt(alpha_bar_t) * x_0, (1 - alpha_bar_t) * I)
+
+        Args:
+            x_0: clean mel spectrogram [B, F, T_mel]
+            t: timestep [B] in [0, 1]
+            noise: optional pre-sampled noise [B, F, T_mel]
+        Returns:
+            x_t: noisy mel, noise epsilon
+        """
+        if noise is None:
+            noise = torch.randn_like(x_0)
+
+        a_bar = self.alpha_bar(t)[:, None, None]        # [B, 1, 1]
+        x_t = torch.sqrt(a_bar) * x_0 + torch.sqrt(1 - a_bar) * noise
+        return x_t, noise
+
+    def snr(self, t):
+        """Signal-to-noise ratio: SNR(t) = alpha_bar(t) / (1 - alpha_bar(t))."""
+        a_bar = self.alpha_bar(t)
+        return a_bar / (1 - a_bar)
+
+# Example usage
+schedule = DiffusionSchedule()
+x_0 = torch.randn(4, 80, 200)   # batch of 4, 80 mel bins, 200 frames
+t = torch.rand(4)                # random timesteps
+x_t, eps = schedule.forward_process(x_0, t)
+print(f"x_0 range: [{x_0.min():.2f}, {x_0.max():.2f}]")
+print(f"x_t range: [{x_t.min():.2f}, {x_t.max():.2f}]")
+print(f"SNR at t=0.01: {schedule.snr(torch.tensor(0.01)):.1f}")
+print(f"SNR at t=0.50: {schedule.snr(torch.tensor(0.50)):.4f}")
+print(f"SNR at t=0.99: {schedule.snr(torch.tensor(0.99)):.6f}")</code></pre>
+
+                <!-- Code Example 2: Score Network (U-Net with Attention) -->
+                <h3>2. Score Network (U-Net with Attention)</h3>
+                <p>A simplified 1D U-Net that serves as the score/noise prediction network. In Grad-TTS, this receives the noisy mel spectrogram concatenated with the encoder prior mean, plus a time embedding.</p>
+
+<pre><code>class SinusoidalTimeEmbedding(nn.Module):
+    """Sinusoidal position embedding for diffusion timestep."""
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+        self.mlp = nn.Sequential(
+            nn.Linear(dim, dim * 4),
+            nn.SiLU(),
+            nn.Linear(dim * 4, dim),
+        )
+
+    def forward(self, t):
+        half_dim = self.dim // 2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=t.device) * -emb)
+        emb = t[:, None] * emb[None, :]
+        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=-1)
+        return self.mlp(emb)
+
+
+class ResidualBlock1D(nn.Module):
+    """Residual block with time conditioning for 1D U-Net."""
+    def __init__(self, in_ch, out_ch, time_dim):
+        super().__init__()
+        self.norm1 = nn.GroupNorm(8, in_ch)
+        self.conv1 = nn.Conv1d(in_ch, out_ch, 3, padding=1)
+        self.norm2 = nn.GroupNorm(8, out_ch)
+        self.conv2 = nn.Conv1d(out_ch, out_ch, 3, padding=1)
+        self.time_proj = nn.Linear(time_dim, out_ch)
+        self.skip = nn.Conv1d(in_ch, out_ch, 1) if in_ch != out_ch else nn.Identity()
+        self.act = nn.SiLU()
+
+    def forward(self, x, t_emb):
+        h = self.act(self.norm1(x))
+        h = self.conv1(h)
+        h = h + self.time_proj(t_emb)[:, :, None]   # add time embedding
+        h = self.act(self.norm2(h))
+        h = self.conv2(h)
+        return h + self.skip(x)
+
+
+class ScoreUNet1D(nn.Module):
+    """
+    Simplified 1D U-Net for mel spectrogram denoising.
+    Input: [x_t, mu_encoder] concatenated along channel dim.
+    Output: predicted noise epsilon (same shape as x_t).
+    """
+    def __init__(self, mel_dim=80, hidden=256, time_dim=128):
+        super().__init__()
+        in_ch = mel_dim * 2  # x_t + mu concatenated
+        self.time_emb = SinusoidalTimeEmbedding(time_dim)
+
+        # Encoder (downsampling)
+        self.down1 = ResidualBlock1D(in_ch, hidden, time_dim)
+        self.down2 = ResidualBlock1D(hidden, hidden * 2, time_dim)
+        self.pool = nn.AvgPool1d(2)
+
+        # Bottleneck with self-attention
+        self.mid = ResidualBlock1D(hidden * 2, hidden * 2, time_dim)
+        self.attn = nn.MultiheadAttention(hidden * 2, num_heads=4, batch_first=True)
+        self.attn_norm = nn.GroupNorm(8, hidden * 2)
+
+        # Decoder (upsampling)
+        self.up2 = ResidualBlock1D(hidden * 4, hidden, time_dim)  # skip connection doubles channels
+        self.up1 = ResidualBlock1D(hidden * 2, hidden, time_dim)
+        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+
+        self.final = nn.Conv1d(hidden, mel_dim, 1)
+
+    def forward(self, x_t, mu, t):
+        """
+        Args:
+            x_t: noisy mel [B, 80, T]
+            mu: encoder prior mean [B, 80, T]
+            t: timestep [B]
+        Returns:
+            predicted noise [B, 80, T]
+        """
+        t_emb = self.time_emb(t)
+        x = torch.cat([x_t, mu], dim=1)  # [B, 160, T]
+
+        # Downsampling
+        h1 = self.down1(x, t_emb)              # [B, hidden, T]
+        h2 = self.down2(self.pool(h1), t_emb)  # [B, hidden*2, T//2]
+
+        # Bottleneck + attention
+        h = self.mid(h2, t_emb)
+        h_attn = self.attn_norm(h)
+        h_attn = h_attn.transpose(1, 2)  # [B, T//2, C]
+        h_attn, _ = self.attn(h_attn, h_attn, h_attn)
+        h = h + h_attn.transpose(1, 2)
+
+        # Upsampling with skip connections
+        h = self.upsample(h)                     # [B, hidden*2, T]
+        h = torch.cat([h, h1], dim=1)            # [B, hidden*2 + hidden, T] -- note: simplified skip
+        # Pad/crop to match sizes if needed
+        h = self.up1(h[:, :h1.shape[1]*2+h.shape[1]-h1.shape[1]*2], t_emb)  # simplified
+        return self.final(h)</code></pre>
+
+                <!-- Code Example 3: Grad-TTS Training Step -->
+                <h3>3. Grad-TTS Training Step</h3>
+                <p>Pseudocode for a single training step of Grad-TTS, combining the prior loss, duration loss, and diffusion loss.</p>
+
+<pre><code>class GradTTSTrainer:
+    """Simplified Grad-TTS training step."""
+    def __init__(self, encoder, duration_pred, score_net, schedule, optimizer):
+        self.encoder = encoder          # text encoder
+        self.dur_pred = duration_pred   # duration predictor
+        self.score_net = score_net      # U-Net denoiser
+        self.schedule = schedule        # DiffusionSchedule
+        self.optimizer = optimizer
+
+    def monotonic_alignment_search(self, log_probs):
+        """
+        MAS: find optimal monotonic alignment via dynamic programming.
+        log_probs: [K, T] log-likelihood of each mel frame under each phoneme.
+        Returns: alignment [T] mapping each mel frame to a phoneme index.
+        """
+        K, T = log_probs.shape
+        Q = torch.full((K, T), -float('inf'))
+        Q[0, 0] = log_probs[0, 0]
+        for j in range(1, T):
+            for k in range(min(K, j+1)):
+                stay = Q[k, j-1] if j &gt; 0 else -float('inf')
+                advance = Q[k-1, j-1] if k &gt; 0 else -float('inf')
+                Q[k, j] = log_probs[k, j] + max(stay, advance)
+        # Backtrace to find alignment
+        alignment = torch.zeros(T, dtype=torch.long)
+        k = K - 1
+        for j in range(T-1, -1, -1):
+            alignment[j] = k
+            if k &gt; 0 and (j == 0 or Q[k-1, j-1] &gt; Q[k, j-1]):
+                k -= 1
+        return alignment
+
+    def training_step(self, phonemes, mel_target):
+        """
+        Single training step.
+        phonemes: [B, K] phoneme indices
+        mel_target: [B, F, T] ground-truth mel spectrogram (x_0)
+        """
+        self.optimizer.zero_grad()
+        B, F, T = mel_target.shape
+
+        # 1. Encode text
+        mu_phoneme, log_var_phoneme = self.encoder(phonemes)  # [B, K, F], [B, K, F]
+
+        # 2. MAS: find alignment (simplified, done per-sample)
+        alignments = []
+        durations_gt = []
+        for b in range(B):
+            # Compute log-likelihood of each mel frame under each phoneme Gaussian
+            K = mu_phoneme.shape[1]
+            log_p = torch.zeros(K, T)
+            for k in range(K):
+                diff = mel_target[b, :, :] - mu_phoneme[b, k, :, None]  # [F, T]
+                var = torch.exp(log_var_phoneme[b, k, :, None])         # [F, 1]
+                log_p[k] = -0.5 * ((diff**2 / var) + log_var_phoneme[b, k, :, None]).sum(0)
+            alignment = self.monotonic_alignment_search(log_p)
+            alignments.append(alignment)
+            dur = torch.bincount(alignment, minlength=K).float()
+            durations_gt.append(dur)
+
+        # 3. Expand encoder output using alignment
+        mu_expanded = torch.zeros_like(mel_target)  # [B, F, T]
+        for b in range(B):
+            mu_expanded[b] = mu_phoneme[b, alignments[b]].T  # [F, T]
+
+        # 4. Prior loss: NLL of mel under encoder Gaussian
+        loss_prior = 0.5 * ((mel_target - mu_expanded)**2).mean()
+
+        # 5. Duration loss: MSE in log-domain
+        durations_gt = torch.stack(durations_gt)  # [B, K]
+        dur_pred = self.dur_pred(mu_phoneme)      # [B, K]
+        loss_dur = F.mse_loss(torch.log(dur_pred + 1e-6), torch.log(durations_gt + 1e-6))
+
+        # 6. Diffusion loss: score matching
+        t = torch.rand(B, device=mel_target.device)  # random timestep per sample
+        x_t, epsilon = self.schedule.forward_process(mel_target, t)
+        eps_pred = self.score_net(x_t, mu_expanded, t)
+        loss_diff = F.mse_loss(eps_pred, epsilon)
+
+        # 7. Total loss
+        loss = loss_prior + loss_dur + loss_diff
+        loss.backward()
+        self.optimizer.step()
+
+        return {'loss': loss.item(), 'prior': loss_prior.item(),
+                'dur': loss_dur.item(), 'diff': loss_diff.item()}</code></pre>
+
+                <!-- Code Example 4: DDIM Sampling -->
+                <h3>4. DDIM Sampling</h3>
+                <p>Deterministic DDIM sampler for fast inference. Starting from the informed prior, iteratively denoise using the trained score network.</p>
+
+<pre><code>@torch.no_grad()
+def ddim_sample(score_net, mu, schedule, n_steps=10, eta=0.0):
+    """
+    DDIM sampling for Grad-TTS.
+
+    Args:
+        score_net: trained noise prediction network
+        mu: encoder prior mean [B, 80, T_mel]
+        schedule: DiffusionSchedule
+        n_steps: number of denoising steps
+        eta: stochasticity (0 = deterministic DDIM, 1 = DDPM)
+    Returns:
+        x_0: generated mel spectrogram [B, 80, T_mel]
+    """
+    # Create timestep subsequence: evenly spaced from T to 0
+    timesteps = torch.linspace(1.0, 0.0, n_steps + 1)
+
+    # Start from informed prior: x_T ~ N(mu, I)
+    x = mu + torch.randn_like(mu)  # [B, 80, T_mel]
+
+    for i in range(n_steps):
+        t_cur = timesteps[i].expand(mu.shape[0])      # current time
+        t_next = timesteps[i + 1].expand(mu.shape[0])  # next time (closer to 0)
+
+        # Predict noise at current timestep
+        eps_pred = score_net(x, mu, t_cur)
+
+        # Compute alpha_bar at current and next timestep
+        a_cur = schedule.alpha_bar(t_cur)[:, None, None]
+        a_next = schedule.alpha_bar(t_next)[:, None, None]
+
+        # Predict x_0 from current x_t and predicted noise
+        x_0_pred = (x - torch.sqrt(1 - a_cur) * eps_pred) / torch.sqrt(a_cur)
+        x_0_pred = torch.clamp(x_0_pred, -10, 10)  # stability clamp
+
+        # Compute sigma for stochastic component
+        sigma = eta * torch.sqrt((1 - a_next) / (1 - a_cur)) * torch.sqrt(1 - a_cur / a_next)
+
+        # DDIM update
+        dir_xt = torch.sqrt(1 - a_next - sigma**2) * eps_pred
+        noise = torch.randn_like(x) if i &lt; n_steps - 1 else torch.zeros_like(x)
+        x = torch.sqrt(a_next) * x_0_pred + dir_xt + sigma * noise
+
+    return x
+
+# Usage
+# mel = ddim_sample(trained_score_net, encoder_mu, schedule, n_steps=10)</code></pre>
+
+                <!-- Code Example 5: Classifier-Free Guidance Inference -->
+                <h3>5. Classifier-Free Guidance Inference</h3>
+                <p>Inference with classifier-free guidance, combining conditional and unconditional score predictions to strengthen text adherence.</p>
+
+<pre><code>@torch.no_grad()
+def cfg_sample(score_net, mu, schedule, n_steps=10, guidance_scale=2.0):
+    """
+    DDIM sampling with classifier-free guidance.
+
+    Args:
+        score_net: trained with random conditioning dropout
+        mu: encoder prior mean [B, 80, T_mel]
+        schedule: DiffusionSchedule
+        n_steps: denoising steps
+        guidance_scale: w in (1+w)*eps_cond - w*eps_uncond
+    Returns:
+        x_0: generated mel spectrogram
+    """
+    timesteps = torch.linspace(1.0, 0.0, n_steps + 1)
+    x = mu + torch.randn_like(mu)
+
+    # Create null conditioning (zeros = unconditional)
+    mu_null = torch.zeros_like(mu)
+
+    for i in range(n_steps):
+        t = timesteps[i].expand(mu.shape[0])
+        t_next = timesteps[i + 1].expand(mu.shape[0])
+
+        # Two forward passes: conditional and unconditional
+        eps_cond = score_net(x, mu, t)           # conditioned on text
+        eps_uncond = score_net(x, mu_null, t)    # unconditional
+
+        # Classifier-free guidance combination
+        w = guidance_scale
+        eps_guided = (1 + w) * eps_cond - w * eps_uncond
+
+        # Standard DDIM step with guided noise prediction
+        a_cur = schedule.alpha_bar(t)[:, None, None]
+        a_next = schedule.alpha_bar(t_next)[:, None, None]
+
+        x_0_pred = (x - torch.sqrt(1 - a_cur) * eps_guided) / torch.sqrt(a_cur)
+        x_0_pred = torch.clamp(x_0_pred, -10, 10)
+
+        dir_xt = torch.sqrt(1 - a_next) * eps_guided
+        x = torch.sqrt(a_next) * x_0_pred + dir_xt
+
+    return x
+
+# Usage: stronger guidance = clearer speech, less diversity
+# mel_w0 = cfg_sample(net, mu, sched, guidance_scale=0.0)  # no guidance
+# mel_w2 = cfg_sample(net, mu, sched, guidance_scale=2.0)  # moderate
+# mel_w5 = cfg_sample(net, mu, sched, guidance_scale=5.0)  # strong</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>These exercises cover the mathematical foundations and practical aspects of diffusion-based TTS. The easy exercises test core calculations with noise schedules and score functions. The medium exercises require deeper reasoning about Grad-TTS design and guidance techniques. The hard exercises involve derivations, distillation, and system design. Full solutions are provided.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. VP-SDE Noise Schedule Computation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a VP-SDE with linear noise schedule $\beta(t) = \beta_{\min} + t(\beta_{\max} - \beta_{\min})$ where $\beta_{\min} = 0.1$ and $\beta_{\max} = 20$. Recall that $\bar{\alpha}(t) = \exp\!\left(-\int_0^t \beta(s)\,ds\right)$.</p>
+                            <p>(a) Compute $\bar{\alpha}(t)$ at $t = 0, 0.25, 0.5, 0.75, 1.0$.</p>
+                            <p>(b) Compute the signal-to-noise ratio $\text{SNR}(t) = \frac{\bar{\alpha}(t)}{1 - \bar{\alpha}(t)}$ at each of these timesteps.</p>
+                            <p>(c) At what time $t^*$ does the SNR equal 1 (i.e., signal and noise have equal power)?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> First compute the integral: $\int_0^t \beta(s)\,ds = \int_0^t [\beta_{\min} + s(\beta_{\max} - \beta_{\min})]\,ds = \beta_{\min}t + \frac{1}{2}(\beta_{\max} - \beta_{\min})t^2$.</p>
+                                <p>With $\beta_{\min} = 0.1$, $\beta_{\max} = 20$: $\int_0^t \beta(s)\,ds = 0.1t + 9.95t^2$.</p>
+                                <p>Then $\bar{\alpha}(t) = \exp(-0.1t - 9.95t^2)$:</p>
+                                <ul>
+                                    <li>$t = 0$: $\bar{\alpha} = e^{0} = 1.0$</li>
+                                    <li>$t = 0.25$: $\bar{\alpha} = e^{-0.025 - 0.622} = e^{-0.647} \approx 0.524$</li>
+                                    <li>$t = 0.5$: $\bar{\alpha} = e^{-0.05 - 2.488} = e^{-2.538} \approx 0.079$</li>
+                                    <li>$t = 0.75$: $\bar{\alpha} = e^{-0.075 - 5.597} = e^{-5.672} \approx 0.00344$</li>
+                                    <li>$t = 1.0$: $\bar{\alpha} = e^{-0.1 - 9.95} = e^{-10.05} \approx 4.33 \times 10^{-5}$</li>
+                                </ul>
+                                <p><strong>(b)</strong> $\text{SNR}(t) = \bar{\alpha}/(1 - \bar{\alpha})$:</p>
+                                <ul>
+                                    <li>$t = 0$: SNR $= 1/0 = \infty$ (pure signal)</li>
+                                    <li>$t = 0.25$: SNR $= 0.524/0.476 \approx 1.10$</li>
+                                    <li>$t = 0.5$: SNR $= 0.079/0.921 \approx 0.086$</li>
+                                    <li>$t = 0.75$: SNR $= 0.00344/0.997 \approx 0.00345$</li>
+                                    <li>$t = 1.0$: SNR $= 4.33 \times 10^{-5}/0.99996 \approx 4.33 \times 10^{-5}$ (nearly pure noise)</li>
+                                </ul>
+                                <p><strong>(c)</strong> SNR $= 1$ when $\bar{\alpha} = 1 - \bar{\alpha}$, i.e., $\bar{\alpha} = 0.5$. We need $0.1t + 9.95t^2 = \ln 2 \approx 0.693$. Solving $9.95t^2 + 0.1t - 0.693 = 0$ with the quadratic formula:</p>
+                                $$t^* = \frac{-0.1 + \sqrt{0.01 + 4 \times 9.95 \times 0.693}}{2 \times 9.95} = \frac{-0.1 + \sqrt{27.59}}{19.9} = \frac{-0.1 + 5.253}{19.9} \approx 0.259$$
+                                <p>So the SNR crosses 1 at $t^* \approx 0.259$. This means that for roughly the first quarter of the diffusion process, the signal is still dominant. After that, noise overwhelms the signal, and the model must rely heavily on learned patterns to denoise.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Score Function for a Gaussian</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Let $p(\mathbf{x}) = \mathcal{N}(\mathbf{x}; \boldsymbol{\mu}, \boldsymbol{\Sigma})$ be a multivariate Gaussian with mean $\boldsymbol{\mu}$ and covariance $\boldsymbol{\Sigma}$.</p>
+                            <p>(a) Derive the score function $\nabla_{\mathbf{x}} \log p(\mathbf{x})$ in closed form.</p>
+                            <p>(b) For the special case $\boldsymbol{\mu} = \mathbf{0}$ and $\boldsymbol{\Sigma} = \sigma^2 \mathbf{I}$, what is the score?</p>
+                            <p>(c) Show that the score points toward the mean and has magnitude proportional to the distance from the mean divided by the variance.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> The log-density of a multivariate Gaussian is:</p>
+                                $$\log p(\mathbf{x}) = -\frac{d}{2}\log(2\pi) - \frac{1}{2}\log|\boldsymbol{\Sigma}| - \frac{1}{2}(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol{\Sigma}^{-1}(\mathbf{x} - \boldsymbol{\mu})$$
+                                <p>The first two terms are constants with respect to $\mathbf{x}$. Taking the gradient of the quadratic form:</p>
+                                $$\nabla_{\mathbf{x}} \log p(\mathbf{x}) = -\boldsymbol{\Sigma}^{-1}(\mathbf{x} - \boldsymbol{\mu})$$
+                                <p><strong>(b)</strong> With $\boldsymbol{\mu} = \mathbf{0}$ and $\boldsymbol{\Sigma} = \sigma^2 \mathbf{I}$, we get $\boldsymbol{\Sigma}^{-1} = \frac{1}{\sigma^2}\mathbf{I}$, so:</p>
+                                $$\nabla_{\mathbf{x}} \log p(\mathbf{x}) = -\frac{\mathbf{x}}{\sigma^2}$$
+                                <p>The score points toward the origin (mean) with magnitude $\|\mathbf{x}\|/\sigma^2$.</p>
+                                <p><strong>(c)</strong> From part (a), $\nabla_{\mathbf{x}} \log p(\mathbf{x}) = -\boldsymbol{\Sigma}^{-1}(\mathbf{x} - \boldsymbol{\mu})$. This vector points from $\mathbf{x}$ toward $\boldsymbol{\mu}$ (the negative sign reverses the direction of $\mathbf{x} - \boldsymbol{\mu}$). The magnitude is $\|\boldsymbol{\Sigma}^{-1}(\mathbf{x} - \boldsymbol{\mu})\|$. For isotropic $\boldsymbol{\Sigma} = \sigma^2\mathbf{I}$, this is $\|\mathbf{x} - \boldsymbol{\mu}\|/\sigma^2$: proportional to the distance from the mean and inversely proportional to the variance. Intuitively, if you are far from the mean and the variance is small, the log-density gradient is steep (large score magnitude), pulling you strongly toward the mean. This is exactly what Langevin dynamics uses to generate samples.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. SNR Calculation Across Timesteps</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In the DDPM framework with discrete timesteps, the noise schedule is defined by $\bar{\alpha}_t = \prod_{s=1}^{t}(1 - \beta_s)$ where $\beta_s$ increases linearly from $\beta_1 = 10^{-4}$ to $\beta_T = 0.02$ over $T = 1000$ steps.</p>
+                            <p>(a) Compute $\bar{\alpha}_t$ at $t = 1, 250, 500, 750, 1000$.</p>
+                            <p>(b) At which timestep does the SNR drop below 0.1 (i.e., noise power is 10x the signal power)?</p>
+                            <p>(c) Express the SNR in decibels: $\text{SNR}_{\text{dB}} = 10\log_{10}(\text{SNR})$. What is the SNR in dB at $t = 500$?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> With linear schedule $\beta_s = \beta_1 + \frac{s-1}{T-1}(\beta_T - \beta_1)$, we have $\log \bar{\alpha}_t = \sum_{s=1}^{t}\log(1-\beta_s)$. Since $\beta_s$ is small, $\log(1-\beta_s) \approx -\beta_s$, so $\log\bar{\alpha}_t \approx -\sum_{s=1}^{t}\beta_s$.</p>
+                                <p>The sum $\sum_{s=1}^{t}\beta_s = \sum_{s=1}^{t}\left[10^{-4} + \frac{(s-1)(0.02 - 10^{-4})}{999}\right]$. This is an arithmetic series with first term $10^{-4}$ and common difference $\approx 1.99 \times 10^{-5}$.</p>
+                                <ul>
+                                    <li>$t = 1$: $\bar{\alpha}_1 = 1 - 10^{-4} = 0.9999$</li>
+                                    <li>$t = 250$: $\sum \beta_s \approx 0.650$, $\bar{\alpha}_{250} \approx e^{-0.650} \approx 0.522$</li>
+                                    <li>$t = 500$: $\sum \beta_s \approx 2.525$, $\bar{\alpha}_{500} \approx e^{-2.525} \approx 0.080$</li>
+                                    <li>$t = 750$: $\sum \beta_s \approx 5.625$, $\bar{\alpha}_{750} \approx e^{-5.625} \approx 0.00361$</li>
+                                    <li>$t = 1000$: $\sum \beta_s \approx 9.95$, $\bar{\alpha}_{1000} \approx e^{-9.95} \approx 4.78 \times 10^{-5}$</li>
+                                </ul>
+                                <p><strong>(b)</strong> SNR $< 0.1$ means $\bar{\alpha}_t / (1 - \bar{\alpha}_t) < 0.1$, so $\bar{\alpha}_t < 1/11 \approx 0.0909$. From part (a), $\bar{\alpha}_{500} \approx 0.080 < 0.0909$, and $\bar{\alpha}_{250} \approx 0.522 > 0.0909$. We need $e^{-S_t} = 0.0909$, so $S_t = \ln(11) \approx 2.398$. Solving $S_t = \sum \beta_s = 2.398$ numerically gives $t \approx 485$. So the SNR drops below 0.1 around step 485.</p>
+                                <p><strong>(c)</strong> At $t = 500$: SNR $= 0.080 / 0.920 \approx 0.087$.</p>
+                                $$\text{SNR}_{\text{dB}} = 10\log_{10}(0.087) = 10 \times (-1.061) \approx -10.6 \text{ dB}$$
+                                <p>A negative SNR in dB means the noise power exceeds the signal power. At $-10.6$ dB, the noise is about 11.5 times stronger than the signal &mdash; the original mel spectrogram is barely visible under the noise, and the score network must rely almost entirely on learned priors to denoise.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. DDIM vs DDPM Step Comparison</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider the DDPM reverse step:</p>
+                            $$\mathbf{x}_{t-1} = \frac{1}{\sqrt{\alpha_t}}\left(\mathbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)\right) + \sigma_t \mathbf{z}$$
+                            <p>and the DDIM reverse step (with $\eta = 0$):</p>
+                            $$\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\left(\frac{\mathbf{x}_t - \sqrt{1-\bar{\alpha}_t}\,\boldsymbol{\epsilon}_\theta}{\sqrt{\bar{\alpha}_t}}\right) + \sqrt{1 - \bar{\alpha}_{t-1}}\,\boldsymbol{\epsilon}_\theta$$
+                            <p>(a) Show that both steps produce the same predicted $\mathbf{x}_0$ when $\sigma_t = 0$.</p>
+                            <p>(b) Explain why DDIM can skip timesteps (e.g., going from $t = 1000$ to $t = 900$) while DDPM cannot.</p>
+                            <p>(c) If we use $S = 10$ DDIM steps for a model trained with $T = 1000$ DDPM steps, what is the speedup factor, and what is the effective "time gap" between consecutive DDIM steps?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Both formulas extract the same predicted $\mathbf{x}_0$ from $\mathbf{x}_t$ and $\boldsymbol{\epsilon}_\theta$:</p>
+                                $$\hat{\mathbf{x}}_0 = \frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}}$$
+                                <p>For DDPM (setting $\sigma_t = 0$): expanding $\frac{1}{\sqrt{\alpha_t}}\left(\mathbf{x}_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\boldsymbol{\epsilon}_\theta\right)$ and using $\beta_t = 1 - \alpha_t$ and $\bar{\alpha}_t = \alpha_t \bar{\alpha}_{t-1}$, one can show this equals $\sqrt{\bar{\alpha}_{t-1}}\hat{\mathbf{x}}_0 + \sqrt{1-\bar{\alpha}_{t-1}}\boldsymbol{\epsilon}_\theta$ after algebraic manipulation. For DDIM, this is directly visible from the formula. Both produce the same $\hat{\mathbf{x}}_0$, but differ in how they construct $\mathbf{x}_{t-1}$ from $\hat{\mathbf{x}}_0$.</p>
+                                <p><strong>(b)</strong> DDPM is a Markov chain: each step $t \to t-1$ is derived from the posterior $q(\mathbf{x}_{t-1} | \mathbf{x}_t, \mathbf{x}_0)$, which assumes consecutive timesteps. Skipping timesteps would require computing $q(\mathbf{x}_{t-k} | \mathbf{x}_t, \mathbf{x}_0)$ for $k > 1$, which involves a different (and less well-approximated) posterior.</p>
+                                <p>DDIM, by contrast, is <em>non-Markovian</em>. It directly computes $\hat{\mathbf{x}}_0$ from any $\mathbf{x}_t$ and then constructs $\mathbf{x}_{t'}$ for any $t' < t$ using:</p>
+                                $$\mathbf{x}_{t'} = \sqrt{\bar{\alpha}_{t'}}\,\hat{\mathbf{x}}_0 + \sqrt{1 - \bar{\alpha}_{t'}}\,\boldsymbol{\epsilon}_\theta$$
+                                <p>This works for any pair $(t, t')$ as long as the noise prediction is accurate, because it only needs $\bar{\alpha}_t$ and $\bar{\alpha}_{t'}$, not intermediate values.</p>
+                                <p><strong>(c)</strong> Speedup factor: $T/S = 1000/10 = 100\times$. The timestep subsequence is $\{1000, 900, 800, \ldots, 100, 0\}$ (or equivalently in continuous time $\{1.0, 0.9, 0.8, \ldots, 0.1, 0.0\}$). Each DDIM step covers a "time gap" of $\Delta t = T/S = 100$ discrete steps (or $0.1$ in continuous time). This is a large jump &mdash; the accuracy of the denoising prediction must be sufficient to handle such gaps, which is why DDIM quality degrades gracefully with fewer steps rather than catastrophically.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Grad-TTS Informed Prior Advantage</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider two diffusion TTS systems with identical architectures, differing only in the prior:</p>
+                            <ul>
+                                <li><strong>System A (uninformed):</strong> $\mathbf{x}_T \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$</li>
+                                <li><strong>System B (Grad-TTS, informed):</strong> $\mathbf{x}_T \sim \mathcal{N}(\boldsymbol{\mu}_\theta, \mathbf{I})$</li>
+                            </ul>
+                            <p>Assume the target mel spectrogram is $\mathbf{x}_0$ and the encoder produces $\boldsymbol{\mu}_\theta$ with per-frame MSE $\|\boldsymbol{\mu}_\theta - \mathbf{x}_0\|^2/d = \delta^2$ (where $d$ is the dimensionality).</p>
+                            <p>(a) Compute the expected squared distance $\mathbb{E}[\|\mathbf{x}_T - \mathbf{x}_0\|^2]$ for both systems.</p>
+                            <p>(b) For a typical TTS scenario where $d = 80 \times 200 = 16000$ and $\delta = 0.5$ (encoder predicts mel within 0.5 per dimension), compute the ratio of distances. How much "closer" does the informed prior start?</p>
+                            <p>(c) Argue qualitatively why this distance reduction translates to needing fewer sampling steps.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> For System A: $\mathbf{x}_T = \boldsymbol{\epsilon}$ where $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$.</p>
+                                $$\mathbb{E}[\|\mathbf{x}_T - \mathbf{x}_0\|^2] = \mathbb{E}[\|\boldsymbol{\epsilon} - \mathbf{x}_0\|^2] = \|\mathbf{x}_0\|^2 + d$$
+                                <p>(using $\mathbb{E}[\|\boldsymbol{\epsilon}\|^2] = d$ and $\mathbb{E}[\boldsymbol{\epsilon}] = \mathbf{0}$).</p>
+                                <p>For System B: $\mathbf{x}_T = \boldsymbol{\mu}_\theta + \boldsymbol{\epsilon}$.</p>
+                                $$\mathbb{E}[\|\mathbf{x}_T - \mathbf{x}_0\|^2] = \mathbb{E}[\|\boldsymbol{\mu}_\theta - \mathbf{x}_0 + \boldsymbol{\epsilon}\|^2] = \|\boldsymbol{\mu}_\theta - \mathbf{x}_0\|^2 + d = d\delta^2 + d = d(\delta^2 + 1)$$
+                                <p><strong>(b)</strong> With $d = 16000$, $\delta = 0.5$: Assuming $\|\mathbf{x}_0\|^2 \approx d \cdot \sigma_{\text{mel}}^2$ where $\sigma_{\text{mel}}^2$ is the average squared mel value. For typical normalized mel spectrograms, $\sigma_{\text{mel}}^2 \approx 1$, so:</p>
+                                <ul>
+                                    <li>System A: $\mathbb{E}[\|\mathbf{x}_T - \mathbf{x}_0\|^2] \approx d + d = 2d = 32000$</li>
+                                    <li>System B: $\mathbb{E}[\|\mathbf{x}_T - \mathbf{x}_0\|^2] = d(0.25 + 1) = 1.25d = 20000$</li>
+                                </ul>
+                                <p>Ratio: $20000/32000 = 0.625$. The informed prior starts about 37.5% closer in expected squared distance, or $\sqrt{0.625} \approx 0.79$ (21% closer in Euclidean distance).</p>
+                                <p>However, the real advantage is more dramatic. If $\delta \ll 1$ (good encoder), the informed prior distance is $d(\delta^2 + 1) \approx d$, dominated by the random noise component. The systematic error $d\delta^2$ is small. By contrast, System A has the additional $\|\mathbf{x}_0\|^2$ term, which represents the entire structure of the mel spectrogram.</p>
+                                <p><strong>(c)</strong> The number of sampling steps required is roughly proportional to the "difficulty" of the reverse process. With the informed prior, the noise at $t = T$ already has the correct mean structure &mdash; the reverse process only needs to remove the noise component $\boldsymbol{\epsilon}$ and refine the encoder's approximation error. With the uninformed prior, the reverse process must additionally create the entire mel spectrogram structure from scratch. The coarse structure (formant positions, pitch contour, energy envelope) requires large-scale coordinated changes that happen at early timesteps. By providing this structure in the prior, Grad-TTS effectively "skips" the early part of the reverse process, reducing the number of steps needed from $\sim$1000 to $\sim$4&ndash;10.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Classifier-Free Guidance Strength Analysis</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In classifier-free guidance, the guided score is $\hat{\boldsymbol{\epsilon}} = (1+w)\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \mathbf{c}) - w\,\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \varnothing)$.</p>
+                            <p>(a) Show that this can be rewritten as $\hat{\boldsymbol{\epsilon}} = \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \varnothing) + (1+w)\Delta$ where $\Delta = \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \mathbf{c}) - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t, \varnothing)$.</p>
+                            <p>(b) Interpret $\Delta$ geometrically: what does this vector represent in the noise prediction space?</p>
+                            <p>(c) If $\|\boldsymbol{\epsilon}_\theta(\cdot, \cdot, \mathbf{c})\| \approx \|\boldsymbol{\epsilon}_\theta(\cdot, \cdot, \varnothing)\| \approx \sqrt{d}$ and $\|\Delta\| \approx 0.1\sqrt{d}$ (the conditioning changes the prediction by about 10%), compute $\|\hat{\boldsymbol{\epsilon}}\|$ for $w = 0, 2, 5, 10$. At what guidance scale does the norm of the guided prediction exceed $2\sqrt{d}$?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Expanding: $(1+w)\boldsymbol{\epsilon}_c - w\boldsymbol{\epsilon}_u = \boldsymbol{\epsilon}_c + w\boldsymbol{\epsilon}_c - w\boldsymbol{\epsilon}_u = \boldsymbol{\epsilon}_c + w(\boldsymbol{\epsilon}_c - \boldsymbol{\epsilon}_u)$. Alternatively: $= \boldsymbol{\epsilon}_u + \boldsymbol{\epsilon}_c - \boldsymbol{\epsilon}_u + w(\boldsymbol{\epsilon}_c - \boldsymbol{\epsilon}_u) = \boldsymbol{\epsilon}_u + (1+w)(\boldsymbol{\epsilon}_c - \boldsymbol{\epsilon}_u) = \boldsymbol{\epsilon}_u + (1+w)\Delta$.</p>
+                                <p><strong>(b)</strong> $\Delta = \boldsymbol{\epsilon}_c - \boldsymbol{\epsilon}_u$ is the "conditioning direction" in noise prediction space. It represents how knowing the text changes the noise prediction. Points in the direction of noise that is specifically associated with the text content (as opposed to generic speech patterns). Amplifying $\Delta$ pushes the generation more strongly toward text-faithful outputs.</p>
+                                <p><strong>(c)</strong> Using the approximation $\hat{\boldsymbol{\epsilon}} \approx \boldsymbol{\epsilon}_u + (1+w)\Delta$: if $\boldsymbol{\epsilon}_u$ and $\Delta$ are roughly orthogonal (reasonable since $\Delta$ is a small correction in a high-dimensional space), then:</p>
+                                $$\|\hat{\boldsymbol{\epsilon}}\|^2 \approx \|\boldsymbol{\epsilon}_u\|^2 + (1+w)^2\|\Delta\|^2 = d + (1+w)^2 \times 0.01d$$
+                                <ul>
+                                    <li>$w = 0$: $\|\hat{\boldsymbol{\epsilon}}\| \approx \sqrt{d + 0.01d} = \sqrt{1.01d} \approx 1.005\sqrt{d}$</li>
+                                    <li>$w = 2$: $\|\hat{\boldsymbol{\epsilon}}\| \approx \sqrt{d + 0.09d} = \sqrt{1.09d} \approx 1.044\sqrt{d}$</li>
+                                    <li>$w = 5$: $\|\hat{\boldsymbol{\epsilon}}\| \approx \sqrt{d + 0.36d} = \sqrt{1.36d} \approx 1.166\sqrt{d}$</li>
+                                    <li>$w = 10$: $\|\hat{\boldsymbol{\epsilon}}\| \approx \sqrt{d + 1.21d} = \sqrt{2.21d} \approx 1.487\sqrt{d}$</li>
+                                </ul>
+                                <p>For $\|\hat{\boldsymbol{\epsilon}}\| = 2\sqrt{d}$: $d + (1+w)^2 \times 0.01d = 4d$, so $(1+w)^2 = 300$, giving $w = \sqrt{300} - 1 \approx 16.3$. At guidance scale $w \approx 16$, the noise prediction norm doubles, which would cause severe artifacts in practice. This confirms the practical advice that $w > 10$ is almost always too high for TTS.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Reverse SDE Derivation from Forward</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider the VP-SDE forward process: $d\mathbf{x} = -\frac{1}{2}\beta(t)\mathbf{x}\,dt + \sqrt{\beta(t)}\,d\mathbf{w}$.</p>
+                            <p>(a) Identify $\mathbf{f}(\mathbf{x}, t)$ and $g(t)$.</p>
+                            <p>(b) Write the reverse SDE using Anderson's formula: $d\mathbf{x} = [\mathbf{f} - g^2 \nabla_{\mathbf{x}}\log p_t(\mathbf{x})]\,dt + g\,d\bar{\mathbf{w}}$.</p>
+                            <p>(c) Write the probability flow ODE: $d\mathbf{x} = [\mathbf{f} - \frac{1}{2}g^2 \nabla_{\mathbf{x}}\log p_t(\mathbf{x})]\,dt$.</p>
+                            <p>(d) Show that if the score network is perfect ($\mathbf{s}_\theta = \nabla_{\mathbf{x}}\log p_t$), the probability flow ODE can be written as a neural ODE with a specific velocity field, and relate this to the flow matching formulation.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> $\mathbf{f}(\mathbf{x}, t) = -\frac{1}{2}\beta(t)\mathbf{x}$ (linear drift, shrinks toward zero), $g(t) = \sqrt{\beta(t)}$ (scalar diffusion coefficient).</p>
+                                <p><strong>(b)</strong> The reverse SDE (time running from $T$ to $0$):</p>
+                                $$d\mathbf{x} = \left[-\frac{1}{2}\beta(t)\mathbf{x} - \beta(t)\nabla_{\mathbf{x}}\log p_t(\mathbf{x})\right]dt + \sqrt{\beta(t)}\,d\bar{\mathbf{w}}$$
+                                <p>Note that $g^2 = \beta(t)$. The drift has two terms: $-\frac{1}{2}\beta(t)\mathbf{x}$ (the forward drift, still shrinking) and $-\beta(t)\nabla_{\mathbf{x}}\log p_t(\mathbf{x})$ (the score-guided correction that reverses the noising). Remember that $dt$ here is negative (reverse time).</p>
+                                <p><strong>(c)</strong> The probability flow ODE:</p>
+                                $$d\mathbf{x} = \left[-\frac{1}{2}\beta(t)\mathbf{x} - \frac{1}{2}\beta(t)\nabla_{\mathbf{x}}\log p_t(\mathbf{x})\right]dt$$
+                                <p>This is deterministic (no $d\bar{\mathbf{w}}$ term). The score contribution is halved compared to the reverse SDE.</p>
+                                <p><strong>(d)</strong> We can write the probability flow ODE as:</p>
+                                $$\frac{d\mathbf{x}}{dt} = \mathbf{v}(\mathbf{x}, t) = -\frac{1}{2}\beta(t)\left[\mathbf{x} + \nabla_{\mathbf{x}}\log p_t(\mathbf{x})\right]$$
+                                <p>This is a neural ODE $d\mathbf{x}/dt = \mathbf{v}_\theta(\mathbf{x}, t)$ where the velocity field $\mathbf{v}_\theta$ is parameterized through the score network. In flow matching, we directly learn a velocity field $\mathbf{v}_\theta(\mathbf{x}, t)$ that transports the prior distribution to the data distribution. The probability flow ODE is a <em>specific</em> velocity field determined by the VP-SDE structure and the score. Flow matching generalizes this by allowing arbitrary velocity fields (e.g., optimal transport), which can produce straighter paths and require fewer ODE solver steps. This is why flow matching is often faster than diffusion: it learns the most efficient transport, while diffusion is constrained by the forward SDE structure.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Consistency Distillation for 1-Step TTS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consistency models satisfy the self-consistency property: $f_\theta(\mathbf{x}_t, t) = f_\theta(\mathbf{x}_{t'}, t')$ for any two points $(\mathbf{x}_t, t)$ and $(\mathbf{x}_{t'}, t')$ on the same ODE trajectory.</p>
+                            <p>(a) Show that if we define $f_\theta(\mathbf{x}_\epsilon, \epsilon) = \mathbf{x}_\epsilon$ (boundary condition at $t = \epsilon \approx 0$), then $f_\theta(\mathbf{x}_t, t) = \hat{\mathbf{x}}_0$ for any $t$ on the trajectory through $\mathbf{x}_0$.</p>
+                            <p>(b) The consistency distillation loss is: $\mathcal{L} = \mathbb{E}_{t,\mathbf{x}_0}\left[\|f_\theta(\mathbf{x}_{t+\Delta t}, t+\Delta t) - f_{\theta^-}(\hat{\mathbf{x}}_t^{\phi}, t)\|^2\right]$ where $\hat{\mathbf{x}}_t^{\phi}$ is obtained by running one ODE step from $(t+\Delta t)$ to $t$ using the teacher model $\phi$, and $\theta^-$ is an EMA of $\theta$. Explain why this loss enforces self-consistency.</p>
+                            <p>(c) For Grad-TTS with an informed prior, argue that consistency distillation should be particularly effective. How would you modify the boundary condition to incorporate the prior $\boldsymbol{\mu}_\theta$?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> The probability flow ODE defines deterministic trajectories $\{\mathbf{x}_t\}_{t \in [\epsilon, T]}$ where each trajectory passes through a unique $\mathbf{x}_\epsilon \approx \mathbf{x}_0$ at time $\epsilon$. By the boundary condition, $f_\theta(\mathbf{x}_\epsilon, \epsilon) = \mathbf{x}_\epsilon$. By self-consistency, for any other point $(\mathbf{x}_t, t)$ on the same trajectory: $f_\theta(\mathbf{x}_t, t) = f_\theta(\mathbf{x}_\epsilon, \epsilon) = \mathbf{x}_\epsilon \approx \mathbf{x}_0$. So $f_\theta$ maps any point on any ODE trajectory to the trajectory's "origin" (clean data point). At inference, $f_\theta(\mathbf{x}_T, T) = \mathbf{x}_0$ in a single forward pass.</p>
+                                <p><strong>(b)</strong> The loss compares $f_\theta$ at two adjacent points on the same ODE trajectory: $(\mathbf{x}_{t+\Delta t}, t+\Delta t)$ and $(\hat{\mathbf{x}}_t^{\phi}, t)$, where the second point is obtained by taking one teacher ODE step from the first. If these are truly on the same trajectory, self-consistency requires $f_\theta(\mathbf{x}_{t+\Delta t}, t+\Delta t) = f_\theta(\hat{\mathbf{x}}_t^{\phi}, t)$. The loss directly penalizes violations of this equality. The EMA target $\theta^-$ provides a stable target (similar to target networks in DQN), preventing mode collapse. Over training, $f_\theta$ learns to satisfy self-consistency everywhere, which means it can map from any $(\mathbf{x}_t, t)$ to $\mathbf{x}_0$ in one step.</p>
+                                <p><strong>(c)</strong> Consistency distillation is particularly effective for Grad-TTS because:</p>
+                                <ol>
+                                    <li><strong>Shorter trajectories:</strong> The informed prior means ODE trajectories start close to the data. Shorter trajectories are easier to "collapse" into a single step because the mapping from $\mathbf{x}_T$ to $\mathbf{x}_0$ has less curvature.</li>
+                                    <li><strong>Structured starting point:</strong> Since $\mathbf{x}_T \sim \mathcal{N}(\boldsymbol{\mu}_\theta, \mathbf{I})$, the consistency model receives rich conditioning information through $\boldsymbol{\mu}_\theta$, making the single-step prediction task closer to a refinement (denoising the Gaussian around $\boldsymbol{\mu}_\theta$) than a generation from scratch.</li>
+                                </ol>
+                                <p>Modified boundary condition: instead of $f_\theta(\mathbf{x}_\epsilon, \epsilon) = \mathbf{x}_\epsilon$, we parameterize:</p>
+                                $$f_\theta(\mathbf{x}_t, t, \boldsymbol{\mu}_\theta) = c_{\text{skip}}(t)\,\mathbf{x}_t + c_{\text{out}}(t)\,F_\theta(\mathbf{x}_t, t, \boldsymbol{\mu}_\theta)$$
+                                <p>where $c_{\text{skip}}(\epsilon) = 1$ and $c_{\text{out}}(\epsilon) = 0$ to satisfy the boundary condition, and $F_\theta$ is a neural network that receives $\boldsymbol{\mu}_\theta$ as additional conditioning. At $t = T$, $c_{\text{skip}}(T) \approx 0$ and $c_{\text{out}}(T) \approx 1$, so the network output dominates. The $\boldsymbol{\mu}_\theta$ conditioning lets the single-step model "know" the text content, making the refinement from $\mathbf{x}_T$ to $\mathbf{x}_0$ much simpler.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Comparing Diffusion Paths: VP vs VE vs sub-VP</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>For each SDE type, the transition kernel $p_{0t}(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t; \boldsymbol{\mu}_t, \sigma_t^2 \mathbf{I})$ has specific mean and variance schedules.</p>
+                            <p>(a) Fill in the following table for $t \in [0, 1]$ with $\beta(t) = 0.1 + 19.9t$ (so $\beta_{\min} = 0.1$, $\beta_{\max} = 20$):</p>
+                            <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                                <thead><tr style="border-bottom: 2px solid var(--color-border);"><th style="padding: 0.3rem;">SDE</th><th style="padding: 0.3rem;">Mean coefficient $\mu_t/\mathbf{x}_0$</th><th style="padding: 0.3rem;">Variance $\sigma_t^2$</th></tr></thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">VP</td><td style="padding: 0.3rem;">?</td><td style="padding: 0.3rem;">?</td></tr>
+                                    <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">VE</td><td style="padding: 0.3rem;">?</td><td style="padding: 0.3rem;">?</td></tr>
+                                    <tr><td style="padding: 0.3rem;">sub-VP</td><td style="padding: 0.3rem;">?</td><td style="padding: 0.3rem;">?</td></tr>
+                                </tbody>
+                            </table>
+                            <p>(b) For each SDE, compute the total variance $\text{Var}[\mathbf{x}_t] = \mu_t^2 \text{Var}[\mathbf{x}_0] + \sigma_t^2$ (assuming $\text{Var}[\mathbf{x}_0] = 1$) at $t = 0.5$. Which SDE has the smallest total variance? Which has the largest?</p>
+                            <p>(c) Discuss which SDE is most suitable for TTS and why.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p>Let $B(t) = \int_0^t \beta(s)\,ds = 0.1t + 9.95t^2$.</p>
+                                <p><strong>(a)</strong></p>
+                                <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                                    <thead><tr style="border-bottom: 2px solid var(--color-border);"><th style="padding: 0.3rem;">SDE</th><th style="padding: 0.3rem;">Mean coefficient</th><th style="padding: 0.3rem;">Variance</th></tr></thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">VP</td><td style="padding: 0.3rem;">$e^{-B(t)/2}$</td><td style="padding: 0.3rem;">$1 - e^{-B(t)}$</td></tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">VE</td><td style="padding: 0.3rem;">$1$</td><td style="padding: 0.3rem;">$\sigma_{\min}^2\left(\frac{\sigma_{\max}}{\sigma_{\min}}\right)^{2t} - \sigma_{\min}^2$ (with typical $\sigma_{\min} = 0.01$, $\sigma_{\max} = 50$)</td></tr>
+                                        <tr><td style="padding: 0.3rem;">sub-VP</td><td style="padding: 0.3rem;">$e^{-B(t)/2}$</td><td style="padding: 0.3rem;">$[1 - e^{-B(t)}]^2$</td></tr>
+                                    </tbody>
+                                </table>
+                                <p>Note: VP has mean $\sqrt{\bar{\alpha}_t} = e^{-B(t)/2}$ and variance $1 - \bar{\alpha}_t = 1 - e^{-B(t)}$. The sub-VP has the same mean but variance $(1 - e^{-B(t)})^2$, which is always less than the VP variance (since $1 - e^{-B(t)} < 1$).</p>
+                                <p><strong>(b)</strong> At $t = 0.5$: $B(0.5) = 0.05 + 2.4875 = 2.5375$. So $e^{-B} = e^{-2.5375} \approx 0.0791$, $e^{-B/2} \approx 0.2813$.</p>
+                                <ul>
+                                    <li><strong>VP:</strong> $\text{Var} = (0.2813)^2 \times 1 + (1 - 0.0791) = 0.0791 + 0.9209 = 1.0$ (variance preserving!).</li>
+                                    <li><strong>VE:</strong> Mean preserves signal, variance grows. With $\sigma_{\max} = 50$, $\sigma_t^2 \approx 0.01^2 \times (50/0.01)^{1.0} - 0.01^2 \approx 2500$. Total variance $\approx 1 + 2500 = 2501$ (variance exploding!).</li>
+                                    <li><strong>sub-VP:</strong> $\text{Var} = 0.0791 + (0.9209)^2 = 0.0791 + 0.8481 = 0.9272$.</li>
+                                </ul>
+                                <p>Smallest: sub-VP (0.927). Largest: VE (2501). VP is exactly 1.0 at all times (hence "variance preserving").</p>
+                                <p><strong>(c)</strong> <strong>VP-SDE is most suitable for TTS</strong> because: (1) the variance-preserving property means the data distribution transitions smoothly to $\mathcal{N}(\mathbf{0}, \mathbf{I})$ at $t = T$, making the prior easy to sample; (2) the SNR decreases monotonically and smoothly, matching the intuition that we add noise gradually; (3) VP-SDE noise schedules are well-studied and transfer well across domains (the same $\beta_{\min}, \beta_{\max}$ that work for images tend to work for mel spectrograms); (4) VP-SDE is numerically stable because the total variance stays bounded. VE-SDE has unbounded variance, which can cause numerical issues. sub-VP-SDE has tighter variance but the terminal distribution is not standard Gaussian, complicating the prior. In practice, essentially all diffusion TTS models (Grad-TTS, DiffSinger, Diff-TTS) use VP-SDE or its discrete DDPM equivalent.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Designing a Multi-Speaker Diffusion TTS</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You are designing a multi-speaker Grad-TTS system that must: (1) support 1000 training speakers, (2) enable zero-shot voice cloning from a 3-second reference, and (3) use classifier-free guidance for both text and speaker conditioning.</p>
+                            <p>(a) Design the conditioning mechanism. Where should the speaker embedding enter the architecture? Consider at least three injection points: the text encoder, the duration predictor, and the diffusion decoder. For each, argue whether speaker information is needed and how to inject it.</p>
+                            <p>(b) For zero-shot cloning, you need a speaker encoder that produces an embedding from a reference audio. Propose a speaker encoder architecture and explain how it differs from speaker verification systems.</p>
+                            <p>(c) With two conditioning signals (text $\mathbf{c}_{\text{txt}}$ and speaker $\mathbf{c}_{\text{spk}}$), write the CFG formula with independent guidance scales $w_{\text{txt}}$ and $w_{\text{spk}}$. How many forward passes per denoising step are needed? Can this be reduced?</p>
+                            <p>(d) Propose a training schedule for the conditioning dropout. Should text and speaker conditioning be dropped independently or jointly? What dropout probabilities would you use?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Speaker conditioning injection:</strong></p>
+                                <ul>
+                                    <li><strong>Text encoder:</strong> <em>Yes, needed.</em> Different speakers have different pitch ranges, speaking rates, and phonetic realizations. The encoder's predicted mean $\boldsymbol{\mu}$ should be speaker-dependent. Inject speaker embedding via addition to the encoder hidden states or through adaptive layer normalization (AdaLN): $\text{LN}(h) \cdot (1 + \gamma_{\text{spk}}) + \beta_{\text{spk}}$ where $\gamma_{\text{spk}}, \beta_{\text{spk}}$ are predicted from the speaker embedding.</li>
+                                    <li><strong>Duration predictor:</strong> <em>Yes, needed.</em> Speakers have different speaking rates and rhythmic patterns. A fast speaker has shorter durations overall, with characteristic ratios between vowels and consonants. Inject via concatenation: the duration predictor receives $[h_k; e_{\text{spk}}]$ as input, or via a speaker-dependent bias on the predicted log-durations.</li>
+                                    <li><strong>Diffusion decoder (U-Net):</strong> <em>Yes, critical.</em> This is where fine acoustic details (voice quality, formant structure, breathiness) are generated. Inject via: (1) AdaLN in every residual block (like DiT for images), where the speaker embedding modulates normalization parameters alongside the time embedding: $(\gamma, \beta) = \text{MLP}([t_{\text{emb}}; e_{\text{spk}}])$; (2) cross-attention layers where the U-Net attends to the speaker embedding; or (3) FiLM conditioning (feature-wise linear modulation). AdaLN is the most common and effective choice.</li>
+                                </ul>
+                                <p><strong>(b) Speaker encoder for zero-shot cloning:</strong></p>
+                                <p>Architecture: A mel spectrogram encoder (e.g., 6-layer CNN + attentive statistics pooling + 2 FC layers) that maps a variable-length reference mel to a fixed-size embedding $e_{\text{spk}} \in \mathbb{R}^{256}$.</p>
+                                <p>Key differences from speaker verification:</p>
+                                <ul>
+                                    <li><strong>Training objective:</strong> Speaker verification optimizes for discriminability (ArcFace, contrastive loss). For TTS, we need an embedding that captures <em>generative</em> characteristics: pitch range, formant structure, speaking style. The speaker encoder should be trained jointly with the TTS system (end-to-end) or with a reconstruction loss, not just a classification loss.</li>
+                                    <li><strong>Information content:</strong> Verification embeddings discard intra-speaker variation (they want the embedding to be the same regardless of what the speaker says). TTS embeddings should capture prosodic tendencies, typical pitch, and speaking style.</li>
+                                    <li><strong>Practical approach:</strong> Initialize from a pre-trained speaker verification model (e.g., ECAPA-TDNN), then fine-tune jointly with the TTS model. This combines the robustness of verification pre-training with the TTS-specific adaptation.</li>
+                                </ul>
+                                <p><strong>(c) Multi-condition CFG:</strong></p>
+                                $$\hat{\boldsymbol{\epsilon}} = \boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \varnothing) + (1 + w_{\text{txt}})[\boldsymbol{\epsilon}(\mathbf{x}_t, \mathbf{c}_{\text{txt}}, \varnothing) - \boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \varnothing)] + (1 + w_{\text{spk}})[\boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \mathbf{c}_{\text{spk}}) - \boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \varnothing)]$$
+                                <p>This requires <strong>3 forward passes</strong> per step: fully unconditional, text-only, and speaker-only. Adding the fully conditional pass would make it 4. To reduce cost: (1) batch all 3 predictions into a single forward pass with batch size 3B; (2) use a simpler two-term formulation: $\hat{\boldsymbol{\epsilon}} = (1 + w)\boldsymbol{\epsilon}(\mathbf{x}_t, \mathbf{c}_{\text{txt}}, \mathbf{c}_{\text{spk}}) - w\,\boldsymbol{\epsilon}(\mathbf{x}_t, \varnothing, \varnothing)$ with a single shared guidance scale (2 passes); (3) distill the guided model into a single-pass model.</p>
+                                <p><strong>(d) Training dropout schedule:</strong></p>
+                                <p>Drop text and speaker <strong>independently</strong>, creating four training modes:</p>
+                                <ul>
+                                    <li>Both conditioned (probability $\approx 0.72$): normal training</li>
+                                    <li>Text dropped (probability $\approx 0.09$): learns to generate speaker-like speech without text</li>
+                                    <li>Speaker dropped (probability $\approx 0.09$): learns to generate text-faithful speech without speaker identity</li>
+                                    <li>Both dropped (probability $\approx 0.10$): fully unconditional, learns generic speech patterns</li>
+                                </ul>
+                                <p>Using $p_{\text{drop, txt}} = 0.1$ and $p_{\text{drop, spk}} = 0.1$ independently gives roughly these probabilities. Independent dropout is preferred over joint dropout because it enables independent guidance control at inference. If they were only dropped jointly, you could not have $w_{\text{txt}} \neq w_{\text{spk}}$ because you would not have the "text-only" and "speaker-only" conditional predictions needed for the multi-condition CFG formula.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#deterministic-to-stochastic" class="toc-link">From Deterministic to Stochastic TTS</a>
+                <a href="#score-matching" class="toc-link">Score Matching Fundamentals</a>
+                <a href="#sde-generation" class="toc-link">SDEs for Generation</a>
+                <a href="#grad-tts-architecture" class="toc-link">Grad-TTS Architecture</a>
+                <a href="#grad-tts-loss" class="toc-link">The Grad-TTS Loss</a>
+                <a href="#diffsinger-diff-tts" class="toc-link">DiffSinger &amp; Diff-TTS</a>
+                <a href="#accelerating-diffusion" class="toc-link">Accelerating Diffusion</a>
+                <a href="#classifier-free-guidance" class="toc-link">Classifier-Free Guidance</a>
+                <a href="#diffusion-vs-alternatives" class="toc-link">Diffusion vs Flow vs AR</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

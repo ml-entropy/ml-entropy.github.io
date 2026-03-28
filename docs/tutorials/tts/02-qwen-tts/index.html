@@ -22,14 +22,14 @@
     <link rel="stylesheet" href="../../../css/sidebar.css">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar" id="navbar">
         <div class="nav-container">
             <a href="../../../index.html" class="nav-logo">
-                <span class="logo-symbol">∇</span>
+                <span class="logo-symbol">&nabla;</span>
                 <span class="logo-text">ML Fundamentals</span>
             </a>
 
@@ -85,6 +85,7 @@
 
             <div class="tutorial-tabs">
                 <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
                 <a href="#exercises" class="tutorial-tab">Exercises</a>
             </div>
         </div>
@@ -92,8 +93,6 @@
 
     <!-- Main Content -->
     <div class="tutorial-wrapper">
-        <!-- Sidebar placeholder -->
-        <!-- Sidebar Navigation -->
         <!-- Sidebar Navigation -->
                 <aside class="tutorial-sidebar">
             <div class="sidebar-section">
@@ -108,9 +107,12 @@
                     <a href="../07-glow-tts/index.html" class="sidebar-link">07. Glow-TTS &amp; Flows</a>
                     <a href="../08-vits/index.html" class="sidebar-link">08. VITS: End-to-End TTS</a>
                     <a href="../09-bilingual-tts/index.html" class="sidebar-link">09. Bilingual TTS: RU+KY</a>
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs</a>
+                    <a href="../11-grad-tts/index.html" class="sidebar-link">11. Grad-TTS &amp; Diffusion</a>
+                    <a href="../12-vall-e/index.html" class="sidebar-link">12. VALL-E &amp; Speech LLMs</a>
                 </nav>
             </div>
-            
+
             <div class="sidebar-section" style="margin-top: 2rem;">
                 <h3 class="sidebar-section-title">Related Subjects</h3>
                 <nav class="sidebar-nav">
@@ -125,78 +127,315 @@
         <!-- Main Article: Theory -->
         <main class="tutorial-main">
 
+            <!-- ==================== THEORY TAB ==================== -->
             <article class="article-content" id="theory">
 
+                <!-- Section 1: The Shift to Token-Based Synthesis -->
                 <h2 id="shift">The Shift to Token-Based Synthesis</h2>
 
                 <p>
-                    Traditional Text-to-Speech pipelines rely on intermediate representations like mel-spectrograms. A model predicts the spectrogram, and then a separate <em>vocoder</em> (like HiFi-GAN) converts that spectrogram into a waveform. 
+                    For nearly a decade, the dominant paradigm in neural TTS followed a two-stage pipeline: an acoustic model predicts a mel spectrogram from text, and then a separate vocoder (Griffin-Lim, WaveNet, WaveRNN, HiFi-GAN) converts that spectrogram into a waveform. Systems like Tacotron 2, FastSpeech 2, and VITS all operate within this framework, differing mainly in how the spectrogram is predicted &mdash; whether autoregressively with attention, non-autoregressively with duration predictors, or end-to-end with variational inference.
                 </p>
 
                 <p>
-                    The <strong>Qwen3-TTS</strong> architecture (introduced in early 2026) represents a paradigm shift toward a <strong>token-based, end-to-end language modeling approach</strong>. Instead of the conventional pipeline, Qwen-TTS treats speech generation as a sequential token prediction problem, identical to how a Large Language Model (LLM) generates text.
+                    This pipeline has a fundamental limitation: the mel spectrogram is a <em>lossy, continuous</em> intermediate representation. It discards phase information, compresses high-frequency detail through the mel filterbank, and forces the vocoder to reconstruct temporal fine structure from a smoothed representation. Moreover, the acoustic model and vocoder are typically trained separately, leading to a <strong>train-inference mismatch</strong> &mdash; the vocoder sees ground-truth mels during training but imperfect predicted mels at inference.
                 </p>
 
-                <h2 id="core">Core Philosophy</h2>
-
                 <p>
-                    Qwen-TTS eliminates the intermediate spectrogram stage, which often acts as an information bottleneck. By predicting discrete audio tokens directly (using audio codecs), the model avoids cascading errors, achieves higher fidelity, and maintains natural, expressive prosody. The LLM simply outputs a sequence of integers, which the codec decoder turns back into audio.
-                </p>
-
-                <h2 id="dual-track">The Dual-Track Architecture</h2>
-
-                <p>
-                    To balance the competing demands of high-quality generation (which is slow) and ultra-low latency streaming (which requires speed), Qwen-TTS introduces a "dual-track" framework:
+                    Starting in 2023 with models like VALL-E, Bark, and SoundStorm, a new paradigm emerged: <strong>treating speech generation as a language modeling problem over discrete audio tokens</strong>. Instead of predicting continuous mel frames, the model predicts a sequence of integer codes from an audio codec. A pre-trained codec decoder then converts these codes back to a waveform. This approach has several profound advantages:
                 </p>
 
                 <ol>
-                    <li><strong>Semantic Track (25Hz):</strong>
-                        <ul>
-                            <li><strong>Tokenizer:</strong> Uses a single-codebook codec (25Hz) designed to compress audio aggressively into core meanings.</li>
-                            <li><strong>Focus:</strong> Captures rich semantic, emotional, and linguistic details. It builds the structure of the speech.</li>
-                            <li><strong>Reconstruction:</strong> Uses a <strong>chunk-wise Diffusion Transformer (DiT)</strong> for high-fidelity waveform reconstruction. This track is typically used for non-streaming, high-quality batch generation where a bit of delay is acceptable.</li>
-                        </ul>
-                    </li>
-                    <li><strong>Latency Track (12.5Hz):</strong>
-                        <ul>
-                            <li><strong>Tokenizer:</strong> Uses a multi-codebook codec (16 layers) running at 12.5Hz.</li>
-                            <li><strong>Focus:</strong> Optimized for speed and extreme bitrate reduction, perfect for real-time conversational agents.</li>
-                            <li><strong>Reconstruction:</strong> Uses a <strong>lightweight causal Convolutional Network (ConvNet)</strong>. Because it is causal (meaning it doesn't need to "look ahead" at future tokens), it can emit audio as soon as the first few tokens are generated, achieving a first-packet latency of under 100ms.</li>
-                        </ul>
-                    </li>
+                    <li><strong>Unified sequence modeling.</strong> Text tokens and audio tokens live in the same discrete space. A single autoregressive transformer can model both, inheriting all the scaling laws, training recipes, and efficiency tricks developed for LLMs.</li>
+                    <li><strong>No train-inference mismatch.</strong> The codec is frozen during TTS training &mdash; the model simply learns to predict the right integer codes. At inference the same codec decodes them. There is no separate component that must handle imperfect inputs.</li>
+                    <li><strong>Richer representation.</strong> Multi-codebook audio codecs (like EnCodec or SoundStream) capture both semantic and acoustic information across their layers, preserving details that a mel spectrogram discards.</li>
+                    <li><strong>Zero-shot generalization.</strong> Because the model is an LLM, it naturally supports in-context learning &mdash; provide a few seconds of reference audio as prefix tokens, and the model continues in that voice.</li>
                 </ol>
+
+                <p>
+                    The <strong>Qwen-TTS</strong> architecture (introduced by Alibaba in early 2025) represents the mature realization of this paradigm. It builds on the Qwen2 language model backbone and introduces several innovations &mdash; a dual-track codec system, multi-token prediction, and prompt-based voice design &mdash; that push token-based TTS to production quality. This tutorial provides a deep mathematical and architectural analysis of every component.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Token-Based TTS</div>
+                    <p>
+                        Given input text $\mathbf{x} = (x_1, \ldots, x_L)$ and an audio codec with encoder $\text{Enc}(\cdot)$ and decoder $\text{Dec}(\cdot)$, a <strong>token-based TTS system</strong> models:
+                    </p>
+                    $$p(\mathbf{c} \mid \mathbf{x}) = \prod_{t=1}^{T} p(c_t \mid c_{<t}, \mathbf{x})$$
+                    <p>
+                        where $\mathbf{c} = (c_1, \ldots, c_T)$ are discrete audio token indices from a finite codebook $\mathcal{C} = \{1, \ldots, N\}$. The final waveform is obtained by $\mathbf{y} = \text{Dec}(\mathbf{c})$. The key insight is that this is <em>identical</em> to the next-token prediction objective used in GPT-style language models.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Historical timeline.</strong> The evolution from mel-spectrograms to tokens followed a clear trajectory. WaveNet (2016) showed that autoregressive models could generate raw audio sample-by-sample. Jukebox (2020) demonstrated that VQ-VAE could tokenize music for transformer-based generation. AudioLM (2022) proved that language modeling over audio tokens could produce coherent, natural speech. VALL-E (2023) scaled this to zero-shot TTS with a 60K-hour training corpus. Qwen-TTS (2025) combines these ideas with the massive Qwen2 LLM backbone, multi-token prediction, and a dual-track codec framework to achieve state-of-the-art quality, controllability, and streaming capability in a single system.
+                </p>
+
+                <!-- Section 2: Audio Tokenization -->
+                <h2 id="tokenization">Audio Tokenization: From Waveforms to Discrete Codes</h2>
+
+                <p>
+                    The foundation of token-based TTS is the <strong>audio codec</strong> &mdash; a neural network that compresses a continuous waveform into a sequence of discrete integer codes and reconstructs the waveform from those codes. The quality of the codec directly determines the ceiling of the TTS system: if the codec cannot faithfully reconstruct speech from its codes, no amount of language modeling can compensate.
+                </p>
+
+                <p>
+                    Modern audio codecs (EnCodec, SoundStream, DAC) use <strong>Residual Vector Quantization (RVQ)</strong>, a hierarchical quantization scheme that progressively refines the representation across multiple codebook layers. Understanding RVQ mathematically is essential for understanding Qwen-TTS.
+                </p>
+
+                <h3>Vector Quantization (VQ)</h3>
+
+                <p>
+                    Standard vector quantization maps a continuous vector $\mathbf{z} \in \mathbb{R}^d$ to the nearest entry in a learnable codebook $\mathcal{E} = \{\mathbf{e}_1, \ldots, \mathbf{e}_N\} \subset \mathbb{R}^d$:
+                </p>
+
+                $$q(\mathbf{z}) = \mathbf{e}_{i^*}, \quad i^* = \arg\min_{j \in \{1,\ldots,N\}} \|\mathbf{z} - \mathbf{e}_j\|_2^2$$
+
+                <p>
+                    The index $i^*$ is the <em>token</em> &mdash; a single integer that represents the entire $d$-dimensional vector. With a codebook of size $N$, each token carries $\log_2 N$ bits of information. For example, a codebook of size 1024 encodes $\log_2 1024 = 10$ bits per token.
+                </p>
+
+                <p>
+                    The quantization error is $\|\mathbf{z} - q(\mathbf{z})\|_2^2$. With a single codebook, reducing this error requires either increasing the codebook size $N$ (which increases memory and makes training harder) or reducing the vector dimension $d$ (which limits expressiveness). RVQ solves this dilemma elegantly.
+                </p>
+
+                <h3>Residual Vector Quantization (RVQ)</h3>
+
+                <p>
+                    RVQ uses $K$ codebooks in sequence. The first codebook quantizes the input; the second quantizes the <em>residual</em> (the error from the first quantization); the third quantizes the residual of the residual; and so on. Formally:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Residual Vector Quantization</div>
+                    <p>
+                        Given $K$ codebooks $\mathcal{E}^{(1)}, \ldots, \mathcal{E}^{(K)}$ each of size $N$ with entries in $\mathbb{R}^d$, the RVQ encoding of $\mathbf{z}$ proceeds as:
+                    </p>
+                    $$r_0 = \mathbf{z}$$
+                    $$i_k = \arg\min_{j \in \{1,\ldots,N\}} \|r_{k-1} - \mathbf{e}_j^{(k)}\|_2^2, \quad k = 1, \ldots, K$$
+                    $$r_k = r_{k-1} - \mathbf{e}_{i_k}^{(k)}, \quad k = 1, \ldots, K$$
+                    <p>
+                        The reconstructed vector is:
+                    </p>
+                    $$\hat{\mathbf{z}} = \sum_{k=1}^{K} \mathbf{e}_{i_k}^{(k)}$$
+                    <p>
+                        The final residual $r_K = \mathbf{z} - \hat{\mathbf{z}}$ is the unrecoverable quantization error. The token sequence $(i_1, \ldots, i_K)$ is the discrete representation of $\mathbf{z}$.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why RVQ works so well.</strong> Each additional codebook layer reduces the quantization error by capturing finer details. The first codebook captures the coarse structure (roughly: what phoneme is being spoken, the overall pitch), while later codebooks capture progressively finer acoustic texture (speaker timbre, breathiness, room acoustics). This hierarchy maps naturally onto the semantic/acoustic distinction in speech:
+                </p>
+
+                <ul>
+                    <li><strong>Layer 1 (coarse):</strong> Semantic content, phoneme identity, prosodic contour. Removing layers 2&ndash;$K$ produces intelligible but "robotic" speech.</li>
+                    <li><strong>Layers 2&ndash;4 (mid):</strong> Speaker identity, vocal quality, formant detail. Adding these layers makes the voice recognizable.</li>
+                    <li><strong>Layers 5&ndash;$K$ (fine):</strong> Acoustic texture, room characteristics, high-frequency detail. Adding these layers makes the speech sound natural and present.</li>
+                </ul>
+
+                <h3>Codebook Learning</h3>
+
+                <p>
+                    The codebooks are learned jointly with the encoder and decoder through a combination of losses. The standard VQ-VAE training objective has three terms:
+                </p>
+
+                $$\mathcal{L} = \underbrace{\|\mathbf{x} - \hat{\mathbf{x}}\|_2^2}_{\text{reconstruction}} + \underbrace{\|\text{sg}[\mathbf{z}] - \mathbf{e}\|_2^2}_{\text{codebook}} + \underbrace{\beta \|\mathbf{z} - \text{sg}[\mathbf{e}]\|_2^2}_{\text{commitment}}$$
+
+                <p>
+                    where $\text{sg}[\cdot]$ is the stop-gradient operator. The <strong>reconstruction loss</strong> trains the encoder and decoder. The <strong>codebook loss</strong> moves codebook entries toward the encoder outputs. The <strong>commitment loss</strong> (weighted by $\beta$, typically 0.25) prevents the encoder outputs from fluctuating too far from the current codebook entries, stabilizing training.
+                </p>
+
+                <p>
+                    In practice, most modern codecs replace the codebook loss with <strong>exponential moving average (EMA) updates</strong>:
+                </p>
+
+                $$\mathbf{n}_j^{(t)} = \gamma \, \mathbf{n}_j^{(t-1)} + (1 - \gamma) \sum_{i: q(\mathbf{z}_i) = j} 1$$
+                $$\mathbf{m}_j^{(t)} = \gamma \, \mathbf{m}_j^{(t-1)} + (1 - \gamma) \sum_{i: q(\mathbf{z}_i) = j} \mathbf{z}_i$$
+                $$\mathbf{e}_j^{(t)} = \frac{\mathbf{m}_j^{(t)}}{\mathbf{n}_j^{(t)}}$$
+
+                <p>
+                    where $\gamma \approx 0.99$ is the decay rate, $\mathbf{n}_j$ tracks the usage count of entry $j$, and $\mathbf{m}_j$ tracks the running sum of vectors assigned to entry $j$. EMA updates are more stable than gradient-based codebook optimization and avoid the need for a separate codebook learning rate.
+                </p>
+
+                <h3>Bitrate Calculation</h3>
+
+                <p>
+                    The bitrate of an RVQ codec determines the amount of information preserved per second of audio:
+                </p>
+
+                $$\text{Bitrate (bps)} = K \times \log_2(N) \times f_s$$
+
+                <p>
+                    where $K$ is the number of codebook layers, $N$ is the codebook size, and $f_s$ is the frame rate (token rate) in Hz. For the Qwen-TTS Latency Track: $K = 16$, $N = 1024$, $f_s = 12.5$ Hz:
+                </p>
+
+                $$\text{Bitrate} = 16 \times 10 \times 12.5 = 2000 \text{ bps} = 2 \text{ kbps}$$
+
+                <p>
+                    For comparison, MP3 operates at 128&ndash;320 kbps, and uncompressed CD audio (16-bit, 44.1 kHz) is 1,411 kbps. Neural audio codecs achieve intelligible speech at bitrates 100&ndash;700x lower than MP3 because they exploit the strong statistical structure of speech signals.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Note: Codebook Utilization</div>
+                    <p>
+                        A common failure mode in VQ training is <strong>codebook collapse</strong> &mdash; many codebook entries are never used, wasting capacity. If only $N_{\text{active}}$ of $N$ entries are used, the effective bitrate drops to $K \times \log_2(N_{\text{active}}) \times f_s$. Modern codecs use techniques like codebook reset (reinitializing dead entries from the encoder distribution), entropy regularization, and kmeans initialization to maintain high utilization ($>95\%$).
+                    </p>
+                </div>
+
+                <!-- Section 3: The Qwen-TTS Architecture -->
+                <h2 id="architecture">The Qwen-TTS Architecture</h2>
+
+                <p>
+                    Qwen-TTS is built on the <strong>Qwen2 language model</strong>, a dense transformer decoder with rotary position embeddings (RoPE), SwiGLU activations, and RMSNorm. The key architectural insight is that the same transformer that excels at next-token prediction for text can be repurposed for next-token prediction of audio codes &mdash; because both are sequences of discrete tokens drawn from a finite vocabulary.
+                </p>
+
+                <p>
+                    The overall architecture has three components:
+                </p>
+
+                <ol>
+                    <li><strong>Text Encoder / Tokenizer:</strong> Converts input text into token embeddings using the Qwen2 tokenizer (byte-level BPE with ~152K vocabulary). Special tokens delimit text and audio segments.</li>
+                    <li><strong>Audio Token Predictor (the LLM):</strong> The Qwen2 transformer backbone, which processes interleaved text and audio tokens and predicts the next audio token autoregressively.</li>
+                    <li><strong>Audio Codec Decoder:</strong> A pre-trained, frozen codec that converts predicted audio tokens back to a waveform.</li>
+                </ol>
+
+                <p>
+                    <strong>Interleaved sequence format.</strong> The model processes a single sequence that interleaves text and audio tokens:
+                </p>
+
+<pre><code>[BOS] [TEXT] t_1 t_2 ... t_L [/TEXT] [AUDIO] a_1 a_2 ... a_T [/AUDIO] [EOS]</code></pre>
+
+                <p>
+                    where $t_i$ are text BPE tokens and $a_t$ are audio codec tokens. During training, the model sees the full sequence and is trained with standard cross-entropy loss on the audio tokens (and optionally on the text tokens). During inference, the model is given the text prefix and generates audio tokens autoregressively until it produces the <code>[/AUDIO]</code> token.
+                </p>
+
+                <p>
+                    The vocabulary is extended from the text-only Qwen2 vocabulary by adding $N$ new token IDs for each codebook. For a single-codebook codec with $N = 1024$, this adds 1024 tokens. The embedding layer and output projection are extended accordingly, and the new entries are initialized randomly and fine-tuned during TTS training.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Autoregressive Audio Token Prediction</div>
+                    <p>
+                        Given text tokens $\mathbf{x} = (x_1, \ldots, x_L)$ and the target audio token sequence $\mathbf{c} = (c_1, \ldots, c_T)$, the training loss is the standard language modeling cross-entropy:
+                    </p>
+                    $$\mathcal{L}_{\text{AR}} = -\sum_{t=1}^{T} \log p_\theta(c_t \mid x_1, \ldots, x_L, c_1, \ldots, c_{t-1})$$
+                    <p>
+                        where $\theta$ are all trainable parameters (the Qwen2 backbone, the extended embedding layer, and the output projection). The model learns to map text semantics to the acoustic token space through this objective.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why use an LLM backbone?</strong> A pre-trained LLM provides several advantages over training a TTS model from scratch. First, the model already understands language &mdash; syntax, semantics, pragmatics &mdash; which is crucial for appropriate prosody. A sentence like "I didn't say he stole the money" has seven different meanings depending on stress placement; an LLM that understands the semantics can infer the appropriate stress pattern. Second, the pre-trained attention patterns provide long-range dependency modeling that is essential for paragraph-level prosodic coherence. Third, the model inherits instruction-following capability, enabling prompt-based control over voice characteristics.
+                </p>
+
+                <!-- Section 4: The Dual-Track Framework -->
+                <h2 id="dual-track">The Dual-Track Framework</h2>
+
+                <p>
+                    Real-world TTS deployment faces a fundamental tension: <strong>quality demands latency, and low latency demands compromise</strong>. Audiobook generation can tolerate seconds of processing delay in exchange for studio-quality output, but a conversational AI assistant must begin speaking within 100 milliseconds to feel responsive. Qwen-TTS resolves this tension through a dual-track architecture that uses two different audio codecs optimized for different operating points.
+                </p>
+
+                <h3>Semantic Track (25 Hz, Single Codebook)</h3>
+
+                <p>
+                    The Semantic Track uses a specialized single-codebook codec running at 25 Hz (25 tokens per second of audio). This codec is trained with a <strong>semantic distillation objective</strong> &mdash; in addition to the standard reconstruction loss, the encoder is trained to produce embeddings that are close to the outputs of a self-supervised speech model (like HuBERT or wav2vec 2.0). This forces the single codebook to capture primarily <em>semantic and prosodic information</em> rather than fine acoustic detail.
+                </p>
+
+                <p>
+                    The bitrate is minimal: $1 \times 10 \times 25 = 250$ bps (with codebook size 1024). This is far too low for direct waveform reconstruction &mdash; instead, the decoder uses a <strong>chunk-wise Diffusion Transformer (DiT)</strong> that generates high-fidelity audio conditioned on the semantic tokens. The DiT operates on chunks of $C$ semantic tokens at a time, generating the corresponding waveform segment through iterative denoising:
+                </p>
+
+                $$\mathbf{y}_{\text{chunk}} = \text{DiT}(\mathbf{c}_{t:t+C}; \text{noise schedule})$$
+
+                <p>
+                    The DiT decoder is non-causal &mdash; it can attend to all tokens in the chunk bidirectionally, enabling high reconstruction quality. However, it must wait for an entire chunk of tokens before generating audio, introducing a minimum latency of $C / 25$ seconds. With $C = 25$ (one second of audio per chunk), the first-packet latency is at least 1 second.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Note: Why Single-Codebook + DiT?</div>
+                    <p>
+                        The single-codebook design dramatically simplifies the language modeling problem. The LLM only needs to predict one token per time step (not 16), making autoregressive generation fast and the probability space manageable. The "missing" acoustic detail is recovered by the powerful DiT vocoder, which acts as a learned upsampler from semantic tokens to waveforms. This separation of concerns &mdash; LLM handles semantics, DiT handles acoustics &mdash; is a key architectural insight of Qwen-TTS.
+                    </p>
+                </div>
+
+                <h3>Latency Track (12.5 Hz, 16 Codebooks)</h3>
+
+                <p>
+                    The Latency Track uses a multi-codebook RVQ codec with $K = 16$ codebook layers running at 12.5 Hz (12.5 token groups per second). Each token group consists of 16 integers &mdash; one per codebook layer. The total bitrate is $16 \times 10 \times 12.5 = 2000$ bps, which is sufficient for high-quality direct waveform reconstruction.
+                </p>
+
+                <p>
+                    The decoder is a <strong>lightweight causal Convolutional Network (ConvNet)</strong>. "Causal" means each output sample depends only on current and past tokens &mdash; the decoder never looks ahead. This enables <em>streaming generation</em>: as soon as the LLM produces the first token group, the ConvNet can begin emitting audio samples. The first-packet latency is:
+                </p>
+
+                $$\text{Latency}_{\text{first}} = t_{\text{LLM}} + t_{\text{ConvNet}} \approx t_{\text{LLM}} + \frac{1}{12.5} = t_{\text{LLM}} + 80\text{ ms}$$
+
+                <p>
+                    where $t_{\text{LLM}}$ is the time to generate the first token group (typically 10&ndash;50 ms on modern hardware). Total first-packet latency is under 100 ms.
+                </p>
+
+                <h3>Mathematical Analysis: Quality vs. Latency</h3>
+
+                <p>
+                    We can formalize the quality-latency tradeoff. Let $Q(\text{bitrate})$ be the reconstruction quality (e.g., PESQ score) as a function of codec bitrate, and let $L(C, f_s)$ be the first-packet latency:
+                </p>
+
+                $$L = \frac{C}{f_s} + t_{\text{LLM}}(K)$$
+
+                <p>
+                    where $C$ is the chunk size (number of frames the decoder needs before it can start), $f_s$ is the token frame rate, and $t_{\text{LLM}}(K)$ is the LLM inference time per step which depends on the number of codebooks $K$ (more codebooks means more work per step if predicted sequentially).
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="padding: 0.5rem; text-align: left;">Property</th>
+                            <th style="padding: 0.5rem; text-align: center;">Semantic Track</th>
+                            <th style="padding: 0.5rem; text-align: center;">Latency Track</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">Frame rate</td><td style="padding: 0.5rem; text-align: center;">25 Hz</td><td style="padding: 0.5rem; text-align: center;">12.5 Hz</td></tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">Codebook layers ($K$)</td><td style="padding: 0.5rem; text-align: center;">1</td><td style="padding: 0.5rem; text-align: center;">16</td></tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">Codebook size ($N$)</td><td style="padding: 0.5rem; text-align: center;">1024</td><td style="padding: 0.5rem; text-align: center;">1024</td></tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">Bitrate</td><td style="padding: 0.5rem; text-align: center;">250 bps</td><td style="padding: 0.5rem; text-align: center;">2000 bps</td></tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">Decoder type</td><td style="padding: 0.5rem; text-align: center;">Chunk-wise DiT</td><td style="padding: 0.5rem; text-align: center;">Causal ConvNet</td></tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">Decoder causality</td><td style="padding: 0.5rem; text-align: center;">Non-causal (bidirectional)</td><td style="padding: 0.5rem; text-align: center;">Causal (streaming)</td></tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">First-packet latency</td><td style="padding: 0.5rem; text-align: center;">~1&ndash;2 s</td><td style="padding: 0.5rem; text-align: center;">&lt;100 ms</td></tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.5rem;">Best use case</td><td style="padding: 0.5rem; text-align: center;">Audiobooks, podcasts</td><td style="padding: 0.5rem; text-align: center;">Voice assistants, live chat</td></tr>
+                        <tr><td style="padding: 0.5rem;">LLM tokens per second of audio</td><td style="padding: 0.5rem; text-align: center;">25</td><td style="padding: 0.5rem; text-align: center;">12.5 (+ 15 via MTP)</td></tr>
+                    </tbody>
+                </table>
 
                 <div style="text-align: center; margin: 2rem 0; padding: 1rem; background: var(--color-bg-tertiary); border-radius: 8px;">
                     <svg viewBox="0 0 600 250" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto;">
                         <!-- Common Input -->
                         <rect x="50" y="100" width="80" height="50" rx="4" fill="#3B82F6" />
                         <text x="90" y="130" font-family="monospace" fill="white" text-anchor="middle">Text</text>
-                        
+
                         <path d="M 130 125 L 180 80" stroke="currentColor" stroke-width="2" marker-end="url(#arrowhead)" />
                         <path d="M 130 125 L 180 170" stroke="currentColor" stroke-width="2" marker-end="url(#arrowhead)" />
-                        
+
                         <!-- Semantic Track -->
                         <rect x="180" y="40" width="160" height="80" rx="4" fill="#8B5CF6" fill-opacity="0.2" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="4,4" />
                         <text x="260" y="60" font-family="monospace" fill="#8B5CF6" font-size="12" font-weight="bold" text-anchor="middle">Semantic Track</text>
                         <rect x="190" y="70" width="140" height="40" rx="4" fill="#8B5CF6" />
                         <text x="260" y="95" font-family="monospace" fill="white" font-size="12" text-anchor="middle">DiT (High Quality)</text>
-                        
+
                         <!-- Latency Track -->
                         <rect x="180" y="130" width="160" height="80" rx="4" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="2" stroke-dasharray="4,4" />
                         <text x="260" y="150" font-family="monospace" fill="#10B981" font-size="12" font-weight="bold" text-anchor="middle">Latency Track</text>
                         <rect x="190" y="160" width="140" height="40" rx="4" fill="#10B981" />
                         <text x="260" y="185" font-family="monospace" fill="white" font-size="12" text-anchor="middle">Causal ConvNet</text>
-                        
+
                         <path d="M 340 80 L 390 80" stroke="currentColor" stroke-width="2" marker-end="url(#arrowhead)" />
                         <path d="M 340 170 L 390 170" stroke="currentColor" stroke-width="2" marker-end="url(#arrowhead)" />
-                        
+
                         <!-- Output -->
                         <rect x="390" y="60" width="160" height="40" rx="4" fill="transparent" stroke="#8B5CF6" stroke-width="2" />
                         <text x="470" y="85" font-family="monospace" fill="currentColor" font-size="12" text-anchor="middle">Studio Audio (Batch)</text>
-                        
+
                         <rect x="390" y="150" width="160" height="40" rx="4" fill="transparent" stroke="#10B981" stroke-width="2" />
                         <text x="470" y="175" font-family="monospace" fill="currentColor" font-size="12" text-anchor="middle">Real-time Stream</text>
-                        
+
                         <!-- Defs for arrow -->
                         <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -205,26 +444,64 @@
                         </defs>
                     </svg>
                     <p style="font-size: 0.9em; color: var(--color-text-secondary); margin-top: 1rem;">
-                        The dual-track architecture routes the generation depending on the use case: the Semantic track uses a Diffusion Transformer for maximum fidelity offline, while the Latency track uses a fast, causal ConvNet to start emitting audio in milliseconds.
+                        The dual-track architecture routes the generation depending on the use case: the Semantic Track uses a Diffusion Transformer for maximum fidelity offline, while the Latency Track uses a fast, causal ConvNet to start emitting audio in milliseconds.
                     </p>
                 </div>
 
+                <!-- Section 5: Multi-Token Prediction (MTP) -->
                 <h2 id="mtp">Multi-Token Prediction (MTP)</h2>
+
+                <p>
+                    The Latency Track's 16-codebook RVQ codec presents a critical challenge: at each time step, the model must predict 16 codebook indices, not just one. If these are predicted sequentially (as in VALL-E), each time step requires 16 forward passes through the model, reducing throughput by 16x and making real-time generation impossible on consumer hardware.
+                </p>
 
                 <div class="warning-box">
                     <div class="box-title">The Bottleneck</div>
                     <p style="margin-bottom: 0;">
-                        Audio codecs often compress audio into multiple "layers" or "codebooks" (e.g., 16 codebooks per frame in the Latency Track). Predicting 16 codebooks sequentially for every single time step is computationally devastating for an LLM.
+                        For the Latency Track at 12.5 Hz with 16 codebooks, sequential prediction requires $12.5 \times 16 = 200$ LLM forward passes per second of generated audio. Even with a fast GPU, a large transformer cannot sustain this throughput while maintaining real-time generation.
                     </p>
                 </div>
 
-                <p>To solve this, Qwen-TTS introduces a <strong>Multi-Token Prediction (MTP)</strong> module:</p>
-                <ul>
-                    <li><strong>The Conductor (Main LLM):</strong> Predicts the text and the <em>primary</em> semantic speech token. This massive LLM does the "heavy lifting" of deciding what the voice should sound like and what emotions to convey.</li>
-                    <li><strong>Parallel Fleshing (MTP Module):</strong> A specialized sub-network generates the remaining 15 residual acoustic codebooks <strong>simultaneously</strong>.</li>
-                </ul>
                 <p>
-                    This decouples the "intelligence" of the sentence structure (handled by the deep LLM) from the "texture" of the audio (handled by the fast, parallel MTP module).
+                    Qwen-TTS introduces a <strong>Multi-Token Prediction (MTP)</strong> module that decouples the problem. The main LLM predicts only the first codebook index (the semantic token) at each time step. A smaller, specialized MTP head then predicts the remaining 15 codebook indices <em>in parallel</em>, conditioned on the first-layer token and the LLM's hidden state.
+                </p>
+
+                <h3>MTP Architecture</h3>
+
+                <p>
+                    At time step $t$, let $\mathbf{h}_t$ denote the LLM's hidden state after predicting the first codebook token $c_t^{(1)}$. The MTP module is a lightweight network (typically 2&ndash;4 transformer layers or a small MLP) that takes $\mathbf{h}_t$ and $\text{Embed}(c_t^{(1)})$ as input and predicts the remaining tokens:
+                </p>
+
+                $$p(c_t^{(k)} \mid c_t^{(1)}, \ldots, c_t^{(k-1)}, \mathbf{h}_t) \quad \text{for } k = 2, \ldots, K$$
+
+                <p>
+                    In the simplest variant, all $K-1$ tokens are predicted independently given $\mathbf{h}_t$ and $c_t^{(1)}$:
+                </p>
+
+                $$p(c_t^{(2)}, \ldots, c_t^{(K)} \mid c_t^{(1)}, \mathbf{h}_t) = \prod_{k=2}^{K} p_\phi(c_t^{(k)} \mid c_t^{(1)}, \mathbf{h}_t)$$
+
+                <p>
+                    In the more accurate sequential variant, the MTP module predicts tokens in order, conditioning each on the previously predicted tokens (similar to a small autoregressive model within the MTP head):
+                </p>
+
+                $$p(c_t^{(2)}, \ldots, c_t^{(K)} \mid c_t^{(1)}, \mathbf{h}_t) = \prod_{k=2}^{K} p_\phi(c_t^{(k)} \mid c_t^{(1)}, \ldots, c_t^{(k-1)}, \mathbf{h}_t)$$
+
+                <h3>MTP Training Loss</h3>
+
+                <p>
+                    The complete training loss combines the main LLM's autoregressive loss on the first codebook with the MTP module's loss on the remaining codebooks:
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Multi-Token Prediction Loss</div>
+                    $$\mathcal{L}_{\text{MTP}} = -\sum_{t=1}^{T}\left[\log p_\theta(c_t^{(1)} \mid \mathbf{x}, c_{<t}^{(1)}) + \lambda \sum_{k=2}^{K} \log p_\phi(c_t^{(k)} \mid c_t^{(1)}, \ldots, c_t^{(k-1)}, \mathbf{h}_t)\right]$$
+                    <p>
+                        where $\theta$ are the LLM parameters, $\phi$ are the MTP head parameters, and $\lambda$ is a weighting coefficient (typically 1.0). The first term is the standard next-token prediction loss; the second term trains the MTP head to predict residual codebook tokens.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Connection to speculative decoding.</strong> MTP has an elegant connection to speculative decoding in LLM inference. In speculative decoding, a small "draft" model proposes multiple tokens, and the large model verifies them in parallel. In MTP, the main LLM acts as the "authoritative" predictor for the first codebook (the most important one), and the MTP head acts as the "draft" model for the remaining codebooks. The difference is that in MTP, there is no verification step &mdash; the MTP head's predictions are used directly, which is acceptable because the later codebook layers encode progressively less important acoustic detail.
                 </p>
 
                 <div style="text-align: center; margin: 2rem 0; padding: 1rem; background: var(--color-bg-tertiary); border-radius: 8px;">
@@ -232,18 +509,18 @@
                         <!-- LLM Box -->
                         <rect x="50" y="60" width="150" height="80" rx="4" fill="#3B82F6" />
                         <text x="125" y="100" font-family="monospace" fill="white" font-size="14" font-weight="bold" text-anchor="middle">Main LLM</text>
-                        <text x="125" y="120" font-family="monospace" fill="white" font-size="10" text-anchor="middle">(The Conductor)</text>
-                        
+                        <text x="125" y="120" font-family="monospace" fill="white" font-size="10" text-anchor="middle">(Qwen2 Backbone)</text>
+
                         <!-- Primary Token Arrow -->
                         <path d="M 200 100 L 260 100" stroke="currentColor" stroke-width="2" marker-end="url(#arrowhead)" />
-                        <text x="230" y="90" font-family="monospace" fill="currentColor" font-size="10" text-anchor="middle">Primary</text>
-                        <text x="230" y="115" font-family="monospace" fill="currentColor" font-size="10" text-anchor="middle">Token</text>
-                        
+                        <text x="230" y="90" font-family="monospace" fill="currentColor" font-size="10" text-anchor="middle">h_t +</text>
+                        <text x="230" y="115" font-family="monospace" fill="currentColor" font-size="10" text-anchor="middle">c_t^(1)</text>
+
                         <!-- MTP Module -->
                         <rect x="270" y="30" width="120" height="140" rx="4" fill="#F59E0B" />
-                        <text x="330" y="60" font-family="monospace" fill="white" font-size="14" font-weight="bold" text-anchor="middle">MTP Module</text>
-                        <text x="330" y="80" font-family="monospace" fill="white" font-size="10" text-anchor="middle">(Parallel Fleshing)</text>
-                        
+                        <text x="330" y="60" font-family="monospace" fill="white" font-size="14" font-weight="bold" text-anchor="middle">MTP Head</text>
+                        <text x="330" y="80" font-family="monospace" fill="white" font-size="10" text-anchor="middle">(2-4 layers)</text>
+
                         <!-- Codebook Arrows (Parallel) -->
                         <path d="M 390 50 L 460 50" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrowhead)" />
                         <path d="M 390 70 L 460 70" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrowhead)" />
@@ -251,74 +528,1076 @@
                         <path d="M 390 110 L 460 110" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2" />
                         <path d="M 390 130 L 460 130" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrowhead)" />
                         <path d="M 390 150 L 460 150" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrowhead)" />
-                        
+
                         <!-- Output Codebooks -->
                         <rect x="470" y="30" width="80" height="140" rx="4" fill="transparent" stroke="currentColor" stroke-width="2" stroke-dasharray="4,4" />
-                        <text x="510" y="105" font-family="monospace" fill="currentColor" font-size="12" text-anchor="middle">16 Layers</text>
-                        <text x="510" y="125" font-family="monospace" fill="currentColor" font-size="12" text-anchor="middle">Simultaneous</text>
+                        <text x="510" y="90" font-family="monospace" fill="currentColor" font-size="11" text-anchor="middle">c_t^(2)</text>
+                        <text x="510" y="110" font-family="monospace" fill="currentColor" font-size="11" text-anchor="middle">...</text>
+                        <text x="510" y="130" font-family="monospace" fill="currentColor" font-size="11" text-anchor="middle">c_t^(16)</text>
                     </svg>
                     <p style="font-size: 0.9em; color: var(--color-text-secondary); margin-top: 1rem;">
-                        Instead of predicting 16 tokens one after another (which takes 16x the time), the main LLM predicts the first layer, and the lightweight MTP module predicts the remaining 15 layers in parallel in a single forward pass.
+                        The main LLM predicts the first codebook token and produces a hidden state. The lightweight MTP head uses both to predict the remaining 15 codebook tokens in parallel (or with minimal sequential steps), reducing inference cost by up to 16x.
                     </p>
                 </div>
 
-                <h2 id="advanced">Advanced Capabilities</h2>
+                <h3>Throughput Analysis</h3>
 
                 <p>
-                    Because Qwen-TTS is essentially a powerful LLM that speaks, it inherits LLM-like zero-shot capabilities:
+                    Let $t_{\text{LLM}}$ be the time for one LLM forward pass and $t_{\text{MTP}}$ be the time for one MTP forward pass. Without MTP, generating one second of audio requires:
+                </p>
+
+                $$T_{\text{seq}} = f_s \times K \times t_{\text{LLM}} = 12.5 \times 16 \times t_{\text{LLM}} = 200 \, t_{\text{LLM}}$$
+
+                <p>
+                    With MTP:
+                </p>
+
+                $$T_{\text{MTP}} = f_s \times (t_{\text{LLM}} + t_{\text{MTP}}) = 12.5 \times (t_{\text{LLM}} + t_{\text{MTP}})$$
+
+                <p>
+                    Since $t_{\text{MTP}} \ll t_{\text{LLM}}$ (the MTP head is orders of magnitude smaller), the speedup is approximately:
+                </p>
+
+                $$\text{Speedup} \approx \frac{200 \, t_{\text{LLM}}}{12.5 \, t_{\text{LLM}}} = 16\times$$
+
+                <p>
+                    In practice, the speedup is 10&ndash;14x because $t_{\text{MTP}}$ is not zero and there are memory bandwidth costs, but this is sufficient for real-time generation.
+                </p>
+
+                <!-- Section 6: Training Pipeline -->
+                <h2 id="training">Training Pipeline</h2>
+
+                <p>
+                    Qwen-TTS training follows the now-standard three-stage recipe adapted from LLM training: pre-training, supervised fine-tuning (SFT), and preference alignment. Each stage has distinct data requirements and optimization objectives.
+                </p>
+
+                <h3>Stage 1: Pre-training</h3>
+
+                <p>
+                    The pre-training stage starts from the pre-trained Qwen2 text model and continues training on a massive corpus of paired text-audio data. The corpus contains hundreds of thousands of hours of speech from diverse speakers, languages, and recording conditions. Key data characteristics:
+                </p>
+
+                <ul>
+                    <li><strong>Scale:</strong> 100K&ndash;500K hours of speech (compared to ~60K hours for VALL-E and ~100K for VoiceCraft).</li>
+                    <li><strong>Diversity:</strong> Multiple languages (10+), speaker demographics, recording conditions, speaking styles (read speech, conversational, broadcast, emotional).</li>
+                    <li><strong>Quality filtering:</strong> Automatic pipelines filter for SNR &gt; 15 dB, correct transcription (verified via ASR), and speaker consistency.</li>
+                </ul>
+
+                <p>
+                    The pre-training objective is the standard autoregressive loss $\mathcal{L}_{\text{AR}}$ on the interleaved text-audio sequences. The learning rate follows a cosine schedule with linear warmup. Curriculum learning is employed: the model first trains on short, clean utterances and progressively sees longer, noisier, and more diverse samples.
+                </p>
+
+                <h3>Stage 2: Supervised Fine-Tuning (SFT)</h3>
+
+                <p>
+                    SFT trains the model on high-quality, curated data with explicit instruction formatting. The data includes:
+                </p>
+
+                <ul>
+                    <li><strong>Voice design prompts:</strong> (text description of voice, text to speak, target audio) triples. Example: <em>"A warm, middle-aged female voice with a slight British accent, speaking at a moderate pace"</em> paired with appropriate audio.</li>
+                    <li><strong>Voice cloning examples:</strong> (reference audio, text to speak, target audio in same voice) triples.</li>
+                    <li><strong>Emotion and style control:</strong> (style instruction, text, target audio) triples with explicit emotion labels.</li>
+                </ul>
+
+                <p>
+                    The SFT data is typically 1K&ndash;10K hours, much smaller than pre-training but of much higher quality, with professional voice actors and careful annotation.
+                </p>
+
+                <h3>Stage 3: Preference Alignment (DPO/RLHF)</h3>
+
+                <p>
+                    The final stage aligns the model with human preferences using Direct Preference Optimization (DPO) or Reinforcement Learning from Human Feedback (RLHF). Given a text input, the model generates multiple audio samples, and human annotators rank them by naturalness, expressiveness, and accuracy. The DPO loss is:
+                </p>
+
+                $$\mathcal{L}_{\text{DPO}} = -\mathbb{E}_{(\mathbf{x}, \mathbf{c}_w, \mathbf{c}_l)} \left[\log \sigma\left(\beta \log \frac{p_\theta(\mathbf{c}_w \mid \mathbf{x})}{p_{\text{ref}}(\mathbf{c}_w \mid \mathbf{x})} - \beta \log \frac{p_\theta(\mathbf{c}_l \mid \mathbf{x})}{p_{\text{ref}}(\mathbf{c}_l \mid \mathbf{x})}\right)\right]$$
+
+                <p>
+                    where $\mathbf{c}_w$ is the preferred (winning) audio, $\mathbf{c}_l$ is the dispreferred (losing) audio, $p_{\text{ref}}$ is the frozen SFT model, and $\beta$ controls the strength of the preference constraint. This stage improves subjective quality metrics (MOS) by 0.1&ndash;0.3 points.
+                </p>
+
+                <!-- Section 7: Prompt-Based Voice Design -->
+                <h2 id="voice-design">Prompt-Based Voice Design</h2>
+
+                <p>
+                    One of the most striking capabilities of Qwen-TTS is <strong>prompt-based voice design</strong>: users can create entirely new voices using natural language descriptions, without providing any reference audio. For example:
+                </p>
+
+                <ul>
+                    <li><em>"A gravelly, middle-aged male voice with a slight Southern accent, speaking slowly and deliberately"</em></li>
+                    <li><em>"A bright, energetic young woman's voice with a hint of laughter, fast-paced and enthusiastic"</em></li>
+                    <li><em>"A deep, authoritative baritone with a BBC newsreader style, precise enunciation"</em></li>
+                </ul>
+
+                <p>
+                    This capability emerges from the instruction-following ability of the Qwen2 backbone. During SFT, the model sees thousands of (voice description, text, audio) triples. The text description is included in the sequence as a system prompt:
+                </p>
+
+<pre><code>[BOS] [SYSTEM] Voice: A warm female voice, mid-30s, slight British accent,
+moderate pace, calm and reassuring tone. [/SYSTEM]
+[TEXT] The weather today will be partly cloudy with a high of twenty degrees. [/TEXT]
+[AUDIO] a_1 a_2 ... a_T [/AUDIO] [EOS]</code></pre>
+
+                <p>
+                    The model learns to map the semantic content of the voice description to the appropriate acoustic characteristics in the generated tokens. This mapping is compositional &mdash; the model can combine attributes it has seen separately (e.g., "gravelly" + "Southern accent") to produce novel voice combinations.
+                </p>
+
+                <p>
+                    <strong>Zero-shot voice cloning</strong> works through a similar mechanism. Instead of a text description, the system prompt contains tokenized reference audio:
+                </p>
+
+<pre><code>[BOS] [SPEAKER] s_1 s_2 ... s_M [/SPEAKER]
+[TEXT] New text to speak in the cloned voice. [/TEXT]
+[AUDIO] a_1 a_2 ... a_T [/AUDIO] [EOS]</code></pre>
+
+                <p>
+                    The LLM's attention mechanism extracts speaker characteristics from the reference tokens and maintains them throughout generation. As little as 3 seconds of reference audio (75 tokens at 25 Hz) is sufficient for recognizable cloning, with quality improving with longer references up to about 10 seconds.
+                </p>
+
+                <!-- Section 8: Inference Optimization -->
+                <h2 id="inference">Inference Optimization</h2>
+
+                <p>
+                    Deploying Qwen-TTS in production requires aggressive inference optimization. The main bottleneck is the autoregressive LLM, which must generate tokens sequentially. Several techniques are employed:
+                </p>
+
+                <h3>KV-Cache</h3>
+
+                <p>
+                    The key-value cache is essential for efficient autoregressive generation. At each step $t$, the transformer's attention computes:
+                </p>
+
+                $$\text{Attention}(Q_t, K_{1:t}, V_{1:t}) = \text{softmax}\left(\frac{Q_t K_{1:t}^\top}{\sqrt{d_k}}\right) V_{1:t}$$
+
+                <p>
+                    Without caching, this requires recomputing $K_i$ and $V_i$ for all positions $i \leq t$ at every step, giving $O(T^2)$ total compute. With the KV-cache, we store $K_i$ and $V_i$ as they are computed, and at step $t$ we only compute $Q_t$, $K_t$, $V_t$ and append the new key-value pairs to the cache. This reduces per-step compute to $O(T)$.
+                </p>
+
+                <p>
+                    The memory cost of the KV-cache for a model with $L$ layers, $H$ attention heads, and head dimension $d_h$ at sequence length $T$ is:
+                </p>
+
+                $$\text{KV memory} = 2 \times L \times H \times d_h \times T \times \text{sizeof(dtype)}$$
+
+                <p>
+                    For a 7B parameter model ($L = 32$, $H = 32$, $d_h = 128$) with float16 at $T = 1000$ tokens:
+                </p>
+
+                $$\text{KV memory} = 2 \times 32 \times 32 \times 128 \times 1000 \times 2 \text{ bytes} = 524 \text{ MB}$$
+
+                <h3>Speculative Decoding</h3>
+
+                <p>
+                    For the Semantic Track (where the MTP module is not used), speculative decoding can accelerate generation. A small draft model (e.g., a 0.5B parameter distilled version of the main model) proposes $n$ tokens at once. The main model then verifies all $n$ tokens in a single forward pass (this is possible because verification is parallelizable, unlike generation). If the first $m \leq n$ tokens match, we accept them and regenerate from position $m+1$. The expected speedup is:
+                </p>
+
+                $$\text{Speedup} = \frac{1}{1 - \alpha + \frac{1}{n+1}} \cdot \frac{t_{\text{main}}}{t_{\text{main}} + t_{\text{draft}}}$$
+
+                <p>
+                    where $\alpha$ is the acceptance rate (probability that a draft token matches). With $\alpha \approx 0.7$ and $n = 5$, speedups of 2&ndash;3x are typical.
+                </p>
+
+                <h3>Quantization</h3>
+
+                <p>
+                    Weight quantization reduces both memory footprint and inference latency. The Qwen-TTS models are compatible with standard LLM quantization techniques:
+                </p>
+
+                <ul>
+                    <li><strong>INT8 (W8A8):</strong> 8-bit weights and activations. Negligible quality loss (&lt;0.05 MOS). Memory reduced by 2x from float16.</li>
+                    <li><strong>INT4 (W4A16):</strong> 4-bit weights with 16-bit activations (GPTQ/AWQ). Memory reduced by 4x from float16. Quality loss of 0.05&ndash;0.15 MOS, acceptable for most applications.</li>
+                    <li><strong>GGUF/GGML:</strong> CPU-friendly quantization formats (2&ndash;8 bit) enabling inference on consumer hardware without GPU.</li>
+                </ul>
+
+                <div class="warning-box">
+                    <div class="box-title">Warning: Quantization and Audio Quality</div>
+                    <p style="margin-bottom: 0;">
+                        Audio generation is more sensitive to quantization than text generation. Small numerical errors in the LLM's output logits can cause the model to select a different codebook entry, which may produce audible artifacts (clicks, distortion, wrong phonemes). Always validate quantized models with listening tests, not just perplexity metrics.
+                    </p>
+                </div>
+
+                <!-- Section 9: Comparison with Other Approaches -->
+                <h2 id="comparison">Comparison with Other Approaches</h2>
+
+                <p>
+                    The landscape of modern TTS is diverse, with several competing paradigms. Understanding where Qwen-TTS fits requires comparing it against the other major systems.
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9em;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="padding: 0.5rem; text-align: left;">System</th>
+                            <th style="padding: 0.5rem; text-align: center;">Architecture</th>
+                            <th style="padding: 0.5rem; text-align: center;">Representation</th>
+                            <th style="padding: 0.5rem; text-align: center;">Zero-shot</th>
+                            <th style="padding: 0.5rem; text-align: center;">Streaming</th>
+                            <th style="padding: 0.5rem; text-align: center;">Voice Design</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem; font-weight: 600;">Qwen-TTS</td>
+                            <td style="padding: 0.5rem; text-align: center;">AR LLM + MTP</td>
+                            <td style="padding: 0.5rem; text-align: center;">RVQ tokens</td>
+                            <td style="padding: 0.5rem; text-align: center;">Yes (3s)</td>
+                            <td style="padding: 0.5rem; text-align: center;">Yes (&lt;100ms)</td>
+                            <td style="padding: 0.5rem; text-align: center;">Yes</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem; font-weight: 600;">F5-TTS</td>
+                            <td style="padding: 0.5rem; text-align: center;">Flow matching DiT</td>
+                            <td style="padding: 0.5rem; text-align: center;">Mel spectrogram</td>
+                            <td style="padding: 0.5rem; text-align: center;">Yes (3s)</td>
+                            <td style="padding: 0.5rem; text-align: center;">Limited</td>
+                            <td style="padding: 0.5rem; text-align: center;">No</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem; font-weight: 600;">VALL-E / VALL-E 2</td>
+                            <td style="padding: 0.5rem; text-align: center;">AR + NAR</td>
+                            <td style="padding: 0.5rem; text-align: center;">EnCodec tokens</td>
+                            <td style="padding: 0.5rem; text-align: center;">Yes (3s)</td>
+                            <td style="padding: 0.5rem; text-align: center;">No</td>
+                            <td style="padding: 0.5rem; text-align: center;">No</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem; font-weight: 600;">Bark</td>
+                            <td style="padding: 0.5rem; text-align: center;">GPT-style AR</td>
+                            <td style="padding: 0.5rem; text-align: center;">EnCodec tokens</td>
+                            <td style="padding: 0.5rem; text-align: center;">Yes (speaker prompts)</td>
+                            <td style="padding: 0.5rem; text-align: center;">No</td>
+                            <td style="padding: 0.5rem; text-align: center;">Limited</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem; font-weight: 600;">ChatTTS</td>
+                            <td style="padding: 0.5rem; text-align: center;">AR LLM</td>
+                            <td style="padding: 0.5rem; text-align: center;">DVAE tokens</td>
+                            <td style="padding: 0.5rem; text-align: center;">Yes (speaker embed)</td>
+                            <td style="padding: 0.5rem; text-align: center;">Partial</td>
+                            <td style="padding: 0.5rem; text-align: center;">No</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem; font-weight: 600;">VITS / VITS2</td>
+                            <td style="padding: 0.5rem; text-align: center;">VAE + Flow + GAN</td>
+                            <td style="padding: 0.5rem; text-align: center;">Continuous latent</td>
+                            <td style="padding: 0.5rem; text-align: center;">No (needs fine-tuning)</td>
+                            <td style="padding: 0.5rem; text-align: center;">No</td>
+                            <td style="padding: 0.5rem; text-align: center;">No</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    <strong>Key advantages of Qwen-TTS over competitors:</strong>
                 </p>
                 <ul>
-                    <li><strong>Prompt-based Voice Design:</strong> Users can create entirely new voices using natural language prompts (e.g., <em>"a gravelly, middle-aged male voice with a slight Southern accent"</em>).</li>
-                    <li><strong>Zero-Shot Voice Cloning:</strong> Can clone a target speaker's voice using as little as 3 seconds of reference audio.</li>
-                    <li><strong>Instruction Following:</strong> Supports "style instructions" to modify tone, emotion, and pacing (e.g., <em>"speak in an incredulous tone with a hint of panic"</em>) without retraining.</li>
-                    <li><strong>Multilingual Support:</strong> Native support for over 10 languages with high cross-lingual stability.</li>
+                    <li><strong>vs. F5-TTS:</strong> Qwen-TTS supports streaming and voice design from text prompts. F5-TTS requires reference audio for all voice control and generates mel spectrograms non-autoregressively, making streaming difficult.</li>
+                    <li><strong>vs. VALL-E:</strong> The MTP module and dual-track design make Qwen-TTS dramatically faster. VALL-E requires 8 sequential codebook predictions per frame; Qwen-TTS predicts 15 of 16 in parallel.</li>
+                    <li><strong>vs. Bark:</strong> Qwen-TTS benefits from the much stronger Qwen2 LLM backbone (vs. Bark's GPT-2 scale model), enabling better prosody, longer coherent generations, and instruction following.</li>
+                    <li><strong>vs. VITS:</strong> Qwen-TTS supports zero-shot cloning and voice design without fine-tuning. VITS requires retraining for each new speaker.</li>
                 </ul>
+
+                <p>
+                    <strong>Key limitations:</strong> Qwen-TTS requires significantly more compute for training (LLM pre-training + TTS fine-tuning) and has higher inference cost than non-autoregressive models like FastSpeech 2. The autoregressive nature also introduces a risk of degenerate outputs (repetitions, hallucinated words) that non-AR models avoid by design.
+                </p>
+
+                <!-- Tutorial Navigation -->
+                <div class="tutorial-nav">
+                    <a href="../01-f5-tts/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; F5-TTS: Flow Matching</span>
+                    </a>
+                    <a href="../03-tts-fundamentals/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">TTS Fundamentals &rarr;</span>
+                    </a>
+                </div>
 
             </article>
 
-            <!-- Exercises Article -->
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>PyTorch pseudocode implementations covering the core components of token-based TTS: Residual Vector Quantization, Multi-Token Prediction, autoregressive generation with KV-cache, dual-track inference routing, and prompt-conditioned generation.</p>
+
+                <!-- Code Example 1: RVQ -->
+                <h3>1. Residual Vector Quantization (RVQ)</h3>
+                <p>A complete implementation of the RVQ encoding and decoding process. The encoder produces continuous vectors from an audio waveform, and the RVQ module quantizes them into discrete codes across $K$ codebook layers. The decoder reconstructs the waveform from the quantized representations. This is the foundation of all token-based TTS systems.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VectorQuantizer(nn.Module):
+    """Single codebook vector quantizer with EMA updates."""
+    def __init__(self, num_embeddings: int = 1024, embedding_dim: int = 256,
+                 commitment_cost: float = 0.25, ema_decay: float = 0.99):
+        super().__init__()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.commitment_cost = commitment_cost
+        self.ema_decay = ema_decay
+
+        # Codebook entries
+        self.embeddings = nn.Embedding(num_embeddings, embedding_dim)
+        nn.init.uniform_(self.embeddings.weight, -1/num_embeddings, 1/num_embeddings)
+
+        # EMA tracking
+        self.register_buffer('ema_count', torch.zeros(num_embeddings))
+        self.register_buffer('ema_weight', self.embeddings.weight.clone())
+
+    def forward(self, z: torch.Tensor):
+        """
+        Args: z of shape (B, T, D)
+        Returns: quantized, indices, commitment_loss
+        """
+        # Compute distances: ||z - e||^2 = ||z||^2 - 2*z*e + ||e||^2
+        distances = (
+            z.pow(2).sum(dim=-1, keepdim=True)
+            - 2 * z @ self.embeddings.weight.T
+            + self.embeddings.weight.pow(2).sum(dim=-1)
+        )
+        indices = distances.argmin(dim=-1)  # (B, T)
+        quantized = self.embeddings(indices)  # (B, T, D)
+
+        # EMA codebook update (training only)
+        if self.training:
+            encodings = F.one_hot(indices.view(-1), self.num_embeddings).float()
+            self.ema_count = self.ema_decay * self.ema_count + \
+                             (1 - self.ema_decay) * encodings.sum(0)
+            dw = encodings.T @ z.view(-1, self.embedding_dim)
+            self.ema_weight = self.ema_decay * self.ema_weight + \
+                              (1 - self.ema_decay) * dw
+            n = self.ema_count.unsqueeze(1).clamp(min=1e-5)
+            self.embeddings.weight.data = self.ema_weight / n
+
+        # Straight-through estimator: gradients pass through quantization
+        quantized_st = z + (quantized - z).detach()
+        commitment_loss = self.commitment_cost * F.mse_loss(z.detach(), quantized)
+
+        return quantized_st, indices, commitment_loss
+
+
+class ResidualVQ(nn.Module):
+    """Residual Vector Quantization with K codebook layers."""
+    def __init__(self, num_layers: int = 16, num_embeddings: int = 1024,
+                 embedding_dim: int = 256):
+        super().__init__()
+        self.layers = nn.ModuleList([
+            VectorQuantizer(num_embeddings, embedding_dim)
+            for _ in range(num_layers)
+        ])
+
+    def encode(self, z: torch.Tensor):
+        """Encode continuous vectors to K-layer discrete codes."""
+        residual = z
+        all_indices = []
+        total_loss = 0.0
+
+        for vq in self.layers:
+            quantized, indices, loss = vq(residual)
+            residual = residual - quantized.detach()
+            all_indices.append(indices)
+            total_loss += loss
+
+        # all_indices: list of K tensors, each (B, T)
+        codes = torch.stack(all_indices, dim=-1)  # (B, T, K)
+        return codes, total_loss
+
+    def decode(self, codes: torch.Tensor):
+        """Reconstruct from discrete codes. codes: (B, T, K)"""
+        quantized = torch.zeros_like(self.layers[0].embeddings(codes[..., 0]))
+        for k, vq in enumerate(self.layers):
+            quantized = quantized + vq.embeddings(codes[..., k])
+        return quantized
+
+# --- Usage ---
+rvq = ResidualVQ(num_layers=16, num_embeddings=1024, embedding_dim=256)
+z = torch.randn(2, 100, 256)  # (batch=2, frames=100, dim=256)
+codes, loss = rvq.encode(z)
+print(f"Codes shape: {codes.shape}")      # (2, 100, 16)
+print(f"Commitment loss: {loss.item():.4f}")
+
+z_hat = rvq.decode(codes)
+recon_error = F.mse_loss(z, z_hat)
+print(f"Reconstruction error: {recon_error.item():.4f}")</code></pre>
+
+                <!-- Code Example 2: MTP Forward Pass -->
+                <h3>2. Multi-Token Prediction (MTP) Forward Pass</h3>
+                <p>Implementation of the MTP head that predicts codebook layers 2 through $K$ given the LLM hidden state and the first codebook token. This is the core innovation that makes multi-codebook generation efficient. The implementation shows both the independent (parallel) and sequential variants.</p>
+
+<pre><code>class MTPHead(nn.Module):
+    """Multi-Token Prediction head for parallel codebook generation.
+
+    Given the LLM hidden state h_t and the first codebook token c_t^(1),
+    predicts the remaining K-1 codebook tokens.
+    """
+    def __init__(self, hidden_dim: int = 4096, num_codebooks: int = 16,
+                 codebook_size: int = 1024, num_layers: int = 2,
+                 mode: str = 'parallel'):
+        super().__init__()
+        self.num_codebooks = num_codebooks
+        self.codebook_size = codebook_size
+        self.mode = mode  # 'parallel' or 'sequential'
+
+        # Project LLM hidden state + first token embedding
+        self.input_proj = nn.Linear(hidden_dim + 256, hidden_dim // 2)
+
+        if mode == 'parallel':
+            # Independent prediction heads for each codebook layer
+            self.heads = nn.ModuleList([
+                nn.Sequential(
+                    nn.Linear(hidden_dim // 2, hidden_dim // 4),
+                    nn.SiLU(),
+                    nn.Linear(hidden_dim // 4, codebook_size)
+                )
+                for _ in range(num_codebooks - 1)
+            ])
+        else:
+            # Sequential: small transformer that predicts tokens in order
+            self.token_embed = nn.Embedding(codebook_size, 256)
+            layer = nn.TransformerEncoderLayer(
+                d_model=hidden_dim // 2, nhead=8, dim_feedforward=hidden_dim,
+                batch_first=True, norm_first=True
+            )
+            self.transformer = nn.TransformerEncoder(layer, num_layers=num_layers)
+            self.output_proj = nn.Linear(hidden_dim // 2, codebook_size)
+
+    def forward(self, h_t: torch.Tensor, c1_embed: torch.Tensor,
+                targets=None):
+        """
+        Args:
+            h_t: LLM hidden state (B, D_hidden)
+            c1_embed: embedding of first codebook token (B, 256)
+            targets: ground truth codes (B, K-1) for training
+        Returns:
+            logits: (B, K-1, codebook_size) or loss if targets provided
+        """
+        # Combine LLM state with first token
+        combined = self.input_proj(torch.cat([h_t, c1_embed], dim=-1))
+
+        if self.mode == 'parallel':
+            logits = torch.stack([head(combined) for head in self.heads], dim=1)
+        else:
+            # Sequential: build sequence of [combined, tok2, tok3, ...]
+            B = combined.shape[0]
+            seq = combined.unsqueeze(1)  # (B, 1, D)
+            all_logits = []
+            for k in range(self.num_codebooks - 1):
+                out = self.transformer(seq)
+                logit_k = self.output_proj(out[:, -1, :])  # (B, codebook_size)
+                all_logits.append(logit_k)
+                if targets is not None:
+                    next_tok = self.token_embed(targets[:, k])
+                else:
+                    next_tok = self.token_embed(logit_k.argmax(dim=-1))
+                # Expand: project token to hidden dim
+                next_hidden = self.input_proj(
+                    torch.cat([torch.zeros_like(h_t), next_tok], dim=-1)
+                )
+                seq = torch.cat([seq, next_hidden.unsqueeze(1)], dim=1)
+            logits = torch.stack(all_logits, dim=1)
+
+        if targets is not None:
+            loss = F.cross_entropy(
+                logits.reshape(-1, self.codebook_size),
+                targets.reshape(-1)
+            )
+            return logits, loss
+        return logits
+
+# --- Usage ---
+mtp = MTPHead(hidden_dim=4096, num_codebooks=16, mode='parallel')
+h_t = torch.randn(4, 4096)      # LLM hidden states (batch=4)
+c1_embed = torch.randn(4, 256)  # First codebook embeddings
+targets = torch.randint(0, 1024, (4, 15))  # Target codes for layers 2-16
+
+logits, loss = mtp(h_t, c1_embed, targets=targets)
+print(f"Logits shape: {logits.shape}")  # (4, 15, 1024)
+print(f"MTP loss: {loss.item():.4f}")</code></pre>
+
+                <!-- Code Example 3: AR Generation with KV-Cache -->
+                <h3>3. Autoregressive Generation with KV-Cache</h3>
+                <p>Demonstrates the inference loop for token-based TTS with KV-cache optimization. The model generates audio tokens one at a time, appending each to the KV-cache to avoid redundant computation. This is the core generation loop for both tracks of Qwen-TTS.</p>
+
+<pre><code>class QwenTTSGenerator:
+    """Autoregressive audio token generation with KV-cache."""
+
+    def __init__(self, model, tokenizer, codec_decoder, mtp_head=None):
+        self.model = model          # Qwen2 LLM backbone
+        self.tokenizer = tokenizer  # Text tokenizer
+        self.codec = codec_decoder  # Frozen audio codec decoder
+        self.mtp = mtp_head         # MTP head (for Latency Track)
+
+    @torch.inference_mode()
+    def generate(self, text: str, max_audio_tokens: int = 500,
+                 temperature: float = 0.8, top_p: float = 0.9,
+                 track: str = 'semantic'):
+        """Generate audio tokens from text.
+
+        Args:
+            text: Input text to synthesize
+            max_audio_tokens: Maximum number of audio frames
+            temperature: Sampling temperature
+            top_p: Nucleus sampling threshold
+            track: 'semantic' (25Hz single-codebook) or 'latency' (12.5Hz 16-codebook)
+        """
+        # Encode text prefix
+        text_ids = self.tokenizer.encode(
+            f"[TEXT] {text} [/TEXT] [AUDIO]"
+        )
+        input_ids = torch.tensor([text_ids], device='cuda')
+
+        # Initialize KV-cache with text prefix (prefill)
+        outputs = self.model(input_ids, use_cache=True)
+        kv_cache = outputs.past_key_values
+        next_logits = outputs.logits[:, -1, :]  # (1, vocab_size)
+
+        audio_tokens = []
+
+        for step in range(max_audio_tokens):
+            # Sample first codebook token
+            probs = top_p_sampling(next_logits / temperature, top_p)
+            c1 = torch.multinomial(probs, num_samples=1)  # (1, 1)
+
+            # Check for end-of-audio token
+            if c1.item() == self.tokenizer.eos_audio_id:
+                break
+
+            if track == 'latency' and self.mtp is not None:
+                # MTP: predict remaining 15 codebook layers
+                h_t = outputs.hidden_states[-1][:, -1, :]  # Last hidden state
+                c1_embed = self.model.get_audio_embedding(c1.squeeze())
+                mtp_logits = self.mtp(h_t, c1_embed)  # (1, 15, 1024)
+                c_rest = mtp_logits.argmax(dim=-1)     # (1, 15)
+                frame = torch.cat([c1, c_rest], dim=-1)  # (1, 16)
+                audio_tokens.append(frame)
+            else:
+                # Semantic track: single codebook token per frame
+                audio_tokens.append(c1)
+
+            # Decode step: feed c1 into model with KV-cache
+            outputs = self.model(
+                c1, past_key_values=kv_cache, use_cache=True,
+                output_hidden_states=(track == 'latency')
+            )
+            kv_cache = outputs.past_key_values
+            next_logits = outputs.logits[:, -1, :]
+
+        # Stack all tokens and decode to waveform
+        codes = torch.cat(audio_tokens, dim=0)  # (T,) or (T, 16)
+        waveform = self.codec.decode(codes.unsqueeze(0))
+        return waveform
+
+
+def top_p_sampling(logits: torch.Tensor, top_p: float):
+    """Nucleus sampling: keep smallest set of tokens with cumulative prob &gt;= top_p."""
+    sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+    cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+    # Remove tokens with cumulative probability above threshold
+    sorted_indices_to_remove = cumulative_probs - F.softmax(sorted_logits, dim=-1) &gt;= top_p
+    sorted_logits[sorted_indices_to_remove] = float('-inf')
+    probs = F.softmax(sorted_logits, dim=-1)
+    return probs</code></pre>
+
+                <!-- Code Example 4: Dual-Track Routing -->
+                <h3>4. Dual-Track Inference Routing</h3>
+                <p>A dispatcher that selects the appropriate track (Semantic or Latency) based on the deployment context and routes the generation accordingly. This shows how a production Qwen-TTS system would handle both batch and streaming requests.</p>
+
+<pre><code>from enum import Enum
+from dataclasses import dataclass
+from typing import Optional, AsyncIterator
+
+class TrackMode(Enum):
+    SEMANTIC = "semantic"    # High quality, batch
+    LATENCY = "latency"     # Low latency, streaming
+
+@dataclass
+class TTSRequest:
+    text: str
+    voice_prompt: Optional[str] = None    # Text description of voice
+    reference_audio: Optional[str] = None  # Path to reference audio
+    stream: bool = False
+    max_latency_ms: float = 2000.0
+
+class DualTrackDispatcher:
+    """Routes TTS requests to the appropriate track."""
+
+    def __init__(self, semantic_generator, latency_generator):
+        self.semantic = semantic_generator
+        self.latency = latency_generator
+
+    def select_track(self, request: TTSRequest) -&gt; TrackMode:
+        """Select track based on request requirements."""
+        if request.stream or request.max_latency_ms &lt; 500:
+            return TrackMode.LATENCY
+        return TrackMode.SEMANTIC
+
+    def synthesize(self, request: TTSRequest):
+        """Synchronous synthesis for batch mode."""
+        track = self.select_track(request)
+        if track == TrackMode.SEMANTIC:
+            return self.semantic.generate(
+                text=request.text,
+                voice_prompt=request.voice_prompt,
+                reference_audio=request.reference_audio,
+                track='semantic'
+            )
+        else:
+            return self.latency.generate(
+                text=request.text,
+                voice_prompt=request.voice_prompt,
+                reference_audio=request.reference_audio,
+                track='latency'
+            )
+
+    async def synthesize_stream(self, request: TTSRequest) -&gt; AsyncIterator:
+        """Streaming synthesis: yield audio chunks as they are generated."""
+        assert request.stream, "Use synthesize() for non-streaming requests"
+        generator = self.latency
+
+        # Prefill with text
+        text_ids = generator.tokenizer.encode(
+            f"[TEXT] {request.text} [/TEXT] [AUDIO]"
+        )
+        kv_cache = generator.prefill(text_ids)
+
+        chunk_buffer = []
+        chunk_size = 4  # Frames per chunk (4 frames = 320ms at 12.5Hz)
+
+        while True:
+            frame, kv_cache, done = generator.step(kv_cache)
+            if done:
+                break
+            chunk_buffer.append(frame)
+            if len(chunk_buffer) == chunk_size:
+                codes = torch.stack(chunk_buffer)
+                audio_chunk = generator.codec.decode(codes.unsqueeze(0))
+                yield audio_chunk.cpu().numpy()
+                chunk_buffer = []
+
+        # Flush remaining frames
+        if chunk_buffer:
+            codes = torch.stack(chunk_buffer)
+            audio_chunk = generator.codec.decode(codes.unsqueeze(0))
+            yield audio_chunk.cpu().numpy()</code></pre>
+
+                <!-- Code Example 5: Prompt-Conditioned Generation -->
+                <h3>5. Prompt-Conditioned Generation</h3>
+                <p>Shows how voice design prompts and voice cloning reference audio are formatted into the input sequence for the Qwen-TTS model. This demonstrates the interface between the text prompt system and the autoregressive generation loop.</p>
+
+<pre><code>class PromptConditionedTTS:
+    """Handles voice design and voice cloning prompts."""
+
+    def __init__(self, model, tokenizer, codec_encoder, codec_decoder):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.encoder = codec_encoder   # For tokenizing reference audio
+        self.decoder = codec_decoder
+
+    def format_voice_design(self, voice_description: str, text: str) -&gt; str:
+        """Format input for text-prompt voice design."""
+        return (
+            f"[SYSTEM] Voice: {voice_description} [/SYSTEM] "
+            f"[TEXT] {text} [/TEXT] [AUDIO]"
+        )
+
+    def format_voice_clone(self, reference_audio: torch.Tensor,
+                           text: str) -&gt; list:
+        """Format input for voice cloning with reference audio."""
+        # Tokenize reference audio
+        with torch.no_grad():
+            ref_codes = self.encoder.encode(reference_audio)  # (1, T_ref, K)
+            # Use first codebook only for speaker conditioning
+            ref_tokens = ref_codes[0, :, 0].tolist()
+
+        # Build token sequence
+        text_tokens = self.tokenizer.encode(f"[TEXT] {text} [/TEXT]")
+        speaker_tokens = [self.tokenizer.speaker_start_id] + \
+                         ref_tokens + \
+                         [self.tokenizer.speaker_end_id]
+        audio_start = [self.tokenizer.audio_start_id]
+
+        return speaker_tokens + text_tokens + audio_start
+
+    @torch.inference_mode()
+    def generate_with_voice_design(self, voice_description: str,
+                                    text: str, **kwargs):
+        """Generate speech with a text-described voice."""
+        prompt = self.format_voice_design(voice_description, text)
+        input_ids = torch.tensor(
+            [self.tokenizer.encode(prompt)], device='cuda'
+        )
+        return self._generate_from_ids(input_ids, **kwargs)
+
+    @torch.inference_mode()
+    def generate_with_voice_clone(self, reference_audio: torch.Tensor,
+                                   text: str, **kwargs):
+        """Generate speech cloning a reference voice."""
+        input_ids = torch.tensor(
+            [self.format_voice_clone(reference_audio, text)],
+            device='cuda'
+        )
+        return self._generate_from_ids(input_ids, **kwargs)
+
+    def _generate_from_ids(self, input_ids, max_tokens=500,
+                           temperature=0.8, top_p=0.9):
+        """Core generation loop (same as QwenTTSGenerator.generate)."""
+        outputs = self.model(input_ids, use_cache=True)
+        kv_cache = outputs.past_key_values
+        logits = outputs.logits[:, -1, :]
+
+        tokens = []
+        for _ in range(max_tokens):
+            probs = top_p_sampling(logits / temperature, top_p)
+            tok = torch.multinomial(probs, num_samples=1)
+            if tok.item() == self.tokenizer.eos_audio_id:
+                break
+            tokens.append(tok)
+            outputs = self.model(tok, past_key_values=kv_cache, use_cache=True)
+            kv_cache = outputs.past_key_values
+            logits = outputs.logits[:, -1, :]
+
+        codes = torch.cat(tokens, dim=0)
+        return self.decoder.decode(codes.unsqueeze(0))
+
+# --- Usage ---
+# tts = PromptConditionedTTS(model, tokenizer, codec_enc, codec_dec)
+#
+# # Voice design from text description
+# audio = tts.generate_with_voice_design(
+#     voice_description="A warm, deep male voice with calm delivery",
+#     text="Welcome to the future of speech synthesis."
+# )
+#
+# # Voice cloning from reference audio
+# ref_audio, sr = torchaudio.load("speaker_ref.wav")
+# audio = tts.generate_with_voice_clone(
+#     reference_audio=ref_audio,
+#     text="This sentence is spoken in the cloned voice."
+# )</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
             <article class="article-content" id="exercises" style="display: none;">
                 <h2>Exercises</h2>
+                <p>Ten exercises covering the mathematical and architectural foundations of Qwen-TTS, from basic bitrate calculations to the design of streaming multi-token prediction architectures. The easy exercises test core quantitative reasoning about RVQ and codecs. The medium exercises require deeper analysis of training objectives and memory costs. The hard exercises demand synthesis of multiple concepts to analyze architectural tradeoffs. Full solutions with KaTeX derivations are provided.</p>
+
                 <div class="exercise-list">
 
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
                     <div class="exercise-item">
                         <div class="exercise-header">
-                            <span class="exercise-title">1. Dual-Track Inference Trade-offs</span>
+                            <span class="exercise-title">1. RVQ Bitrate Calculation</span>
                             <span class="exercise-toggle">&darr;</span>
                         </div>
                         <div class="exercise-body">
-                            <p>In which scenario would you force the model to use the Semantic Track? In which scenario would the Latency Track be necessary?</p>
+                            <p>An audio codec uses Residual Vector Quantization with $K = 8$ codebook layers, each of size $N = 2048$, operating at a frame rate of $f_s = 50$ Hz. (a) Calculate the bitrate in bits per second. (b) How many bytes of storage are needed for 1 minute of audio? (c) If we reduce to $K = 4$ layers, what is the new bitrate, and qualitatively, what kind of audio information is lost?</p>
                             <button class="btn btn-sm solution-toggle">Show Solution</button>
                             <div class="solution-content">
-                                <p><strong>Semantic Track (DiT):</strong> Use for non-streaming, high-quality batch generation (audiobooks, podcasts) where latency is acceptable but fidelity must be perfect. <br><br><strong>Latency Track (ConvNet):</strong> Use for real-time conversational AI (voice assistants, live translators) where ultra-low "first-packet latency" (under 100ms) is critical.</p>
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Bitrate:</strong></p>
+                                $$\text{Bitrate} = K \times \log_2(N) \times f_s = 8 \times \log_2(2048) \times 50 = 8 \times 11 \times 50 = 4400 \text{ bps} = 4.4 \text{ kbps}$$
+                                <p><strong>(b) Storage for 1 minute:</strong></p>
+                                $$\text{Bits} = 4400 \times 60 = 264{,}000 \text{ bits}$$
+                                $$\text{Bytes} = \frac{264{,}000}{8} = 33{,}000 \text{ bytes} = 33 \text{ KB}$$
+                                <p>For comparison, one minute of uncompressed CD audio (44.1 kHz, 16-bit, stereo) is about 10.6 MB, and one minute of MP3 at 128 kbps is about 960 KB. The RVQ codec achieves over 300x compression compared to CD audio.</p>
+                                <p><strong>(c) With $K = 4$:</strong></p>
+                                $$\text{Bitrate} = 4 \times 11 \times 50 = 2200 \text{ bps} = 2.2 \text{ kbps}$$
+                                <p>Halving the codebook layers removes the fine acoustic detail captured by layers 5&ndash;8. These layers typically encode high-frequency spectral texture, room acoustics, and subtle vocal characteristics. The remaining 4 layers preserve phoneme identity, prosodic contour, and basic speaker identity, but the audio will sound more "compressed" and less natural &mdash; similar to listening to speech through a low-quality phone connection.</p>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Exercise 2 -->
                     <div class="exercise-item">
                         <div class="exercise-header">
-                            <span class="exercise-title">2. Multi-Token Prediction (MTP) Bottleneck</span>
+                            <span class="exercise-title">2. Codebook Size vs. Quality Tradeoff</span>
                             <span class="exercise-toggle">&darr;</span>
                         </div>
                         <div class="exercise-body">
-                            <p>How does the MTP module alleviate the computational burden of predicting 16 audio codec layers?</p>
+                            <p>Consider a single-layer vector quantizer with embedding dimension $d = 256$. (a) If the codebook has $N = 256$ entries, how many bits does each token encode? (b) If we increase to $N = 4096$, how many bits per token? (c) Explain why simply increasing $N$ to very large values (e.g., $N = 10^6$) does not work in practice. Identify at least three problems. (d) How does RVQ solve these problems?</p>
                             <button class="btn btn-sm solution-toggle">Show Solution</button>
                             <div class="solution-content">
-                                <p>Instead of the main LLM sequentially computing 16 forward passes per frame, the massive LLM only predicts the primary semantic token. The much smaller MTP module then processes that semantic token to predict the remaining 15 acoustic codebooks in parallel simultaneously, preserving quality while slashing inference time.</p>
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> $\log_2(256) = 8$ bits per token.</p>
+                                <p><strong>(b)</strong> $\log_2(4096) = 12$ bits per token.</p>
+                                <p><strong>(c) Three problems with very large codebooks:</strong></p>
+                                <ol>
+                                    <li><strong>Codebook collapse.</strong> With $N = 10^6$ entries and a limited training set, most entries will never be selected by the argmin operation. These "dead" entries waste memory and receive no gradient signal. Even with EMA updates, the utilization rate drops to $<1\%$ for very large codebooks, meaning the effective codebook size is far smaller than $N$.</li>
+                                    <li><strong>Memory cost.</strong> The codebook requires $N \times d$ parameters. With $N = 10^6$ and $d = 256$, the codebook alone has 256M parameters (512 MB in float16). For $K$ codebook layers, this multiplies by $K$. The memory cost becomes prohibitive.</li>
+                                    <li><strong>Slow nearest-neighbor search.</strong> The argmin operation over $N$ entries requires computing $N$ distances per frame. With $N = 10^6$, this is a $10^6$-way comparison at every time step. Even with approximate nearest-neighbor methods (e.g., product quantization or FAISS), the overhead is significant.</li>
+                                </ol>
+                                <p><strong>(d) How RVQ solves these problems:</strong></p>
+                                <p>RVQ uses $K$ small codebooks (e.g., $N = 1024$ each) instead of one huge codebook. The total number of distinct representable vectors is $N^K = 1024^{16} \approx 10^{48}$ &mdash; astronomically larger than any single codebook. Each individual codebook is small enough to maintain high utilization, fits in cache, and has fast nearest-neighbor search ($O(N)$ per layer, $O(KN)$ total). The residual structure also ensures that each codebook operates on a different scale of variation, making it easier to learn.</p>
+                                <p>The total bits per frame with RVQ: $K \times \log_2(N) = 16 \times 10 = 160$ bits. To achieve 160 bits with a single codebook, we would need $N = 2^{160} \approx 10^{48}$ entries &mdash; clearly impossible.</p>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Exercise 3 -->
                     <div class="exercise-item">
                         <div class="exercise-header">
-                            <span class="exercise-title">3. The Power of Text Prompts</span>
+                            <span class="exercise-title">3. MTP Speedup Analysis</span>
                             <span class="exercise-toggle">&darr;</span>
                         </div>
                         <div class="exercise-body">
-                            <p>Explain how a token-based, LLM-style architecture supports capabilities like "prompt-based voice design" compared to traditional systems.</p>
+                            <p>A TTS system generates audio at 12.5 Hz using 16 codebook layers. The main LLM takes $t_{\text{LLM}} = 30$ ms per forward pass. The MTP head takes $t_{\text{MTP}} = 3$ ms per forward pass. (a) Calculate the time to generate 10 seconds of audio without MTP (sequential prediction). (b) Calculate the time with MTP. (c) What is the effective real-time factor (RTF) in each case? (d) Is the system real-time capable (RTF &lt; 1) in each case?</p>
                             <button class="btn btn-sm solution-toggle">Show Solution</button>
                             <div class="solution-content">
-                                <p>Traditional TTS requires explicitly trained parameters or separate speaker embedding networks. Qwen-TTS, being an LLM trained on text-to-audio-token sequences, naturally inherits zero-shot generalization. It simply learns the semantic mapping between descriptive text (the prompt) and the acoustic sequences that match that description, requiring no explicit emotion-labeled datasets.</p>
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Without MTP:</strong> Each frame requires 16 sequential LLM forward passes.</p>
+                                $$T_{\text{seq}} = \text{frames} \times K \times t_{\text{LLM}} = (10 \times 12.5) \times 16 \times 0.030 = 125 \times 16 \times 0.030 = 60 \text{ seconds}$$
+                                <p><strong>(b) With MTP:</strong> Each frame requires 1 LLM pass + 1 MTP pass.</p>
+                                $$T_{\text{MTP}} = \text{frames} \times (t_{\text{LLM}} + t_{\text{MTP}}) = 125 \times (0.030 + 0.003) = 125 \times 0.033 = 4.125 \text{ seconds}$$
+                                <p><strong>(c) Real-time factor:</strong></p>
+                                $$\text{RTF}_{\text{seq}} = \frac{T_{\text{seq}}}{\text{audio duration}} = \frac{60}{10} = 6.0$$
+                                $$\text{RTF}_{\text{MTP}} = \frac{T_{\text{MTP}}}{\text{audio duration}} = \frac{4.125}{10} = 0.4125$$
+                                <p><strong>(d)</strong> Without MTP, RTF = 6.0, meaning the system takes 6x longer than real-time &mdash; <strong>not real-time capable</strong>. With MTP, RTF = 0.4125, meaning the system generates audio 2.4x faster than real-time &mdash; <strong>real-time capable</strong> with significant headroom.</p>
+                                <p>The speedup factor is $60 / 4.125 \approx 14.5\times$, close to the theoretical maximum of $K = 16\times$. The gap is because $t_{\text{MTP}} > 0$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. Dual-Track Latency Comparison</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Compare the first-packet latency of both tracks in detail. The Semantic Track operates at 25 Hz with a chunk-wise DiT decoder that requires $C = 25$ frames per chunk and takes $t_{\text{DiT}} = 200$ ms per chunk. The Latency Track operates at 12.5 Hz with a causal ConvNet that takes $t_{\text{ConvNet}} = 5$ ms per frame. The LLM takes $t_{\text{prefill}} = 150$ ms for the text prefill and $t_{\text{step}} = 30$ ms per autoregressive step. (a) Calculate the first-packet latency for each track. (b) Calculate the time to generate the first 2 seconds of audio for each track. (c) For a conversational AI with a maximum acceptable response time of 300 ms, which track must be used, and what is the margin?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) First-packet latency:</strong></p>
+                                <p><em>Semantic Track:</em> Must generate $C = 25$ tokens before the DiT can decode the first chunk.</p>
+                                $$L_{\text{semantic}} = t_{\text{prefill}} + C \times t_{\text{step}} + t_{\text{DiT}} = 150 + 25 \times 30 + 200 = 150 + 750 + 200 = 1100 \text{ ms}$$
+                                <p><em>Latency Track:</em> Only needs 1 token group (the ConvNet is causal).</p>
+                                $$L_{\text{latency}} = t_{\text{prefill}} + 1 \times (t_{\text{step}} + t_{\text{MTP}}) + t_{\text{ConvNet}} = 150 + 33 + 5 = 188 \text{ ms}$$
+                                <p><strong>(b) First 2 seconds of audio:</strong></p>
+                                <p><em>Semantic Track:</em> 2 seconds = $2 \times 25 = 50$ tokens = 2 chunks of 25 tokens each.</p>
+                                $$T_{\text{semantic}} = t_{\text{prefill}} + 50 \times t_{\text{step}} + 2 \times t_{\text{DiT}} = 150 + 1500 + 400 = 2050 \text{ ms}$$
+                                <p><em>Latency Track:</em> 2 seconds = $2 \times 12.5 = 25$ frames.</p>
+                                $$T_{\text{latency}} = t_{\text{prefill}} + 25 \times (t_{\text{step}} + t_{\text{MTP}}) + 25 \times t_{\text{ConvNet}}$$
+                                $$= 150 + 25 \times 33 + 25 \times 5 = 150 + 825 + 125 = 1100 \text{ ms}$$
+                                <p>Note: with streaming, the Latency Track begins emitting audio at 188 ms, so the user hears audio continuously from that point. The 1100 ms is the total compute time, but the user experience is 188 ms to first sound.</p>
+                                <p><strong>(c)</strong> The Latency Track with 188 ms first-packet latency fits within the 300 ms budget, with a margin of $300 - 188 = 112$ ms. The Semantic Track at 1100 ms exceeds the budget by 800 ms and <strong>cannot</strong> be used for this application.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. RVQ Commitment Loss Derivation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The VQ-VAE loss has three terms: $\mathcal{L} = \|\mathbf{x} - \hat{\mathbf{x}}\|^2 + \|\text{sg}[\mathbf{z}] - \mathbf{e}\|^2 + \beta\|\mathbf{z} - \text{sg}[\mathbf{e}]\|^2$. (a) Explain why the stop-gradient operator $\text{sg}[\cdot]$ is necessary in the second and third terms. What would happen without it? (b) Derive the gradient of the commitment loss $\beta\|\mathbf{z} - \text{sg}[\mathbf{e}]\|^2$ with respect to the encoder parameters $\theta_{\text{enc}}$ (the parameters that produce $\mathbf{z}$). (c) What happens if $\beta$ is too large? Too small? (d) In RVQ, how does the commitment loss apply across the $K$ layers?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Why stop-gradient is necessary:</strong></p>
+                                <p>The second term $\|\text{sg}[\mathbf{z}] - \mathbf{e}\|^2$ trains the codebook entries $\mathbf{e}$ to move toward the encoder outputs $\mathbf{z}$. The stop-gradient on $\mathbf{z}$ ensures that this term's gradient <em>only</em> updates the codebook, not the encoder. Without $\text{sg}$, the gradient would also push $\mathbf{z}$ toward $\mathbf{e}$, creating a conflicting signal: the reconstruction loss pushes $\mathbf{z}$ to represent the input well, while the codebook loss would push $\mathbf{z}$ toward the current (potentially poor) codebook entries. This conflict destabilizes training.</p>
+                                <p>The third term $\|\mathbf{z} - \text{sg}[\mathbf{e}]\|^2$ trains the encoder to produce outputs close to the (current, fixed) codebook entries. The stop-gradient on $\mathbf{e}$ ensures this term only updates the encoder, not the codebook.</p>
+                                <p><strong>(b) Gradient of commitment loss:</strong></p>
+                                <p>Let $\mathbf{z} = f_{\theta_{\text{enc}}}(\mathbf{x})$ be the encoder output. The commitment loss is:</p>
+                                $$\mathcal{L}_{\text{commit}} = \beta \|\mathbf{z} - \text{sg}[\mathbf{e}]\|^2 = \beta \sum_{d=1}^{D} (z_d - e_d)^2$$
+                                <p>Since $\text{sg}[\mathbf{e}]$ is treated as a constant:</p>
+                                $$\frac{\partial \mathcal{L}_{\text{commit}}}{\partial \mathbf{z}} = 2\beta(\mathbf{z} - \mathbf{e})$$
+                                <p>By the chain rule:</p>
+                                $$\frac{\partial \mathcal{L}_{\text{commit}}}{\partial \theta_{\text{enc}}} = \frac{\partial \mathcal{L}_{\text{commit}}}{\partial \mathbf{z}} \cdot \frac{\partial \mathbf{z}}{\partial \theta_{\text{enc}}} = 2\beta(\mathbf{z} - \mathbf{e}) \cdot \frac{\partial f_{\theta_{\text{enc}}}(\mathbf{x})}{\partial \theta_{\text{enc}}}$$
+                                <p>This gradient pushes the encoder to produce outputs that are closer to the nearest codebook entry, reducing the quantization error.</p>
+                                <p><strong>(c) Effect of $\beta$:</strong></p>
+                                <p>If $\beta$ is too large: the commitment loss dominates, forcing $\mathbf{z} \approx \mathbf{e}$ at the expense of reconstruction quality. The encoder becomes overly constrained and cannot learn a good representation. The model "collapses" to using a few codebook entries.</p>
+                                <p>If $\beta$ is too small: the encoder outputs $\mathbf{z}$ can drift far from the codebook entries. The quantization error $\|\mathbf{z} - \mathbf{e}\|^2$ becomes large, meaning the straight-through estimator produces poor gradient approximations. Training becomes unstable. The typical value $\beta = 0.25$ balances these concerns.</p>
+                                <p><strong>(d) In RVQ:</strong> Each layer $k$ has its own commitment loss applied to the residual: $\beta \|r_{k-1} - \text{sg}[\mathbf{e}_{i_k}^{(k)}]\|^2$. The total commitment loss is the sum over all layers: $\mathcal{L}_{\text{commit}} = \beta \sum_{k=1}^{K} \|r_{k-1} - \text{sg}[\mathbf{e}_{i_k}^{(k)}]\|^2$. Note that later layers have smaller residuals (because earlier layers have already captured the coarse structure), so their commitment losses are naturally smaller in magnitude.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. KV-Cache Memory Calculation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A Qwen-TTS model has $L = 32$ transformer layers, $H = 32$ attention heads, head dimension $d_h = 128$, and uses float16. (a) Calculate the KV-cache memory for a text prompt of 100 tokens plus 500 generated audio tokens (total sequence length 600). (b) For batch inference with batch size $B = 8$, what is the total KV-cache memory? (c) If the GPU has 24 GB of VRAM and the model weights occupy 14 GB, how many audio tokens can be generated before running out of KV-cache memory (batch size 1)? (d) How does INT8 KV-cache quantization change the answer to (c)?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) KV-cache for sequence length $T = 600$:</strong></p>
+                                <p>Each layer stores keys and values, each of shape $(T, H, d_h)$:</p>
+                                $$\text{KV per layer} = 2 \times T \times H \times d_h \times \text{sizeof(float16)}$$
+                                $$= 2 \times 600 \times 32 \times 128 \times 2 = 2 \times 600 \times 8192 = 9{,}830{,}400 \text{ bytes} \approx 9.4 \text{ MB}$$
+                                $$\text{Total KV} = L \times 9.4 = 32 \times 9.4 = 300.0 \text{ MB}$$
+                                <p>More precisely: $2 \times 32 \times 600 \times 32 \times 128 \times 2 = 314{,}572{,}800$ bytes $= 300$ MB.</p>
+                                <p><strong>(b) Batch size $B = 8$:</strong></p>
+                                $$\text{Total KV} = B \times 300 = 8 \times 300 = 2400 \text{ MB} = 2.4 \text{ GB}$$
+                                <p><strong>(c) Maximum audio tokens with 24 GB VRAM:</strong></p>
+                                <p>Available for KV-cache: $24 - 14 = 10$ GB $= 10{,}240$ MB. Let the text prompt be 100 tokens and the number of audio tokens be $T_a$. Total sequence length: $T = 100 + T_a$.</p>
+                                $$\text{KV memory (MB)} = \frac{2 \times 32 \times T \times 32 \times 128 \times 2}{1024^2} = \frac{T \times 524{,}288}{1048{,}576} = \frac{T}{2}$$
+                                <p>So memory in MB is $T/2$. Setting $T/2 = 10{,}240$:</p>
+                                $$T = 20{,}480 \quad \Rightarrow \quad T_a = 20{,}480 - 100 = 20{,}380 \text{ audio tokens}$$
+                                <p>At 25 Hz (Semantic Track): $20{,}380 / 25 = 815$ seconds $\approx 13.6$ minutes of audio.</p>
+                                <p>At 12.5 Hz (Latency Track): $20{,}380 / 12.5 = 1{,}630$ seconds $\approx 27.2$ minutes of audio.</p>
+                                <p><strong>(d) With INT8 KV-cache:</strong> Each value is 1 byte instead of 2, halving the KV memory. Memory per token becomes $T/4$ MB. Setting $T/4 = 10{,}240$: $T = 40{,}960$, so $T_a = 40{,}860$ tokens. This doubles the maximum generation length to ~27 minutes (Semantic) or ~54 minutes (Latency).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. MTP Loss Gradient Analysis</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The MTP training loss is $\mathcal{L}_{\text{MTP}} = -\sum_{t=1}^{T}\left[\log p_\theta(c_t^{(1)} \mid \mathbf{x}, c_{<t}^{(1)}) + \lambda \sum_{k=2}^{K} \log p_\phi(c_t^{(k)} \mid c_t^{(1)}, \ldots, c_t^{(k-1)}, \mathbf{h}_t)\right]$. (a) Which parameters ($\theta$ or $\phi$) receive gradients from each term? (b) Does the MTP head loss (second term) backpropagate through the LLM via $\mathbf{h}_t$? Discuss the implications of each choice (yes vs. no). (c) If $\lambda = 0$, what happens to the MTP head during training? If $\lambda \gg 1$, what happens to the LLM? (d) Propose a training schedule for $\lambda$ and justify it.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Gradient flow:</strong></p>
+                                <p>The first term $-\log p_\theta(c_t^{(1)} \mid \ldots)$ depends only on $\theta$ (the LLM parameters) &mdash; gradients flow to $\theta$ only.</p>
+                                <p>The second term $-\lambda \sum_k \log p_\phi(c_t^{(k)} \mid \ldots, \mathbf{h}_t)$ directly depends on $\phi$ (the MTP head parameters). Whether it also provides gradients to $\theta$ depends on whether $\mathbf{h}_t$ is detached.</p>
+                                <p><strong>(b) Backpropagation through $\mathbf{h}_t$:</strong></p>
+                                <p><em>If yes (no detach):</em> The MTP loss provides an auxiliary training signal to the LLM, encouraging it to produce hidden states that are informative for predicting all codebook layers, not just the first. This is similar to multi-task learning and could improve the LLM's representation. However, it also means the LLM's representations are influenced by the MTP head's architecture, creating a coupling that makes it harder to swap MTP heads.</p>
+                                <p><em>If no (detach $\mathbf{h}_t$):</em> The LLM is trained purely on first-codebook prediction, and the MTP head learns to extract information from fixed LLM representations. This is simpler and more modular &mdash; you can train different MTP heads for different use cases. However, the LLM might not learn to encode all the information the MTP head needs.</p>
+                                <p>In practice, Qwen-TTS likely uses the detached variant for training stability, since the MTP loss (summed over 15 codebook layers) would otherwise dominate the gradient signal to the LLM.</p>
+                                <p><strong>(c) Extreme values of $\lambda$:</strong></p>
+                                <p>$\lambda = 0$: The MTP head receives zero gradient and never learns. It will output random predictions for layers 2&ndash;$K$, producing heavily degraded audio in the Latency Track.</p>
+                                <p>$\lambda \gg 1$: If gradients flow through $\mathbf{h}_t$, the MTP loss dominates and the LLM's representations are optimized primarily for predicting acoustic detail rather than semantic content. The first codebook predictions may degrade. If gradients are detached, $\lambda \gg 1$ simply means the MTP head is trained more aggressively, which is generally fine.</p>
+                                <p><strong>(d) Training schedule for $\lambda$:</strong></p>
+                                <p>A sensible schedule is to start with $\lambda = 0$ during early training (let the LLM learn good first-codebook predictions), then linearly ramp $\lambda$ to 1.0 over the first 10% of training steps. This curriculum ensures the LLM develops stable representations before the MTP head begins to provide auxiliary gradients (if not detached) or before we start investing compute in MTP training (if detached). Formally:</p>
+                                $$\lambda(t) = \min\left(1.0, \frac{t}{0.1 \times T_{\text{total}}}\right)$$
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Semantic vs. Acoustic Information in Codebook Layers</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>It is widely observed that the first few RVQ codebook layers encode "semantic" information (phoneme identity, prosody) while later layers encode "acoustic" information (speaker timbre, room acoustics). (a) Design an experiment to rigorously test this hypothesis. Specify what models you would train, what data you would use, and what metrics you would measure. (b) Provide a theoretical argument based on the RVQ residual structure for why semantic information should concentrate in early layers. (c) If this hypothesis is true, what are the implications for the MTP architecture? Why is it acceptable for the MTP head to be smaller than the main LLM? (d) Consider a pathological case: what if the codec were trained such that semantic information is spread uniformly across all layers? How would this affect the Qwen-TTS system?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Experimental design:</strong></p>
+                                <p><em>Models to train:</em> Train $K$ separate phoneme classifiers (simple linear probes), one for each RVQ layer. Classifier $k$ takes the quantized output of layer $k$ (the codebook entry $\mathbf{e}_{i_k}^{(k)}$) as input and predicts the phoneme label.</p>
+                                <p><em>Data:</em> A large speech corpus with forced-aligned phoneme labels (e.g., LibriSpeech with MFA alignments). For each frame, extract the RVQ codes from all $K$ layers and pair with the phoneme label.</p>
+                                <p><em>Metrics:</em></p>
+                                <ul>
+                                    <li><strong>Phoneme accuracy per layer:</strong> Higher accuracy means more semantic information. We expect layers 1&ndash;2 to have high accuracy (>80%) and later layers to have low accuracy (~chance level).</li>
+                                    <li><strong>Speaker verification accuracy per layer:</strong> Train speaker classifiers on each layer. We expect later layers to be more speaker-informative.</li>
+                                    <li><strong>Mutual information:</strong> Compute $I(C^{(k)}; \text{phoneme})$ and $I(C^{(k)}; \text{speaker})$ for each layer $k$. Plot these as a function of $k$.</li>
+                                </ul>
+                                <p>Additionally, reconstruct audio using only the first $k$ layers (for $k = 1, 2, \ldots, K$) and run ASR on the reconstructions. The WER should plateau quickly (once semantic info is captured) while MOS continues to improve with more layers (acoustic detail).</p>
+                                <p><strong>(b) Theoretical argument:</strong></p>
+                                <p>The first codebook quantizes the original signal $\mathbf{z}$, which has maximum variance (energy). The dominant sources of variance in speech are the formant structure (which determines phoneme identity) and the fundamental frequency (which determines prosody). These large-scale spectral features account for most of the energy and will be captured by the first codebook's argmin selection. The residual $r_1 = \mathbf{z} - \mathbf{e}_{i_1}^{(1)}$ contains the finer variations &mdash; speaker-specific timbre, breathiness, room characteristics &mdash; which have lower energy. Each subsequent layer captures progressively lower-energy components, naturally sorting information by importance/energy.</p>
+                                <p>Formally, the variance explained by layer $k$ is: $\text{Var}(\mathbf{e}_{i_k}^{(k)}) \propto \|r_{k-1}\|^2 - \|r_k\|^2$, and this quantity decreases with $k$ (each layer captures less remaining variance). The highest-variance components (phonemes, prosody) are captured first.</p>
+                                <p><strong>(c) Implications for MTP:</strong></p>
+                                <p>If layers 2&ndash;$K$ primarily encode acoustic detail (which is lower-dimensional and more predictable than semantic content), then a small MTP head is sufficient because:</p>
+                                <ul>
+                                    <li>The mapping from semantic content (encoded in $\mathbf{h}_t$ and $c_t^{(1)}$) to acoustic detail is relatively simple &mdash; once you know <em>what</em> is being said, the acoustic realization is largely determined by the speaker identity (which is constant across the utterance).</li>
+                                    <li>The conditional entropy $H(c_t^{(k)} \mid c_t^{(1)}, \mathbf{h}_t)$ for $k > 1$ is much lower than $H(c_t^{(1)} \mid \mathbf{x}, c_{<t}^{(1)})$. The MTP head faces an easier prediction task.</li>
+                                    <li>Adjacent codebook layers are correlated (they encode similar-scale variations), so predicting $c_t^{(k)}$ from $c_t^{(k-1)}$ is easier than predicting $c_t^{(1)}$ from text.</li>
+                                </ul>
+                                <p><strong>(d) Pathological case:</strong></p>
+                                <p>If semantic information were spread uniformly, then dropping any single layer would degrade intelligibility. This would make the MTP architecture fail catastrophically: the small MTP head would need to perform the same level of semantic reasoning as the full LLM for every layer. Real-time generation would be impossible without a full LLM forward pass for each of the 16 layers. The dual-track design would also break down, because the Semantic Track's single-codebook tokens would not contain enough semantic information for intelligible reconstruction. The entire Qwen-TTS architecture relies on the RVQ's natural information hierarchy.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Designing a Streaming MTP Architecture</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You are tasked with designing an improved MTP architecture for ultra-low-latency streaming TTS (target: &lt;50 ms first-packet latency). The current system has $t_{\text{prefill}} = 150$ ms (for a 50-token text prompt) and $t_{\text{step}} = 30$ ms. (a) Identify the bottleneck preventing &lt;50 ms latency and propose at least two solutions. (b) Design a "speculative MTP" scheme where the MTP head also predicts the <em>next</em> time step's first codebook token, enabling the ConvNet to start decoding before the LLM confirms the prediction. Write out the mathematical formulation. (c) Analyze the failure mode: what happens when the speculative first-codebook prediction is wrong? How do you handle this gracefully in a streaming context? (d) Calculate the expected latency of your speculative MTP scheme assuming the speculation acceptance rate is $\alpha = 0.85$.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Bottleneck analysis:</strong></p>
+                                <p>Current first-packet latency: $t_{\text{prefill}} + t_{\text{step}} + t_{\text{MTP}} + t_{\text{ConvNet}} = 150 + 30 + 3 + 5 = 188$ ms. The dominant bottleneck is $t_{\text{prefill}} = 150$ ms.</p>
+                                <p><em>Solution 1: Chunked prefill.</em> Split the text prefill into smaller chunks and begin audio generation before the full text is processed. Use the first $N$ text tokens to generate the first audio token while the remaining text tokens are still being processed. This is possible because the first few words of a sentence largely determine how the speech begins. Latency becomes: $t_{\text{chunk\_prefill}} + t_{\text{step}} + t_{\text{ConvNet}} \approx 30 + 30 + 5 = 65$ ms (still too high).</p>
+                                <p><em>Solution 2: Parallel prefill + speculation.</em> Use a small draft model (0.5B params, $t_{\text{prefill}}^{\text{draft}} = 20$ ms, $t_{\text{step}}^{\text{draft}} = 5$ ms) to begin generating audio tokens immediately. The main model verifies and corrects in the background. First-packet latency: $20 + 5 + 3 + 5 = 33$ ms &mdash; within budget.</p>
+                                <p><em>Solution 3: Pre-computation.</em> If the text is known in advance (e.g., typed by a user), begin prefill as the user types, so by the time the full text is submitted, the KV-cache is already populated. Latency becomes just $t_{\text{step}} + t_{\text{MTP}} + t_{\text{ConvNet}} = 38$ ms.</p>
+                                <p><strong>(b) Speculative MTP formulation:</strong></p>
+                                <p>At time $t$, the MTP head predicts not only $c_t^{(2)}, \ldots, c_t^{(K)}$ but also a speculative prediction of the <em>next</em> first-codebook token $\hat{c}_{t+1}^{(1)}$:</p>
+                                $$\hat{c}_{t+1}^{(1)} = \arg\max p_\psi(\hat{c}_{t+1}^{(1)} \mid \mathbf{h}_t, c_t^{(1)})$$
+                                <p>where $\psi$ are additional parameters in the MTP head for speculative prediction. Using $\hat{c}_{t+1}^{(1)}$, the MTP head also speculatively predicts:</p>
+                                $$\hat{c}_{t+1}^{(k)} = \arg\max p_\phi(\hat{c}_{t+1}^{(k)} \mid \hat{c}_{t+1}^{(1)}, \ldots, \hat{c}_{t+1}^{(k-1)}, \hat{\mathbf{h}}_{t+1})$$
+                                <p>where $\hat{\mathbf{h}}_{t+1}$ is a speculative hidden state computed from $\mathbf{h}_t$ using a lightweight projection.</p>
+                                <p>The ConvNet can immediately decode the speculative frame $(\hat{c}_{t+1}^{(1)}, \ldots, \hat{c}_{t+1}^{(K)})$ while the LLM is still computing the true $c_{t+1}^{(1)}$.</p>
+                                <p><strong>(c) Handling wrong speculations:</strong></p>
+                                <p>When the LLM produces $c_{t+1}^{(1)} \neq \hat{c}_{t+1}^{(1)}$, the speculative audio frame is incorrect. In a streaming context, this frame may have already been sent to the audio output buffer. Strategies:</p>
+                                <ul>
+                                    <li><strong>Crossfade correction:</strong> Generate the correct frame and crossfade it with the speculative frame over 5&ndash;10 ms. Human hearing cannot detect such brief corrections.</li>
+                                    <li><strong>Buffer margin:</strong> Maintain a small audio buffer (20&ndash;40 ms) between generation and playback. If a speculation fails, the correct frame replaces the speculative one before it reaches the speaker.</li>
+                                    <li><strong>Graceful degradation:</strong> If the wrong first-codebook token is close in the embedding space to the correct one (which is likely for adjacent tokens), the perceptual impact is minimal. Only flag a "hard failure" when the token distance exceeds a threshold.</li>
+                                </ul>
+                                <p><strong>(d) Expected latency:</strong></p>
+                                <p>With speculation acceptance rate $\alpha = 0.85$, the effective time per frame is:</p>
+                                $$t_{\text{effective}} = \alpha \times t_{\text{MTP}} + (1 - \alpha) \times (t_{\text{LLM}} + t_{\text{MTP}})$$
+                                $$= 0.85 \times 3 + 0.15 \times 33 = 2.55 + 4.95 = 7.5 \text{ ms}$$
+                                <p>First-packet latency with pre-computation: $t_{\text{step}} + t_{\text{MTP\_spec}} + t_{\text{ConvNet}} = 30 + 3 + 5 = 38$ ms for the very first frame (no speculation possible yet). For subsequent frames, the latency between frames is 7.5 ms (the ConvNet decodes in parallel). Since 12.5 Hz requires one frame per 80 ms, and we produce frames every 7.5 ms on average, the system has ample headroom for real-time streaming.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Comparing AR vs. NAR Token Generation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>VALL-E uses autoregressive (AR) prediction for the first codebook layer and non-autoregressive (NAR) prediction for layers 2&ndash;8. Qwen-TTS uses AR for the first layer and MTP (a form of parallel prediction) for layers 2&ndash;16. (a) Formally define the AR and NAR factorizations for a sequence of $T$ frames with $K$ codebook layers. Write out the full joint probability $p(c_{1:T}^{(1:K)})$ under each factorization. (b) Prove that the AR factorization can represent any joint distribution, while the NAR factorization makes a conditional independence assumption. State this assumption precisely. (c) Under what conditions on the data distribution does the NAR assumption hold approximately? Relate this to the RVQ information hierarchy. (d) Qwen-TTS's MTP is neither fully AR nor fully NAR. Characterize it precisely in terms of conditional independence assumptions and compare its expressiveness to both AR and NAR. (e) Propose a hybrid scheme that is more expressive than MTP but faster than full AR. Analyze its computational cost.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Factorizations:</strong></p>
+                                <p><em>Fully autoregressive (AR):</em> Define a total ordering over all $T \times K$ tokens. Using a time-major, codebook-minor ordering:</p>
+                                $$p_{\text{AR}}(c_{1:T}^{(1:K)}) = \prod_{t=1}^{T} \prod_{k=1}^{K} p(c_t^{(k)} \mid c_{<t}^{(1:K)}, c_t^{(1:k-1)})$$
+                                <p>This conditions each token on <em>all</em> previously generated tokens (both from earlier time steps and earlier codebook layers at the current time step).</p>
+                                <p><em>VALL-E-style AR + NAR:</em></p>
+                                $$p_{\text{VALL-E}}(c_{1:T}^{(1:K)}) = \underbrace{\prod_{t=1}^{T} p(c_t^{(1)} \mid c_{<t}^{(1)})}_{\text{AR over layer 1}} \times \underbrace{\prod_{k=2}^{K} \prod_{t=1}^{T} p(c_t^{(k)} \mid c_{1:T}^{(1:k-1)})}_{\text{NAR over layers 2--}K}$$
+                                <p>The NAR part conditions on the <em>entire</em> sequence of previous layers (all $T$ frames) but predicts all $T$ frames of the current layer simultaneously.</p>
+                                <p><strong>(b) Proof that AR is universal:</strong></p>
+                                <p>By the chain rule of probability, for any ordering $\sigma$ of the $T \times K$ variables:</p>
+                                $$p(c_{1:T}^{(1:K)}) = \prod_{i=1}^{TK} p(c_{\sigma(i)} \mid c_{\sigma(1)}, \ldots, c_{\sigma(i-1)})$$
+                                <p>This is an <em>exact</em> decomposition &mdash; no assumptions are made. Any joint distribution can be represented this way (the chain rule is a mathematical identity). Therefore, the AR factorization is universal.</p>
+                                <p>The NAR factorization makes the assumption that, given all tokens from layers $1, \ldots, k-1$ at all time steps, the layer-$k$ tokens at different time steps are <em>conditionally independent</em>:</p>
+                                $$p(c_{1:T}^{(k)} \mid c_{1:T}^{(1:k-1)}) = \prod_{t=1}^{T} p(c_t^{(k)} \mid c_{1:T}^{(1:k-1)})$$
+                                <p>This is a non-trivial assumption. It states: knowing the coarser codebook layers for the entire utterance, the fine detail at time $t$ does not depend on the fine detail at time $t' \neq t$.</p>
+                                <p><strong>(c) When NAR holds approximately:</strong></p>
+                                <p>The NAR assumption holds when the layer-$k$ tokens capture <em>local</em> acoustic detail that is determined by the coarser layers. If layer $k$ encodes high-frequency spectral texture that depends primarily on the local phoneme and speaker identity (both captured in layers $1, \ldots, k-1$), then $c_t^{(k)}$ and $c_{t'}^{(k)}$ are approximately independent given the coarser layers. This is exactly the RVQ information hierarchy: early layers capture global structure, later layers capture local texture. The deeper into the residual stack, the more localized and independent the information becomes.</p>
+                                <p><strong>(d) MTP characterization:</strong></p>
+                                <p>Qwen-TTS MTP makes this assumption:</p>
+                                $$p(c_t^{(2:K)} \mid \text{everything}) \approx p(c_t^{(2:K)} \mid c_t^{(1)}, \mathbf{h}_t)$$
+                                <p>This is: the residual codebook tokens at time $t$ depend only on the first codebook token at time $t$ and the LLM hidden state (which encodes the full text and preceding first-codebook tokens). Compared to:</p>
+                                <ul>
+                                    <li><strong>Full AR:</strong> No independence assumptions. Most expressive. Cost: $O(TK)$ sequential steps.</li>
+                                    <li><strong>NAR (VALL-E):</strong> Assumes conditional independence across time for each layer. Less expressive. Cost: $O(T + K)$ sequential steps ($T$ AR steps for layer 1, then $K-1$ parallel NAR passes).</li>
+                                    <li><strong>MTP (Qwen-TTS):</strong> Assumes residual tokens at time $t$ are independent of residual tokens at other time steps, AND independent of the full sequence of residual tokens at time $t$ (only conditioned on $\mathbf{h}_t$). Less expressive than NAR. Cost: $O(T)$ sequential steps (the MTP head runs in parallel with the LLM).</li>
+                                </ul>
+                                <p>MTP sacrifices expressiveness for speed. The key insight is that $\mathbf{h}_t$ already encodes a rich representation of the full context, so conditioning on it is nearly as good as conditioning on the full sequence.</p>
+                                <p><strong>(e) Hybrid scheme: "Grouped MTP":</strong></p>
+                                <p>Group the $K$ codebook layers into $G$ groups of size $K/G$. Use AR prediction across groups and parallel prediction within each group:</p>
+                                $$p(c_t^{(1:K)}) = \prod_{g=1}^{G} p(c_t^{(\text{group}_g)} \mid c_t^{(\text{groups}_{1:g-1})}, \mathbf{h}_t)$$
+                                <p>With $G = 4$ groups of 4 layers each, the cost per time step is: $t_{\text{LLM}} + G \times t_{\text{MTP}} = 30 + 4 \times 3 = 42$ ms (vs. 33 ms for standard MTP and 480 ms for full AR). This is 37% slower than standard MTP but captures cross-layer dependencies within groups that standard MTP ignores. The tradeoff is adjustable via $G$: $G = 1$ is standard MTP, $G = K$ is full AR within each time step.</p>
                             </div>
                         </div>
                     </div>
@@ -328,42 +1607,114 @@
 
         </main>
 
-        <!-- TOC -->
+        <!-- TOC (Right Side) -->
         <aside class="toc-container">
             <h4 class="toc-title">Contents</h4>
             <nav class="toc-list">
                 <a href="#shift" class="toc-link">Token-Based Synthesis</a>
-                <a href="#core" class="toc-link">Core Philosophy</a>
-                <a href="#dual-track" class="toc-link">Dual-Track</a>
+                <a href="#tokenization" class="toc-link">Audio Tokenization &amp; RVQ</a>
+                <a href="#architecture" class="toc-link">Qwen-TTS Architecture</a>
+                <a href="#dual-track" class="toc-link">Dual-Track Framework</a>
                 <a href="#mtp" class="toc-link">Multi-Token Prediction</a>
-                <a href="#advanced" class="toc-link">Advanced Capabilities</a>
+                <a href="#training" class="toc-link">Training Pipeline</a>
+                <a href="#voice-design" class="toc-link">Prompt-Based Voice Design</a>
+                <a href="#inference" class="toc-link">Inference Optimization</a>
+                <a href="#comparison" class="toc-link">Comparison</a>
             </nav>
         </aside>
     </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
 
     <!-- Scripts -->
     <script src="../../../js/main.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             if (typeof renderMathInElement === 'function') {
-                renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
             }
+
             const tabs = document.querySelectorAll('.tutorial-tab');
             const articles = document.querySelectorAll('.article-content');
+
             function switchTab(targetId) {
                 if (!targetId || targetId === '#') targetId = '#theory';
-                tabs.forEach(tab => tab.classList.toggle('active', tab.getAttribute('href') === targetId));
-                articles.forEach(article => article.style.display = ('#' + article.id === targetId) ? 'block' : 'none');
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
             }
+
             tabs.forEach(tab => {
                 tab.addEventListener('click', (e) => {
                     e.preventDefault();
-                    history.pushState(null, null, tab.getAttribute('href'));
-                    switchTab(tab.getAttribute('href'));
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
                 });
             });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
             switchTab(window.location.hash);
-            
+
             document.querySelectorAll('.solution-toggle').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const content = btn.nextElementSibling;
@@ -372,7 +1723,7 @@
                     btn.textContent = isHidden ? 'Hide Solution' : 'Show Solution';
                 });
             });
-            
+
             document.querySelectorAll('.exercise-header').forEach(header => {
                 header.addEventListener('click', () => {
                     const body = header.nextElementSibling;

@@ -22,14 +22,14 @@
     <link rel="stylesheet" href="../../../css/sidebar.css">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar" id="navbar">
         <div class="nav-container">
             <a href="../../../index.html" class="nav-logo">
-                <span class="logo-symbol">∇</span>
+                <span class="logo-symbol">&nabla;</span>
                 <span class="logo-text">ML Fundamentals</span>
             </a>
 
@@ -85,6 +85,7 @@
 
             <div class="tutorial-tabs">
                 <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
                 <a href="#exercises" class="tutorial-tab">Exercises</a>
             </div>
         </div>
@@ -92,8 +93,6 @@
 
     <!-- Main Content -->
     <div class="tutorial-wrapper">
-        <!-- Sidebar placeholder -->
-        <!-- Sidebar Navigation -->
         <!-- Sidebar Navigation -->
                 <aside class="tutorial-sidebar">
             <div class="sidebar-section">
@@ -108,9 +107,12 @@
                     <a href="../07-glow-tts/index.html" class="sidebar-link">07. Glow-TTS &amp; Flows</a>
                     <a href="../08-vits/index.html" class="sidebar-link">08. VITS: End-to-End TTS</a>
                     <a href="../09-bilingual-tts/index.html" class="sidebar-link">09. Bilingual TTS: RU+KY</a>
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs</a>
+                    <a href="../11-grad-tts/index.html" class="sidebar-link">11. Grad-TTS &amp; Diffusion</a>
+                    <a href="../12-vall-e/index.html" class="sidebar-link">12. VALL-E &amp; Speech LLMs</a>
                 </nav>
             </div>
-            
+
             <div class="sidebar-section" style="margin-top: 2rem;">
                 <h3 class="sidebar-section-title">Related Subjects</h3>
                 <nav class="sidebar-nav">
@@ -122,263 +124,1280 @@
             </div>
         </aside>
 
-        <!-- Main Article: Theory -->
+        <!-- Main Article -->
         <main class="tutorial-main">
 
+            <!-- ==================== THEORY TAB ==================== -->
             <article class="article-content" id="theory">
 
-                <!-- Section 1: Intro -->
+                <!-- Section 1: The Evolution of TTS -->
                 <h2 id="evolution">The Evolution of Text-to-Speech</h2>
 
                 <p>
-                    Text-to-Speech (TTS) models have evolved through several paradigms:
+                    Text-to-Speech (TTS) models have evolved through several paradigms, each representing a fundamental shift in how we think about generating human speech from text. Understanding this evolution is essential context for appreciating why F5-TTS represents a significant leap forward.
                 </p>
+
                 <ol>
-                    <li><strong>Concatenative:</strong> Splicing together tiny snippets of recorded audio. Robotic but highly intelligible. Think of the original Siri or GPS navigation voices.</li>
-                    <li><strong>Parametric (e.g., HMMs):</strong> Statistically modeling the acoustic parameters (pitch, duration, vocal tract shape) and generating speech from those statistics. Smoother than concatenative, but often sounded muffled or "buzzy".</li>
-                    <li><strong>Autoregressive Neural (e.g., VALL-E):</strong> Predicting audio tokens one by one, left-to-right, similar to how an LLM predicts text. Extremely natural and capable of zero-shot cloning. However, they suffer from <strong>slow inference</strong> (because token $N$ cannot be generated until token $N-1$ is finished) and occasional <strong>robustness issues</strong> (hallucinations, word skipping, endless repeating) because a single bad token prediction can derail the entire sequence.</li>
-                    <li><strong>Non-Autoregressive Diffusion/Flow (e.g., F5-TTS):</strong> Generating the entire audio sequence simultaneously in parallel. It starts with pure static (noise) and gradually refines the entire timeline into clean speech.</li>
+                    <li><strong>Concatenative (1990s&ndash;2000s):</strong> Splicing together tiny snippets of recorded audio. These systems maintained large databases of speech units (diphones, triphones, or even longer segments) and used dynamic programming to select and concatenate the best sequence. Think of the original Siri or GPS navigation voices &mdash; intelligible but unmistakably robotic, with audible joins between units.</li>
+                    <li><strong>Parametric / HMM-based (2000s&ndash;2015):</strong> Statistically modeling the acoustic parameters (pitch, duration, vocal tract shape) using Hidden Markov Models and generating speech from those statistics. Smoother than concatenative, but the vocoder (typically STRAIGHT or WORLD) produced a characteristic "buzzy" or muffled quality. The key advantage was flexibility: voice conversion and emotion control were straightforward because the representation was parametric.</li>
+                    <li><strong>Autoregressive Neural (2017&ndash;2023):</strong> Models like WaveNet, Tacotron, and VALL-E predict audio tokens one by one, left-to-right, similar to how an LLM predicts text. These achieved near-human naturalness and enabled zero-shot voice cloning (VALL-E). However, they suffer from <strong>slow inference</strong> (because token $n$ cannot be generated until token $n-1$ is finished) and occasional <strong>robustness issues</strong> (hallucinations, word skipping, endless repeating) because a single bad token prediction can derail the entire sequence.</li>
+                    <li><strong>Non-Autoregressive Diffusion/Flow (2023&ndash;present):</strong> Generating the entire audio sequence simultaneously in parallel. These models start with pure noise and gradually refine the entire timeline into clean speech through an iterative denoising or flow process. F5-TTS belongs to this category, using Flow Matching rather than standard diffusion.</li>
                 </ol>
 
                 <div class="note-box">
                     <div class="box-title">What is F5-TTS?</div>
                     <p style="margin-bottom: 0;">
-                        <strong>F5-TTS</strong> (Fully Non-Autoregressive TTS based on Flow Matching) is a state-of-the-art zero-shot speech synthesis model developed by researchers at Fudan University. Unlike traditional models that use intermediate features like mel-spectrograms, F5-TTS operates directly on continuous latent spaces using <strong>Flow Matching</strong>, a mathematical framework closely related to Diffusion models.
+                        <strong>F5-TTS</strong> (Fully Non-Autoregressive Flow-matching based TTS with a Diffusion Transformer) is a state-of-the-art zero-shot speech synthesis model developed by researchers at Shanghai Jiao Tong University and Fudan University. Unlike traditional models that process intermediate features like mel-spectrograms through explicit pipelines, F5-TTS operates directly on continuous latent speech representations using <strong>Flow Matching</strong> &mdash; a mathematical framework closely related to, but distinct from, diffusion models. It was published in late 2024 and quickly gained attention for its remarkable synthesis quality and simplicity.
                     </p>
                 </div>
 
-                <!-- Section 2: Flow Matching vs Diffusion -->
-                <h2 id="flow-matching">Flow Matching vs. Diffusion</h2>
-
                 <p>
-                    While both Diffusion and Flow Matching solve the same fundamental problem—transforming a simple prior distribution (like pure Gaussian noise) into a complex data distribution (like human speech)—they approach the math differently.
+                    <strong>Key innovations of F5-TTS.</strong> The paper makes several contributions that together produce a system of surprising simplicity and quality:
                 </p>
                 <ul>
-                    <li><strong>Diffusion Models (SDEs/ODEs):</strong> Think of a drop of ink diffusing into a glass of water. The model learns to reverse this specific, physically-inspired noise-adding process step-by-step. The path from noise to data is often highly curved and complex.</li>
-                    <li><strong>Flow Matching:</strong> Instead of reversing a specific noise schedule, Flow Matching directly learns a <strong>vector field</strong> that transports probability mass from the noise distribution to the data distribution. Crucially, Flow Matching can be formulated to construct <strong>straight-line paths</strong> (via Optimal Transport) between the noise and the target audio.</li>
+                    <li><strong>Flow Matching with Optimal Transport paths</strong> instead of standard diffusion, enabling fewer inference steps.</li>
+                    <li><strong>Diffusion Transformer (DiT)</strong> backbone instead of the U-Net architectures common in earlier diffusion-based TTS.</li>
+                    <li><strong>Swaying Flow</strong> &mdash; a non-uniform time scheduling strategy that concentrates computation where it matters most.</li>
+                    <li><strong>Zero-shot voice cloning via in-context learning</strong> &mdash; no speaker embeddings, no fine-tuning, just prefix conditioning through attention.</li>
+                    <li><strong>Text-to-speech without explicit duration modeling</strong> &mdash; the model learns to align text and speech implicitly through the flow matching process.</li>
+                </ul>
+
+                <!-- Section 2: Continuous Normalizing Flows -->
+                <h2 id="cnf">Continuous Normalizing Flows</h2>
+
+                <p>
+                    To understand Flow Matching, we first need to understand <strong>Continuous Normalizing Flows (CNFs)</strong> &mdash; the underlying mathematical framework. CNFs provide a way to transform one probability distribution into another using an Ordinary Differential Equation (ODE).
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Continuous Normalizing Flow</div>
+                    <p>
+                        A <strong>continuous normalizing flow</strong> defines a time-dependent vector field $v_\theta : \mathbb{R}^d \times [0, 1] \to \mathbb{R}^d$ that generates a flow $\phi_t : \mathbb{R}^d \to \mathbb{R}^d$ via the ODE:
+                    </p>
+                    $$\frac{d\phi_t(x)}{dt} = v_\theta(\phi_t(x), t), \quad \phi_0(x) = x$$
+                    <p>
+                        Starting from a sample $x_0 \sim p_0$ (a simple prior, e.g., standard Gaussian), the flow transports it to $x_1 = \phi_1(x_0)$ at time $t=1$, producing a sample from a complex target distribution $p_1$ (e.g., the distribution of speech latents). The density at any time $t$ is given by the <strong>instantaneous change of variables</strong> formula:
+                    </p>
+                    $$\log p_t(\phi_t(x)) = \log p_0(x) - \int_0^t \nabla \cdot v_\theta(\phi_s(x), s) \, ds$$
+                    <p>
+                        where $\nabla \cdot v_\theta$ is the divergence of the vector field, and the integral tracks how the flow compresses or expands local volumes of probability mass.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Intuition.</strong> Think of $v_\theta(x, t)$ as a velocity field in a fluid. At every point $x$ in space and every time $t$, the vector field tells a "particle" which direction to move and how fast. If we place many particles according to the Gaussian distribution at $t=0$ and let them all follow the velocity field, by $t=1$ they will be rearranged into the target distribution &mdash; the distribution of real speech audio latents.
+                </p>
+
+                <p>
+                    <strong>Connection to score-based models.</strong> There is a deep connection between CNFs and score-based diffusion models. A score-based model learns the <em>score function</em> $\nabla_x \log p_t(x)$, which points in the direction of increasing probability density. Given a score function, one can construct a vector field (via the probability flow ODE) that generates the same marginal distributions. Conversely, a CNF's vector field implicitly encodes the score. The key difference is in how they are trained:
+                </p>
+                <ul>
+                    <li><strong>Score matching:</strong> Requires knowledge of the noising process $q(x_t | x_0)$ and trains via denoising score matching. This constrains the choice of forward process (typically VP-SDE or VE-SDE).</li>
+                    <li><strong>Flow Matching:</strong> Directly regresses the vector field without requiring a specific forward process. This allows the use of <em>any</em> probability path between the prior and the target, including the optimal transport path.</li>
                 </ul>
 
                 <p>
-                    Because the paths are mathematically straighter, the model doesn't have to navigate tight curves during generation. This means it can take <strong>much larger steps</strong> during inference, radically reducing the Number of Function Evaluations (NFEs) required to generate high-quality audio.
+                    The relationship between the probability flow ODE of a diffusion model and a CNF can be stated precisely. For a diffusion process with drift $f(x,t)$ and diffusion coefficient $g(t)$, the probability flow ODE is:
                 </p>
+                $$\frac{dx}{dt} = f(x, t) - \frac{1}{2}g(t)^2 \nabla_x \log p_t(x)$$
+                <p>
+                    This is itself a CNF with vector field $v(x, t) = f(x, t) - \frac{1}{2}g(t)^2 \nabla_x \log p_t(x)$. Flow Matching sidesteps this construction entirely by learning $v_\theta$ directly.
+                </p>
+
+                <!-- Section 3: Flow Matching Framework -->
+                <h2 id="flow-matching">The Flow Matching Framework</h2>
+
+                <p>
+                    <strong>Flow Matching</strong> (Lipman et al., 2022) is a training paradigm for CNFs that avoids the intractable computation of the marginal vector field by working with <em>conditional</em> vector fields instead. This is the core mathematical innovation that makes F5-TTS practical.
+                </p>
+
+                <p>
+                    <strong>The problem with naive CNF training.</strong> To train a CNF, we want the learned vector field $v_\theta(x, t)$ to match the true marginal vector field $u_t(x)$ that generates the probability path $p_t$ from $p_0$ to $p_1$. The <strong>Flow Matching loss</strong> is:
+                </p>
+                $$\mathcal{L}_{FM} = \mathbb{E}_{t \sim \mathcal{U}[0,1], x \sim p_t(x)} \|v_\theta(x, t) - u_t(x)\|^2$$
+
+                <p>
+                    The problem: $u_t(x)$ and $p_t(x)$ are intractable for complex data distributions. We cannot sample from $p_t$ or evaluate $u_t$ directly.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Conditional Flow Matching (CFM)</div>
+                    <p>
+                        <strong>Conditional Flow Matching</strong> resolves the intractability by conditioning on individual data points $x_1 \sim q(x_1)$ from the target distribution. For each data point $x_1$, we define a <em>conditional</em> probability path $p_t(x | x_1)$ and a corresponding <em>conditional</em> vector field $u_t(x | x_1)$ that generates it. The <strong>CFM loss</strong> is:
+                    </p>
+                    $$\mathcal{L}_{CFM} = \mathbb{E}_{t \sim \mathcal{U}[0,1],\, x_1 \sim q(x_1),\, x_0 \sim p_0(x_0)} \left\|v_\theta(\psi_t(x_0), t) - \frac{d\psi_t(x_0)}{dt}\right\|^2$$
+                    <p>
+                        where $\psi_t(x_0)$ is the conditional flow path from $x_0$ to $x_1$. The crucial theorem (Lipman et al., 2022) proves that <strong>the gradients of $\mathcal{L}_{CFM}$ and $\mathcal{L}_{FM}$ are identical</strong>, so minimizing the tractable CFM loss also minimizes the intractable FM loss.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why are the gradients identical?</strong> The key insight is that the marginal vector field $u_t(x)$ can be written as a mixture of conditional vector fields:
+                </p>
+                $$u_t(x) = \mathbb{E}_{x_1 \sim q(x_1 | x_t = x)} \left[ u_t(x | x_1) \right]$$
+                <p>
+                    When we take the gradient of the CFM loss with respect to $\theta$, the conditional expectation "averages out" and we recover the gradient of the FM loss. This is analogous to how denoising score matching avoids computing the marginal score by conditioning on the clean data point.
+                </p>
+
+                <p>
+                    In practice, a single training step of CFM works as follows:
+                </p>
+                <ol>
+                    <li>Sample a time $t \sim \mathcal{U}[0, 1]$.</li>
+                    <li>Sample a data point $x_1$ (a clean speech latent) from the training set.</li>
+                    <li>Sample noise $x_0 \sim \mathcal{N}(0, I)$.</li>
+                    <li>Compute the interpolated point $x_t = \psi_t(x_0)$ along the conditional path.</li>
+                    <li>Compute the target vector field $u_t = \frac{d\psi_t}{dt}(x_0)$.</li>
+                    <li>Predict $v_\theta(x_t, t)$ with the neural network.</li>
+                    <li>Minimize $\|v_\theta(x_t, t) - u_t\|^2$.</li>
+                </ol>
+
+                <p>
+                    The beauty of this framework is that steps 4 and 5 depend entirely on the choice of conditional path $\psi_t$ &mdash; and we are free to choose <em>any</em> path we want. This is where Optimal Transport enters.
+                </p>
+
+                <!-- Section 4: Optimal Transport Paths -->
+                <h2 id="ot-paths">Optimal Transport Paths</h2>
+
+                <p>
+                    The choice of conditional path $\psi_t$ profoundly affects both training efficiency and inference quality. <strong>Optimal Transport Conditional Flow Matching (OT-CFM)</strong> uses the simplest possible path: a straight line between $x_0$ and $x_1$.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: OT-CFM Path</div>
+                    <p>
+                        The <strong>Optimal Transport conditional flow path</strong> is defined as the linear interpolation:
+                    </p>
+                    $$\psi_t(x_0) = (1 - t) x_0 + t x_1$$
+                    <p>
+                        The corresponding conditional vector field is constant along the path:
+                    </p>
+                    $$u_t(\psi_t(x_0) \mid x_1) = \frac{d\psi_t(x_0)}{dt} = x_1 - x_0$$
+                    <p>
+                        This means the target velocity at any point along the path is simply the displacement from noise to data &mdash; independent of $t$.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Why "Optimal Transport"?</strong> The name comes from the connection to the Wasserstein-2 optimal transport problem. Given two distributions $p_0$ and $p_1$, the OT plan finds the coupling $(x_0, x_1)$ that minimizes the expected squared transport cost $\mathbb{E}\|x_0 - x_1\|^2$. For Gaussian $p_0$, the optimal transport map is known analytically, and the geodesic (shortest path) in the Wasserstein space between $p_0$ and $p_1$ is exactly the linear interpolation. In the conditional case (conditioning on a single $x_1$), the linear path is always optimal because we are transporting a Gaussian to a Dirac delta.
+                </p>
+
+                <p>
+                    <strong>Comparison with diffusion paths.</strong> Standard diffusion models use curved paths defined by their noise schedule. For instance:
+                </p>
+                <ul>
+                    <li><strong>VP-SDE (Variance Preserving):</strong> The forward process is $x_t = \sqrt{\bar{\alpha}_t}\, x_1 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon$, where $\bar{\alpha}_t$ follows a cosine or linear schedule. The path from data to noise curves through intermediate states where both the signal and noise magnitudes vary non-linearly.</li>
+                    <li><strong>VE-SDE (Variance Exploding):</strong> The forward process is $x_t = x_1 + \sigma_t \epsilon$, where $\sigma_t$ grows from near zero to a large value. The path is not centered on the data-noise midpoint.</li>
+                    <li><strong>OT-CFM (Linear):</strong> $x_t = (1-t)x_0 + tx_1$. The path is a straight line. The variance at intermediate times is $\text{Var}(x_t) = (1-t)^2 \cdot I + t^2 \cdot \text{Var}(x_1)$, which is minimal at $t = 1/(1 + \text{Var}(x_1)^{-1/2})$.</li>
+                </ul>
 
                 <div style="text-align: center; margin: 2rem 0; padding: 1rem; background: var(--color-bg-tertiary); border-radius: 8px;">
                     <svg viewBox="0 0 600 250" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto;">
-                        <!-- Diffusion Curve -->
+                        <!-- VP-SDE Curve -->
                         <path d="M 100 200 Q 200 50 500 50" fill="none" stroke="#EF4444" stroke-width="3" stroke-dasharray="5,5" />
                         <circle cx="100" cy="200" r="8" fill="#9CA3AF" />
                         <circle cx="500" cy="50" r="8" fill="#3B82F6" />
-                        <text x="70" y="225" font-family="monospace" fill="currentColor">Noise (t=0)</text>
-                        <text x="480" y="35" font-family="monospace" fill="currentColor">Audio (t=1)</text>
-                        <text x="250" y="100" font-family="monospace" fill="#EF4444" font-size="12">Standard Diffusion (Curved Path)</text>
-                        
-                        <!-- Flow Matching Line -->
+                        <text x="70" y="225" font-family="monospace" fill="currentColor" font-size="12">Noise (t=0)</text>
+                        <text x="480" y="35" font-family="monospace" fill="currentColor" font-size="12">Data (t=1)</text>
+                        <text x="200" y="85" font-family="monospace" fill="#EF4444" font-size="11">VP-SDE path (curved)</text>
+
+                        <!-- VE-SDE Curve -->
+                        <path d="M 100 200 Q 350 230 500 50" fill="none" stroke="#F59E0B" stroke-width="2" stroke-dasharray="8,4" />
+                        <text x="300" y="220" font-family="monospace" fill="#F59E0B" font-size="11">VE-SDE path</text>
+
+                        <!-- OT-CFM Line -->
                         <path d="M 100 200 L 500 50" fill="none" stroke="#10B981" stroke-width="4" />
-                        <text x="320" y="160" font-family="monospace" fill="#10B981" font-size="12" transform="rotate(-20 320 160)">Flow Matching (Straight Path)</text>
-                        
-                        <!-- Steps for Diffusion -->
-                        <circle cx="160" cy="135" r="4" fill="#EF4444" />
-                        <circle cx="230" cy="95" r="4" fill="#EF4444" />
-                        <circle cx="310" cy="70" r="4" fill="#EF4444" />
-                        <circle cx="400" cy="55" r="4" fill="#EF4444" />
-                        
-                        <!-- Steps for Flow Matching (fewer, larger steps) -->
+                        <text x="320" y="155" font-family="monospace" fill="#10B981" font-size="11" transform="rotate(-20 320 155)">OT-CFM (straight line)</text>
+
+                        <!-- Steps for VP-SDE -->
+                        <circle cx="160" cy="135" r="3" fill="#EF4444" />
+                        <circle cx="230" cy="95" r="3" fill="#EF4444" />
+                        <circle cx="310" cy="70" r="3" fill="#EF4444" />
+                        <circle cx="400" cy="55" r="3" fill="#EF4444" />
+
+                        <!-- Steps for OT-CFM (fewer, larger steps) -->
                         <circle cx="233" cy="150" r="5" fill="#10B981" />
                         <circle cx="366" cy="100" r="5" fill="#10B981" />
                     </svg>
                     <p style="font-size: 0.9em; color: var(--color-text-secondary); margin-top: 1rem;">
-                        Because Flow Matching learns a straight-line vector field via Optimal Transport, the model can take much larger, faster steps to reach the final audio state compared to the curved trajectories of standard diffusion.
+                        Comparison of probability paths. The OT-CFM straight-line path (green) requires fewer discretization steps than the curved VP-SDE path (red) or VE-SDE path (yellow) because an ODE solver can take larger steps along a straighter trajectory.
                     </p>
                 </div>
 
+                <p>
+                    <strong>Why straight paths require fewer NFEs.</strong> When solving an ODE numerically (e.g., with the Euler method or a Runge-Kutta solver), the step size is limited by the curvature of the trajectory. Along a highly curved path, the solver must take small steps to avoid overshooting. Along a straight path, the vector field is nearly constant, so even very large steps produce accurate results. This is why OT-CFM models can generate high-quality samples with as few as 16&ndash;32 Neural Function Evaluations (NFEs), while standard diffusion models typically require 50&ndash;1000 steps.
+                </p>
+
+                <p>
+                    The OT-CFM training objective, substituting the linear path, becomes remarkably simple:
+                </p>
+                $$\mathcal{L}_{\text{OT-CFM}} = \mathbb{E}_{t, x_0, x_1} \left\| v_\theta\big((1-t)x_0 + tx_1,\; t\big) - (x_1 - x_0) \right\|^2$$
+                <p>
+                    The model simply learns to predict the direction from the current noisy state to the clean data, regardless of where along the path we are. This is conceptually similar to $\epsilon$-prediction in diffusion models, but with a cleaner geometric interpretation.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Connection to Wasserstein Distance</div>
+                    <p style="margin-bottom: 0;">
+                        The Wasserstein-2 distance $W_2(p_0, p_1)$ measures the minimum "cost" of transporting mass from $p_0$ to $p_1$. For the OT-CFM path, the transport cost equals $\mathbb{E}\|x_1 - x_0\|^2$, which is exactly the expected squared length of the straight-line path. Among all possible paths between the two distributions, the linear interpolation achieves the minimum transport cost &mdash; it is the geodesic in the space of probability distributions equipped with the Wasserstein metric. This theoretical optimality is what gives OT-CFM its efficiency advantage.
+                    </p>
+                </div>
+
+                <!-- Section 5: DiT Architecture -->
                 <h2 id="dit-architecture">The Diffusion Transformer (DiT) Architecture</h2>
 
                 <p>
-                    Most early diffusion models (like Stable Diffusion v1.5) relied on U-Net architectures, which use convolutional layers to downsample and upsample features. F5-TTS completely discards the U-Net in favor of a <strong>Diffusion Transformer (DiT)</strong>.
+                    Most early diffusion models for images (like Stable Diffusion v1.5) relied on U-Net architectures, which use convolutional layers to downsample and upsample features. F5-TTS completely discards the U-Net in favor of a <strong>Diffusion Transformer (DiT)</strong>, following the approach introduced by Peebles and Xie (2023) for image generation.
                 </p>
+
                 <div class="note-box">
-                    <div class="box-title">Why a Transformer?</div>
+                    <div class="box-title">Why a Transformer for TTS?</div>
                     <ul>
-                        <li><strong>Global Context via Self-Attention:</strong> Convolutional layers have local receptive fields—they only "see" a small chunk of audio at a time. Transformers use Self-Attention, meaning every frame of audio can instantly look at every other frame, no matter how far apart they are in the timeline. This is critical for speech: a question mark at the end of a 10-second sentence needs to influence the intonation of the very first word.</li>
-                        <li><strong>Scalability:</strong> Transformers scale incredibly well with massive amounts of data and compute, avoiding the architectural bottlenecks of Convolutions.</li>
-                        <li><strong>Seamless Prefix Conditioning:</strong> Because of self-attention, conditioning the model on a reference voice is trivial. You just concatenate the reference audio features to the front of the target noise features. The attention heads naturally learn to look at the reference prefix to copy the vocal timbre and room acoustics.</li>
+                        <li><strong>Global Context via Self-Attention:</strong> Convolutional layers have local receptive fields &mdash; they only "see" a small chunk of audio at a time. Transformers use self-attention, meaning every frame of audio can instantly attend to every other frame, no matter how far apart they are in the timeline. This is critical for speech: a question mark at the end of a 10-second sentence needs to influence the intonation of the very first word.</li>
+                        <li><strong>Scalability:</strong> Transformers scale predictably with data and compute following well-understood scaling laws. The loss decreases as a power law of model size, dataset size, and training compute.</li>
+                        <li><strong>Seamless Prefix Conditioning:</strong> Because of self-attention, conditioning the model on a reference voice is trivial. You concatenate the reference audio features to the front of the target noise features. The attention heads naturally learn to look at the reference prefix to copy the vocal timbre, cadence, and room acoustics.</li>
+                        <li><strong>Unified Architecture:</strong> The same transformer architecture handles text conditioning, time conditioning, and audio generation &mdash; no need for separate encoder and decoder networks.</li>
                     </ul>
                 </div>
 
-                <!-- Section 3: Swaying Flow -->
-                <h2 id="swaying-flow">Swaying Flow</h2>
+                <p>
+                    <strong>Architecture details.</strong> The F5-TTS DiT consists of $N$ transformer blocks, each containing the following components:
+                </p>
 
                 <p>
-                    One of F5-TTS's major contributions to Flow Matching is <strong>Swaying Flow</strong>. 
+                    <strong>1. Adaptive Layer Normalization (adaLN-Zero).</strong> Standard transformers use a fixed layer normalization. In DiT, the normalization parameters are <em>conditioned on the timestep $t$</em>. Specifically, given a timestep embedding $\mathbf{c} = \text{MLP}(\text{sinusoidal}(t))$, the adaLN-Zero mechanism computes:
                 </p>
+                $$\text{adaLN}(\mathbf{h}, \mathbf{c}) = \gamma(\mathbf{c}) \odot \frac{\mathbf{h} - \mu(\mathbf{h})}{\sigma(\mathbf{h})} + \beta(\mathbf{c})$$
                 <p>
-                    <strong>Swaying Flow</strong> is a mathematical scheduling trick that allocates the integration steps non-uniformly. It takes massive, fast steps at the beginning of the generation process to clear away the bulk of the noise, and then "sways" the step density to take many tiny, careful steps at the end to resolve fine acoustic details. 
+                    where $\gamma(\mathbf{c})$ and $\beta(\mathbf{c})$ are learned scale and shift parameters produced by a linear projection of $\mathbf{c}$. The "Zero" in adaLN-Zero refers to initializing the output scale to zero, so that at the start of training each transformer block acts as an identity function. This dramatically improves training stability. Additionally, a gating parameter $\alpha(\mathbf{c})$ scales the residual connection:
+                </p>
+                $$\mathbf{h}_{\text{out}} = \mathbf{h} + \alpha(\mathbf{c}) \odot \text{Attention}(\text{adaLN}(\mathbf{h}, \mathbf{c}))$$
+
+                <p>
+                    <strong>2. Rotary Position Embeddings (RoPE).</strong> Instead of absolute positional embeddings, DiT uses Rotary Position Embeddings that encode relative positions directly into the attention computation. For a position $m$, RoPE applies a rotation to the query and key vectors:
+                </p>
+                $$\text{RoPE}(\mathbf{q}_m, m) = \begin{pmatrix} q_1 \cos(m\theta_1) - q_2 \sin(m\theta_1) \\ q_1 \sin(m\theta_1) + q_2 \cos(m\theta_1) \\ q_3 \cos(m\theta_2) - q_4 \sin(m\theta_2) \\ q_3 \sin(m\theta_2) + q_4 \cos(m\theta_2) \\ \vdots \end{pmatrix}$$
+                <p>
+                    where $\theta_i = 10000^{-2i/d}$. The key property is that the dot product $\text{RoPE}(\mathbf{q}_m)^\top \text{RoPE}(\mathbf{k}_n)$ depends only on the <em>relative</em> position $m - n$, not on the absolute positions. This allows the model to generalize to sequence lengths not seen during training &mdash; important for variable-length audio.
+                </p>
+
+                <p>
+                    <strong>3. Cross-Attention for Text Conditioning.</strong> The text input (character or phoneme sequence) is processed through a separate text encoder and then injected into the DiT via cross-attention layers. In each transformer block, after self-attention over the audio tokens, a cross-attention layer attends to the text embeddings:
+                </p>
+                $$\text{CrossAttn}(\mathbf{H}_{\text{audio}}, \mathbf{H}_{\text{text}}) = \text{softmax}\!\left(\frac{\mathbf{Q}_{\text{audio}} \mathbf{K}_{\text{text}}^\top}{\sqrt{d_k}}\right) \mathbf{V}_{\text{text}}$$
+                <p>
+                    This allows each audio frame to selectively attend to the relevant text tokens. The cross-attention pattern implicitly learns the alignment between text and audio &mdash; no explicit duration model or forced alignment is needed.
+                </p>
+
+                <p>
+                    <strong>4. Feed-Forward Network (FFN).</strong> Each block contains a standard two-layer FFN with GELU activation, also modulated by the timestep via adaLN:
+                </p>
+                $$\text{FFN}(\mathbf{h}) = W_2 \cdot \text{GELU}(W_1 \cdot \text{adaLN}(\mathbf{h}, \mathbf{c}) + b_1) + b_2$$
+
+                <p>
+                    <strong>Architecture diagram.</strong> A single DiT block can be summarized as:
+                </p>
+
+<pre><code>Input: h (audio latents), c (timestep embedding), h_text (text embeddings)
+
+DiT Block:
+    1. h' = h + alpha_1(c) * SelfAttention(adaLN_1(h, c))     # with RoPE
+    2. h'' = h' + alpha_2(c) * CrossAttention(adaLN_2(h', c), h_text)
+    3. h_out = h'' + alpha_3(c) * FFN(adaLN_3(h'', c))
+
+Output: h_out (same shape as h)</code></pre>
+
+                <p>
+                    The full F5-TTS model stacks 22 such blocks with hidden dimension 1024 and 16 attention heads, totaling approximately 335M parameters.
+                </p>
+
+                <!-- Section 6: Swaying Flow -->
+                <h2 id="swaying-flow">Swaying Flow: Non-Uniform Time Scheduling</h2>
+
+                <p>
+                    One of F5-TTS's key contributions is <strong>Swaying Flow</strong> &mdash; a non-uniform time scheduling strategy for the ODE integration during inference. The core idea: not all timesteps are equally important, so we should allocate more computational budget to the timesteps that matter most.
+                </p>
+
+                <p>
+                    <strong>The problem with uniform scheduling.</strong> Standard ODE solvers use uniformly spaced timesteps: $t_0 = 0, t_1 = 1/N, t_2 = 2/N, \ldots, t_N = 1$, where $N$ is the total number of steps. But the difficulty of the generation task varies enormously across timesteps:
+                </p>
+                <ul>
+                    <li><strong>Near $t = 0$ (pure noise):</strong> The model is doing coarse "structural" generation &mdash; deciding where phonemes are, establishing the basic pitch contour and energy envelope. The vector field is smooth and slowly varying. Large steps are safe.</li>
+                    <li><strong>Near $t = 1$ (clean audio):</strong> The model is resolving fine acoustic details &mdash; the exact formant frequencies, consonant transients, breathiness. The vector field changes rapidly. Small steps are essential for quality.</li>
+                </ul>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Swaying Flow Schedule</div>
+                    <p>
+                        The <strong>Swaying Flow</strong> schedule replaces the uniform timestep grid with a non-uniform one defined by a monotonically increasing function $s: [0, 1] \to [0, 1]$ with $s(0) = 0$ and $s(1) = 1$. The timesteps are:
+                    </p>
+                    $$t_i = s\!\left(\frac{i}{N}\right), \quad i = 0, 1, \ldots, N$$
+                    <p>
+                        F5-TTS uses a specific schedule based on a shifted cosine:
+                    </p>
+                    $$s(\tau) = 1 - \cos\!\left(\frac{\pi}{2} \cdot \tau^{\,\eta}\right)$$
+                    <p>
+                        where $\eta > 1$ is a hyperparameter controlling the degree of "sway." When $\eta = 1$, this reduces to a cosine schedule (already denser near $t=1$). Larger $\eta$ pushes even more steps toward the end.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Derivative analysis.</strong> To understand the step density, we examine the derivative of $s$:
+                </p>
+                $$s'(\tau) = \frac{d s}{d\tau} = \frac{\pi}{2} \cdot \eta \cdot \tau^{\eta - 1} \cdot \sin\!\left(\frac{\pi}{2} \cdot \tau^{\,\eta}\right)$$
+                <p>
+                    Near $\tau = 0$: $s'(\tau) \approx \frac{\pi}{2} \cdot \eta \cdot \tau^{\eta-1} \cdot \frac{\pi}{2} \cdot \tau^{\eta} = \frac{\pi^2}{4} \eta \cdot \tau^{2\eta - 1}$. For $\eta > 1$, this goes to zero, meaning the timestep spacing is very large near the start. Near $\tau = 1$: $s'(1) = \frac{\pi}{2} \cdot \eta \cdot \sin(\pi/2) = \frac{\pi \eta}{2}$, which is large, meaning the timestep spacing is very small near the end. The ratio of step density at the end vs. the start is controlled by $\eta$.
                 </p>
 
                 <div style="text-align: center; margin: 2rem 0; padding: 1rem; background: var(--color-bg-tertiary); border-radius: 8px;">
                     <svg viewBox="0 0 600 150" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto;">
                         <!-- Timeline -->
                         <line x1="50" y1="75" x2="550" y2="75" stroke="currentColor" stroke-width="2" />
-                        <text x="40" y="100" font-family="monospace" fill="currentColor">t=0 (Noise)</text>
-                        <text x="500" y="100" font-family="monospace" fill="currentColor">t=1 (Audio)</text>
-                        
+                        <text x="40" y="100" font-family="monospace" fill="currentColor" font-size="11">t=0 (Noise)</text>
+                        <text x="490" y="100" font-family="monospace" fill="currentColor" font-size="11">t=1 (Audio)</text>
+
                         <!-- Uniform Steps -->
-                        <text x="50" y="40" font-family="monospace" fill="#EF4444" font-size="12">Uniform Steps:</text>
-                        <line x1="100" y1="65" x2="100" y2="85" stroke="#EF4444" stroke-width="2" />
-                        <line x1="150" y1="65" x2="150" y2="85" stroke="#EF4444" stroke-width="2" />
-                        <line x1="200" y1="65" x2="200" y2="85" stroke="#EF4444" stroke-width="2" />
-                        <line x1="250" y1="65" x2="250" y2="85" stroke="#EF4444" stroke-width="2" />
+                        <text x="50" y="40" font-family="monospace" fill="#EF4444" font-size="11">Uniform (N=8):</text>
+                        <line x1="112" y1="65" x2="112" y2="85" stroke="#EF4444" stroke-width="2" />
+                        <line x1="175" y1="65" x2="175" y2="85" stroke="#EF4444" stroke-width="2" />
+                        <line x1="237" y1="65" x2="237" y2="85" stroke="#EF4444" stroke-width="2" />
                         <line x1="300" y1="65" x2="300" y2="85" stroke="#EF4444" stroke-width="2" />
-                        <line x1="350" y1="65" x2="350" y2="85" stroke="#EF4444" stroke-width="2" />
-                        <line x1="400" y1="65" x2="400" y2="85" stroke="#EF4444" stroke-width="2" />
-                        <line x1="450" y1="65" x2="450" y2="85" stroke="#EF4444" stroke-width="2" />
-                        <line x1="500" y1="65" x2="500" y2="85" stroke="#EF4444" stroke-width="2" />
-                        
+                        <line x1="362" y1="65" x2="362" y2="85" stroke="#EF4444" stroke-width="2" />
+                        <line x1="425" y1="65" x2="425" y2="85" stroke="#EF4444" stroke-width="2" />
+                        <line x1="487" y1="65" x2="487" y2="85" stroke="#EF4444" stroke-width="2" />
+
                         <!-- Swaying Flow Steps -->
-                        <text x="50" y="130" font-family="monospace" fill="#10B981" font-size="12">Swaying Flow:</text>
-                        <line x1="150" y1="65" x2="150" y2="85" stroke="#10B981" stroke-width="3" />
-                        <line x1="280" y1="65" x2="280" y2="85" stroke="#10B981" stroke-width="3" />
-                        <line x1="380" y1="65" x2="380" y2="85" stroke="#10B981" stroke-width="3" />
-                        <line x1="440" y1="65" x2="440" y2="85" stroke="#10B981" stroke-width="2" />
-                        <line x1="475" y1="65" x2="475" y2="85" stroke="#10B981" stroke-width="2" />
-                        <line x1="490" y1="65" x2="490" y2="85" stroke="#10B981" stroke-width="1" />
-                        <line x1="497" y1="65" x2="497" y2="85" stroke="#10B981" stroke-width="1" />
-                        <line x1="500" y1="65" x2="500" y2="85" stroke="#10B981" stroke-width="1" />
+                        <text x="50" y="130" font-family="monospace" fill="#10B981" font-size="11">Swaying (N=8):</text>
+                        <line x1="115" y1="65" x2="115" y2="85" stroke="#10B981" stroke-width="3" />
+                        <line x1="230" y1="65" x2="230" y2="85" stroke="#10B981" stroke-width="3" />
+                        <line x1="340" y1="65" x2="340" y2="85" stroke="#10B981" stroke-width="3" />
+                        <line x1="415" y1="65" x2="415" y2="85" stroke="#10B981" stroke-width="2" />
+                        <line x1="455" y1="65" x2="455" y2="85" stroke="#10B981" stroke-width="2" />
+                        <line x1="478" y1="65" x2="478" y2="85" stroke="#10B981" stroke-width="1.5" />
+                        <line x1="493" y1="65" x2="493" y2="85" stroke="#10B981" stroke-width="1.5" />
                     </svg>
                     <p style="font-size: 0.9em; color: var(--color-text-secondary); margin-top: 1rem;">
-                        Swaying Flow takes large leaps at the start when the structure is simple, and densely packs its function evaluations at the end (near $t=1$) where resolving high-frequency speech details is mathematically complex.
+                        With the same total number of steps (N=8), Swaying Flow (green) packs more evaluations near $t=1$ where fine acoustic details must be resolved, while taking large leaps through the easy early stages.
                     </p>
                 </div>
 
                 <p>
-                    This scheduling allows F5-TTS to achieve state-of-the-art audio quality with as few as <strong>20-30 neural network evaluations</strong>, making it viable for real-time deployment.
+                    <strong>Comparison with cosine schedule in diffusion.</strong> The cosine noise schedule (Nichol &amp; Dhariwal, 2021) for diffusion models also provides non-uniform step density, but it operates on the <em>noise level</em> rather than the <em>integration timestep</em>. The Swaying Flow schedule is applied to the ODE solver's timestep grid directly, making it orthogonal to the choice of probability path. In principle, one could combine OT-CFM paths with Swaying Flow scheduling &mdash; and that is exactly what F5-TTS does.
                 </p>
 
-                <!-- Section 4: Zero-Shot Conditioning -->
-                <h2 id="zero-shot">Zero-Shot Conditioning Mechanism</h2>
+                <p>
+                    <strong>Practical impact.</strong> With Swaying Flow ($\eta = 2.0$), F5-TTS achieves audio quality matching 64-step uniform scheduling while using only 32 steps &mdash; a 2x speedup with no quality loss. At 16 steps, the degradation is barely perceptible (less than 0.05 MOS difference).
+                </p>
+
+                <!-- Section 7: Zero-Shot Voice Cloning -->
+                <h2 id="zero-shot">Zero-Shot Voice Cloning via In-Context Learning</h2>
 
                 <p>
-                    How does F5-TTS know what voice to use if it doesn't have a speaker embedding vector? It uses <strong>In-Context Learning</strong>.
+                    How does F5-TTS clone a voice it has never seen before, without any speaker embedding module, without any fine-tuning? It uses <strong>in-context learning</strong> &mdash; the same mechanism that allows large language models to perform few-shot learning by providing examples in the prompt.
+                </p>
+
+                <p>
+                    <strong>The prefix conditioning mechanism.</strong> During both training and inference, the input to the DiT is constructed as:
+                </p>
+
+<pre><code>Audio input:  [Reference Audio Latents (clean)] [Noisy Target Audio Latents]
+Text input:   [Reference Transcript           ] [Target Transcript         ]
+Mask:         [0 0 0 0 ... 0 0 0 0             ] [1 1 1 1 ... 1 1 1 1      ]</code></pre>
+
+                <p>
+                    The mask tells the model which positions are "given" (reference, mask = 0) and which are "to be generated" (target, mask = 1). The model learns to only apply the flow matching denoising to the masked (target) region, while keeping the unmasked (reference) region fixed.
+                </p>
+
+                <p>
+                    <strong>Why this works: attention patterns analysis.</strong> Through self-attention, the model can freely attend to the reference audio while generating the target. Let us analyze what the attention heads learn:
+                </p>
+                <ul>
+                    <li><strong>Speaker identity heads:</strong> Some attention heads specialize in extracting global speaker characteristics (vocal tract length, fundamental frequency range, breathiness) from the reference. These heads attend broadly across the entire reference prefix.</li>
+                    <li><strong>Prosody transfer heads:</strong> Other heads focus on local prosodic patterns (speaking rate, rhythm, emphasis patterns). These attend to specific regions of the reference that are prosodically similar to the current generation position.</li>
+                    <li><strong>Acoustic environment heads:</strong> The model also matches room acoustics and recording conditions by attending to the spectral characteristics of the reference background noise and reverberation.</li>
+                </ul>
+
+                <p>
+                    <strong>Comparison with speaker embedding approaches.</strong> Traditional zero-shot TTS uses speaker embeddings &mdash; fixed-dimensional vectors that represent a speaker's identity:
+                </p>
+                <ul>
+                    <li><strong>x-vectors (Snyder et al., 2018):</strong> 512-dimensional embeddings extracted by a TDNN trained on speaker verification. Captures speaker identity but loses fine-grained acoustic details.</li>
+                    <li><strong>d-vectors (Wan et al., 2018):</strong> Similar concept using an LSTM. Also a fixed-size bottleneck.</li>
+                    <li><strong>ECAPA-TDNN:</strong> More powerful embedding model with squeeze-and-excitation and res2net blocks, producing 192-dimensional embeddings. State-of-the-art for speaker verification.</li>
+                </ul>
+
+                <p>
+                    The fundamental limitation of all embedding approaches is the <strong>information bottleneck</strong>. A 192-dimensional or even 512-dimensional vector cannot capture everything about a speaker's voice: their pitch range, breathiness, nasality, speaking rate, habitual pauses, micro-prosodic patterns, room acoustics, microphone characteristics, and emotional tendencies. The prefix conditioning in F5-TTS has no such bottleneck &mdash; the model attends directly to the full, high-resolution reference audio features.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Speaker Disentanglement</div>
+                    <p style="margin-bottom: 0;">
+                        An important property of F5-TTS's in-context learning is that it naturally disentangles <em>what is said</em> from <em>how it is said</em>. The text condition provides the linguistic content, so the model only needs to extract <em>how to say it</em> from the reference audio. This disentanglement emerges automatically from the training process &mdash; the model sees many different texts paired with the same speaker and learns that the reference audio determines the voice, not the words. This is why F5-TTS can generate new text in a cloned voice, even if the reference audio contains completely different words.
+                    </p>
+                </div>
+
+                <!-- Section 8: Training Details -->
+                <h2 id="training">Training Details</h2>
+
+                <p>
+                    Training F5-TTS involves several careful design choices regarding data, batching, masking, and optimization. Understanding these is essential for anyone wanting to reproduce or adapt the model.
+                </p>
+
+                <p>
+                    <strong>Dataset requirements.</strong> F5-TTS is trained on large-scale multi-speaker speech datasets:
+                </p>
+                <ul>
+                    <li><strong>Emilia (100K+ hours):</strong> A massive multilingual speech dataset covering English, Chinese, and other languages. The sheer scale enables the model to generalize to unseen speakers.</li>
+                    <li><strong>Quality requirements:</strong> Clean recordings with minimal background noise, diverse speakers (thousands to tens of thousands), diverse recording conditions, and accurate transcriptions.</li>
+                    <li><strong>Audio preprocessing:</strong> Audio is typically resampled to 24 kHz, and a pretrained audio codec (e.g., EnCodec or a custom VAE) is used to extract continuous latent representations. F5-TTS does not operate on raw waveforms or mel spectrograms &mdash; it works in the latent space of an audio autoencoder.</li>
+                </ul>
+
+                <p>
+                    <strong>Batch construction and masking strategy.</strong> Each training example is constructed as follows:
                 </p>
                 <ol>
-                    <li><strong>Input Construction:</strong> <code>[Reference Audio Latents] + [Noisy Target Audio Latents]</code></li>
-                    <li><strong>Text Condition:</strong> <code>[Reference Text] + [Target Text]</code></li>
+                    <li>Sample a speech utterance from the dataset.</li>
+                    <li>Randomly split the utterance into two parts: a "reference" prefix and a "target" suffix. The split point is sampled uniformly.</li>
+                    <li>The reference part is kept clean (unnoised), and the target part is noised according to the OT-CFM path: $x_t^{\text{target}} = (1-t)x_0 + tx_1^{\text{target}}$.</li>
+                    <li>The model is trained to predict the vector field $v_\theta = x_1^{\text{target}} - x_0$ only on the target region. The loss is masked to ignore the reference prefix.</li>
+                </ol>
+
+                <p>
+                    <strong>Infilling formulation.</strong> An elegant extension is training the model for <em>infilling</em> rather than just continuation. Instead of always splitting at a single boundary, the mask can designate arbitrary contiguous or even non-contiguous regions as targets. This enables:
+                </p>
+                <ul>
+                    <li><strong>Speech editing:</strong> Replace a word in the middle of an utterance while keeping the surrounding audio unchanged.</li>
+                    <li><strong>Speech continuation:</strong> Generate audio that extends a given prefix (the standard use case).</li>
+                    <li><strong>Full generation:</strong> Generate the entire utterance from scratch (the "reference" is just a short prompt for voice cloning).</li>
+                </ul>
+
+                <p>
+                    <strong>Loss weighting.</strong> The basic OT-CFM loss is:
+                </p>
+                $$\mathcal{L} = \mathbb{E}_{t, x_0, x_1} \left[ w(t) \cdot \left\| v_\theta(x_t, t, c_{\text{text}}) - (x_1 - x_0) \right\|^2 \right]$$
+                <p>
+                    where $w(t)$ is a time-dependent weighting function. The simplest choice is $w(t) = 1$ (uniform weighting). F5-TTS uses uniform weighting during training, relying on Swaying Flow only at inference time to allocate computation non-uniformly.
+                </p>
+
+                <p>
+                    <strong>Training hyperparameters.</strong> The model is trained with:
+                </p>
+                <ul>
+                    <li>AdamW optimizer with $\beta_1 = 0.9$, $\beta_2 = 0.999$, weight decay $= 0.01$.</li>
+                    <li>Learning rate: $1 \times 10^{-4}$ with linear warmup over 20K steps.</li>
+                    <li>Batch size: effectively 307,200 frames per batch (using gradient accumulation).</li>
+                    <li>Training duration: 800K&ndash;1.2M steps depending on the dataset size.</li>
+                    <li>Mixed precision (bfloat16) for memory efficiency.</li>
+                    <li>EMA (Exponential Moving Average) of model weights with decay 0.9999 for stable inference quality.</li>
+                </ul>
+
+                <p>
+                    <strong>Training stability.</strong> Several techniques ensure stable training:
+                </p>
+                <ul>
+                    <li><strong>adaLN-Zero initialization:</strong> As described above, each DiT block starts as an identity function, preventing early training instability from large random residuals.</li>
+                    <li><strong>Gradient clipping:</strong> Max gradient norm of 1.0 to prevent gradient explosions.</li>
+                    <li><strong>EMA:</strong> The EMA model provides a smoothed version of the parameters that avoids the oscillations of the raw training trajectory.</li>
+                </ul>
+
+                <!-- Section 9: Inference and Controllability -->
+                <h2 id="inference">Inference and Controllability</h2>
+
+                <p>
+                    At inference time, F5-TTS generates speech by solving the learned ODE from $t=0$ (noise) to $t=1$ (clean audio). Several design choices affect the quality, speed, and controllability of the generated speech.
+                </p>
+
+                <p>
+                    <strong>Classifier-Free Guidance (CFG).</strong> Like diffusion models for images, F5-TTS uses Classifier-Free Guidance to improve the fidelity of text conditioning. During training, the text condition is randomly dropped (replaced with a null embedding) with probability $p_{\text{uncond}} = 0.1$. At inference, the guided vector field is:
+                </p>
+                $$\tilde{v}_\theta(x_t, t, c) = v_\theta(x_t, t, \varnothing) + w \cdot \left[ v_\theta(x_t, t, c) - v_\theta(x_t, t, \varnothing) \right]$$
+                <p>
+                    where $w$ is the guidance scale (typically 1.0&ndash;2.0 for speech). Setting $w = 1.0$ recovers the standard conditional model. Higher $w$ produces speech that more precisely follows the text at the cost of some naturalness and diversity. The guidance requires <strong>two forward passes</strong> per ODE step (one conditional, one unconditional), doubling the effective NFE count.
+                </p>
+
+                <p>
+                    <strong>NFE analysis and speed-quality tradeoff.</strong> The number of function evaluations (NFEs) directly determines the inference speed. Each NFE requires one forward pass through the full 335M-parameter DiT. Empirical results show:
+                </p>
+                <ul>
+                    <li><strong>8 steps:</strong> Perceptible artifacts in consonant transients and high-frequency detail. MOS drops ~0.3 below ground truth.</li>
+                    <li><strong>16 steps:</strong> Good quality for most applications. Barely perceptible degradation. Real-time on a single GPU.</li>
+                    <li><strong>32 steps:</strong> Near-optimal quality. The "sweet spot" for production deployment.</li>
+                    <li><strong>64 steps:</strong> Diminishing returns; indistinguishable from 32 steps in MOS tests.</li>
+                </ul>
+
+                <p>
+                    With Swaying Flow, the quality at 16 steps approximately matches the quality of uniform scheduling at 32 steps, effectively halving the computational cost.
+                </p>
+
+                <p>
+                    <strong>ODE solvers.</strong> F5-TTS typically uses the midpoint method (a 2nd-order Runge-Kutta solver) for the best quality-speed tradeoff. The Euler method (1st order) is faster per step but requires more steps. Higher-order solvers (RK4, Dormand-Prince) provide marginally better results but at higher computational cost per step. For the straight-line OT-CFM paths, even the Euler method works well because the vector field has low curvature.
+                </p>
+
+                <p>
+                    <strong>Voice conversion mode.</strong> F5-TTS can be used for voice conversion (changing the speaker of an existing utterance) by treating the source speech as the "text" guidance. The process is:
+                </p>
+                <ol>
+                    <li>Encode the source speech to extract its linguistic content (using a pretrained ASR model or the text encoder).</li>
+                    <li>Provide the target speaker's audio as the reference prefix.</li>
+                    <li>Generate the target speech with the source's content and the target's voice.</li>
+                </ol>
+
+                <p>
+                    <strong>Speech editing.</strong> By using the infilling mask, F5-TTS can edit specific words in an utterance. To replace "I went to the <em>park</em>" with "I went to the <em>store</em>":
+                </p>
+                <ol>
+                    <li>Keep the audio for "I went to the" and "." as the unmasked reference.</li>
+                    <li>Mask the audio region corresponding to "park."</li>
+                    <li>Set the text condition to "I went to the store."</li>
+                    <li>Run the flow matching ODE to generate the masked region.</li>
                 </ol>
                 <p>
-                    Because the DiT uses self-attention across this entire combined sequence, there is no artificial bottleneck. The model doesn't have to compress the essence of a speaker's voice into a single 256-dimensional vector. Instead, while generating the target audio, the attention layers dynamically query the raw, high-resolution features of the reference audio to match the pitch, cadence, breathiness, and even background noise seamlessly.
+                    The generated audio for "store" will seamlessly blend with the surrounding context in terms of pitch, energy, and speaker characteristics, because the self-attention can see both the preceding and following unmasked audio.
                 </p>
+
+                <div class="note-box">
+                    <div class="box-title">Latency Considerations for Real-Time Deployment</div>
+                    <p style="margin-bottom: 0;">
+                        F5-TTS is a fully non-autoregressive model, which means it cannot begin outputting audio until the entire utterance has been generated. For a 5-second utterance at 32 NFE steps, the wall-clock time on an A100 GPU is approximately 1.5&ndash;2 seconds. This means the first-token latency is the same as the total generation time. For streaming applications requiring sub-200ms latency, a chunked generation strategy is needed: split the text into short segments (1&ndash;2 seconds each), generate them with overlapping context, and crossfade the outputs. This adds complexity but makes real-time streaming feasible.
+                    </p>
+                </div>
 
             </article>
 
-            <!-- Exercises Article -->
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>Five PyTorch pseudocode implementations covering the core algorithmic components of F5-TTS: the flow matching training loop, OT-CFM path computation, a DiT block with adaLN-Zero, the Swaying Flow time schedule, and inference with an ODE solver.</p>
+
+                <!-- Code Example 1: Flow Matching Training Step -->
+                <h3>1. Flow Matching Training Step</h3>
+                <p>The core training loop for OT-CFM. Each step samples a timestep, constructs the noisy interpolant, computes the target vector field, and minimizes the prediction error. This is the simplest possible training loop for a flow matching model &mdash; no noise schedules, no ELBO, no score function. The target is always the straight-line displacement $x_1 - x_0$.</p>
+
+<pre><code>import torch
+import torch.nn.functional as F
+
+def flow_matching_training_step(model, x1, text_cond, optimizer):
+    """
+    One training step of OT-CFM for F5-TTS.
+
+    Args:
+        model: DiT network v_theta(x_t, t, text)
+        x1: clean speech latents, shape [B, T, D]
+        text_cond: text embeddings, shape [B, L, D_text]
+        optimizer: AdamW optimizer
+    """
+    B = x1.shape[0]
+
+    # 1. Sample random timestep t ~ U[0, 1]
+    t = torch.rand(B, 1, 1, device=x1.device)  # [B, 1, 1]
+
+    # 2. Sample noise x0 ~ N(0, I)
+    x0 = torch.randn_like(x1)  # [B, T, D]
+
+    # 3. Compute OT-CFM interpolant: x_t = (1-t)*x0 + t*x1
+    x_t = (1 - t) * x0 + t * x1  # [B, T, D]
+
+    # 4. Target vector field: u_t = x1 - x0 (constant along path)
+    target = x1 - x0  # [B, T, D]
+
+    # 5. Predict vector field with the DiT
+    t_scalar = t.squeeze(-1).squeeze(-1)  # [B]
+    predicted = model(x_t, t_scalar, text_cond)  # [B, T, D]
+
+    # 6. MSE loss (optionally masked to target region only)
+    loss = F.mse_loss(predicted, target)
+
+    # 7. Backprop and update
+    optimizer.zero_grad()
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    optimizer.step()
+
+    return loss.item()</code></pre>
+
+                <!-- Code Example 2: OT-CFM Path Computation -->
+                <h3>2. OT-CFM Path with Prefix Conditioning</h3>
+                <p>Shows how to construct a training batch with reference prefix conditioning. The key detail is that the noise is only applied to the target region; the reference region is always clean. The mask determines which positions the model must denoise.</p>
+
+<pre><code>def construct_training_batch(audio_latents, split_ratio=None):
+    """
+    Construct a training batch with prefix conditioning.
+
+    Args:
+        audio_latents: clean speech latents [B, T, D]
+        split_ratio: if None, randomly sample split point
+
+    Returns:
+        x_t: noised input, reference: dict with reference info
+    """
+    B, T, D = audio_latents.shape
+
+    # Random split point for each sample in batch
+    if split_ratio is None:
+        # Uniform split: reference is 10-50% of the utterance
+        split_ratio = torch.rand(B) * 0.4 + 0.1  # [0.1, 0.5]
+    split_idx = (split_ratio * T).long()  # [B]
+
+    # Create mask: 0 = reference (keep clean), 1 = target (to denoise)
+    mask = torch.zeros(B, T, device=audio_latents.device)
+    for i in range(B):
+        mask[i, split_idx[i]:] = 1.0
+    mask = mask.unsqueeze(-1)  # [B, T, 1]
+
+    # Sample timestep and noise
+    t = torch.rand(B, 1, 1, device=audio_latents.device)
+    x0 = torch.randn_like(audio_latents)
+
+    # Apply noise ONLY to target region
+    x_t_target = (1 - t) * x0 + t * audio_latents  # noised
+    x_t = mask * x_t_target + (1 - mask) * audio_latents  # clean ref + noised target
+
+    # Target vector field (only meaningful in target region)
+    target_velocity = audio_latents - x0
+
+    return x_t, target_velocity, mask, t</code></pre>
+
+                <!-- Code Example 3: DiT Block -->
+                <h3>3. DiT Block with adaLN-Zero</h3>
+                <p>A single Diffusion Transformer block with adaptive layer normalization conditioned on the timestep. The adaLN-Zero mechanism initializes the output gate to zero, ensuring each block starts as an identity function for stable training.</p>
+
+<pre><code>import torch.nn as nn
+import math
+
+class AdaLNZero(nn.Module):
+    """Adaptive Layer Norm with zero-initialized output gate."""
+    def __init__(self, hidden_dim, cond_dim):
+        super().__init__()
+        self.norm = nn.LayerNorm(hidden_dim, elementwise_affine=False)
+        # Projects conditioning to: [gamma, beta, alpha] (scale, shift, gate)
+        self.proj = nn.Linear(cond_dim, 3 * hidden_dim)
+        # Zero-initialize the gate (alpha) portion
+        nn.init.zeros_(self.proj.weight[2*hidden_dim:])
+        nn.init.zeros_(self.proj.bias[2*hidden_dim:])
+
+    def forward(self, h, c):
+        gamma, beta, alpha = self.proj(c).chunk(3, dim=-1)
+        h_norm = self.norm(h)
+        h_mod = gamma * h_norm + beta  # adaLN output
+        return h_mod, alpha  # return gate separately
+
+
+class DiTBlock(nn.Module):
+    """Single Diffusion Transformer block for F5-TTS."""
+    def __init__(self, hidden_dim=1024, num_heads=16, cond_dim=256):
+        super().__init__()
+        self.adaln_attn = AdaLNZero(hidden_dim, cond_dim)
+        self.adaln_cross = AdaLNZero(hidden_dim, cond_dim)
+        self.adaln_ffn = AdaLNZero(hidden_dim, cond_dim)
+
+        self.self_attn = nn.MultiheadAttention(
+            hidden_dim, num_heads, batch_first=True
+        )
+        self.cross_attn = nn.MultiheadAttention(
+            hidden_dim, num_heads, batch_first=True
+        )
+        self.ffn = nn.Sequential(
+            nn.Linear(hidden_dim, 4 * hidden_dim),
+            nn.GELU(),
+            nn.Linear(4 * hidden_dim, hidden_dim)
+        )
+
+    def forward(self, h, c, h_text):
+        """
+        h: audio latents [B, T, D]
+        c: timestep embedding [B, D_cond]
+        h_text: text embeddings [B, L, D]
+        """
+        c = c.unsqueeze(1)  # [B, 1, D_cond] for broadcasting
+
+        # Self-attention with adaLN-Zero
+        h_mod, alpha = self.adaln_attn(h, c)
+        attn_out, _ = self.self_attn(h_mod, h_mod, h_mod)
+        h = h + alpha * attn_out  # gated residual
+
+        # Cross-attention to text
+        h_mod, alpha = self.adaln_cross(h, c)
+        cross_out, _ = self.cross_attn(h_mod, h_text, h_text)
+        h = h + alpha * cross_out
+
+        # Feed-forward with adaLN-Zero
+        h_mod, alpha = self.adaln_ffn(h, c)
+        ffn_out = self.ffn(h_mod)
+        h = h + alpha * ffn_out
+
+        return h</code></pre>
+
+                <!-- Code Example 4: Swaying Flow Schedule -->
+                <h3>4. Swaying Flow Time Schedule</h3>
+                <p>Implementation of the non-uniform time schedule used during inference. The schedule concentrates more ODE steps near $t=1$ (where fine acoustic details are resolved) and takes large jumps near $t=0$ (where only coarse structure is being formed).</p>
+
+<pre><code>import numpy as np
+
+def swaying_flow_schedule(num_steps, eta=2.0):
+    """
+    Generate non-uniform timesteps using the Swaying Flow schedule.
+
+    s(tau) = 1 - cos(pi/2 * tau^eta)
+
+    Args:
+        num_steps: total number of ODE integration steps
+        eta: sway parameter (eta=1: cosine, eta>1: more steps near t=1)
+
+    Returns:
+        timesteps: array of shape [num_steps + 1], from t=0 to t=1
+    """
+    # Uniform grid in tau-space
+    tau = np.linspace(0, 1, num_steps + 1)
+
+    # Apply the swaying schedule
+    timesteps = 1 - np.cos(np.pi / 2 * tau ** eta)
+
+    return timesteps
+
+
+def compare_schedules(num_steps=16):
+    """Compare uniform vs swaying flow step distributions."""
+    uniform = np.linspace(0, 1, num_steps + 1)
+    swaying = swaying_flow_schedule(num_steps, eta=2.0)
+    cosine = swaying_flow_schedule(num_steps, eta=1.0)
+
+    print(f"{'Step':>4} | {'Uniform':>8} | {'Cosine':>8} | {'Sway(2)':>8}")
+    print("-" * 40)
+    for i in range(num_steps + 1):
+        print(f"{i:4d} | {uniform[i]:8.4f} | {cosine[i]:8.4f} | {swaying[i]:8.4f}")
+
+    # Step sizes (dt between consecutive timesteps)
+    print(f"\nStep sizes near t=0 (first 3 steps):")
+    for name, ts in [("Uniform", uniform), ("Cosine", cosine), ("Sway", swaying)]:
+        dts = np.diff(ts)[:3]
+        print(f"  {name}: {dts}")
+
+    print(f"\nStep sizes near t=1 (last 3 steps):")
+    for name, ts in [("Uniform", uniform), ("Cosine", cosine), ("Sway", swaying)]:
+        dts = np.diff(ts)[-3:]
+        print(f"  {name}: {dts}")
+
+# compare_schedules(16)</code></pre>
+
+                <!-- Code Example 5: Inference with ODE Solver -->
+                <h3>5. Inference with ODE Solver</h3>
+                <p>The complete inference pipeline: sample noise, set up the reference prefix, apply Classifier-Free Guidance, and solve the ODE with the Swaying Flow schedule. This implements the midpoint method (2nd-order Runge-Kutta) for accurate trajectory integration.</p>
+
+<pre><code>@torch.no_grad()
+def f5_tts_inference(
+    model, ref_audio, ref_text, target_text,
+    num_steps=32, cfg_scale=1.5, eta=2.0
+):
+    """
+    Generate speech using F5-TTS.
+
+    Args:
+        model: trained DiT model
+        ref_audio: reference audio latents [1, T_ref, D]
+        ref_text: reference text embeddings [1, L_ref, D_text]
+        target_text: target text embeddings [1, L_target, D_text]
+        num_steps: number of ODE integration steps
+        cfg_scale: classifier-free guidance scale
+        eta: swaying flow parameter
+
+    Returns:
+        generated: clean speech latents [1, T_target, D]
+    """
+    device = ref_audio.device
+    T_ref = ref_audio.shape[1]
+    T_target = estimate_target_length(target_text)  # from duration heuristic
+    T_total = T_ref + T_target
+    D = ref_audio.shape[2]
+
+    # Concatenate text conditions
+    text_cond = torch.cat([ref_text, target_text], dim=1)
+    null_cond = torch.zeros_like(text_cond)  # for CFG
+
+    # Initialize: reference (clean) + target (pure noise)
+    x_0_target = torch.randn(1, T_target, D, device=device)
+    x = torch.cat([ref_audio, x_0_target], dim=1)  # [1, T_total, D]
+
+    # Create mask: 0 for reference, 1 for target
+    mask = torch.zeros(1, T_total, 1, device=device)
+    mask[:, T_ref:, :] = 1.0
+
+    # Swaying flow timesteps
+    timesteps = swaying_flow_schedule(num_steps, eta=eta)
+
+    # ODE integration (midpoint method)
+    for i in range(num_steps):
+        t_start = torch.tensor([timesteps[i]], device=device)
+        t_mid = torch.tensor([(timesteps[i] + timesteps[i+1]) / 2], device=device)
+        dt = timesteps[i + 1] - timesteps[i]
+
+        # --- Midpoint method ---
+        # Evaluate at t_start
+        v_cond = model(x, t_start, text_cond)
+        v_uncond = model(x, t_start, null_cond)
+        v_start = v_uncond + cfg_scale * (v_cond - v_uncond)
+
+        # Half step to midpoint
+        x_mid = x.clone()
+        x_mid = x_mid + mask * (dt / 2) * v_start
+
+        # Evaluate at midpoint
+        v_cond_mid = model(x_mid, t_mid, text_cond)
+        v_uncond_mid = model(x_mid, t_mid, null_cond)
+        v_mid = v_uncond_mid + cfg_scale * (v_cond_mid - v_uncond_mid)
+
+        # Full step using midpoint velocity
+        x = x + mask * dt * v_mid
+
+    # Extract generated target region
+    generated = x[:, T_ref:, :]
+    return generated</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
             <article class="article-content" id="exercises" style="display: none;">
                 <h2>Exercises</h2>
-                <div class="exercise-list">
 
-                    <div class="exercise-item">
-                        <div class="exercise-header">
-                            <span class="exercise-title">1. Flow Matching vs. Autoregressive TTS</span>
-                            <span class="exercise-toggle">&darr;</span>
-                        </div>
-                        <div class="exercise-body">
-                            <p>Explain the fundamental difference in how F5-TTS generates a 5-second audio clip compared to an Autoregressive TTS model like VALL-E. What are the pros and cons?</p>
-                            <button class="btn btn-sm solution-toggle">Show Solution</button>
-                            <div class="solution-content">
-                                <ul>
-                                    <li><strong>Autoregressive:</strong> Generates tokens sequentially, left-to-right. Slower inference, prone to repeating/skipping.</li>
-                                    <li><strong>Flow Matching:</strong> Generates all audio frames simultaneously from pure noise. Faster inference, extremely robust, sees global context for better prosody, but harder to stream with ultra-low latency.</li>
-                                </ul>
-                            </div>
-                        </div>
+                <h3 style="margin-top: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                <!-- Exercise 1 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 1: OT-CFM Path Derivation</h3>
+                        <p>The OT-CFM conditional path is defined as $\psi_t(x_0) = (1-t)x_0 + tx_1$. (a) Derive the conditional vector field $u_t(\psi_t(x_0) | x_1) = \frac{d\psi_t(x_0)}{dt}$. (b) Show that $u_t$ is independent of $t$. (c) Compute the marginal distribution $p_t(x_t)$ when $x_0 \sim \mathcal{N}(0, I)$ and $x_1$ is a fixed data point. What are the mean and variance of $x_t$ as a function of $t$?</p>
                     </div>
-
-                    <div class="exercise-item">
-                        <div class="exercise-header">
-                            <span class="exercise-title">2. Swaying Flow Analogy</span>
-                            <span class="exercise-toggle">&darr;</span>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) Deriving the conditional vector field.</strong></p>
+                            <p>Given $\psi_t(x_0) = (1-t)x_0 + tx_1$, we differentiate with respect to $t$:</p>
+                            $$u_t(\psi_t(x_0) | x_1) = \frac{d\psi_t(x_0)}{dt} = \frac{d}{dt}\left[(1-t)x_0 + tx_1\right] = -x_0 + x_1 = x_1 - x_0$$
+                            <p><strong>(b) Independence from $t$.</strong></p>
+                            <p>The result $u_t = x_1 - x_0$ contains no $t$ term. The velocity is constant along the entire path &mdash; the "particle" moves at constant speed in a straight line from $x_0$ to $x_1$. This is a direct consequence of the linear interpolation: the derivative of a linear function is a constant.</p>
+                            <p><strong>(c) Distribution of $x_t$.</strong></p>
+                            <p>Since $x_0 \sim \mathcal{N}(0, I)$ and $x_1$ is fixed:</p>
+                            $$x_t = (1-t)x_0 + tx_1$$
+                            <p>This is a linear transformation of the Gaussian $x_0$, so $x_t$ is also Gaussian:</p>
+                            $$\mathbb{E}[x_t] = (1-t) \cdot \mathbb{E}[x_0] + t \cdot x_1 = t \cdot x_1$$
+                            $$\text{Var}(x_t) = (1-t)^2 \cdot \text{Var}(x_0) = (1-t)^2 \cdot I$$
+                            <p>Therefore:</p>
+                            $$p_t(x_t | x_1) = \mathcal{N}\left(t \cdot x_1,\; (1-t)^2 I\right)$$
+                            <p>At $t=0$: $p_0 = \mathcal{N}(0, I)$ (pure noise). At $t=1$: $p_1 = \mathcal{N}(x_1, 0) = \delta(x - x_1)$ (the data point exactly). The interpolation smoothly transitions from the prior to the data.</p>
                         </div>
-                        <div class="exercise-body">
-                            <p>Use an everyday analogy to explain Swaying Flow.</p>
-                            <button class="btn btn-sm solution-toggle">Show Solution</button>
-                            <div class="solution-content">
-                                <p>Imagine sculpting a statue. Uniform steps mean spending 1 hour carving massive chunks, and 1 hour carving eyelashes. Swaying Flow means taking large, fast steps early on to hack away bulk marble (when the path is obvious), and allocating the majority of smaller, careful steps to the very end to carve the complex eyelashes and details.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="exercise-item">
-                        <div class="exercise-header">
-                            <span class="exercise-title">3. Zero-Shot Voice Cloning</span>
-                            <span class="exercise-toggle">&darr;</span>
-                        </div>
-                        <div class="exercise-body">
-                            <p>Describe the mechanism by which F5-TTS achieves zero-shot cloning without a speaker embedding module.</p>
-                            <button class="btn btn-sm solution-toggle">Show Solution</button>
-                            <div class="solution-content">
-                                <p>It uses <strong>prefix conditioning</strong>. By concatenating the reference audio/text to the target audio/text inputs, the Diffusion Transformer uses self-attention across the whole sequence. It inherently "looks back" at the reference prefix to deduce and replicate the speaker's voice and environmental acoustics organically.</p>
-                            </div>
-                        </div>
-                    </div>
-
+                    </details>
                 </div>
+
+                <!-- Exercise 2 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 2: Vector Field Computation</h3>
+                        <p>Suppose we have a trained flow matching model $v_\theta$ and we are at timestep $t = 0.7$ with current state $x_t$. (a) If the model perfectly predicts the true conditional vector field, what is $v_\theta(x_t, 0.7)$? Express your answer in terms of $x_0$ and $x_1$. (b) Given the predicted vector field, how can we reconstruct the predicted clean data $\hat{x}_1$? (Hint: express $x_0$ in terms of $x_t$, $x_1$, and $t$, then substitute into the vector field expression.) (c) How does this "predicted $x_1$" relate to the "$x_0$-prediction" parameterization in standard diffusion models?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a)</strong> The true conditional vector field is $v_\theta(x_t, t) = x_1 - x_0$. This is independent of $t$ (as shown in Exercise 1).</p>
+                            <p><strong>(b)</strong> From the interpolation $x_t = (1-t)x_0 + tx_1$, we can solve for $x_0$:</p>
+                            $$x_0 = \frac{x_t - tx_1}{1 - t}$$
+                            <p>Substituting into the vector field $v = x_1 - x_0$:</p>
+                            $$v = x_1 - \frac{x_t - tx_1}{1-t} = \frac{(1-t)x_1 - x_t + tx_1}{1-t} = \frac{x_1 - x_t}{1-t}$$
+                            <p>Solving for $x_1$:</p>
+                            $$\hat{x}_1 = x_t + (1-t) \cdot v_\theta(x_t, t)$$
+                            <p>This gives us a way to "predict the clean data" from the current noisy state and the predicted vector field. At $t = 0.7$:</p>
+                            $$\hat{x}_1 = x_t + 0.3 \cdot v_\theta(x_t, 0.7)$$
+                            <p><strong>(c)</strong> In standard diffusion models, the "$x_0$-prediction" parameterization predicts the clean data directly from the noisy input. In OT-CFM, predicting the vector field $v = x_1 - x_0$ is equivalent to predicting the <em>difference</em> between clean and noise. The predicted clean data $\hat{x}_1 = x_t + (1-t)v$ is analogous to the $x_0$-prediction in diffusion. In fact, one can reparameterize between $v$-prediction and $x_1$-prediction freely: $v = (x_1 - x_t)/(1-t)$ when $t &lt; 1$. This is similar to how diffusion models can convert between $\epsilon$-prediction and $x_0$-prediction.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Exercise 3 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 3: NFE vs. Quality Analysis</h3>
+                        <p>F5-TTS uses a 335M parameter DiT model running at 24kHz with a latent frame rate of 75 Hz and latent dimension $D = 128$. (a) Calculate the total FLOPs for generating a 5-second utterance with 32 NFE steps (assume each forward pass through the DiT costs approximately $2 \times \text{params} \times \text{seq\_len}$ FLOPs). (b) If Classifier-Free Guidance with $w = 1.5$ is used, how does the total compute change? (c) If the model runs at 1 TFLOP/s on an A100 GPU, what is the Real-Time Factor (RTF = generation time / audio duration)?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) FLOPs for 32 NFE steps without CFG.</strong></p>
+                            <p>Sequence length for 5 seconds at 75 Hz frame rate: $T = 5 \times 75 = 375$ frames.</p>
+                            <p>FLOPs per forward pass: $2 \times 335 \times 10^6 \times 375 \approx 2.51 \times 10^{11}$ FLOPs = 251 GFLOPs.</p>
+                            <p>Total for 32 NFE steps: $32 \times 251 = 8{,}032$ GFLOPs $\approx 8.0$ TFLOPs.</p>
+                            <p><strong>(b) With CFG.</strong></p>
+                            <p>CFG requires two forward passes per step (one conditional, one unconditional). Total: $2 \times 32 \times 251 = 16{,}064$ GFLOPs $\approx 16.1$ TFLOPs. The compute exactly doubles.</p>
+                            <p><strong>(c) Real-Time Factor.</strong></p>
+                            <p>Without CFG: $8.0 \times 10^{12} / (1.0 \times 10^{12}) = 8.0$ seconds to generate 5 seconds of audio. RTF $= 8.0 / 5.0 = 1.6$. This is slower than real-time.</p>
+                            <p>With CFG: RTF $= 16.1 / 5.0 = 3.2$. Significantly slower than real-time.</p>
+                            <p><strong>Note:</strong> In practice, the actual throughput is higher due to GPU parallelism, optimized attention kernels (FlashAttention), and batching effects. Real-world RTF for F5-TTS on an A100 is typically 0.3&ndash;0.5 (well under real-time). The discrepancy comes from our simplified FLOPs estimate not accounting for memory bandwidth, kernel fusion, and the fact that the $2 \times \text{params} \times \text{seq\_len}$ formula overestimates for attention-heavy models where the attention computation scales quadratically with $T$ but the parameter count does not.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                <!-- Exercise 4 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 4: Receptive Field of DiT</h3>
+                        <p>Consider an F5-TTS model with 22 DiT blocks, each containing self-attention over the full sequence. (a) What is the theoretical receptive field of a single audio frame after passing through all 22 blocks? (b) Compare this to a convolutional U-Net with kernel size 3, 4 downsampling stages (each 2x), and 4 upsampling stages. What is the effective receptive field of the U-Net? (c) For a 10-second audio clip at 75 Hz frame rate (750 frames), which architecture can better capture the dependency between the first and last frames? Quantify your answer.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) DiT receptive field.</strong></p>
+                            <p>Self-attention has a <strong>global receptive field</strong>. After just one transformer block, every output position has attended to every input position. After 22 blocks, the receptive field is still the entire sequence, but the <em>effective</em> receptive field (how much information actually propagates) is much richer because the 22 layers of attention allow complex, multi-hop reasoning across the sequence.</p>
+                            <p>Formally: receptive field after $L$ self-attention layers = entire sequence of $T$ frames. This is $T = 750$ frames for a 10-second clip.</p>
+                            <p><strong>(b) U-Net receptive field.</strong></p>
+                            <p>At each downsampling stage with kernel size 3, the receptive field grows by approximately $2 \times \text{(current RF)} + (\text{kernel} - 1)$, but the key factor is the downsampling. After 4 stages of 2x downsampling, the spatial resolution is reduced by $2^4 = 16$. If each stage has $k$ convolutional layers with kernel size 3:</p>
+                            <p>At the bottleneck, a single position "sees" approximately $16 \times (\text{bottleneck RF})$ positions in the original resolution. With 2 conv layers per stage at kernel 3 (RF growth = 2 per layer), the bottleneck RF is roughly:</p>
+                            $$\text{RF} \approx 1 + \sum_{s=0}^{3} 2^{s+1} \times 2 \times (3-1) = 1 + 2 \times 2 \times (1 + 2 + 4 + 8) = 1 + 60 = 61$$
+                            <p>More precisely, with the upsampling path adding symmetric receptive field growth, the total effective RF is approximately $2 \times 61 \approx 120$ frames. This is a rough estimate; the exact value depends on the specific architecture.</p>
+                            <p><strong>(c) Comparison for 750-frame sequence.</strong></p>
+                            <p>The DiT can directly connect frames 1 and 750 through a single attention operation. The attention weight $a_{1,750}$ may be small but is nonzero.</p>
+                            <p>The U-Net with RF $\approx 120$ frames <strong>cannot</strong> directly connect frames that are more than 120 frames apart. Frame 1 and frame 750 are separated by 749 positions, which is $749/120 \approx 6.2$ times the receptive field. Information between these frames can only propagate through indirect, multi-hop paths via intermediate frames &mdash; but even this is limited by the U-Net architecture since there is no recurrence or global pooling.</p>
+                            <p>For speech, this matters enormously. A question mark at position 750 must influence the rising intonation at position 1. The DiT handles this trivially; the U-Net cannot.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Exercise 5 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 5: Swaying Flow Schedule Derivation</h3>
+                        <p>The Swaying Flow schedule is $s(\tau) = 1 - \cos(\frac{\pi}{2} \tau^\eta)$. (a) Verify that $s(0) = 0$ and $s(1) = 1$. (b) Compute $s'(\tau)$ and evaluate $s'(0)$ and $s'(1)$ for general $\eta > 1$. (c) Compute the ratio $r = s'(1) / s'(\epsilon)$ for small $\epsilon > 0$ with $\eta = 2$. This ratio quantifies how much denser the steps are near $t=1$ versus $t=0$. (d) For $N = 32$ steps and $\eta = 2$, compute the size of the first step ($s(1/32) - s(0)$) and the last step ($s(1) - s(31/32)$). What is their ratio?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) Boundary conditions.</strong></p>
+                            $$s(0) = 1 - \cos(0) = 1 - 1 = 0 \;\; \checkmark$$
+                            $$s(1) = 1 - \cos(\pi/2) = 1 - 0 = 1 \;\; \checkmark$$
+                            <p><strong>(b) Derivative.</strong></p>
+                            $$s'(\tau) = \frac{d}{d\tau}\left[1 - \cos\!\left(\frac{\pi}{2}\tau^\eta\right)\right] = \sin\!\left(\frac{\pi}{2}\tau^\eta\right) \cdot \frac{\pi}{2} \cdot \eta \cdot \tau^{\eta-1}$$
+                            <p>At $\tau = 0$ (for $\eta > 1$):</p>
+                            $$s'(0) = \sin(0) \cdot \frac{\pi}{2} \cdot \eta \cdot 0^{\eta-1} = 0$$
+                            <p>The derivative is zero at the start, meaning the first steps in $t$-space are very large.</p>
+                            <p>At $\tau = 1$:</p>
+                            $$s'(1) = \sin(\pi/2) \cdot \frac{\pi}{2} \cdot \eta \cdot 1 = \frac{\pi \eta}{2}$$
+                            <p>For $\eta = 2$: $s'(1) = \pi \approx 3.14$. The step density (in $t$-space per unit $\tau$) is $\pi$ near the end.</p>
+                            <p><strong>(c) Density ratio for $\eta = 2$.</strong></p>
+                            <p>For small $\epsilon$, $\tau^\eta \approx \epsilon^2$ is small, so $\sin(\frac{\pi}{2}\epsilon^2) \approx \frac{\pi}{2}\epsilon^2$:</p>
+                            $$s'(\epsilon) \approx \frac{\pi}{2}\epsilon^2 \cdot \frac{\pi}{2} \cdot 2 \cdot \epsilon = \frac{\pi^2}{2}\epsilon^3$$
+                            <p>The ratio is:</p>
+                            $$r = \frac{s'(1)}{s'(\epsilon)} = \frac{\pi}{\frac{\pi^2}{2}\epsilon^3} = \frac{2}{\pi \epsilon^3}$$
+                            <p>For $\epsilon = 0.1$: $r = 2/(\pi \times 0.001) \approx 637$. The step density near $t=1$ is over 600 times higher than near $t=0$.</p>
+                            <p><strong>(d) Numerical computation for $N = 32$, $\eta = 2$.</strong></p>
+                            <p>First step: $s(1/32) - s(0) = 1 - \cos(\frac{\pi}{2} \cdot (1/32)^2) = 1 - \cos(\frac{\pi}{2048}) \approx 1 - \cos(0.001534) \approx 1.177 \times 10^{-6}$.</p>
+                            <p>Last step: $s(1) - s(31/32) = 1 - [1 - \cos(\frac{\pi}{2} \cdot (31/32)^2)]= \cos(\frac{\pi}{2} \cdot 0.9385) = \cos(1.4735) \approx 0.0966$.</p>
+                            <p>Ratio of last to first step: $0.0966 / 1.177 \times 10^{-6} \approx 82{,}000$. The last step is approximately 82,000 times smaller (in $t$-space) than the first step. This extreme concentration ensures that the fine details near $t = 1$ receive abundant computational resources.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Exercise 6 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 6: CFM Loss Gradient Computation</h3>
+                        <p>Consider the CFM loss $\mathcal{L} = \mathbb{E}_{t, x_0, x_1}\|v_\theta(x_t, t) - (x_1 - x_0)\|^2$ where $x_t = (1-t)x_0 + tx_1$. (a) Expand the squared norm and write the loss as a sum of three terms. (b) Compute $\frac{\partial \mathcal{L}}{\partial \theta}$ (the gradient used for training). Which of the three terms from (a) contribute to this gradient? (c) Suppose $v_\theta(x_t, t) = W x_t + b$ (a simple linear model). Write out the gradient $\frac{\partial \mathcal{L}}{\partial W}$ explicitly in terms of $x_0$, $x_1$, and $t$.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) Expanding the squared norm.</strong></p>
+                            <p>Let $v = v_\theta(x_t, t)$ and $u = x_1 - x_0$. Then:</p>
+                            $$\|v - u\|^2 = \|v\|^2 - 2\langle v, u \rangle + \|u\|^2$$
+                            <p>So the loss decomposes as:</p>
+                            $$\mathcal{L} = \underbrace{\mathbb{E}\|v_\theta(x_t, t)\|^2}_{\text{Term 1}} - 2\underbrace{\mathbb{E}\langle v_\theta(x_t, t), x_1 - x_0 \rangle}_{\text{Term 2}} + \underbrace{\mathbb{E}\|x_1 - x_0\|^2}_{\text{Term 3}}$$
+                            <p><strong>(b) Gradient with respect to $\theta$.</strong></p>
+                            <p>Term 3, $\mathbb{E}\|x_1 - x_0\|^2$, does not depend on $\theta$ at all, so its gradient is zero. Only Terms 1 and 2 contribute:</p>
+                            $$\frac{\partial \mathcal{L}}{\partial \theta} = 2\,\mathbb{E}\left[(v_\theta(x_t, t) - (x_1 - x_0)) \cdot \frac{\partial v_\theta(x_t, t)}{\partial \theta}\right]$$
+                            <p>This is simply the standard MSE gradient. The constant Term 3 does not affect the optimization.</p>
+                            <p><strong>(c) Linear model gradient.</strong></p>
+                            <p>With $v_\theta(x_t, t) = Wx_t + b$ and $x_t = (1-t)x_0 + tx_1$:</p>
+                            $$v_\theta = W[(1-t)x_0 + tx_1] + b$$
+                            <p>The residual is:</p>
+                            $$r = W[(1-t)x_0 + tx_1] + b - (x_1 - x_0)$$
+                            <p>The gradient with respect to $W$ is:</p>
+                            $$\frac{\partial \mathcal{L}}{\partial W} = 2\,\mathbb{E}_t\left[r \cdot x_t^\top\right] = 2\,\mathbb{E}_t\left[\{W[(1-t)x_0 + tx_1] + b - (x_1 - x_0)\} \cdot [(1-t)x_0 + tx_1]^\top\right]$$
+                            <p>At the optimum $\frac{\partial \mathcal{L}}{\partial W} = 0$, the linear model's prediction equals the conditional expectation of $x_1 - x_0$ given $x_t$ and $t$. For a nonlinear neural network, the same principle applies but the model can represent a much richer family of functions.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Exercise 7 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 7: Classifier-Free Guidance Math</h3>
+                        <p>Classifier-Free Guidance (CFG) modifies the predicted vector field as $\tilde{v} = v_\theta(x_t, t, \varnothing) + w[v_\theta(x_t, t, c) - v_\theta(x_t, t, \varnothing)]$, where $c$ is the text condition, $\varnothing$ is the null condition, and $w$ is the guidance scale. (a) Show that $w = 1$ recovers the standard conditional model. (b) Show that $w = 0$ gives the unconditional model. (c) Rewrite the CFG formula as a weighted average and identify the weights. For what value of $w$ are the weights equal? (d) In practice, $w > 1$ is used. This means the guided vector field extrapolates <em>beyond</em> the conditional prediction. Explain geometrically what this means and why it can improve text adherence at the cost of diversity.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) $w = 1$.</strong></p>
+                            $$\tilde{v} = v_\theta(x_t, t, \varnothing) + 1 \cdot [v_\theta(x_t, t, c) - v_\theta(x_t, t, \varnothing)] = v_\theta(x_t, t, c)$$
+                            <p>This is exactly the standard conditional prediction. Guidance has no effect.</p>
+                            <p><strong>(b) $w = 0$.</strong></p>
+                            $$\tilde{v} = v_\theta(x_t, t, \varnothing) + 0 \cdot [\ldots] = v_\theta(x_t, t, \varnothing)$$
+                            <p>This is the unconditional model &mdash; the text condition is completely ignored.</p>
+                            <p><strong>(c) Weighted average form.</strong></p>
+                            $$\tilde{v} = (1-w) \cdot v_\theta(x_t, t, \varnothing) + w \cdot v_\theta(x_t, t, c)$$
+                            <p>The weights are $(1-w)$ for the unconditional prediction and $w$ for the conditional prediction. The weights sum to 1 (it is an affine combination), but for $w > 1$, the weight on the unconditional prediction becomes <em>negative</em>. The weights are equal when $1 - w = w$, i.e., $w = 0.5$.</p>
+                            <p><strong>(d) Geometric interpretation for $w > 1$.</strong></p>
+                            <p>The conditional vector $v_c$ points "toward text-consistent audio" and the unconditional vector $v_u$ points toward "generic audio." The difference $v_c - v_u$ is the direction that specifically accounts for the text condition. With $w > 1$, we move <em>further</em> in this text-specific direction than the model's own conditional prediction suggests.</p>
+                            <p>Geometrically, if we think of $v_u$ and $v_c$ as two points in the vector field space, $w > 1$ means we extrapolate beyond $v_c$ along the line from $v_u$ to $v_c$. This amplifies the "text signal" relative to the "unconditional prior," making the generated speech adhere more strictly to the text at the cost of:</p>
+                            <ul>
+                                <li><strong>Reduced diversity:</strong> The model is pushed away from the natural distribution of speech toward a narrower, more text-constrained mode.</li>
+                                <li><strong>Potential artifacts:</strong> Over-amplifying the text signal can produce over-articulated or stiff-sounding speech, similar to how high CFG in image diffusion produces over-saturated images.</li>
+                            </ul>
+                            <p>For TTS, $w = 1.0$&ndash;$2.0$ is typical. Unlike image generation where $w = 7.5$ is common, speech requires more conservative guidance because the audio quality is highly sensitive to distribution shift.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                <!-- Exercise 8 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 8: OT vs. VP-SDE Path Comparison</h3>
+                        <p>Compare the OT-CFM path $x_t^{\text{OT}} = (1-t)x_0 + tx_1$ with the VP-SDE forward process $x_t^{\text{VP}} = \sqrt{\bar{\alpha}_t}\, x_1 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon$ where $\epsilon \sim \mathcal{N}(0, I)$ and $\bar{\alpha}_t = \cos^2(\frac{\pi t}{2})$ (cosine schedule). (a) For both paths, compute $\mathbb{E}[x_t | x_1]$ and $\text{Var}(x_t | x_1)$ as functions of $t$. (b) At $t = 0.5$, which path preserves more of the "signal" $x_1$? Compute the signal-to-noise ratio (SNR) $= \|\mathbb{E}[x_t|x_1]\|^2 / \text{tr}(\text{Var}(x_t|x_1))$ for both, assuming $\|x_1\|^2 = d$ (unit norm per dimension). (c) Compute the "curvature" of each path, defined as $\kappa(t) = \|\frac{d^2\psi_t}{dt^2}\|$ for OT and the analogous quantity for VP-SDE. Which has less curvature, and why does this matter for ODE solvers?</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) Moments of the conditional distributions.</strong></p>
+                            <p><em>OT-CFM path:</em> $x_t = (1-t)x_0 + tx_1$ with $x_0 \sim \mathcal{N}(0, I)$.</p>
+                            $$\mathbb{E}[x_t^{\text{OT}} | x_1] = t \cdot x_1, \quad \text{Var}(x_t^{\text{OT}} | x_1) = (1-t)^2 I$$
+                            <p><em>VP-SDE path:</em> $x_t = \sqrt{\bar{\alpha}_t}\, x_1 + \sqrt{1-\bar{\alpha}_t}\, \epsilon$ with $\epsilon \sim \mathcal{N}(0, I)$.</p>
+                            $$\mathbb{E}[x_t^{\text{VP}} | x_1] = \sqrt{\bar{\alpha}_t}\, x_1, \quad \text{Var}(x_t^{\text{VP}} | x_1) = (1 - \bar{\alpha}_t) I$$
+                            <p>With $\bar{\alpha}_t = \cos^2(\pi t / 2)$:</p>
+                            $$\mathbb{E}[x_t^{\text{VP}} | x_1] = \cos(\pi t/2) \cdot x_1, \quad \text{Var}(x_t^{\text{VP}} | x_1) = \sin^2(\pi t/2) \cdot I$$
+                            <p><strong>(b) SNR at $t = 0.5$.</strong></p>
+                            <p><em>OT-CFM:</em></p>
+                            $$\text{SNR}_{\text{OT}} = \frac{\|0.5 \cdot x_1\|^2}{(0.5)^2 \cdot d} = \frac{0.25d}{0.25d} = 1$$
+                            <p><em>VP-SDE:</em> $\bar{\alpha}_{0.5} = \cos^2(\pi/4) = 0.5$.</p>
+                            $$\text{SNR}_{\text{VP}} = \frac{0.5 \cdot \|x_1\|^2}{0.5 \cdot d} = \frac{0.5d}{0.5d} = 1$$
+                            <p>Interestingly, at $t = 0.5$ both paths have <strong>exactly the same SNR</strong>. However, they reach this SNR via different trajectories: the OT path has mean $0.5 x_1$ and variance $0.25 I$, while the VP path has mean $\sqrt{0.5}\, x_1 \approx 0.707 x_1$ and variance $0.5 I$. The VP path preserves more signal at $t = 0.5$ but also has more noise.</p>
+                            <p><strong>(c) Path curvature.</strong></p>
+                            <p><em>OT-CFM:</em> $\psi_t = (1-t)x_0 + tx_1$ is linear in $t$.</p>
+                            $$\frac{d^2\psi_t}{dt^2} = 0 \implies \kappa_{\text{OT}}(t) = 0 \;\;\forall\; t$$
+                            <p>The OT path has <strong>zero curvature</strong> &mdash; it is perfectly straight.</p>
+                            <p><em>VP-SDE:</em> $\psi_t = \cos(\pi t/2) x_1 + \sin(\pi t/2) \epsilon$.</p>
+                            $$\frac{d\psi_t}{dt} = -\frac{\pi}{2}\sin(\pi t/2) x_1 + \frac{\pi}{2}\cos(\pi t/2) \epsilon$$
+                            $$\frac{d^2\psi_t}{dt^2} = -\frac{\pi^2}{4}\cos(\pi t/2) x_1 - \frac{\pi^2}{4}\sin(\pi t/2) \epsilon = -\frac{\pi^2}{4}\psi_t$$
+                            <p>This is non-zero! The VP path has curvature $\kappa_{\text{VP}}(t) = \frac{\pi^2}{4}\|\psi_t\|$, which is approximately $\frac{\pi^2}{4}\sqrt{d} \approx 2.47\sqrt{d}$ throughout the trajectory.</p>
+                            <p><strong>Why curvature matters:</strong> ODE solvers (Euler, midpoint, RK4) approximate the trajectory by local linearization. The error per step of an order-$p$ solver scales as $O(h^{p+1} \cdot \kappa)$, where $h$ is the step size and $\kappa$ is the curvature. For the OT path with $\kappa = 0$, the Euler method is <em>exact</em> in one step (since the trajectory is a straight line). For the VP path with $\kappa \propto \sqrt{d}$, many small steps are needed to track the curved trajectory. This is the fundamental reason why OT-CFM requires far fewer NFEs than VP-SDE based diffusion.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Exercise 9 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 9: DiT Scaling Laws Analysis</h3>
+                        <p>Scaling laws for transformers suggest that loss scales as a power law of model size: $\mathcal{L}(N) = \alpha N^{-\beta}$ where $N$ is the number of parameters and $\alpha, \beta > 0$. Suppose we measure the OT-CFM loss for three DiT model sizes: 85M params ($\mathcal{L} = 0.42$), 335M params ($\mathcal{L} = 0.31$), and 1.2B params ($\mathcal{L} = 0.24$). (a) Estimate $\alpha$ and $\beta$ using least squares on the log-log scale. (b) Predict the loss for a 5B parameter model. (c) Assuming MOS scales approximately as $\text{MOS} = 5.0 - k \cdot \mathcal{L}$ with $k \approx 3.5$, what model size would be needed to achieve MOS $\geq 4.5$ (indistinguishable from human speech)? (d) Discuss at least two reasons why this power-law extrapolation might break down in practice.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) Fitting the power law.</strong></p>
+                            <p>Taking logarithms: $\log \mathcal{L} = \log \alpha - \beta \log N$. We have three data points:</p>
+                            <ul>
+                                <li>$(N_1, \mathcal{L}_1) = (85 \times 10^6,\; 0.42) \implies (\log N_1, \log \mathcal{L}_1) = (18.26, -0.868)$</li>
+                                <li>$(N_2, \mathcal{L}_2) = (335 \times 10^6,\; 0.31) \implies (\log N_2, \log \mathcal{L}_2) = (19.63, -1.171)$</li>
+                                <li>$(N_3, \mathcal{L}_3) = (1200 \times 10^6,\; 0.24) \implies (\log N_3, \log \mathcal{L}_3) = (20.91, -1.427)$</li>
+                            </ul>
+                            <p>Using the first and last points for a simple estimate:</p>
+                            $$\beta = \frac{\log \mathcal{L}_1 - \log \mathcal{L}_3}{\log N_3 - \log N_1} = \frac{-0.868 - (-1.427)}{20.91 - 18.26} = \frac{0.559}{2.65} \approx 0.211$$
+                            $$\log \alpha = \log \mathcal{L}_1 + \beta \log N_1 = -0.868 + 0.211 \times 18.26 = 2.985$$
+                            $$\alpha = e^{2.985} \approx 19.8$$
+                            <p>So $\mathcal{L}(N) \approx 19.8 \cdot N^{-0.211}$.</p>
+                            <p>Verification with middle point: $\mathcal{L}(335 \times 10^6) = 19.8 \times (3.35 \times 10^8)^{-0.211} \approx 19.8 \times e^{-0.211 \times 19.63} \approx 19.8 \times e^{-4.14} \approx 19.8 \times 0.0160 \approx 0.317$. Predicted 0.317 vs. actual 0.31 &mdash; reasonable fit.</p>
+                            <p><strong>(b) Prediction for 5B parameters.</strong></p>
+                            $$\mathcal{L}(5 \times 10^9) = 19.8 \times (5 \times 10^9)^{-0.211} = 19.8 \times e^{-0.211 \times 22.33} \approx 19.8 \times e^{-4.71} \approx 19.8 \times 0.00896 \approx 0.177$$
+                            <p><strong>(c) Model size for MOS $\geq$ 4.5.</strong></p>
+                            <p>We need $5.0 - 3.5 \cdot \mathcal{L} \geq 4.5$, so $\mathcal{L} \leq 0.5/3.5 = 0.143$.</p>
+                            $$19.8 \cdot N^{-0.211} \leq 0.143$$
+                            $$N^{-0.211} \leq 0.00722$$
+                            $$N \geq (0.00722)^{-1/0.211} = (138.5)^{4.74} \approx e^{4.74 \times 4.93} \approx e^{23.4} \approx 1.45 \times 10^{10}$$
+                            <p>Approximately <strong>14.5 billion parameters</strong>. This is large but within the range of current large language models.</p>
+                            <p><strong>(d) Why the extrapolation may break down.</strong></p>
+                            <ol>
+                                <li><strong>Data bottleneck:</strong> Scaling laws assume sufficient training data. For speech, available high-quality training data (estimated at ~1M hours across all languages) may become the bottleneck before 14.5B parameters are saturated. The loss would plateau due to data scarcity.</li>
+                                <li><strong>MOS ceiling effect:</strong> The linear MOS-loss relationship $\text{MOS} = 5.0 - k\mathcal{L}$ is a crude approximation. In reality, MOS saturates near 4.5&ndash;4.7 because human raters cannot reliably distinguish between very high-quality synthetic speech and natural speech. The marginal MOS improvement per unit loss reduction diminishes sharply above MOS 4.3.</li>
+                                <li><strong>Evaluation noise:</strong> MOS evaluations have inter-rater variance of approximately 0.3&ndash;0.5 points. Differences smaller than this are not statistically significant regardless of model quality.</li>
+                                <li><strong>Architecture-specific scaling:</strong> The scaling exponent $\beta$ may change at different model scales due to architectural bottlenecks (e.g., attention becoming compute-dominant at large sequence lengths).</li>
+                            </ol>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Exercise 10 -->
+                <div class="exercise-block" style="margin: 1.5rem 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;">
+                    <div style="padding: 1.25rem; background: var(--color-surface-elevated);">
+                        <h3 style="margin: 0 0 0.75rem;">Exercise 10: Designing a Streaming F5-TTS System</h3>
+                        <p>F5-TTS generates the entire utterance non-autoregressively, which means the first audio sample cannot be output until the full ODE solve completes. For a conversational AI application, you need first-byte latency under 300ms. Design a complete streaming system based on F5-TTS that achieves this target. Your design should address: (a) how to segment the input text into streamable chunks, (b) how to handle prosodic coherence across chunk boundaries, (c) the overlap-and-crossfade strategy for seamless audio concatenation, (d) a latency analysis showing that your system meets the 300ms target, and (e) the quality trade-offs compared to full-utterance generation.</p>
+                    </div>
+                    <details style="padding: 1.25rem; border-top: 1px solid var(--color-border);">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--color-accent);">Show Solution</summary>
+                        <div style="margin-top: 1rem;">
+                            <p><strong>(a) Text segmentation strategy.</strong></p>
+                            <p>Segment the input text into chunks of approximately 1&ndash;2 seconds of expected audio (roughly 5&ndash;15 words). The segmentation should respect linguistic boundaries:</p>
+                            <ul>
+                                <li><strong>Priority 1:</strong> Sentence boundaries (periods, question marks, exclamation marks).</li>
+                                <li><strong>Priority 2:</strong> Clause boundaries (commas, semicolons, colons).</li>
+                                <li><strong>Priority 3:</strong> Phrase boundaries (after prepositional phrases, relative clauses).</li>
+                                <li><strong>Fallback:</strong> If a clause exceeds the maximum chunk length (~20 words), split at the nearest word boundary.</li>
+                            </ul>
+                            <p>For streaming, text can be processed incrementally as it arrives from the LLM, with chunk boundaries triggered by the above heuristics or by a maximum word count.</p>
+                            <p><strong>(b) Prosodic coherence across chunks.</strong></p>
+                            <p>The main challenge is maintaining natural prosody across chunk boundaries. Three strategies:</p>
+                            <ol>
+                                <li><strong>Overlap context:</strong> When generating chunk $n$, include the last 0.5s of audio from chunk $n-1$ as the reference prefix. This gives the model acoustic context to maintain pitch continuity and speaking rate.</li>
+                                <li><strong>Lookahead text:</strong> If available, provide the text of chunk $n+1$ as additional context (even though we only generate chunk $n$). This helps with sentence-final intonation: the model knows whether more text follows.</li>
+                                <li><strong>Prosodic hints:</strong> Append a special token indicating the chunk's position (sentence-initial, sentence-medial, sentence-final) to help the model choose appropriate intonation.</li>
+                            </ol>
+                            <p><strong>(c) Overlap-and-crossfade.</strong></p>
+                            <p>Generate each chunk with 50&ndash;100ms of overlap on both sides. For chunks $n$ and $n+1$:</p>
+                            <ol>
+                                <li>Chunk $n$ generates audio from $[t_{\text{start}}^n, t_{\text{end}}^n + \Delta]$ where $\Delta = 100\text{ms}$ overlap.</li>
+                                <li>Chunk $n+1$ generates audio from $[t_{\text{start}}^{n+1} - \Delta, t_{\text{end}}^{n+1} + \Delta]$.</li>
+                                <li>In the overlap region $[t_{\text{start}}^{n+1} - \Delta, t_{\text{end}}^n + \Delta]$, apply a linear crossfade: $y(t) = (1 - \alpha(t)) \cdot y_n(t) + \alpha(t) \cdot y_{n+1}(t)$ where $\alpha$ ramps from 0 to 1 over the overlap duration.</li>
+                            </ol>
+                            <p>The overlap ensures that even if there are slight discontinuities in pitch or energy at the boundary, the crossfade smooths them out.</p>
+                            <p><strong>(d) Latency analysis.</strong></p>
+                            <p>Target: first audio byte in $&lt;$ 300ms.</p>
+                            <ul>
+                                <li><strong>Text processing:</strong> ~5ms (tokenization, G2P, text encoding).</li>
+                                <li><strong>ODE solve for first chunk:</strong> For a 1-second chunk at 75 Hz = 75 frames, with 16 NFE steps (using Swaying Flow), each step requires ~2 forward passes (CFG). On an A100 GPU, each forward pass for 75 frames takes approximately 3&ndash;5ms. Total: $16 \times 2 \times 4 = 128\text{ms}$.</li>
+                                <li><strong>Audio decoding (vocoder/codec decoder):</strong> ~10ms for the latent-to-waveform conversion.</li>
+                                <li><strong>Total: ~143ms</strong> &mdash; well within the 300ms target.</li>
+                            </ul>
+                            <p>The key insight is that generating a <em>short</em> chunk (1s) is much faster than generating a full utterance (5&ndash;10s) because the sequence length is proportionally shorter, and self-attention cost scales quadratically.</p>
+                            <p><strong>(e) Quality trade-offs.</strong></p>
+                            <ul>
+                                <li><strong>Reduced global coherence:</strong> Each chunk is generated semi-independently. Sentence-level prosodic patterns (declination, emphasis buildup) may be weaker than in full-utterance generation.</li>
+                                <li><strong>Boundary artifacts:</strong> Even with crossfade, subtle discontinuities in F0 or speaking rate at chunk boundaries may be perceptible. Estimated MOS impact: ~0.1&ndash;0.2 points below full-utterance generation.</li>
+                                <li><strong>Fewer NFE steps:</strong> To meet latency targets, we use 16 steps instead of 32. With Swaying Flow, this is acceptable but not optimal. Estimated MOS impact: ~0.05 points.</li>
+                                <li><strong>Reduced voice cloning fidelity:</strong> Each chunk uses only 0.5s of reference context (from the previous chunk) instead of a dedicated 3&ndash;5s reference clip. Speaker similarity may be slightly lower.</li>
+                            </ul>
+                            <p>Total estimated quality impact: MOS 4.2 (streaming) vs. MOS 4.4 (full utterance) &mdash; a minor but measurable degradation that is acceptable for conversational applications where latency is paramount.</p>
+                        </div>
+                    </details>
+                </div>
+
             </article>
 
         </main>
 
-        <!-- TOC -->
+        <!-- TOC (Right Side) -->
         <aside class="toc-container">
             <h4 class="toc-title">Contents</h4>
             <nav class="toc-list">
                 <a href="#evolution" class="toc-link">Evolution of TTS</a>
-                <a href="#flow-matching" class="toc-link">Flow Matching</a>
+                <a href="#cnf" class="toc-link">Continuous Normalizing Flows</a>
+                <a href="#flow-matching" class="toc-link">Flow Matching Framework</a>
+                <a href="#ot-paths" class="toc-link">Optimal Transport Paths</a>
                 <a href="#dit-architecture" class="toc-link">DiT Architecture</a>
                 <a href="#swaying-flow" class="toc-link">Swaying Flow</a>
-                <a href="#zero-shot" class="toc-link">Zero-Shot Cloning</a>
+                <a href="#zero-shot" class="toc-link">Zero-Shot Voice Cloning</a>
+                <a href="#training" class="toc-link">Training Details</a>
+                <a href="#inference" class="toc-link">Inference &amp; Controllability</a>
             </nav>
         </aside>
     </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
 
     <!-- Scripts -->
     <script src="../../../js/main.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             if (typeof renderMathInElement === 'function') {
-                renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
             }
+
             const tabs = document.querySelectorAll('.tutorial-tab');
             const articles = document.querySelectorAll('.article-content');
+
             function switchTab(targetId) {
                 if (!targetId || targetId === '#') targetId = '#theory';
-                tabs.forEach(tab => tab.classList.toggle('active', tab.getAttribute('href') === targetId));
-                articles.forEach(article => article.style.display = ('#' + article.id === targetId) ? 'block' : 'none');
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
             }
+
             tabs.forEach(tab => {
                 tab.addEventListener('click', (e) => {
                     e.preventDefault();
-                    history.pushState(null, null, tab.getAttribute('href'));
-                    switchTab(tab.getAttribute('href'));
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
                 });
             });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
             switchTab(window.location.hash);
-            
-            document.querySelectorAll('.solution-toggle').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const content = btn.nextElementSibling;
-                    const isHidden = content.style.display === 'none' || content.style.display === '';
-                    content.style.display = isHidden ? 'block' : 'none';
-                    btn.textContent = isHidden ? 'Hide Solution' : 'Show Solution';
-                });
-            });
-            
-            document.querySelectorAll('.exercise-header').forEach(header => {
-                header.addEventListener('click', () => {
-                    const body = header.nextElementSibling;
-                    const toggle = header.querySelector('.exercise-toggle');
-                    const isVisible = body.style.display === 'block';
-                    body.style.display = isVisible ? 'none' : 'block';
-                    toggle.innerHTML = isVisible ? '&darr;' : '&uarr;';
-                });
-            });
         });
     </script>
 </body>

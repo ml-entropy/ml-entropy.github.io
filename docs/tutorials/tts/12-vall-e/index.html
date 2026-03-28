@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VALL-E &amp; Speech LLMs | ML Fundamentals</title>
+    <meta name="description" content="Speech language models: VALL-E, SoundStorm, Bark, and the codec LM paradigm for zero-shot text-to-speech synthesis.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+
+
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>VALL-E &amp; Speech LLMs</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Text-to-Speech</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-f5-tts/index.html" class="sidebar-link">01. F5-TTS: Flow Matching</a>
+                    <a href="../02-qwen-tts/index.html" class="sidebar-link">02. Qwen-TTS: LLM Audio</a>
+                    <a href="../03-tts-fundamentals/index.html" class="sidebar-link">03. TTS Fundamentals</a>
+                    <a href="../04-neural-vocoders/index.html" class="sidebar-link">04. Neural Vocoders</a>
+                    <a href="../05-tacotron/index.html" class="sidebar-link">05. Tacotron &amp; Attention TTS</a>
+                    <a href="../06-fastspeech/index.html" class="sidebar-link">06. FastSpeech &amp; Non-AR TTS</a>
+                    <a href="../07-glow-tts/index.html" class="sidebar-link">07. Glow-TTS &amp; Flows</a>
+                    <a href="../08-vits/index.html" class="sidebar-link">08. VITS: End-to-End TTS</a>
+                    <a href="../09-bilingual-tts/index.html" class="sidebar-link">09. Bilingual TTS: RU+KY</a>
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs</a>
+                    <a href="../11-grad-tts/index.html" class="sidebar-link">11. Grad-TTS &amp; Diffusion</a>
+                    <a href="../12-vall-e/index.html" class="sidebar-link active">12. VALL-E &amp; Speech LLMs</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linguistics/index.html" class="sidebar-link">Linguistics</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: The Codec Language Model Paradigm -->
+                <h2 id="codec-lm-paradigm">The Codec Language Model Paradigm</h2>
+
+                <p>
+                    The history of text-to-speech can be divided into two eras: the mel-spectrogram era and the codec language model era. From Tacotron (2017) through VITS (2021), nearly every neural TTS system followed the same template: convert text to a mel spectrogram, then convert the mel spectrogram to a waveform using a vocoder. These systems achieved remarkable quality, but they were fundamentally limited by the mel spectrogram as an intermediate representation &mdash; a continuous, fixed-resolution, lossy projection of the audio signal that discards phase information and requires a separate neural vocoder to invert.
+                </p>
+
+                <p>
+                    The codec language model paradigm, which emerged in 2022&ndash;2023, introduces a radically different approach: <strong>represent audio as a sequence of discrete tokens</strong> using a neural audio codec (such as EnCodec or SoundStream), then <strong>model the token sequence using language model techniques</strong> borrowed directly from NLP. This seemingly simple idea has profound consequences.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Codec Language Model for TTS</div>
+                    <p>
+                        A <strong>codec language model</strong> for TTS is a system with three components:
+                    </p>
+                    <ol>
+                        <li><strong>Neural audio codec:</strong> An encoder-decoder model (e.g., EnCodec, SoundStream) that compresses audio into a sequence of discrete token indices from $K$ codebooks, yielding a matrix $\mathbf{C} \in \{1, \ldots, N\}^{K \times T}$ where $N$ is the codebook size, $K$ is the number of quantization levels, and $T$ is the number of time frames.</li>
+                        <li><strong>Language model:</strong> A transformer-based model that generates the codec token sequence conditioned on text (and optionally an audio prompt), modeling $p(\mathbf{C} \mid \text{text}, \mathbf{C}_{\text{prompt}})$.</li>
+                        <li><strong>Codec decoder:</strong> The decoder half of the neural audio codec, which converts the generated tokens back to a waveform: $\hat{\mathbf{y}} = \text{Decode}(\mathbf{C})$.</li>
+                    </ol>
+                </div>
+
+                <p>
+                    Why is this a paradigm shift? Consider the key advantages over the mel-spectrogram approach:
+                </p>
+
+                <ul>
+                    <li><strong>Discrete tokens enable LLM techniques.</strong> By converting continuous audio into discrete tokens, we can directly apply the entire arsenal of language modeling &mdash; autoregressive generation, in-context learning, prompting, scaling laws, RLHF &mdash; to speech. The same transformer architectures that power GPT-4 can now generate speech.</li>
+                    <li><strong>No separate vocoder.</strong> The neural audio codec's decoder serves as the vocoder, and it is trained jointly with the encoder. There is no mel-spectrogram-to-waveform inversion problem; the codec decoder directly maps discrete tokens to waveforms with high fidelity.</li>
+                    <li><strong>In-context learning for zero-shot TTS.</strong> Just as GPT-3 can perform few-shot text generation by conditioning on examples in the prompt, a codec language model can perform zero-shot voice cloning by conditioning on a short audio prompt &mdash; no fine-tuning, no speaker embeddings, no enrollment process.</li>
+                    <li><strong>Scalability.</strong> Language models scale predictably with data and parameters. The same scaling laws that govern text LLMs appear to apply to speech LLMs, enabling systematic quality improvements through scale.</li>
+                </ul>
+
+                <p>
+                    The conceptual pipeline shifts from:
+                </p>
+
+<pre><code>Old: Text &rarr; [Acoustic Model] &rarr; Mel Spectrogram &rarr; [Vocoder] &rarr; Waveform
+
+New: Text &rarr; [Language Model] &rarr; Codec Tokens &rarr; [Codec Decoder] &rarr; Waveform</code></pre>
+
+                <p>
+                    <strong>The residual vector quantization (RVQ) structure.</strong> Neural audio codecs like EnCodec use residual vector quantization, which produces not one but $K$ parallel streams of tokens (typically $K = 8$). At each time step $t$, the codec outputs $K$ tokens $c_t^{(1)}, c_t^{(2)}, \ldots, c_t^{(K)}$, where the first codebook captures coarse acoustic information (fundamental frequency, broad spectral shape, speaker identity) and subsequent codebooks refine the representation with increasingly fine details (harmonics, noise characteristics, subtle spectral textures). This hierarchical structure is crucial: it means different codebook levels carry different types of information and can potentially be modeled differently.
+                </p>
+
+                <p>
+                    Formally, the RVQ encoding process at each frame computes:
+                </p>
+                $$\mathbf{r}^{(0)} = \text{Encoder}(\mathbf{y})_t$$
+                $$c_t^{(k)} = \arg\min_{j} \| \mathbf{r}^{(k-1)} - \mathbf{e}_j^{(k)} \|^2, \quad k = 1, \ldots, K$$
+                $$\mathbf{r}^{(k)} = \mathbf{r}^{(k-1)} - \mathbf{e}_{c_t^{(k)}}^{(k)}$$
+
+                <p>
+                    where $\mathbf{e}_j^{(k)}$ is the $j$-th embedding vector in the $k$-th codebook, and $\mathbf{r}^{(k)}$ is the residual after quantizing with codebooks $1$ through $k$. Each successive codebook quantizes the residual error from the previous level, so the information content decreases with depth: codebook 1 carries the most information, codebook $K$ the least.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Cross-Reference: Neural Audio Codecs</div>
+                    <p style="margin-bottom: 0;">
+                        The codec language model paradigm critically depends on the quality of the underlying neural audio codec. For a detailed treatment of EnCodec, SoundStream, and residual vector quantization, see <a href="../10-audio-codecs/index.html">Tutorial 10: Neural Audio Codecs</a>. Understanding the RVQ token structure is essential for following the VALL-E and SoundStorm architectures discussed below.
+                    </p>
+                </div>
+
+                <!-- Section 2: VALL-E -->
+                <h2 id="vall-e">VALL-E: Neural Codec Language Model</h2>
+
+                <p>
+                    VALL-E (Wang et al., 2023) from Microsoft Research was the first system to fully realize the codec language model paradigm for TTS. The key insight of VALL-E is that zero-shot TTS can be framed as a conditional language modeling problem: given a text transcript and a 3-second audio prompt of a target speaker, generate the codec tokens for the full utterance in that speaker's voice. No speaker embeddings, no fine-tuning, no enrollment &mdash; just in-context learning, exactly as in GPT-3.
+                </p>
+
+                <p>
+                    VALL-E was trained on 60,000 hours of English speech from the LibriLight dataset &mdash; orders of magnitude more data than previous TTS systems (which typically used 10&ndash;100 hours). This massive scale is what enables the in-context learning capability: the model has seen enough speakers and enough variation to generalize to unseen voices from just a 3-second example.
+                </p>
+
+                <p>
+                    <strong>The two-stage architecture.</strong> VALL-E addresses the challenge of modeling the $K$-level RVQ token matrix by decomposing it into two stages, each handled by a separate model:
+                </p>
+
+                <p>
+                    <strong>Stage 1: Autoregressive (AR) model for the first codebook.</strong> The AR model generates tokens from the first (coarsest) codebook one at a time, left to right, conditioned on the text and the prompt's first-codebook tokens:
+                </p>
+                $$p_{\text{AR}}(\mathbf{c}^{(1)} \mid \mathbf{x}, \tilde{\mathbf{c}}^{(1)}) = \prod_{t=1}^{T} p_\theta(c_t^{(1)} \mid c_{&lt;t}^{(1)}, \mathbf{x}, \tilde{\mathbf{c}}^{(1)})$$
+
+                <p>
+                    where $\mathbf{x}$ is the phoneme sequence, $\tilde{\mathbf{c}}^{(1)}$ is the first-codebook tokens from the 3-second prompt, and $c_{&lt;t}^{(1)} = (c_1^{(1)}, \ldots, c_{t-1}^{(1)})$ are the previously generated tokens. This is a standard causal language model, identical in structure to GPT, but operating on audio tokens instead of text tokens.
+                </p>
+
+                <p>
+                    The training objective for the AR model is the standard cross-entropy loss:
+                </p>
+                $$\mathcal{L}_{\text{AR}} = -\sum_{t=1}^{T} \log p_\theta(c_t^{(1)} \mid c_{&lt;t}^{(1)}, \mathbf{x}, \tilde{\mathbf{c}}^{(1)})$$
+
+                <p>
+                    <strong>Stage 2: Non-autoregressive (NAR) model for codebooks 2 through $K$.</strong> Once the first codebook is generated, the NAR model fills in all remaining codebooks in parallel (across time), but iteratively (across codebook levels). For each level $k \in \{2, \ldots, K\}$, the NAR model predicts all $T$ tokens simultaneously, conditioned on the text and all previously generated codebook levels:
+                </p>
+                $$p_{\text{NAR}}(\mathbf{c}^{(k)} \mid \mathbf{c}^{(1:k-1)}, \mathbf{x}) = \prod_{t=1}^{T} p_\phi(c_t^{(k)} \mid \mathbf{c}^{(1:k-1)}, \mathbf{x})$$
+
+                <p>
+                    The NAR training objective sums over all codebook levels:
+                </p>
+                $$\mathcal{L}_{\text{NAR}} = -\sum_{k=2}^{K} \sum_{t=1}^{T} \log p_\phi(c_t^{(k)} \mid \mathbf{c}^{(1:k-1)}, \mathbf{x})$$
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: VALL-E Two-Stage Generation</div>
+                    <p>
+                        Let $\mathbf{x} = (x_1, \ldots, x_L)$ be a phoneme sequence, $\tilde{\mathbf{C}} \in \{1,\ldots,N\}^{K \times T_p}$ be the codec tokens of a speaker prompt, and $\mathbf{C} \in \{1,\ldots,N\}^{K \times T}$ be the target codec tokens. VALL-E factorizes the generation as:
+                    </p>
+                    $$p(\mathbf{C} \mid \mathbf{x}, \tilde{\mathbf{C}}) = \underbrace{p_{\text{AR}}(\mathbf{c}^{(1)} \mid \mathbf{x}, \tilde{\mathbf{c}}^{(1)})}_{\text{Stage 1: AR, sequential over } t} \cdot \underbrace{\prod_{k=2}^{K} p_{\text{NAR}}(\mathbf{c}^{(k)} \mid \mathbf{c}^{(1:k-1)}, \mathbf{x})}_{\text{Stage 2: NAR, parallel over } t}$$
+                    <p>
+                        Stage 1 determines the temporal structure (duration, rhythm, coarse prosody). Stage 2 fills in spectral detail (timbre, harmonics, fine structure). This decomposition exploits the RVQ hierarchy: the first codebook carries enough information for intelligible (if low-quality) speech, and subsequent codebooks progressively refine it.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Architecture details.</strong> Both the AR and NAR models are decoder-only transformers. The AR model uses causal (left-to-right) attention masks, exactly like GPT. The NAR model uses bidirectional attention (no causal mask), since it generates all tokens at a given codebook level simultaneously and can attend to the full context. Both models share the same text encoder, which processes the phoneme sequence using a transformer encoder to produce contextual phoneme representations.
+                </p>
+
+                <p>
+                    The input to the AR model is constructed by concatenating three sequences: (1) the phoneme embeddings from the text encoder, (2) the first-codebook tokens of the prompt, and (3) the first-codebook tokens generated so far. The model uses separate embedding tables for phonemes and audio tokens, with a learned separator token between the prompt and the generation region.
+                </p>
+
+                <p>
+                    <strong>In-context learning.</strong> The most remarkable property of VALL-E is its ability to clone an unseen speaker's voice from a 3-second prompt without any fine-tuning. This works because the model learns, during training on 60K hours of diverse speech, to extract speaker characteristics from the prompt tokens and apply them to the generated tokens. The mechanism is analogous to in-context learning in GPT-3: the prompt serves as a "few-shot example" that demonstrates the desired speaker characteristics, and the model generalizes from this example to new content.
+                </p>
+
+                <p>
+                    Formally, the 3-second prompt provides approximately $T_p = 3 \times 75 = 225$ frames of codec tokens (at 75 Hz frame rate for EnCodec at 24 kHz). These 225 tokens encode the speaker's vocal tract characteristics, pitch range, speaking rate, accent, and recording conditions. The AR model's attention mechanism allows each generated token to attend to all prompt tokens, effectively using the prompt as a continuous speaker representation &mdash; far richer than a fixed-dimensional speaker embedding vector.
+                </p>
+
+                <p>
+                    <strong>Why 60K hours matters.</strong> Previous TTS systems were trained on datasets like LJSpeech (24 hours, single speaker) or LibriTTS (585 hours, ~2,400 speakers). VALL-E's training on LibriLight (60,000 hours, ~7,000 speakers) represents a 100x increase in data scale. This massive dataset is what enables the emergent in-context learning capability. With only 585 hours, the model cannot reliably extract speaker characteristics from a 3-second prompt; with 60,000 hours, it can. This is a direct parallel to the text LLM finding that in-context learning emerges only at sufficient scale.
+                </p>
+
+                <!-- Section 3: VALL-E X -->
+                <h2 id="vall-e-x">VALL-E X: Cross-Lingual Extension</h2>
+
+                <p>
+                    VALL-E X (Zhang et al., 2023) extends the VALL-E framework to cross-lingual speech synthesis: given a text in language $A$ and a speaker prompt in language $B$, generate speech in language $A$ with the voice characteristics of the speaker from language $B$. For example, given English text and a Chinese speaker's voice prompt, VALL-E X produces English speech that sounds like the Chinese speaker &mdash; preserving their timbre, pitch range, and vocal quality even though the speaker may never have spoken English.
+                </p>
+
+                <p>
+                    The key challenge in cross-lingual TTS is the <strong>language-speaker disentanglement problem</strong>. A speaker's voice is intertwined with the language they speak: different languages use different phoneme inventories, different prosodic patterns, and different articulatory settings. A Chinese speaker's /r/ is produced differently from an English speaker's /r/. VALL-E X must somehow separate what is "speaker identity" from what is "language-specific articulation."
+                </p>
+
+                <p>
+                    <strong>Architecture modifications.</strong> VALL-E X makes two key modifications to the base VALL-E architecture:
+                </p>
+
+                <ol>
+                    <li><strong>Multi-lingual phoneme encoder:</strong> The text encoder handles phonemes from multiple languages simultaneously, using a unified IPA-based phoneme vocabulary. Language-specific tokens are prepended to indicate the target language, allowing the model to switch between language-specific pronunciation rules.</li>
+                    <li><strong>Cross-lingual prompt conditioning:</strong> During training, the model sees paired examples where the text language differs from the prompt language. This is achieved using multilingual speech corpora and, critically, by leveraging bilingual speakers who provide natural examples of the same voice in different languages.</li>
+                </ol>
+
+                <p>
+                    The cross-lingual generation objective extends the VALL-E formulation:
+                </p>
+                $$p(\mathbf{C} \mid \mathbf{x}_A, \tilde{\mathbf{C}}_B) = p_{\text{AR}}(\mathbf{c}^{(1)} \mid \mathbf{x}_A, \tilde{\mathbf{c}}_B^{(1)}) \cdot \prod_{k=2}^{K} p_{\text{NAR}}(\mathbf{c}^{(k)} \mid \mathbf{c}^{(1:k-1)}, \mathbf{x}_A)$$
+
+                <p>
+                    where $\mathbf{x}_A$ denotes phonemes in language $A$ and $\tilde{\mathbf{C}}_B$ denotes the prompt codec tokens from a speaker of language $B$. The model must learn to separate the language-dependent aspects of the prompt (which should be overridden by language $A$) from the speaker-dependent aspects (which should be preserved).
+                </p>
+
+                <p>
+                    <strong>The alignment challenge.</strong> Cross-lingual TTS introduces a subtle alignment difficulty. When generating English speech from a Chinese speaker's prompt, the temporal patterns (syllable timing, stress patterns, rhythm) must follow English conventions, not Chinese ones. Chinese is a syllable-timed language with relatively uniform syllable durations, while English is stress-timed with large duration contrasts between stressed and unstressed syllables. The AR model must learn these language-specific temporal patterns while maintaining the speaker's voice characteristics &mdash; a non-trivial disentanglement.
+                </p>
+
+                <p>
+                    Evaluation of VALL-E X showed that cross-lingual voice cloning quality degrades compared to same-language cloning, but remains remarkably high. Speaker similarity scores (measured by cosine similarity of speaker embeddings from an independent speaker verification model) drop by roughly 5&ndash;10% in the cross-lingual setting. The primary failure mode is "accent leakage," where the generated speech carries traces of the prompt speaker's native language accent into the target language.
+                </p>
+
+                <!-- Section 4: SoundStorm -->
+                <h2 id="soundstorm">SoundStorm: Parallel Token Generation</h2>
+
+                <p>
+                    SoundStorm (Borsos et al., 2023) from Google addresses the primary weakness of VALL-E's autoregressive generation: speed. VALL-E's AR model generates first-codebook tokens one at a time, requiring $T$ sequential forward passes through the transformer. For a 10-second utterance at 75 Hz, this means 750 sequential steps &mdash; each involving a full transformer forward pass. SoundStorm replaces this sequential generation with a <strong>parallel iterative decoding</strong> strategy inspired by MaskGIT (Chang et al., 2022), achieving up to 100x faster generation while maintaining comparable quality.
+                </p>
+
+                <p>
+                    <strong>The MaskGIT paradigm for audio.</strong> MaskGIT (Masked Generative Image Transformer) generates images by iteratively unmasking tokens. Starting from a fully masked sequence, the model predicts all tokens simultaneously, selects the most confident predictions to unmask, and re-predicts the remaining masked tokens in the next iteration. This process repeats for a fixed number of iterations (typically 8&ndash;16), progressively revealing the full sequence.
+                </p>
+
+                <p>
+                    SoundStorm adapts this paradigm to the RVQ token structure of audio codecs. The generation proceeds level by level through the codebook hierarchy, and within each level, tokens are generated in parallel using the iterative masking scheme. The process is:
+                </p>
+
+                <ol>
+                    <li><strong>Input conditioning:</strong> SoundStorm takes as input a sequence of semantic tokens (from a model like AudioLM's semantic encoder or w2v-BERT), which provide the linguistic content and coarse temporal structure. This is analogous to VALL-E's text conditioning but uses learned semantic representations instead of phonemes.</li>
+                    <li><strong>Level-by-level generation:</strong> For each codebook level $k = 1, 2, \ldots, K$:
+                        <ul>
+                            <li>Initialize all tokens at level $k$ as [MASK].</li>
+                            <li>For $I$ iterations: predict all masked tokens, unmask the most confident ones, re-mask the rest.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Decoding:</strong> Feed the complete token matrix through the codec decoder to produce the waveform.</li>
+                </ol>
+
+                <p>
+                    <strong>The confidence-based masking schedule.</strong> At each iteration $i$ within a codebook level, SoundStorm must decide how many tokens to unmask. This is controlled by a masking schedule function $\gamma(i/I) \in [0, 1]$ that determines the fraction of tokens remaining masked after iteration $i$. A common choice is the cosine schedule:
+                </p>
+                $$\gamma(r) = \cos\left(\frac{\pi r}{2}\right)$$
+
+                <p>
+                    where $r = i/I$ is the progress ratio. At the start ($r = 0$), $\gamma = 1$ and all tokens are masked. At the end ($r = 1$), $\gamma = 0$ and all tokens are unmasked. The number of tokens to unmask at step $i$ is:
+                </p>
+                $$n_{\text{unmask}}(i) = \lfloor T \cdot \gamma((i-1)/I) \rfloor - \lfloor T \cdot \gamma(i/I) \rfloor$$
+
+                <p>
+                    Among the currently masked tokens, the model selects the $n_{\text{unmask}}(i)$ tokens with the highest prediction confidence (measured by the maximum softmax probability) to unmask. This confidence-based selection ensures that "easy" tokens (those the model is most sure about) are committed first, while "hard" tokens (ambiguous or context-dependent) are deferred to later iterations when more context is available from the already-unmasked tokens.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: SoundStorm Iterative Parallel Decoding</div>
+                    <p>
+                        Let $\mathbf{s} = (s_1, \ldots, s_T)$ be semantic conditioning tokens and $K$ be the number of codebook levels. For each level $k = 1, \ldots, K$, SoundStorm generates tokens $\mathbf{c}^{(k)}$ through $I$ iterations:
+                    </p>
+                    <ol>
+                        <li>Initialize: $\mathbf{m}^{(0)} = \{1, 2, \ldots, T\}$ (all positions masked).</li>
+                        <li>For $i = 1, \ldots, I$:
+                            <ul>
+                                <li>Predict: $\hat{p}_t = \text{Conformer}(\mathbf{s}, \mathbf{c}^{(1:k-1)}, \mathbf{c}_{\text{unmasked}}^{(k)})$ for all $t \in \mathbf{m}^{(i-1)}$</li>
+                                <li>Confidence: $\text{conf}_t = \max_j \hat{p}_t[j]$ for each masked position</li>
+                                <li>Select top $n_{\text{unmask}}(i)$ positions by confidence, unmask them</li>
+                                <li>Sample: $c_t^{(k)} \sim \text{Categorical}(\hat{p}_t)$ for newly unmasked positions</li>
+                            </ul>
+                        </li>
+                    </ol>
+                    <p>
+                        Total forward passes: $K \times I$ (typically $8 \times 16 = 128$), compared to VALL-E's $T + K - 1$ (typically $750 + 7 = 757$ for 10 seconds, but the AR portion's $T = 750$ steps are strictly sequential).
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Conformer backbone.</strong> SoundStorm uses a Conformer architecture (Gulati et al., 2020) instead of a standard transformer. The Conformer combines self-attention with depthwise separable convolutions, capturing both global dependencies (via attention) and local patterns (via convolution). This is particularly well-suited for audio, where local temporal correlations are strong (adjacent frames are highly correlated) but long-range dependencies also matter (prosodic contours span hundreds of milliseconds).
+                </p>
+
+                <p>
+                    <strong>Speed comparison with VALL-E.</strong> For a 10-second utterance at 75 Hz with $K = 8$ codebooks and $I = 16$ MaskGIT iterations:
+                </p>
+                <ul>
+                    <li><strong>VALL-E:</strong> AR model requires $T = 750$ sequential forward passes. NAR model requires $K - 1 = 7$ forward passes (one per remaining codebook level). Total sequential steps: $\sim 757$. However, each AR step is a full transformer pass, so wall-clock time is dominated by the 750 AR steps.</li>
+                    <li><strong>SoundStorm:</strong> $K \times I = 8 \times 16 = 128$ forward passes, but each pass processes all $T$ tokens in parallel. With modern GPU parallelism, each pass takes roughly the same time as one VALL-E AR step. Effective speedup: $\sim 750 / 128 \approx 5.9\times$ in forward passes, but the actual wall-clock speedup is closer to $\sim 100\times$ because SoundStorm's Conformer passes are more efficiently parallelized than VALL-E's autoregressive generation (which suffers from KV-cache overhead and sequential dependency).</li>
+                </ul>
+
+                <p>
+                    <strong>Quality trade-offs.</strong> SoundStorm's parallel generation sacrifices some of the autoregressive model's ability to capture long-range temporal dependencies. In VALL-E, each token can attend to all previously generated tokens, creating a strictly causal chain. In SoundStorm, within each iteration, the model can only attend to tokens unmasked in previous iterations, which may miss some long-range coherence. In practice, this trade-off is acceptable: SoundStorm matches or slightly underperforms VALL-E on speaker similarity and naturalness metrics, while being dramatically faster.
+                </p>
+
+                <!-- Section 5: Bark and Open-Source Speech LLMs -->
+                <h2 id="bark">Bark and Open-Source Speech LLMs</h2>
+
+                <p>
+                    While VALL-E and SoundStorm were published as research papers without released model weights, the open-source community rapidly developed practical speech language models. The most notable is <strong>Bark</strong> by Suno AI, which demonstrated that the codec LM paradigm could be implemented as an accessible, open-source system capable of generating highly expressive speech with laughter, music, and non-verbal sounds.
+                </p>
+
+                <p>
+                    <strong>Bark's three-stage hierarchy.</strong> Bark uses a three-level token hierarchy rather than VALL-E's two-stage approach:
+                </p>
+
+                <ol>
+                    <li><strong>Semantic tokens:</strong> A GPT-2-scale transformer generates semantic tokens from text. These tokens (derived from a HuBERT-like model) capture linguistic content, prosody, and high-level speaker characteristics. This stage determines <em>what</em> is said and <em>how</em> it is said (intonation, rhythm, emotion).</li>
+                    <li><strong>Coarse acoustic tokens:</strong> A second GPT-2-scale transformer converts semantic tokens to coarse EnCodec tokens (codebooks 1&ndash;2). This stage determines the broad acoustic realization &mdash; the speaker's voice quality, pitch contour, and spectral envelope.</li>
+                    <li><strong>Fine acoustic tokens:</strong> A smaller model refines coarse tokens into fine tokens (codebooks 3&ndash;8). This stage adds high-frequency detail, reducing quantization artifacts and improving perceptual quality.</li>
+                </ol>
+
+<pre><code>Bark Pipeline:
+Text &rarr; [GPT: Semantic] &rarr; Semantic Tokens &rarr; [GPT: Coarse] &rarr; Coarse Codes (1-2)
+     &rarr; [Model: Fine] &rarr; Fine Codes (3-8) &rarr; [EnCodec Decoder] &rarr; Waveform</code></pre>
+
+                <p>
+                    The three-stage decomposition has an elegant information-theoretic motivation. Semantic tokens capture high-level information (linguistic content, prosody) at a low bitrate (~100 bps), coarse acoustic tokens add speaker identity and broad spectral shape (~1.5 kbps), and fine acoustic tokens add perceptual detail (~4.5 kbps). Each stage focuses on a different "resolution" of the audio signal, and the models can be sized appropriately: the semantic model is the largest (it must understand language), while the fine model is the smallest (it only needs to predict local spectral refinements).
+                </p>
+
+                <p>
+                    <strong>Expressiveness beyond speech.</strong> One of Bark's most striking capabilities is generating non-speech vocalizations: laughter ("[laughs]"), sighs ("[sighs]"), music ("&hearts; la la la &hearts;"), and hesitation markers ("um," "uh"). This emerges naturally from training on diverse audio data &mdash; the semantic token space learned by the HuBERT-like model captures not just phonemic content but also paralinguistic features. When the text prompt includes markers like "[laughs]," the semantic model generates tokens that the acoustic models realize as laughter.
+                </p>
+
+                <p>
+                    <strong>The broader open-source landscape.</strong> Bark catalyzed a wave of open-source speech LLMs:
+                </p>
+
+                <ul>
+                    <li><strong>Tortoise-TTS</strong> (James Betker, 2022): A precursor to the codec LM paradigm, Tortoise uses autoregressive generation of mel-spectrogram tokens (discretized via VQ-VAE) followed by a diffusion-based decoder. While not strictly a codec LM, it demonstrated that AR generation of discrete speech tokens yields excellent quality, especially with classifier-free guidance. Tortoise's CLVP (Contrastive Language-Voice Pretraining) model &mdash; an audio analog of CLIP &mdash; enables ranking of multiple generation candidates.</li>
+                    <li><strong>ChatTTS</strong> (2024): An open-source conversational TTS model designed for dialogue applications. ChatTTS generates natural, conversational speech with appropriate turn-taking, filled pauses, and prosodic variation. It uses a similar codec LM architecture but is specifically trained on conversational speech data.</li>
+                    <li><strong>MeloTTS</strong> (MyShell, 2024): A high-quality, multilingual TTS system focusing on efficiency. MeloTTS achieves near-real-time synthesis on CPU by using a more compact model architecture and optimized inference.</li>
+                    <li><strong>Parler-TTS</strong> (Hugging Face, 2024): A text-described TTS system where the user provides a natural language description of the desired voice ("A female speaker with a warm, low-pitched voice speaking slowly in a quiet room") rather than an audio prompt. This replaces the reference audio with a text description, making zero-shot TTS even more accessible.</li>
+                </ul>
+
+                <!-- Section 6: Scaling Laws for Speech LLMs -->
+                <h2 id="scaling-laws">Scaling Laws for Speech LLMs</h2>
+
+                <p>
+                    One of the most consequential findings in modern AI is that language model performance scales predictably with compute, data, and model size, following power laws. The natural question is: do similar scaling laws hold for speech language models? The emerging evidence suggests yes, with some speech-specific nuances.
+                </p>
+
+                <p>
+                    <strong>The Chinchilla scaling law framework.</strong> For text LLMs, Hoffmann et al. (2022) showed that loss scales as:
+                </p>
+                $$L(N, D) = \frac{A}{N^\alpha} + \frac{B}{D^\beta} + L_\infty$$
+
+                <p>
+                    where $N$ is the number of model parameters, $D$ is the number of training tokens, $\alpha \approx 0.34$, $\beta \approx 0.28$, and $L_\infty$ is the irreducible loss. For speech LLMs, we can write an analogous relation:
+                </p>
+                $$L_{\text{speech}}(N, D_{\text{hours}}) = \frac{A_s}{N^{\alpha_s}} + \frac{B_s}{D_{\text{hours}}^{\beta_s}} + L_{\infty,s}$$
+
+                <p>
+                    where $D_{\text{hours}}$ is the number of training hours. Converting hours to tokens: at 75 Hz with $K = 8$ codebooks, one hour of audio produces $75 \times 3600 \times 8 = 2{,}160{,}000$ tokens. So 60,000 hours (VALL-E's training set) corresponds to approximately $1.3 \times 10^{11}$ tokens &mdash; comparable to GPT-2's training data size but far less than GPT-3's $3 \times 10^{11}$ tokens.
+                </p>
+
+                <p>
+                    <strong>Dataset size effects.</strong> The relationship between training data size and speech quality has been studied across several systems:
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="padding: 0.5rem; text-align: left;">System</th>
+                            <th style="padding: 0.5rem; text-align: right;">Hours</th>
+                            <th style="padding: 0.5rem; text-align: right;">Speakers</th>
+                            <th style="padding: 0.5rem; text-align: left;">Zero-shot?</th>
+                            <th style="padding: 0.5rem; text-align: left;">Key capability</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">VITS</td>
+                            <td style="padding: 0.5rem; text-align: right;">~585</td>
+                            <td style="padding: 0.5rem; text-align: right;">~2,400</td>
+                            <td style="padding: 0.5rem;">No</td>
+                            <td style="padding: 0.5rem;">Multi-speaker, requires enrollment</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">VALL-E</td>
+                            <td style="padding: 0.5rem; text-align: right;">60,000</td>
+                            <td style="padding: 0.5rem; text-align: right;">~7,000</td>
+                            <td style="padding: 0.5rem;">Yes</td>
+                            <td style="padding: 0.5rem;">Zero-shot voice cloning</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">VALL-E 2</td>
+                            <td style="padding: 0.5rem; text-align: right;">60,000</td>
+                            <td style="padding: 0.5rem; text-align: right;">~7,000</td>
+                            <td style="padding: 0.5rem;">Yes</td>
+                            <td style="padding: 0.5rem;">Human-parity naturalness</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding: 0.5rem;">VoiceCraft</td>
+                            <td style="padding: 0.5rem; text-align: right;">~100,000</td>
+                            <td style="padding: 0.5rem; text-align: right;">~10,000+</td>
+                            <td style="padding: 0.5rem;">Yes</td>
+                            <td style="padding: 0.5rem;">Speech editing + generation</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.5rem;">GPT-4o (est.)</td>
+                            <td style="padding: 0.5rem; text-align: right;">&gt;500,000</td>
+                            <td style="padding: 0.5rem; text-align: right;">&gt;100,000</td>
+                            <td style="padding: 0.5rem;">Yes</td>
+                            <td style="padding: 0.5rem;">Native speech understanding + generation</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    The pattern is clear: in-context learning for zero-shot TTS requires massive datasets. Systems trained on hundreds of hours can produce high-quality speech for known speakers but cannot generalize to unseen speakers from a short prompt. The threshold appears to be around 10,000&ndash;50,000 hours of diverse, multi-speaker data for reliable zero-shot capability to emerge.
+                </p>
+
+                <p>
+                    <strong>Model size scaling.</strong> VALL-E uses approximately 370M parameters (split between AR and NAR models). Larger variants have been explored: VALL-E 2 uses a similar parameter count but improves architecture efficiency, while systems like Voicebox (Meta, 2023) use up to 600M parameters. The trend follows text LLMs: larger models with more data produce better results, but with diminishing returns. The current sweet spot for speech LLMs appears to be 300M&ndash;1B parameters, trained on 10K&ndash;100K hours of speech.
+                </p>
+
+                <p>
+                    <strong>Data diversity matters more than data quantity.</strong> An important finding from speech LLM research is that speaker diversity is at least as important as total hours. Training on 60,000 hours from 100 speakers produces worse zero-shot capabilities than training on 10,000 hours from 5,000 speakers. This is because the model needs to observe many different voices to learn a generalizable mapping from prompt tokens to speaker characteristics. The information about "what makes a speaker sound like themselves" is only learnable through exposure to the contrast between many different speakers.
+                </p>
+
+                <p>
+                    <strong>Emergence at scale.</strong> Several capabilities appear to emerge only at sufficient scale, mirroring the emergence phenomenon in text LLMs:
+                </p>
+                <ul>
+                    <li><strong>Zero-shot voice cloning</strong> emerges at ~10K hours of multi-speaker data.</li>
+                    <li><strong>Emotion preservation</strong> (matching the emotional tone of the prompt) emerges at ~50K hours.</li>
+                    <li><strong>Cross-lingual voice cloning</strong> emerges when the training data includes multiple languages, typically requiring ~10K hours per language.</li>
+                    <li><strong>Non-speech sound generation</strong> (laughter, music, environmental sounds) emerges when training data includes these modalities, requiring diverse audio sources beyond clean speech.</li>
+                </ul>
+
+                <!-- Section 7: Robustness and Failure Modes -->
+                <h2 id="robustness">Robustness and Failure Modes</h2>
+
+                <p>
+                    Despite their impressive capabilities, speech language models suffer from several systematic failure modes, many of which are direct consequences of the autoregressive generation paradigm. Understanding these failure modes is essential for building robust TTS systems.
+                </p>
+
+                <p>
+                    <strong>1. Word repetition and looping.</strong> The most common failure mode in AR speech models is repetitive generation: the model gets "stuck" repeating a word or phrase, producing output like "the the the the..." or looping back to the beginning of the sentence. This occurs because the AR model's next-token prediction can enter a self-reinforcing cycle: once a repetition starts, the model's context contains repeated tokens, which increases the probability of generating more repetitions.
+                </p>
+
+                <p>
+                    Formally, if the model assigns high probability to repeating the previous token, a positive feedback loop forms:
+                </p>
+                $$p(c_t^{(1)} = v \mid c_{t-1}^{(1)} = v, c_{t-2}^{(1)} = v, \ldots) &gt; p(c_t^{(1)} = v \mid c_{t-1}^{(1)} = v)$$
+
+                <p>
+                    The repetition probability increases with the length of the existing repetition, making escape increasingly unlikely. This is the same failure mode observed in text generation (neural text degeneration), but it is more severe in speech because speech tokens have much stronger local correlations than text tokens (adjacent speech frames are highly similar).
+                </p>
+
+                <p>
+                    <strong>2. Word skipping and deletion.</strong> The opposite of repetition: the model skips words from the input text, producing fluent-sounding but incomplete speech. This typically occurs when the implicit alignment between text and audio tokens becomes misaligned &mdash; the model "jumps ahead" in the text, skipping one or more words. The risk is higher for long utterances, where alignment drift accumulates over hundreds of generated tokens.
+                </p>
+
+                <p>
+                    <strong>3. Hallucination.</strong> The model generates speech content that is not present in the input text. This can manifest as inserted words, changed words, or entirely fabricated phrases. Hallucination in speech LLMs is analogous to hallucination in text LLMs: the model generates plausible-sounding output that does not faithfully represent the input. The risk is particularly high when the input text contains rare words or unusual phoneme sequences that the model has not seen frequently during training.
+                </p>
+
+                <p>
+                    <strong>4. Speaker drift.</strong> During long utterances, the generated speech may gradually drift away from the prompt speaker's voice characteristics. The model's attention to the prompt tokens weakens as the generated sequence grows longer, causing a slow regression toward a "mean" speaker. This is a consequence of the finite attention window: in very long generations, the prompt tokens are far away in the context, and the model's ability to maintain speaker consistency degrades.
+                </p>
+
+                <p>
+                    <strong>Mitigation strategies.</strong> Several techniques have been developed to address these failure modes:
+                </p>
+
+                <ul>
+                    <li><strong>Repetition penalty:</strong> Reduce the logit for any token that has recently been generated. Given a history window of the last $W$ tokens, apply a multiplicative penalty:
+                    $$\text{logit}'(v) = \text{logit}(v) / \alpha^{\mathbb{1}[v \in \{c_{t-W}^{(1)}, \ldots, c_{t-1}^{(1)}\}]}$$
+                    where $\alpha &gt; 1$ is the penalty factor (typically $\alpha = 1.2$&ndash;$2.0$).</li>
+                    <li><strong>Duration prediction as a constraint:</strong> Use an auxiliary duration predictor to estimate the expected output length, and force the model to emit an end-of-sequence token near the predicted length. This prevents both excessive repetition (which produces too-long output) and word skipping (which produces too-short output).</li>
+                    <li><strong>Classifier-free guidance:</strong> Generate with both conditional and unconditional models, amplifying the conditional signal:
+                    $$\text{logit}_{\text{guided}} = (1 + w) \cdot \text{logit}_{\text{cond}} - w \cdot \text{logit}_{\text{uncond}}$$
+                    where $w &gt; 0$ is the guidance weight. This improves text adherence at the cost of some diversity.</li>
+                    <li><strong>Multi-candidate ranking:</strong> Generate multiple candidates (e.g., 4&ndash;16) and select the best one using an automatic quality metric. Tortoise-TTS uses CLVP (a CLIP-like model for audio) to rank candidates by text-audio alignment.</li>
+                    <li><strong>Hybrid AR-NAR approaches:</strong> Use the AR model only for coarse structure and let NAR models handle the details. VALL-E 2 introduces "grouped code modeling" where multiple codec tokens are predicted per AR step, reducing the number of sequential steps and the associated error accumulation.</li>
+                </ul>
+
+                <div class="note-box">
+                    <div class="box-title">The Fundamental Trade-off: AR vs. NAR</div>
+                    <p>
+                        Autoregressive models produce natural, temporally coherent speech but are slow and prone to error accumulation (repetition, skipping, drift). Non-autoregressive models are fast and avoid error accumulation but may produce less coherent temporal structure. The field is converging on <strong>hybrid approaches</strong>: use AR generation for the coarsest level of representation (where temporal coherence matters most) and NAR generation for refinement levels (where speed matters more than long-range coherence). VALL-E's two-stage design is an early instance of this principle; SoundStorm pushes further toward full NAR; and VALL-E 2's grouped code modeling occupies a middle ground.
+                    </p>
+                </div>
+
+                <!-- Section 8: The Convergence -->
+                <h2 id="convergence">The Convergence: Unified Audio-Text Models</h2>
+
+                <p>
+                    The codec language model paradigm for TTS is part of a larger trend: the convergence of text and audio modalities within a single model architecture. Once speech is represented as discrete tokens, it can be interleaved with text tokens in the same sequence, processed by the same transformer, and generated by the same decoding procedure. This convergence is producing models that can simultaneously understand and generate both text and speech, blurring the boundary between "language model" and "speech model."
+                </p>
+
+                <p>
+                    <strong>AudioPaLM</strong> (Rubenstein et al., 2023) from Google was among the first models to demonstrate this convergence. AudioPaLM extends the PaLM language model to jointly process text and audio tokens. The audio tokens come from AudioLM's semantic and acoustic token hierarchy, and they are simply interleaved with text tokens in the same sequence. AudioPaLM can perform speech-to-speech translation, TTS, ASR, and speech continuation, all with a single model.
+                </p>
+
+                <p>
+                    The unified model's training objective is simply next-token prediction over mixed text-audio sequences:
+                </p>
+                $$\mathcal{L} = -\sum_{t=1}^{T_{\text{total}}} \log p_\theta(z_t \mid z_{&lt;t})$$
+
+                <p>
+                    where $z_t$ is either a text token or an audio token, and the model does not distinguish between the two modalities at the architecture level &mdash; the same transformer layers, the same attention mechanism, the same output heads. The modality is determined by the token vocabulary: text tokens come from a text tokenizer (e.g., SentencePiece), and audio tokens come from a neural codec. The model learns to seamlessly transition between modalities.
+                </p>
+
+                <p>
+                    <strong>Gemini and GPT-4o.</strong> The latest frontier is represented by models like Google's Gemini and OpenAI's GPT-4o, which natively process and generate speech as part of their multimodal capabilities. GPT-4o, in particular, generates speech directly without a separate TTS system &mdash; the language model itself produces audio tokens that are decoded into speech in real time. This enables capabilities that were impossible with separate TTS systems:
+                </p>
+
+                <ul>
+                    <li><strong>Real-time conversation:</strong> The model listens, thinks, and speaks in a single forward pass, with latency measured in hundreds of milliseconds rather than seconds.</li>
+                    <li><strong>Emotional expression:</strong> Because the model generates speech tokens directly from its understanding of the conversation, it can modulate tone, emphasis, and emotion naturally, without explicit prosody control.</li>
+                    <li><strong>Interruption handling:</strong> The model can process incoming speech while still generating output speech, enabling natural conversational turn-taking.</li>
+                    <li><strong>Code-switching:</strong> The model can switch languages mid-sentence, producing natural bilingual or multilingual speech without separate per-language TTS systems.</li>
+                </ul>
+
+                <p>
+                    <strong>The architecture of unified models.</strong> A unified text-audio LM typically has the following structure:
+                </p>
+
+                $$\text{Input: } [z_1^{\text{text}}, \ldots, z_L^{\text{text}}, \text{[SEP]}, z_1^{\text{audio}}, \ldots, z_M^{\text{audio}}]$$
+
+                <p>
+                    The text tokens and audio tokens share the same transformer backbone but use separate embedding tables and output heads. The text embedding maps text token indices to vectors; the audio embedding maps codec token indices to vectors. Both embeddings are projected to the same hidden dimension $d$, so the transformer processes them uniformly. At the output, separate linear heads project the hidden states back to text and audio vocabularies, and the appropriate head is used depending on the expected output modality.
+                </p>
+
+                <p>
+                    <strong>The future: universal audio intelligence.</strong> The codec language model paradigm, combined with the unified model trend, points toward systems that can understand and generate any type of audio: speech, music, environmental sounds, and their mixtures. A single model could transcribe a noisy conversation (ASR), describe the background sounds (audio captioning), generate a response in the speaker's voice (conversational TTS), and add appropriate background music (audio generation) &mdash; all as a single sequence-to-sequence task. The key insight enabling this vision is that <strong>all audio can be represented as codec tokens</strong>, and all audio understanding and generation can be framed as token prediction.
+                </p>
+
+                <p>
+                    The information-theoretic perspective is illuminating. Human speech at normal speaking rate conveys roughly 39 bits per second of linguistic information (measured by information-theoretic analysis of language). Meanwhile, an EnCodec representation at 6 kbps conveys 6,000 bits per second of acoustic information. The ratio $6000/39 \approx 154$ means that the vast majority of bits in the audio codec representation encode paralinguistic information: speaker identity, emotion, recording conditions, background sounds. A unified text-audio model must learn to manage this massive information asymmetry between linguistic content and acoustic realization &mdash; and the hierarchical RVQ structure, where the first codebook captures coarse (more linguistic) information and later codebooks capture fine (more acoustic) information, provides the architectural scaffold for doing so.
+                </p>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>PyTorch pseudocode for the core components of VALL-E and SoundStorm, including autoregressive and non-autoregressive codec language models, SoundStorm's parallel decoding with confidence masking, zero-shot inference with prompt conditioning, and token-level repetition penalty.</p>
+
+                <!-- Code Example 1: VALL-E AR Model -->
+                <h3>1. VALL-E AR Model Forward Pass</h3>
+                <p>The autoregressive model for the first codebook. This is essentially a decoder-only transformer (like GPT) that generates first-codebook codec tokens conditioned on phoneme embeddings and a speaker prompt. The key architectural detail is the concatenation of phoneme, prompt, and target tokens into a single sequence with causal masking.</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VALLEARModel(nn.Module):
+    """VALL-E Autoregressive model for first codebook generation."""
+
+    def __init__(self, vocab_size=1024, phoneme_vocab=256, d_model=1024,
+                 nhead=16, num_layers=12, max_len=4096):
+        super().__init__()
+        self.d_model = d_model
+
+        # Separate embeddings for phonemes and audio tokens
+        self.phoneme_embed = nn.Embedding(phoneme_vocab, d_model)
+        self.audio_embed = nn.Embedding(vocab_size, d_model)
+        self.pos_embed = nn.Embedding(max_len, d_model)
+
+        # Special tokens
+        self.sep_token = nn.Parameter(torch.randn(1, 1, d_model))
+
+        # Transformer decoder layers (causal)
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=d_model, nhead=nhead,
+            dim_feedforward=4 * d_model, batch_first=True
+        )
+        self.transformer = nn.TransformerDecoder(decoder_layer, num_layers)
+
+        # Output projection to codec vocabulary
+        self.output_proj = nn.Linear(d_model, vocab_size)
+
+    def forward(self, phonemes, prompt_tokens, target_tokens):
+        """
+        Args:
+            phonemes: (B, L) phoneme indices
+            prompt_tokens: (B, T_p) first-codebook tokens from speaker prompt
+            target_tokens: (B, T) first-codebook target tokens (teacher forcing)
+        Returns:
+            logits: (B, T, vocab_size) predictions for each target position
+        """
+        B = phonemes.size(0)
+
+        # Embed each component
+        ph_emb = self.phoneme_embed(phonemes)          # (B, L, d)
+        prompt_emb = self.audio_embed(prompt_tokens)    # (B, T_p, d)
+        target_emb = self.audio_embed(target_tokens)    # (B, T, d)
+
+        # Concatenate: [phonemes, SEP, prompt, target]
+        sep = self.sep_token.expand(B, -1, -1)          # (B, 1, d)
+        sequence = torch.cat([ph_emb, sep, prompt_emb, target_emb], dim=1)
+
+        # Add positional embeddings
+        seq_len = sequence.size(1)
+        positions = torch.arange(seq_len, device=sequence.device)
+        sequence = sequence + self.pos_embed(positions)
+
+        # Causal attention mask: phonemes attend to all phonemes,
+        # audio tokens attend causally to all preceding tokens
+        L = phonemes.size(1)
+        T_p = prompt_tokens.size(1)
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=sequence.device),
+            diagonal=1
+        ).bool()
+        # Allow phonemes to attend to each other (bidirectional)
+        causal_mask[:L+1, :L+1] = False
+
+        # Transformer forward
+        memory = torch.zeros(B, 1, self.d_model, device=sequence.device)
+        output = self.transformer(
+            sequence, memory, tgt_mask=causal_mask
+        )
+
+        # Extract logits only for target positions
+        target_start = L + 1 + T_p
+        target_output = output[:, target_start:, :]
+        logits = self.output_proj(target_output)  # (B, T, vocab_size)
+        return logits
+
+    @torch.no_grad()
+    def generate(self, phonemes, prompt_tokens, max_len=750, temperature=0.8):
+        """Autoregressive generation for inference."""
+        B = phonemes.size(0)
+        device = phonemes.device
+
+        generated = torch.empty(B, 0, dtype=torch.long, device=device)
+
+        for t in range(max_len):
+            logits = self.forward(phonemes, prompt_tokens, generated)
+            # Take logits for the last position
+            next_logits = logits[:, -1, :] / temperature
+            probs = F.softmax(next_logits, dim=-1)
+            next_token = torch.multinomial(probs, 1)  # (B, 1)
+            generated = torch.cat([generated, next_token], dim=1)
+
+            # Check for end-of-sequence (token 0 = EOS)
+            if (next_token == 0).all():
+                break
+
+        return generated</code></pre>
+
+                <!-- Code Example 2: VALL-E NAR Model -->
+                <h3>2. VALL-E NAR Model Forward Pass</h3>
+                <p>The non-autoregressive model that fills in codebooks 2 through K given the first codebook. Unlike the AR model, this uses bidirectional attention (no causal mask), since all tokens at a given codebook level are predicted simultaneously. During training, a random codebook level $k$ is sampled, and the model predicts level $k$ given levels $1$ through $k-1$.</p>
+
+<pre><code>class VALLENARModel(nn.Module):
+    """VALL-E Non-Autoregressive model for codebooks 2..K."""
+
+    def __init__(self, vocab_size=1024, phoneme_vocab=256, d_model=1024,
+                 nhead=16, num_layers=12, num_codebooks=8):
+        super().__init__()
+        self.num_codebooks = num_codebooks
+
+        # Phoneme embedding
+        self.phoneme_embed = nn.Embedding(phoneme_vocab, d_model)
+
+        # Separate embedding per codebook level
+        self.codebook_embeds = nn.ModuleList([
+            nn.Embedding(vocab_size, d_model)
+            for _ in range(num_codebooks)
+        ])
+
+        # Level embedding to indicate which codebook we are predicting
+        self.level_embed = nn.Embedding(num_codebooks, d_model)
+
+        # Positional embedding
+        self.pos_embed = nn.Embedding(4096, d_model)
+
+        # Transformer encoder (bidirectional attention)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=nhead,
+            dim_feedforward=4 * d_model, batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers)
+
+        # Output head
+        self.output_proj = nn.Linear(d_model, vocab_size)
+
+    def forward(self, phonemes, codec_tokens, target_level):
+        """
+        Args:
+            phonemes: (B, L) phoneme indices
+            codec_tokens: (B, K, T) all codebook tokens (ground truth for 1..k-1)
+            target_level: int, which codebook level to predict (2..K, 1-indexed)
+        Returns:
+            logits: (B, T, vocab_size) predictions for target codebook level
+        """
+        B, K, T = codec_tokens.shape
+        k = target_level  # 1-indexed: predict level k given levels 1..k-1
+
+        # Embed phonemes
+        ph_emb = self.phoneme_embed(phonemes)  # (B, L, d)
+
+        # Sum embeddings from codebook levels 1 through k-1
+        audio_emb = torch.zeros(B, T, ph_emb.size(-1), device=ph_emb.device)
+        for level in range(k - 1):  # 0-indexed: levels 0..k-2
+            audio_emb = audio_emb + self.codebook_embeds[level](
+                codec_tokens[:, level, :]
+            )
+
+        # Add level embedding indicating target level
+        level_emb = self.level_embed(
+            torch.tensor(k - 1, device=ph_emb.device)
+        )
+        audio_emb = audio_emb + level_emb
+
+        # Add positional embeddings
+        positions_ph = torch.arange(ph_emb.size(1), device=ph_emb.device)
+        positions_audio = torch.arange(T, device=ph_emb.device)
+        ph_emb = ph_emb + self.pos_embed(positions_ph)
+        audio_emb = audio_emb + self.pos_embed(positions_audio)
+
+        # Concatenate phonemes and audio
+        sequence = torch.cat([ph_emb, audio_emb], dim=1)
+
+        # Bidirectional attention (no causal mask)
+        output = self.transformer(sequence)
+
+        # Extract audio positions
+        audio_output = output[:, ph_emb.size(1):, :]
+        logits = self.output_proj(audio_output)  # (B, T, vocab_size)
+        return logits
+
+    @torch.no_grad()
+    def generate_all_levels(self, phonemes, first_codebook):
+        """Generate codebooks 2..K given first codebook."""
+        B, T = first_codebook.shape
+        device = first_codebook.device
+
+        # Start with first codebook
+        all_codes = torch.zeros(B, self.num_codebooks, T,
+                                dtype=torch.long, device=device)
+        all_codes[:, 0, :] = first_codebook
+
+        # Iteratively predict each level
+        for k in range(2, self.num_codebooks + 1):  # k = 2, 3, ..., K
+            logits = self.forward(phonemes, all_codes, target_level=k)
+            # Greedy decoding (or sample with temperature)
+            predicted = logits.argmax(dim=-1)  # (B, T)
+            all_codes[:, k - 1, :] = predicted
+
+        return all_codes  # (B, K, T)</code></pre>
+
+                <!-- Code Example 3: SoundStorm Parallel Decoding -->
+                <h3>3. SoundStorm Parallel Decoding with Confidence Masking</h3>
+                <p>Implementation of SoundStorm's MaskGIT-style iterative parallel decoding. Starting from fully masked tokens, the model predicts all positions, unmasks the most confident ones, and repeats. The cosine masking schedule ensures smooth progressive unmasking.</p>
+
+<pre><code>import math
+
+class SoundStormDecoder:
+    """SoundStorm-style parallel iterative decoding."""
+
+    def __init__(self, model, num_codebooks=8, num_iterations=16):
+        self.model = model  # A Conformer-based model
+        self.num_codebooks = num_codebooks
+        self.num_iterations = num_iterations
+        self.mask_token_id = 1025  # Special MASK token
+
+    def cosine_schedule(self, ratio):
+        """Cosine masking schedule: fraction of tokens still masked."""
+        return math.cos(math.pi * ratio / 2)
+
+    @torch.no_grad()
+    def decode(self, semantic_tokens, temperature=0.7):
+        """
+        Parallel iterative decoding for all codebook levels.
+
+        Args:
+            semantic_tokens: (B, T) semantic conditioning tokens
+            temperature: sampling temperature
+        Returns:
+            codec_tokens: (B, K, T) generated codec tokens
+        """
+        B, T = semantic_tokens.shape
+        device = semantic_tokens.device
+        K = self.num_codebooks
+        I = self.num_iterations
+
+        # Initialize all codec tokens as MASK
+        codec_tokens = torch.full(
+            (B, K, T), self.mask_token_id,
+            dtype=torch.long, device=device
+        )
+
+        # Generate level by level
+        for k in range(K):
+            # Track which positions are still masked at level k
+            is_masked = torch.ones(B, T, dtype=torch.bool, device=device)
+
+            for i in range(1, I + 1):
+                # Predict all masked positions
+                logits = self.model(
+                    semantic_tokens, codec_tokens, level=k
+                )  # (B, T, vocab_size)
+
+                # Apply temperature
+                probs = F.softmax(logits / temperature, dim=-1)
+
+                # Compute confidence for each position
+                confidence, _ = probs.max(dim=-1)  # (B, T)
+
+                # Set confidence of already-unmasked positions to infinity
+                confidence[~is_masked] = float('inf')
+
+                # Determine how many tokens to unmask this iteration
+                prev_mask_ratio = self.cosine_schedule((i - 1) / I)
+                curr_mask_ratio = self.cosine_schedule(i / I)
+                n_to_unmask = max(
+                    1,
+                    int(T * prev_mask_ratio) - int(T * curr_mask_ratio)
+                )
+
+                # If last iteration, unmask everything remaining
+                if i == I:
+                    n_to_unmask = is_masked.sum(dim=1).max().item()
+
+                # Select top-confidence masked positions to unmask
+                # (for each batch element independently)
+                for b in range(B):
+                    masked_indices = is_masked[b].nonzero(as_tuple=True)[0]
+                    if len(masked_indices) == 0:
+                        continue
+
+                    masked_conf = confidence[b, masked_indices]
+                    n_unmask = min(n_to_unmask, len(masked_indices))
+                    _, top_idx = masked_conf.topk(n_unmask)
+                    unmask_positions = masked_indices[top_idx]
+
+                    # Sample tokens for unmasked positions
+                    for pos in unmask_positions:
+                        sampled = torch.multinomial(probs[b, pos], 1)
+                        codec_tokens[b, k, pos] = sampled.item()
+                        is_masked[b, pos] = False
+
+        return codec_tokens</code></pre>
+
+                <!-- Code Example 4: Zero-Shot Inference -->
+                <h3>4. Zero-Shot Inference with Prompt Conditioning</h3>
+                <p>Complete zero-shot TTS inference pipeline: encode the speaker prompt with a neural codec, run the AR model to generate first-codebook tokens, run the NAR model to fill remaining codebooks, and decode to a waveform.</p>
+
+<pre><code>class ZeroShotTTSPipeline:
+    """Complete VALL-E-style zero-shot TTS inference."""
+
+    def __init__(self, ar_model, nar_model, codec, phonemizer):
+        self.ar_model = ar_model
+        self.nar_model = nar_model
+        self.codec = codec          # Neural audio codec (e.g., EnCodec)
+        self.phonemizer = phonemizer  # Text-to-phoneme converter
+
+    @torch.no_grad()
+    def synthesize(self, text, prompt_audio, max_len=750,
+                   temperature=0.8, top_k=50):
+        """
+        Zero-shot TTS: generate speech in prompt speaker's voice.
+
+        Args:
+            text: str, input text to synthesize
+            prompt_audio: Tensor (1, T_audio), 3-second reference audio
+            max_len: maximum codec frames to generate
+            temperature: AR sampling temperature
+            top_k: top-k filtering for AR sampling
+        Returns:
+            waveform: Tensor (1, T_out), generated audio
+        """
+        device = prompt_audio.device
+
+        # Step 1: Convert text to phonemes
+        phoneme_ids = self.phonemizer(text)  # (1, L)
+        phoneme_ids = phoneme_ids.to(device)
+
+        # Step 2: Encode prompt audio to codec tokens
+        # codec.encode returns (B, K, T_p) token indices
+        prompt_codes = self.codec.encode(prompt_audio)  # (1, K, T_p)
+        prompt_first = prompt_codes[:, 0, :]  # (1, T_p) first codebook only
+
+        # Step 3: AR generation of first codebook
+        first_codebook = self.ar_model.generate(
+            phoneme_ids, prompt_first,
+            max_len=max_len, temperature=temperature
+        )  # (1, T_gen)
+
+        # Step 4: NAR generation of remaining codebooks
+        all_codes = self.nar_model.generate_all_levels(
+            phoneme_ids, first_codebook
+        )  # (1, K, T_gen)
+
+        # Step 5: Decode codec tokens to waveform
+        waveform = self.codec.decode(all_codes)  # (1, T_out)
+
+        return waveform
+
+# Usage example:
+# pipeline = ZeroShotTTSPipeline(ar_model, nar_model, encodec, g2p)
+# audio = pipeline.synthesize(
+#     "Hello, this is a zero-shot voice cloning demo.",
+#     prompt_audio=load_audio("speaker_prompt.wav")
+# )</code></pre>
+
+                <!-- Code Example 5: Repetition Penalty -->
+                <h3>5. Token-Level Repetition Penalty</h3>
+                <p>Implementation of repetition penalty for AR codec token generation. This is essential for preventing the "looping" failure mode where the model gets stuck repeating tokens. The penalty is applied to logits before sampling, reducing the probability of recently generated tokens.</p>
+
+<pre><code>def apply_repetition_penalty(logits, generated_tokens, penalty=1.2,
+                              window_size=50):
+    """
+    Apply repetition penalty to logits based on recent history.
+
+    Args:
+        logits: (B, vocab_size) raw logits for next token
+        generated_tokens: (B, T) previously generated tokens
+        penalty: float &gt; 1.0, penalty factor for repeated tokens
+        window_size: int, how far back to look for repetitions
+    Returns:
+        penalized_logits: (B, vocab_size)
+    """
+    B, V = logits.shape
+
+    # Look at last window_size tokens
+    if generated_tokens.size(1) &gt; window_size:
+        recent = generated_tokens[:, -window_size:]
+    else:
+        recent = generated_tokens
+
+    # For each batch element, penalize tokens that appear in recent history
+    penalized = logits.clone()
+    for b in range(B):
+        unique_recent = recent[b].unique()
+        for token_id in unique_recent:
+            if penalized[b, token_id] &gt; 0:
+                penalized[b, token_id] /= penalty
+            else:
+                penalized[b, token_id] *= penalty
+
+    return penalized
+
+
+def apply_frequency_penalty(logits, generated_tokens, alpha=0.5,
+                             window_size=100):
+    """
+    Frequency-based penalty: tokens repeated more often get penalized more.
+
+    penalty(v) = alpha * count(v in recent window)
+
+    Args:
+        logits: (B, vocab_size) raw logits
+        generated_tokens: (B, T) history
+        alpha: penalty per occurrence
+        window_size: history window
+    Returns:
+        penalized_logits: (B, vocab_size)
+    """
+    B, V = logits.shape
+
+    if generated_tokens.size(1) &gt; window_size:
+        recent = generated_tokens[:, -window_size:]
+    else:
+        recent = generated_tokens
+
+    penalized = logits.clone()
+    for b in range(B):
+        # Count occurrences of each token in the window
+        counts = torch.bincount(recent[b], minlength=V)[:V]
+        penalized[b] -= alpha * counts.float()
+
+    return penalized
+
+
+# Example: AR generation with repetition penalty
+@torch.no_grad()
+def generate_with_penalty(model, phonemes, prompt, max_len=750,
+                           temperature=0.8, rep_penalty=1.3):
+    """AR generation with repetition penalty and top-k sampling."""
+    B = phonemes.size(0)
+    device = phonemes.device
+    generated = torch.empty(B, 0, dtype=torch.long, device=device)
+
+    for t in range(max_len):
+        logits = model.forward(phonemes, prompt, generated)
+        next_logits = logits[:, -1, :]  # (B, vocab_size)
+
+        # Apply repetition penalty
+        if generated.size(1) &gt; 0:
+            next_logits = apply_repetition_penalty(
+                next_logits, generated, penalty=rep_penalty
+            )
+
+        # Temperature scaling
+        next_logits = next_logits / temperature
+
+        # Top-k filtering
+        top_k = 50
+        indices_to_remove = next_logits &lt; torch.topk(next_logits, top_k)[0][..., -1:]
+        next_logits[indices_to_remove] = float('-inf')
+
+        # Sample
+        probs = F.softmax(next_logits, dim=-1)
+        next_token = torch.multinomial(probs, 1)
+        generated = torch.cat([generated, next_token], dim=1)
+
+        if (next_token == 0).all():  # EOS
+            break
+
+    return generated</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of speech language models, from token generation arithmetic to system design trade-offs. The easy exercises cover core calculations for codec LM systems. The medium exercises require reasoning about architecture choices and evaluation metrics. The hard exercises involve system-level analysis and design. Solutions are provided for self-study.</p>
+
+                <div class="exercise-list">
+
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. AR vs NAR Token Generation Speed</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A VALL-E system uses EnCodec at 75 Hz frame rate with $K = 8$ codebooks. Consider generating a 10-second utterance. (a) How many total codec tokens must be generated? (b) How many sequential forward passes does the AR model require for the first codebook? (c) How many sequential forward passes does the NAR model require for codebooks 2&ndash;8? (d) If each forward pass takes 5 ms, what is the total generation time? (e) What is the real-time factor (RTF = generation time / audio duration)?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Total tokens: $T \times K = (10 \times 75) \times 8 = 750 \times 8 = 6{,}000$ tokens.</p>
+                                <p><strong>(b)</strong> AR model sequential passes: The AR model generates $T = 750$ tokens one at a time, so it requires <strong>750 sequential forward passes</strong>.</p>
+                                <p><strong>(c)</strong> NAR model sequential passes: The NAR model generates one codebook level per forward pass (all $T$ tokens at that level in parallel). For codebooks 2 through 8, that is $K - 1 = 7$ forward passes. Each pass predicts 750 tokens simultaneously, so <strong>7 sequential forward passes</strong>.</p>
+                                <p><strong>(d)</strong> Total generation time at 5 ms per pass: $(750 + 7) \times 5 = 757 \times 5 = 3{,}785$ ms $\approx 3.79$ seconds.</p>
+                                <p><strong>(e)</strong> RTF: $3.79 / 10 = 0.379$. Since RTF $&lt; 1$, the system generates speech faster than real time. However, the AR portion dominates: $750 \times 5 = 3{,}750$ ms (99.1% of total time). The NAR portion contributes only $7 \times 5 = 35$ ms (0.9%). This stark imbalance motivates SoundStorm's fully parallel approach.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. VALL-E Prompt Length Analysis</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>VALL-E uses a 3-second speaker prompt encoded by EnCodec at 75 Hz with $K = 8$ codebooks and codebook size $N = 1024$. (a) How many first-codebook prompt tokens does the AR model receive? (b) What is the total information capacity (in bits) of the full prompt (all codebooks)? (c) A typical speaker embedding (e.g., from an x-vector model) is a 256-dimensional float32 vector. How many bits does it contain? (d) How much richer is VALL-E's prompt representation compared to a speaker embedding?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> First-codebook prompt tokens: $T_p = 3 \times 75 = 225$ tokens.</p>
+                                <p><strong>(b)</strong> Total information capacity of the prompt: Each token is an index into a codebook of size $N = 1024$, so each token carries $\log_2(1024) = 10$ bits. Total prompt tokens: $K \times T_p = 8 \times 225 = 1{,}800$ tokens. Total capacity: $1{,}800 \times 10 = 18{,}000$ bits.</p>
+                                <p><strong>(c)</strong> Speaker embedding: $256 \times 32 = 8{,}192$ bits. However, the effective information content is lower since float32 values have limited precision in practice. A reasonable estimate is ~16 effective bits per dimension (speaker embeddings are typically normalized and don't use the full float32 range), giving $256 \times 16 = 4{,}096$ effective bits.</p>
+                                <p><strong>(d)</strong> Richness ratio: $18{,}000 / 4{,}096 \approx 4.4\times$ (using effective bits) or $18{,}000 / 8{,}192 \approx 2.2\times$ (using raw bits). Either way, VALL-E's prompt representation is significantly richer than a fixed speaker embedding. More importantly, the prompt tokens are <em>structured</em> &mdash; they form a temporal sequence that encodes not just speaker identity but also speaking style, prosodic patterns, and recording conditions over time. A single embedding vector compresses all this into a single point.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Codebook Hierarchy Information Content</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In a residual vector quantizer (RVQ) with $K = 8$ codebooks, each with $N = 1024$ entries, the reconstruction error decreases with each level. Suppose the reconstruction SNR (in dB) after using the first $k$ codebooks is approximately $\text{SNR}(k) = 5 + 4k$ dB. (a) What is the SNR using only codebook 1? Using all 8? (b) What is the marginal SNR improvement from each additional codebook? (c) If we define the "information value" of codebook $k$ as the marginal SNR gain, which codebook is most valuable? (d) Does this justify VALL-E's decision to use an AR model only for codebook 1?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> $\text{SNR}(1) = 5 + 4(1) = 9$ dB. $\text{SNR}(8) = 5 + 4(8) = 37$ dB. So using all 8 codebooks provides 37 dB SNR, which is considered high quality for speech (telephone quality is ~30 dB, CD quality is ~96 dB for 16-bit).</p>
+                                <p><strong>(b)</strong> With this linear model, the marginal SNR improvement from each additional codebook is constant: $\Delta\text{SNR} = \text{SNR}(k) - \text{SNR}(k-1) = 4$ dB per codebook. Each codebook contributes equally in dB terms.</p>
+                                <p><strong>(c)</strong> In the linear model, all codebooks contribute equally (4 dB each). However, this is somewhat misleading because dB is a logarithmic scale. In terms of actual signal power ratio, 9 dB (codebook 1 alone) means $10^{9/10} \approx 7.9\times$ power ratio, while going from 9 to 13 dB means the power ratio improves from $7.9\times$ to $20\times$, a $2.5\times$ multiplicative improvement. In absolute perceptual terms, <strong>codebook 1 is the most valuable</strong> because it provides the foundation: speech with only codebook 1 is intelligible (if noisy), while codebooks 2&ndash;8 without codebook 1 produce noise.</p>
+                                <p><strong>(d)</strong> Yes, this strongly justifies VALL-E's design. Codebook 1 determines the coarse structure (intelligibility, temporal pattern, speaker identity), so it benefits most from the AR model's ability to capture long-range dependencies. The remaining codebooks refine spectral detail, which has more local structure and can be predicted in parallel by the NAR model without sacrificing much quality.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. SoundStorm Masking Schedule Design</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>SoundStorm uses a cosine masking schedule $\gamma(r) = \cos(\pi r / 2)$ where $r = i/I$ and $I = 16$ iterations. (a) Compute the fraction of tokens remaining masked after iterations $i = 1, 4, 8, 12, 16$. (b) For $T = 750$ tokens, how many tokens are unmasked at each of those iterations? (c) Consider an alternative linear schedule $\gamma_{\text{lin}}(r) = 1 - r$. Compute the same quantities. (d) Why might the cosine schedule be preferable to the linear schedule? Hint: think about what happens in the first and last iterations.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Cosine schedule $\gamma(r) = \cos(\pi r / 2)$:</strong></p>
+                                <ul>
+                                    <li>$i = 1$: $\gamma(1/16) = \cos(\pi/32) = \cos(5.625°) \approx 0.9952$</li>
+                                    <li>$i = 4$: $\gamma(4/16) = \cos(\pi/8) = \cos(22.5°) \approx 0.9239$</li>
+                                    <li>$i = 8$: $\gamma(8/16) = \cos(\pi/4) = \cos(45°) \approx 0.7071$</li>
+                                    <li>$i = 12$: $\gamma(12/16) = \cos(3\pi/8) = \cos(67.5°) \approx 0.3827$</li>
+                                    <li>$i = 16$: $\gamma(16/16) = \cos(\pi/2) = 0$</li>
+                                </ul>
+                                <p><strong>(b) Tokens still masked (out of $T = 750$) and cumulative unmasked:</strong></p>
+                                <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0;">
+                                    <thead><tr style="border-bottom: 2px solid var(--color-border);"><th style="padding: 0.3rem;">$i$</th><th style="padding: 0.3rem; text-align: right;">$\gamma(i/I)$</th><th style="padding: 0.3rem; text-align: right;">Masked</th><th style="padding: 0.3rem; text-align: right;">Unmasked this step</th></tr></thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">0 (start)</td><td style="padding: 0.3rem; text-align: right;">1.000</td><td style="padding: 0.3rem; text-align: right;">750</td><td style="padding: 0.3rem; text-align: right;">0</td></tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">1</td><td style="padding: 0.3rem; text-align: right;">0.995</td><td style="padding: 0.3rem; text-align: right;">746</td><td style="padding: 0.3rem; text-align: right;">4</td></tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">4</td><td style="padding: 0.3rem; text-align: right;">0.924</td><td style="padding: 0.3rem; text-align: right;">693</td><td style="padding: 0.3rem; text-align: right;">&mdash;</td></tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">8</td><td style="padding: 0.3rem; text-align: right;">0.707</td><td style="padding: 0.3rem; text-align: right;">530</td><td style="padding: 0.3rem; text-align: right;">&mdash;</td></tr>
+                                        <tr style="border-bottom: 1px solid var(--color-border);"><td style="padding: 0.3rem;">12</td><td style="padding: 0.3rem; text-align: right;">0.383</td><td style="padding: 0.3rem; text-align: right;">287</td><td style="padding: 0.3rem; text-align: right;">&mdash;</td></tr>
+                                        <tr><td style="padding: 0.3rem;">16</td><td style="padding: 0.3rem; text-align: right;">0.000</td><td style="padding: 0.3rem; text-align: right;">0</td><td style="padding: 0.3rem; text-align: right;">287</td></tr>
+                                    </tbody>
+                                </table>
+                                <p><strong>(c) Linear schedule $\gamma_{\text{lin}}(r) = 1 - r$:</strong></p>
+                                <ul>
+                                    <li>$i = 1$: $\gamma_{\text{lin}} = 1 - 1/16 = 0.9375$, masked: 703, unmasked: 47</li>
+                                    <li>$i = 4$: $\gamma_{\text{lin}} = 1 - 4/16 = 0.75$, masked: 563</li>
+                                    <li>$i = 8$: $\gamma_{\text{lin}} = 0.5$, masked: 375</li>
+                                    <li>$i = 12$: $\gamma_{\text{lin}} = 0.25$, masked: 188</li>
+                                    <li>$i = 16$: $\gamma_{\text{lin}} = 0$, masked: 0</li>
+                                </ul>
+                                <p>With the linear schedule, $750/16 \approx 47$ tokens are unmasked per iteration (uniform rate).</p>
+                                <p><strong>(d) Why cosine is better:</strong> The cosine schedule unmasks <em>fewer</em> tokens in early iterations (only 4 at step 1, vs. 47 for linear) and <em>more</em> in later iterations (287 at the last step, vs. 47). This is beneficial because:</p>
+                                <ul>
+                                    <li>Early iterations have very little context (most tokens are masked), so predictions are uncertain. By unmasking only the most confident tokens, the schedule avoids committing to potentially wrong predictions.</li>
+                                    <li>Later iterations have abundant context (most tokens are revealed), so predictions are more reliable. The schedule can safely unmask many tokens at once.</li>
+                                    <li>The cosine shape provides a smooth "warm-up" that avoids the error propagation that would result from aggressively unmasking many tokens in early, low-confidence iterations.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Cross-Entropy Loss for Multi-Codebook Prediction</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>VALL-E's NAR model is trained with the loss $\mathcal{L}_{\text{NAR}} = -\sum_{k=2}^{K}\sum_{t=1}^{T}\log p_\phi(c_t^{(k)} \mid \mathbf{c}^{(1:k-1)}, \mathbf{x})$ where $K = 8$, $T = 750$, and codebook size $N = 1024$. (a) How many individual cross-entropy terms are in this sum? (b) What is the maximum possible loss (when predictions are uniform random)? (c) If the model achieves an average per-token cross-entropy of 3.0 nats, what is the perplexity per token? (d) What is the corresponding prediction accuracy if we assume the model's probability mass is concentrated on the top prediction? (e) Is 3.0 nats a reasonable loss for codec token prediction? Justify your answer.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Number of cross-entropy terms: $(K - 1) \times T = 7 \times 750 = 5{,}250$ terms.</p>
+                                <p><strong>(b)</strong> Maximum loss (uniform random prediction): Each term has maximum $\log(N) = \log(1024) = \ln(1024) \approx 6.931$ nats. Total maximum loss: $5{,}250 \times 6.931 \approx 36{,}388$ nats. Average per-token maximum: $6.931$ nats.</p>
+                                <p><strong>(c)</strong> Perplexity at 3.0 nats: $\text{PPL} = e^{3.0} \approx 20.09$. This means the model is, on average, as uncertain as if it were choosing uniformly among ~20 candidates (out of 1024 possible tokens).</p>
+                                <p><strong>(d)</strong> If the model's probability mass is concentrated on the top prediction with the rest spread uniformly, then $p_{\text{top}} \approx 1/\text{PPL} = 1/20.09 \approx 0.050$. However, this is the harmonic estimate. In practice, top-1 accuracy is typically much higher than $1/\text{PPL}$ because the probability distribution is skewed. For codec tokens with 3.0 nats CE loss, empirical top-1 accuracy is typically around 20&ndash;40%.</p>
+                                <p><strong>(e)</strong> 3.0 nats is reasonable for higher codebook levels (5&ndash;8), where the fine spectral details are harder to predict exactly. For lower codebook levels (2&ndash;3), which have stronger dependencies on level 1, a well-trained model should achieve 1.5&ndash;2.5 nats. The key insight is that <em>exact</em> token prediction is not necessary for good audio quality &mdash; the codec's VQ has built-in tolerance, and nearby codebook entries produce perceptually similar audio. What matters is that the overall distribution is well-calibrated, not that every token is predicted correctly.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. Zero-Shot Speaker Similarity Metrics</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>To evaluate zero-shot voice cloning, we measure speaker similarity using cosine similarity between speaker embeddings extracted by a pre-trained speaker verification model. Let $\mathbf{e}_{\text{prompt}} \in \mathbb{R}^{256}$ and $\mathbf{e}_{\text{gen}} \in \mathbb{R}^{256}$ be the speaker embeddings of the prompt and generated speech. (a) Write the cosine similarity formula. (b) If $\|\mathbf{e}_{\text{prompt}}\| = \|\mathbf{e}_{\text{gen}}\| = 1$ (normalized embeddings) and $\text{sim} = 0.85$, what is the angle (in degrees) between the two embeddings? (c) A speaker verification system uses a threshold of $\tau = 0.7$: if $\text{sim} &gt; \tau$, the two utterances are judged to be from the same speaker. VALL-E achieves $\text{sim} = 0.82$ on average. A fine-tuned VITS (with speaker embedding) achieves $\text{sim} = 0.88$. What might explain the gap? (d) Why is cosine similarity an imperfect metric for voice cloning quality?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Cosine similarity:</p>
+                                $$\text{sim}(\mathbf{e}_{\text{prompt}}, \mathbf{e}_{\text{gen}}) = \frac{\mathbf{e}_{\text{prompt}} \cdot \mathbf{e}_{\text{gen}}}{\|\mathbf{e}_{\text{prompt}}\| \cdot \|\mathbf{e}_{\text{gen}}\|}$$
+                                <p>For normalized embeddings, this simplifies to $\text{sim} = \mathbf{e}_{\text{prompt}} \cdot \mathbf{e}_{\text{gen}}$.</p>
+                                <p><strong>(b)</strong> Angle: $\cos(\theta) = 0.85 \Rightarrow \theta = \arccos(0.85) \approx 31.8°$. In a 256-dimensional space, this is a relatively small angle, indicating high similarity.</p>
+                                <p><strong>(c)</strong> The gap ($0.82$ vs. $0.88$) has several explanations:</p>
+                                <ul>
+                                    <li>VITS with a speaker embedding is <em>explicitly trained</em> to reproduce the target speaker using a dedicated speaker conditioning mechanism. The speaker embedding directly encodes identity.</li>
+                                    <li>VALL-E must <em>implicitly extract</em> speaker characteristics from only 3 seconds of audio through in-context learning. The 3-second prompt may not capture the speaker's full vocal range.</li>
+                                    <li>VALL-E may introduce subtle codec artifacts that shift the speaker embedding, even if perceptually the voice sounds similar.</li>
+                                    <li>However, VITS requires enrollment (fine-tuning on the target speaker), while VALL-E works zero-shot. The comparison is not entirely fair.</li>
+                                </ul>
+                                <p><strong>(d)</strong> Cosine similarity is imperfect because:</p>
+                                <ul>
+                                    <li>Speaker verification models are trained to discriminate speakers, not to measure perceptual similarity. Two utterances from the same speaker but with different emotions might have lower cosine similarity than expected.</li>
+                                    <li>The metric is sensitive to recording conditions: reverb, background noise, and codec artifacts can shift embeddings even for the same speaker.</li>
+                                    <li>It does not capture all aspects of "sounding like the target speaker" &mdash; subtle qualities like speaking rhythm, breathiness, or vocal fry may not be well-represented in the embedding space.</li>
+                                    <li>Ultimately, human subjective evaluation (MOS for similarity, or ABX preference tests) remains the gold standard.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Scaling Analysis: Model Size vs. Speech Quality</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Suppose the cross-entropy loss of a speech LM scales as $L(N) = 2.5 \cdot N^{-0.1} + 2.0$ where $N$ is the number of parameters in millions and $L$ is in nats. (a) Compute $L$ for $N = 100\text{M}$, $370\text{M}$, $1\text{B}$, $10\text{B}$. (b) What is the percentage improvement from 100M to 370M? From 1B to 10B? (c) Assuming a linear relationship between loss and MOS (a strong simplification): $\text{MOS} = 6.0 - L$, compute the MOS for each model size. (d) If human speech has MOS $\approx 4.5$, which model size first achieves human parity under this simplified model? (e) What are the limitations of this analysis?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Compute $L(N) = 2.5 \cdot N^{-0.1} + 2.0$:</p>
+                                <ul>
+                                    <li>$N = 100$: $L = 2.5 \times 100^{-0.1} + 2.0 = 2.5 \times 0.7943 + 2.0 = 1.986 + 2.0 = 3.986$ nats</li>
+                                    <li>$N = 370$: $L = 2.5 \times 370^{-0.1} + 2.0 = 2.5 \times 0.7253 + 2.0 = 1.813 + 2.0 = 3.813$ nats</li>
+                                    <li>$N = 1000$: $L = 2.5 \times 1000^{-0.1} + 2.0 = 2.5 \times 0.5012 + 2.0 = 1.253 + 2.0 = 3.253$ nats</li>
+                                    <li>$N = 10000$: $L = 2.5 \times 10000^{-0.1} + 2.0 = 2.5 \times 0.3981 + 2.0 = 0.995 + 2.0 = 2.995$ nats</li>
+                                </ul>
+                                <p><strong>(b)</strong> Percentage improvement: From 100M to 370M: $(3.986 - 3.813)/3.986 = 4.34\%$. From 1B to 10B: $(3.253 - 2.995)/3.253 = 7.93\%$. Interestingly, the 10x scale-up from 1B to 10B yields a larger relative improvement than the 3.7x scale-up from 100M to 370M. This is because the power law exponent ($-0.1$) is small, meaning improvements require large multiplicative increases in model size.</p>
+                                <p><strong>(c)</strong> MOS = $6.0 - L$:</p>
+                                <ul>
+                                    <li>100M: $6.0 - 3.986 = 2.01$</li>
+                                    <li>370M: $6.0 - 3.813 = 2.19$</li>
+                                    <li>1B: $6.0 - 3.253 = 2.75$</li>
+                                    <li>10B: $6.0 - 2.995 = 3.01$</li>
+                                </ul>
+                                <p><strong>(d)</strong> For MOS $= 4.5$, we need $L = 1.5$: $1.5 = 2.5 N^{-0.1} + 2.0 \Rightarrow N^{-0.1} = -0.2$. This is impossible (negative value for a positive quantity), meaning the irreducible loss floor of 2.0 makes $L &lt; 2.0$ unreachable. With $L_\infty = 2.0$, the best achievable MOS is $6.0 - 2.0 = 4.0$, which never reaches human parity of 4.5. This reveals a flaw in the linear MOS-loss assumption: MOS is bounded above by 5.0 and the relationship is likely nonlinear (saturating).</p>
+                                <p><strong>(e)</strong> Limitations: (1) The loss-MOS relationship is not linear; perceptual quality saturates at high levels. (2) The scaling exponent $-0.1$ is illustrative; real speech LMs may scale differently. (3) MOS depends on many factors beyond loss (decoding strategy, vocoder quality, etc.). (4) The irreducible loss $L_\infty$ represents aleatoric uncertainty in speech (multiple valid pronunciations), not quality ceiling.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Designing a Robust AR Decoder with Fallbacks</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You are building a production TTS system based on VALL-E. The AR decoder suffers from three failure modes: (i) repetition (probability $p_r = 0.05$ per utterance), (ii) word skipping ($p_s = 0.03$), and (iii) hallucination ($p_h = 0.02$). (a) What is the probability that a single generation attempt is failure-free? (b) If you generate $M$ candidates independently and select the best one, what is the probability that at least one is failure-free? Compute for $M = 1, 4, 8, 16$. (c) You add a repetition penalty that reduces $p_r$ to 0.01 and a duration constraint that reduces $p_s$ to 0.01. What is the new failure-free probability for a single attempt? (d) Design a complete fallback system: specify what checks to run on each candidate, what metrics to use for ranking, and how to handle the case where all candidates fail. (e) What is the expected latency overhead of generating $M = 4$ candidates in parallel vs. a single candidate?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Assuming independence of failure modes: $p_{\text{success}} = (1 - p_r)(1 - p_s)(1 - p_h) = 0.95 \times 0.97 \times 0.98 = 0.9025$. So about 90.3% of single attempts are failure-free.</p>
+                                <p><strong>(b)</strong> Probability at least one of $M$ independent candidates is failure-free: $P(\text{at least one good}) = 1 - (1 - p_{\text{success}})^M = 1 - 0.0975^M$.</p>
+                                <ul>
+                                    <li>$M = 1$: $1 - 0.0975 = 0.9025$</li>
+                                    <li>$M = 4$: $1 - 0.0975^4 = 1 - 9.03 \times 10^{-5} \approx 0.99991$</li>
+                                    <li>$M = 8$: $1 - 0.0975^8 \approx 1 - 8.15 \times 10^{-9} \approx 1.0$ (essentially certain)</li>
+                                    <li>$M = 16$: effectively $1.0$</li>
+                                </ul>
+                                <p>Even $M = 4$ candidates gives 99.99% success probability, making $M = 8$ or $M = 16$ overkill for this failure rate.</p>
+                                <p><strong>(c)</strong> With mitigations: $p_{\text{success}}' = (1 - 0.01)(1 - 0.01)(1 - 0.02) = 0.99 \times 0.99 \times 0.98 = 0.9604$. The failure rate dropped from 9.75% to 3.96%, a $2.5\times$ improvement.</p>
+                                <p><strong>(d) Fallback system design:</strong></p>
+                                <ol>
+                                    <li><strong>Repetition detection:</strong> Run a sliding-window detector on generated tokens. If any $n$-gram of length 3+ repeats more than 3 consecutive times, flag the candidate as having a repetition error.</li>
+                                    <li><strong>Completeness check:</strong> Use forced alignment (a lightweight ASR model) to verify all input words appear in the generated audio. Flag missing words as skip errors.</li>
+                                    <li><strong>Duration sanity check:</strong> Verify generated length is within $\pm 30\%$ of an expected duration (estimated from phoneme count $\times$ average phone duration). Too long suggests repetition; too short suggests skipping.</li>
+                                    <li><strong>Ranking metric:</strong> For candidates passing all checks, rank by a CLVP-like text-audio alignment score, or by the AR model's own log-likelihood (higher probability $\Rightarrow$ more fluent).</li>
+                                    <li><strong>All-fail fallback:</strong> If all $M$ candidates fail checks, (a) increase the number of candidates and retry, (b) reduce temperature (more conservative sampling), (c) fall back to a non-AR system (e.g., VITS) that does not suffer from AR failure modes.</li>
+                                </ol>
+                                <p><strong>(e)</strong> Latency overhead: Generating $M = 4$ candidates in parallel requires $4\times$ the compute (GPU memory and FLOPs) but the same wall-clock time as generating 1 candidate (assuming sufficient GPU memory for 4 parallel streams). The ranking step adds negligible overhead (~10 ms for lightweight checks). So the latency overhead is approximately 0% in wall-clock time but $4\times$ in compute cost. If GPU memory is insufficient for parallel generation, sequential generation takes $4\times$ longer, making latency the primary concern.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. SoundStorm vs. VALL-E: Theoretical Throughput Comparison</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Compare the theoretical throughput of VALL-E and SoundStorm for generating audio. Assume both use 370M parameter models, the codec operates at 75 Hz with $K = 8$ codebooks and $N = 1024$ entries. A single forward pass through the 370M transformer takes $\tau$ seconds, where $\tau$ depends on the sequence length. For simplicity, assume $\tau(L) = \alpha L^2$ (quadratic in sequence length due to attention) with $\alpha = 10^{-9}$ seconds per squared token. (a) For VALL-E generating a 10-second utterance: what is the average sequence length during AR generation (considering the growing context)? Compute total AR time. (b) For SoundStorm with $I = 16$ iterations per codebook level: what is the sequence length per forward pass? Compute total time. (c) Compute the throughput ratio (SoundStorm / VALL-E) in tokens per second. (d) At what utterance length does VALL-E's quadratic complexity become problematic (defined as RTF $&gt; 1$)? (e) Does SoundStorm have the same length limitation?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) VALL-E AR generation:</strong> The AR model generates $T = 750$ tokens. At step $t$, the context length includes phonemes ($L \approx 50$), prompt ($T_p = 225$), and $t$ generated tokens. Average context length: $50 + 225 + T/2 = 50 + 225 + 375 = 650$ tokens.</p>
+                                <p>Total AR time: $\sum_{t=1}^{750} \alpha(50 + 225 + t)^2$. This is approximately:</p>
+                                $$\tau_{\text{AR}} \approx \alpha \sum_{t=1}^{750} (275 + t)^2 = \alpha \sum_{t=1}^{750} (275^2 + 550t + t^2)$$
+                                $$= \alpha \left[750 \times 75625 + 550 \times \frac{750 \times 751}{2} + \frac{750 \times 751 \times 1501}{6}\right]$$
+                                $$= \alpha \left[56{,}718{,}750 + 155{,}206{,}250 + 140{,}813{,}125\right]$$
+                                $$= \alpha \times 352{,}738{,}125 \approx 10^{-9} \times 3.527 \times 10^8 \approx 0.353 \text{ seconds}$$
+                                <p>NAR time: 7 passes, each with sequence length $\approx 50 + 750 = 800$. $\tau_{\text{NAR}} = 7 \times \alpha \times 800^2 = 7 \times 10^{-9} \times 640{,}000 = 4.48 \times 10^{-3}$ seconds.</p>
+                                <p>Total VALL-E time: $0.353 + 0.0045 \approx 0.357$ seconds. RTF = $0.357/10 = 0.036$.</p>
+                                <p><strong>(b) SoundStorm:</strong> Each forward pass processes the full sequence of $T = 750$ acoustic tokens plus $T_s = 750$ semantic conditioning tokens, so $L = 1500$. Total passes: $K \times I = 8 \times 16 = 128$.</p>
+                                $$\tau_{\text{SS}} = 128 \times \alpha \times 1500^2 = 128 \times 10^{-9} \times 2{,}250{,}000 = 0.288 \text{ seconds}$$
+                                <p>RTF = $0.288/10 = 0.029$.</p>
+                                <p><strong>(c)</strong> Throughput ratio: VALL-E generates 6000 tokens in 0.357s = 16,807 tokens/s. SoundStorm generates 6000 tokens in 0.288s = 20,833 tokens/s. Ratio: $20833/16807 \approx 1.24\times$. Under this quadratic model, SoundStorm is only $1.24\times$ faster. The real-world $\sim 100\times$ speedup comes from two factors not captured here: (1) VALL-E's AR generation cannot be parallelized across the batch dimension as efficiently due to variable-length KV caches, and (2) SoundStorm's passes are embarrassingly parallelizable across the sequence dimension, enabling better GPU utilization.</p>
+                                <p><strong>(d)</strong> VALL-E RTF $&gt; 1$: RTF scales roughly as $T^2$ (due to the quadratic attention cost growing over the generation). Setting RTF $= 1$: the generation time $\propto T^3$ (sum of $T$ quadratic terms) must equal $T/75$ seconds of audio. From our calculation, RTF $\approx 0.036$ at $T = 750$. Since RTF scales as $T^2$: RTF $= 0.036 \times (T/750)^2 = 1 \Rightarrow T = 750/\sqrt{0.036} = 750 \times 5.27 = 3{,}953$ frames $= 52.7$ seconds. So VALL-E becomes slower than real-time for utterances longer than about 53 seconds.</p>
+                                <p><strong>(e)</strong> SoundStorm's RTF scales as $T$ (not $T^2$), because the number of forward passes ($K \times I$) is fixed regardless of sequence length, and each pass takes $\alpha T^2$ time. So RTF $\propto T^2 / T = T$. At $T = 750$, RTF $= 0.029$. RTF $= 1$ when $T = 750/0.029 \approx 25{,}862$ frames $= 345$ seconds. SoundStorm hits the RTF $= 1$ wall at ~5.75 minutes, far beyond typical utterance lengths.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Unified Text-Audio LM Architecture Design</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You are tasked with designing a unified text-audio language model that can perform TTS, ASR, speech-to-speech translation, and spoken dialogue. The model uses a shared transformer backbone with separate input/output heads for text and audio. (a) Define the token vocabulary: how do you combine text tokens (32K BPE vocabulary) with audio tokens ($K = 8$ codebooks, $N = 1024$ each)? What is the total vocabulary size? (b) For TTS, the model must generate audio tokens conditioned on text. For ASR, it must generate text tokens conditioned on audio. Write the autoregressive factorization for each task, specifying the input-output format. (c) During training, tasks are mixed in each batch. If the model processes $B = 32$ sequences per batch and the task distribution is 40% TTS, 30% ASR, 20% speech-to-speech translation, and 10% spoken dialogue, how many sequences of each type are in a batch? (d) The audio tokens have $K = 8$ parallel streams (one per codebook). How do you flatten these into a single sequence for the autoregressive model? Compare two approaches: interleaved ($c_1^{(1)}, c_1^{(2)}, \ldots, c_1^{(K)}, c_2^{(1)}, \ldots$) vs. stacked ($c_1^{(1)}, c_2^{(1)}, \ldots, c_T^{(1)}, c_1^{(2)}, \ldots$). (e) Compute the total sequence length for a 10-second audio segment under each flattening approach. Which is more practical and why?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a)</strong> Vocabulary design: One approach is a <em>unified vocabulary</em> with offset indices:</p>
+                                <ul>
+                                    <li>Text tokens: indices $0$ to $32{,}767$ (32K BPE tokens)</li>
+                                    <li>Audio codebook 1: indices $32{,}768$ to $33{,}791$ (1024 tokens)</li>
+                                    <li>Audio codebook 2: indices $33{,}792$ to $34{,}815$ (1024 tokens)</li>
+                                    <li>$\vdots$</li>
+                                    <li>Audio codebook 8: indices $39{,}936$ to $40{,}959$ (1024 tokens)</li>
+                                    <li>Special tokens: [TTS], [ASR], [S2S], [DIALOG], [SEP], [EOS]: indices $40{,}960$+</li>
+                                </ul>
+                                <p>Total vocabulary size: $32{,}768 + 8 \times 1{,}024 + 6 = 40{,}966$. Alternatively, you can use separate embedding tables per codebook and project to a shared dimension, avoiding the large unified vocabulary. The unified vocabulary is simpler but wastes parameters (the text embedding table has 32K unused rows when processing audio).</p>
+                                <p><strong>(b)</strong> Autoregressive factorizations:</p>
+                                <p><strong>TTS:</strong></p>
+                                $$p(\mathbf{c}^{\text{audio}} \mid \mathbf{x}^{\text{text}}) = \prod_{t=1}^{T_{\text{audio}}} p(c_t \mid c_{&lt;t}, \mathbf{x}^{\text{text}})$$
+                                <p>Input format: $[\text{[TTS]}, x_1^{\text{text}}, \ldots, x_L^{\text{text}}, \text{[SEP]}, c_1^{\text{audio}}, \ldots, c_T^{\text{audio}}, \text{[EOS]}]$</p>
+                                <p><strong>ASR:</strong></p>
+                                $$p(\mathbf{x}^{\text{text}} \mid \mathbf{c}^{\text{audio}}) = \prod_{l=1}^{L} p(x_l \mid x_{&lt;l}, \mathbf{c}^{\text{audio}})$$
+                                <p>Input format: $[\text{[ASR]}, c_1^{\text{audio}}, \ldots, c_T^{\text{audio}}, \text{[SEP]}, x_1^{\text{text}}, \ldots, x_L^{\text{text}}, \text{[EOS]}]$</p>
+                                <p><strong>(c)</strong> Task distribution in batch of $B = 32$: TTS: $0.4 \times 32 = 12.8 \approx 13$. ASR: $0.3 \times 32 = 9.6 \approx 10$. S2S: $0.2 \times 32 = 6.4 \approx 6$. Dialogue: $0.1 \times 32 = 3.2 \approx 3$. Total: $13 + 10 + 6 + 3 = 32$.</p>
+                                <p><strong>(d)</strong> Flattening approaches:</p>
+                                <p><strong>Interleaved:</strong> $c_1^{(1)}, c_1^{(2)}, \ldots, c_1^{(K)}, c_2^{(1)}, c_2^{(2)}, \ldots, c_2^{(K)}, \ldots, c_T^{(K)}$. This groups all codebook levels for each time step together. Advantage: each token can attend to all codebook levels of nearby time steps, capturing cross-codebook dependencies locally. Disadvantage: the model must learn the periodic pattern of codebook levels.</p>
+                                <p><strong>Stacked:</strong> $c_1^{(1)}, c_2^{(1)}, \ldots, c_T^{(1)}, c_1^{(2)}, \ldots, c_T^{(2)}, \ldots, c_T^{(K)}$. This concatenates complete codebook levels sequentially. Advantage: within each codebook level, the model processes a standard temporal sequence, similar to VALL-E's AR model. Disadvantage: cross-codebook dependencies span very long distances in the sequence ($T$ tokens apart).</p>
+                                <p><strong>(e)</strong> Total sequence length for 10 seconds ($T = 750$ frames):</p>
+                                <ul>
+                                    <li>Both approaches: $K \times T = 8 \times 750 = 6{,}000$ audio tokens, plus text tokens ($\sim 50$) and special tokens ($\sim 3$). Total: $\sim 6{,}053$ tokens.</li>
+                                    <li>This is very long for a transformer. With quadratic attention, processing 6,000 tokens is expensive. The interleaved approach is more practical because it can use a <strong>delay pattern</strong> (as in MusicGen): instead of predicting all 8 codebook levels at each time step, predict them with a staggered delay, reducing the effective sequence length back to $T$ with $K$ parallel prediction heads. This is the approach used by most modern audio LMs (MusicGen, Qwen-TTS).</li>
+                                    <li>The stacked approach results in the model needing to attend 750+ tokens back to access the previous codebook level for the same time step, which is inefficient. The interleaved/delay approach keeps cross-codebook context within $K = 8$ positions.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#codec-lm-paradigm" class="toc-link">Codec LM Paradigm</a>
+                <a href="#vall-e" class="toc-link">VALL-E</a>
+                <a href="#vall-e-x" class="toc-link">VALL-E X: Cross-Lingual</a>
+                <a href="#soundstorm" class="toc-link">SoundStorm</a>
+                <a href="#bark" class="toc-link">Bark &amp; Open-Source</a>
+                <a href="#scaling-laws" class="toc-link">Scaling Laws</a>
+                <a href="#robustness" class="toc-link">Robustness &amp; Failures</a>
+                <a href="#convergence" class="toc-link">Unified Audio-Text Models</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>

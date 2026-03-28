@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Audio Codecs | ML Fundamentals</title>
+    <meta name="description" content="Neural audio codecs: vector quantization, residual VQ, SoundStream, EnCodec, DAC, semantic vs acoustic tokens, and training strategies for discrete audio representations.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+
+
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Neural Audio Codecs</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Text-to-Speech</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-f5-tts/index.html" class="sidebar-link">01. F5-TTS: Flow Matching</a>
+                    <a href="../02-qwen-tts/index.html" class="sidebar-link">02. Qwen-TTS: LLM Audio</a>
+                    <a href="../03-tts-fundamentals/index.html" class="sidebar-link">03. TTS Fundamentals</a>
+                    <a href="../04-neural-vocoders/index.html" class="sidebar-link">04. Neural Vocoders</a>
+                    <a href="../05-tacotron/index.html" class="sidebar-link">05. Tacotron &amp; Attention TTS</a>
+                    <a href="../06-fastspeech/index.html" class="sidebar-link">06. FastSpeech &amp; Non-AR TTS</a>
+                    <a href="../07-glow-tts/index.html" class="sidebar-link">07. Glow-TTS &amp; Flows</a>
+                    <a href="../08-vits/index.html" class="sidebar-link">08. VITS: End-to-End TTS</a>
+                    <a href="../09-bilingual-tts/index.html" class="sidebar-link">09. Bilingual TTS: RU+KY</a>
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link active">10. Neural Audio Codecs</a>
+                    <a href="../11-grad-tts/index.html" class="sidebar-link">11. Grad-TTS &amp; Diffusion</a>
+                    <a href="../12-vall-e/index.html" class="sidebar-link">12. VALL-E &amp; Speech LLMs</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../linguistics/index.html" class="sidebar-link">Linguistics</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+
+            <!-- ==================== THEORY TAB ==================== -->
+            <article class="article-content" id="theory">
+
+                <!-- Section 1: Why Neural Audio Codecs? -->
+                <h2 id="why-codecs">Why Neural Audio Codecs?</h2>
+
+                <p>
+                    The dominant paradigm in text-to-speech for the past decade has been the <strong>spectrogram pipeline</strong>: an acoustic model generates a mel spectrogram, and a vocoder converts it to a waveform. This pipeline, explored in Tutorials 3&ndash;8, has produced remarkably natural speech. But starting around 2021, a different paradigm began to emerge &mdash; one that replaces continuous spectrograms with <strong>discrete audio tokens</strong> produced by neural audio codecs. This shift is arguably the most important architectural change in speech synthesis since the original neural TTS revolution.
+                </p>
+
+                <p>
+                    The core idea is deceptively simple: train a neural network to compress audio into a small set of discrete codes, then train a language model to generate those codes. This reframes speech synthesis as a <em>sequence-to-sequence problem over discrete tokens</em> &mdash; exactly the kind of problem that modern large language models excel at. The result is systems like VALL-E, SoundStorm, and Qwen-TTS that can synthesize speech with unprecedented naturalness and speaker similarity from just a few seconds of reference audio.
+                </p>
+
+                <p>
+                    But why does this work? Why is compressing audio into a discrete bottleneck and then generating from that bottleneck better than directly generating continuous spectrograms? The answer involves several deep ideas from information theory and representation learning.
+                </p>
+
+                <p>
+                    <strong>The information bottleneck principle.</strong> A neural audio codec compresses 16-bit audio sampled at 24,000 Hz &mdash; a bitrate of 384 kbps &mdash; down to roughly 1.5&ndash;6 kbps. This is a compression ratio of 64&times; to 256&times;. The codec must learn to discard perceptually irrelevant information (quantization noise below the masking threshold, phase information that is imperceptible, ultra-fine spectral detail) while preserving everything that matters for human perception. The resulting discrete codes are a <em>maximally efficient</em> representation of the perceptually relevant content of speech.
+                </p>
+
+                <p>
+                    This is precisely the information bottleneck framework of Tishby et al. (2000). Given an input $X$ (raw audio) and a relevant variable $Y$ (perceptual quality), we seek a compressed representation $Z$ (discrete codes) that minimizes the mutual information $I(X; Z)$ (compression) while maximizing $I(Z; Y)$ (quality preservation):
+                </p>
+                $$\min_{p(z|x)} \; I(X; Z) - \beta \, I(Z; Y)$$
+
+                <p>
+                    The trade-off parameter $\beta$ corresponds to the target bitrate of the codec. At higher bitrates (larger $\beta$), the codec preserves more detail; at lower bitrates, it keeps only the most essential information.
+                </p>
+
+                <p>
+                    <strong>Why compression enables generation.</strong> Generating raw audio at 24 kHz means producing 24,000 samples per second. Generating mel spectrograms at a hop size of 256 means producing about 94 frames per second, each with 80 dimensions &mdash; roughly 7,500 values per second. But generating discrete audio tokens at a typical codec frame rate of 75 Hz with 8 codebooks means producing only 600 tokens per second. Even accounting for the fact that each token comes from a vocabulary of size 1024 (10 bits), the <em>decision space</em> at each step is vastly smaller and more structured.
+                </p>
+
+                <p>
+                    More importantly, discrete tokens have a natural compatibility with the autoregressive language modeling framework that has proven so effective in NLP. The cross-entropy loss over a discrete vocabulary is well-understood, training is stable, and the vast infrastructure of LLM training (efficient attention, KV caching, speculative decoding) applies directly. Continuous spectrogram generation, by contrast, requires regression losses (L1/L2) that are poorly suited to multimodal distributions, or normalizing flows and diffusion models that add architectural complexity.
+                </p>
+
+                <p>
+                    <strong>Comparison with traditional codecs.</strong> Traditional audio codecs like Opus, AAC, and MP3 also compress audio to low bitrates, but they use hand-designed signal processing: MDCT transforms, psychoacoustic models, entropy coding, and carefully tuned quantization tables. These codecs are highly optimized for their target bitrates but have several limitations for generative modeling:
+                </p>
+                <ul>
+                    <li><strong>Non-differentiable:</strong> Traditional codecs cannot be trained end-to-end with a neural network because their quantization and entropy coding steps are non-differentiable.</li>
+                    <li><strong>Variable-length codes:</strong> Entropy coding produces variable-length bitstreams that are difficult to use as targets for sequence models.</li>
+                    <li><strong>No learned features:</strong> The transform basis (MDCT) is fixed, not adapted to the data distribution.</li>
+                    <li><strong>High bitrate for quality:</strong> Opus requires ~12 kbps for transparent speech quality. Neural codecs achieve comparable quality at 1.5&ndash;3 kbps.</li>
+                </ul>
+
+                <p>
+                    Neural audio codecs solve all of these problems: they are fully differentiable, produce fixed-length discrete tokens at each time step, learn data-adaptive features, and achieve dramatically lower bitrates. The table below summarizes the comparison:
+                </p>
+
+<pre><code>Codec Type       Bitrate (kbps)  Differentiable  Token-based  Learned Features
+&mdash;&mdash;&mdash;&mdash;&mdash;       &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;  &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;  &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;  &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;
+MP3 (128k)       128             No              No           No
+AAC (64k)        64              No              No           No
+Opus (12k)       12              No              No           No
+SoundStream      3&ndash;6            Yes             Yes          Yes
+EnCodec          1.5&ndash;24         Yes             Yes          Yes
+DAC              8&ndash;16           Yes             Yes          Yes</code></pre>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Neural Audio Codec</div>
+                    <p>
+                        A <strong>neural audio codec</strong> is a learned compression system consisting of three components: (1) an <strong>encoder</strong> $f_{\text{enc}}: \mathbb{R}^T \to \mathbb{R}^{S \times D}$ that maps a raw waveform of $T$ samples to a sequence of $S$ latent vectors of dimension $D$, (2) a <strong>quantizer</strong> $Q: \mathbb{R}^{S \times D} \to \{1, \ldots, N\}^{S \times K}$ that discretizes each latent vector into $K$ codebook indices from a vocabulary of size $N$, and (3) a <strong>decoder</strong> $f_{\text{dec}}: \{1, \ldots, N\}^{S \times K} \to \mathbb{R}^T$ that reconstructs the waveform from the discrete codes. The system is trained end-to-end to minimize a perceptual reconstruction loss subject to a bitrate constraint.
+                    </p>
+                </div>
+
+                <p>
+                    The full pipeline is:
+                </p>
+
+<pre><code>Waveform x &isin; R^T
+    &darr;
+Encoder: z = f_enc(x) &isin; R^{S&times;D}     (S = T / stride, D = embedding dim)
+    &darr;
+Quantizer: (c_1,...,c_K) = RVQ(z)     (K codebook indices per frame)
+    &darr;
+Dequantize: z_hat = sum of codebook lookups
+    &darr;
+Decoder: x_hat = f_dec(z_hat) &isin; R^T
+    &darr;
+Reconstructed waveform x_hat</code></pre>
+
+                <p>
+                    The remainder of this tutorial develops each component in detail, starting with the fundamental building block: vector quantization.
+                </p>
+
+
+                <!-- Section 2: Vector Quantization Fundamentals -->
+                <h2 id="vq-fundamentals">Vector Quantization Fundamentals</h2>
+
+                <p>
+                    <strong>Vector quantization (VQ)</strong> is the process of mapping a continuous vector to the nearest entry in a finite codebook. It is the mechanism by which neural audio codecs convert continuous encoder outputs into discrete tokens. Understanding VQ deeply is essential because the quality of the discrete representation &mdash; and therefore the quality of any downstream generative model &mdash; depends critically on how well the quantizer works.
+                </p>
+
+                <p>
+                    Formally, let $\mathbf{z} \in \mathbb{R}^D$ be a continuous latent vector (the output of the encoder at a single time step), and let $\mathbf{E} = \{\mathbf{e}_1, \mathbf{e}_2, \ldots, \mathbf{e}_N\} \subset \mathbb{R}^D$ be a <strong>codebook</strong> of $N$ embedding vectors. The quantization operation maps $\mathbf{z}$ to the nearest codebook entry:
+                </p>
+                $$q(\mathbf{z}) = \mathbf{e}_k \quad \text{where} \quad k = \arg\min_{j \in \{1,\ldots,N\}} \|\mathbf{z} - \mathbf{e}_j\|_2$$
+
+                <p>
+                    This is equivalent to a Voronoi partition of $\mathbb{R}^D$ into $N$ cells, where each cell contains all points closer to a particular codebook entry than to any other. The index $k$ is the <strong>code</strong> or <strong>token</strong> &mdash; a single integer that can represent the vector $\mathbf{z}$ using only $\log_2 N$ bits.
+                </p>
+
+                <p>
+                    <strong>The VQ-VAE objective.</strong> Vector quantization in neural networks was popularized by van den Oord et al. (2017) in the VQ-VAE paper. The key challenge is that the $\arg\min$ operation is not differentiable &mdash; we cannot backpropagate through the codebook lookup. The VQ-VAE solves this with a three-part loss:
+                </p>
+                $$\mathcal{L}_{\text{VQ}} = \underbrace{\|\mathbf{x} - \hat{\mathbf{x}}\|_2^2}_{\text{reconstruction}} + \underbrace{\|\text{sg}[\mathbf{z}] - \mathbf{e}\|_2^2}_{\text{codebook loss}} + \underbrace{\beta \|\mathbf{z} - \text{sg}[\mathbf{e}]\|_2^2}_{\text{commitment loss}}$$
+
+                <p>
+                    where $\text{sg}[\cdot]$ denotes the <strong>stop-gradient</strong> operator (treats its argument as a constant during backpropagation), $\mathbf{z}$ is the encoder output, $\mathbf{e}$ is the selected codebook entry $q(\mathbf{z})$, and $\hat{\mathbf{x}}$ is the decoder output. Let us examine each term:
+                </p>
+
+                <ul>
+                    <li><strong>Reconstruction loss</strong> $\|\mathbf{x} - \hat{\mathbf{x}}\|_2^2$: Measures how well the decoder reconstructs the input from the quantized representation. This loss trains the encoder and decoder jointly.</li>
+                    <li><strong>Codebook loss</strong> $\|\text{sg}[\mathbf{z}] - \mathbf{e}\|_2^2$: Moves the codebook entries toward the encoder outputs. The stop-gradient on $\mathbf{z}$ means this term only updates the codebook, not the encoder. This is equivalent to online k-means &mdash; each codebook entry moves toward the mean of the encoder outputs assigned to it.</li>
+                    <li><strong>Commitment loss</strong> $\beta\|\mathbf{z} - \text{sg}[\mathbf{e}]\|_2^2$: Encourages the encoder outputs to stay close to the codebook entries (to "commit" to a codebook entry). Without this term, the encoder outputs could grow unboundedly while the codebook entries lag behind. The coefficient $\beta$ (typically 0.25) controls how strongly the encoder is regularized.</li>
+                </ul>
+
+                <p>
+                    <strong>The straight-through estimator.</strong> During the forward pass, the decoder receives the quantized vector $\mathbf{e} = q(\mathbf{z})$. During the backward pass, the gradient flows through as if the quantization had not occurred &mdash; the gradient of the reconstruction loss with respect to $\mathbf{e}$ is copied directly to $\mathbf{z}$:
+                </p>
+                $$\frac{\partial \mathcal{L}}{\partial \mathbf{z}} \approx \frac{\partial \mathcal{L}}{\partial \mathbf{e}}$$
+
+                <p>
+                    This is the <strong>straight-through estimator (STE)</strong> of Bengio et al. (2013). Formally, the forward pass computes $\hat{\mathbf{z}} = \mathbf{z} + \text{sg}[\mathbf{e} - \mathbf{z}]$, which equals $\mathbf{e}$ in the forward direction but has gradient $\partial \hat{\mathbf{z}} / \partial \mathbf{z} = 1$ in the backward direction. The STE is biased (it ignores the quantization error) but works remarkably well in practice.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Why the Straight-Through Estimator Works</div>
+                    <p style="margin-bottom: 0;">
+                        The STE can be understood through the lens of the commitment loss. If the commitment loss is effective, then $\mathbf{z} \approx \mathbf{e}$ (the encoder output is close to the selected codebook entry). In this regime, the quantization is a small perturbation, and the gradient $\partial \mathcal{L}/\partial \mathbf{e}$ is a good approximation of $\partial \mathcal{L}/\partial \mathbf{z}$. The STE becomes increasingly accurate as the commitment loss drives $\mathbf{z}$ closer to $\mathbf{e}$. If the commitment loss fails (encoder outputs drift far from codebook entries), the STE gradient becomes a poor approximation, and training degrades &mdash; this is one mechanism behind codebook collapse.
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Codebook collapse.</strong> The most common failure mode of VQ is <strong>codebook collapse</strong> (also called index collapse or codebook underutilization): only a small fraction of the $N$ codebook entries are ever selected, while the rest remain "dead" &mdash; never assigned any encoder outputs. In extreme cases, a codebook of size 1024 might have only 10&ndash;50 active entries, wasting the vast majority of the representational capacity.
+                </p>
+
+                <p>
+                    Codebook collapse occurs because of a positive feedback loop: entries that are rarely selected receive few gradient updates, so they drift away from the data distribution and become even less likely to be selected. Meanwhile, popular entries receive many updates and become better representations of the data, attracting even more assignments. This is the same "rich get richer" dynamic that plagues k-means initialization.
+                </p>
+
+                <p>
+                    <strong>EMA codebook updates.</strong> One effective solution replaces the gradient-based codebook loss with <strong>exponential moving average (EMA)</strong> updates, following the online k-means algorithm. For each codebook entry $\mathbf{e}_j$, we maintain a count $n_j$ (number of encoder outputs assigned to it) and a sum $\mathbf{s}_j$ (sum of those encoder outputs), both updated with EMA:
+                </p>
+                $$n_j^{(t)} = \gamma \, n_j^{(t-1)} + (1 - \gamma) \sum_{i} \mathbf{1}[q(\mathbf{z}_i) = j]$$
+                $$\mathbf{s}_j^{(t)} = \gamma \, \mathbf{s}_j^{(t-1)} + (1 - \gamma) \sum_{i} \mathbf{z}_i \cdot \mathbf{1}[q(\mathbf{z}_i) = j]$$
+                $$\mathbf{e}_j^{(t)} = \frac{\mathbf{s}_j^{(t)}}{n_j^{(t)}}$$
+
+                <p>
+                    where $\gamma$ (typically 0.99) is the decay rate. This is more stable than gradient-based updates because it directly tracks the centroid of the assigned points.
+                </p>
+
+                <p>
+                    <strong>Codebook reset strategies.</strong> Even with EMA updates, some codebook entries may become dead. Several strategies address this:
+                </p>
+                <ul>
+                    <li><strong>Random restart:</strong> Periodically replace dead codebook entries (those with $n_j$ below a threshold) with randomly sampled encoder outputs from the current batch. This is the simplest and most widely used strategy.</li>
+                    <li><strong>Kmeans re-initialization:</strong> Run k-means on the current encoder outputs and re-initialize the entire codebook. This is more expensive but can be done periodically (e.g., every 10k steps).</li>
+                    <li><strong>Codebook splitting:</strong> Replace dead entries with perturbed copies of the most popular entries, splitting over-used entries into two nearby entries. This is analogous to the LBG algorithm for codebook design.</li>
+                    <li><strong>Gumbel-Softmax relaxation:</strong> Replace the hard $\arg\min$ with a differentiable soft assignment using the Gumbel-Softmax trick, then anneal the temperature toward hard quantization during training.</li>
+                </ul>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Codebook Utilization</div>
+                    <p>
+                        The <strong>codebook utilization</strong> (or <strong>codebook perplexity</strong>) measures what fraction of the codebook is actively used. Let $p_j = n_j / \sum_i n_i$ be the empirical probability of selecting codebook entry $j$. The codebook perplexity is:
+                    </p>
+                    $$\text{PPL} = \exp\left(-\sum_{j=1}^{N} p_j \log p_j\right) = \exp(H(\mathbf{p}))$$
+                    <p>
+                        where $H(\mathbf{p})$ is the entropy of the assignment distribution. For a codebook of size $N$, the perplexity ranges from 1 (only one entry used) to $N$ (all entries used equally). A well-trained codebook should have perplexity close to $N$. A common target is $\text{PPL} > 0.9 \cdot N$.
+                    </p>
+                </div>
+
+
+                <!-- Section 3: Residual Vector Quantization -->
+                <h2 id="rvq">Residual Vector Quantization (RVQ)</h2>
+
+                <p>
+                    A single vector quantizer with codebook size $N$ can represent at most $\log_2 N$ bits of information per frame. For a codebook of size 1024, that is 10 bits per frame. At a frame rate of 75 Hz, this gives only 750 bits/second = 0.75 kbps &mdash; far too little for high-quality audio reconstruction. Simply increasing $N$ is impractical: a codebook of size $2^{20}$ (needed for 20 bits per frame) would require storing and searching over a million vectors.
+                </p>
+
+                <p>
+                    <strong>Residual Vector Quantization (RVQ)</strong> solves this by applying multiple VQ layers in sequence, where each layer quantizes the <em>residual</em> (error) left by the previous layers. This is a classic technique from signal processing, adapted for neural networks by Zeghidour et al. (2021) in SoundStream.
+                </p>
+
+                <p>
+                    Let $\mathbf{z} \in \mathbb{R}^D$ be the encoder output, and let $Q_1, Q_2, \ldots, Q_K$ be $K$ independent vector quantizers, each with its own codebook of size $N$. RVQ proceeds as follows:
+                </p>
+                $$\mathbf{r}_0 = \mathbf{z}$$
+                $$\mathbf{c}_k = Q_k(\mathbf{r}_{k-1}) \quad \text{for } k = 1, 2, \ldots, K$$
+                $$\mathbf{r}_k = \mathbf{r}_{k-1} - \mathbf{c}_k \quad \text{for } k = 1, 2, \ldots, K$$
+                $$\hat{\mathbf{z}} = \sum_{k=1}^{K} \mathbf{c}_k$$
+
+                <p>
+                    At each stage, $Q_k$ quantizes the residual $\mathbf{r}_{k-1}$, and the residual is updated by subtracting the quantized value. The final reconstruction $\hat{\mathbf{z}}$ is the sum of all the quantized values. The quantization error after $K$ stages is $\mathbf{r}_K = \mathbf{z} - \hat{\mathbf{z}}$.
+                </p>
+
+                <p>
+                    <strong>Bitrate analysis.</strong> Each quantizer contributes $\log_2 N$ bits per frame. With $K$ quantizers at a frame rate of $f_s$ Hz, the total bitrate is:
+                </p>
+                $$R = K \cdot f_s \cdot \log_2 N \quad \text{bits/second}$$
+
+                <p>
+                    For example, with $K = 8$ codebooks, codebook size $N = 1024$ (10 bits each), and frame rate $f_s = 75$ Hz:
+                </p>
+                $$R = 8 \times 75 \times 10 = 6000 \text{ bits/sec} = 6 \text{ kbps}$$
+
+                <p>
+                    This is remarkably low: CD-quality audio (44.1 kHz, 16-bit stereo) has a bitrate of 1,411 kbps. Even 24 kHz mono at 16 bits is 384 kbps. The neural codec compresses by a factor of 64&times;.
+                </p>
+
+                <p>
+                    <strong>Progressive refinement and information hierarchy.</strong> A crucial property of RVQ is that earlier quantizers capture coarse, high-level features while later quantizers capture fine details. This is not by design but by necessity: the first quantizer $Q_1$ must represent the entire signal with just 10 bits per frame, so it focuses on the most salient aspects (fundamental frequency, formant structure, broad spectral shape). The second quantizer $Q_2$ then handles what $Q_1$ missed (finer spectral detail, harmonic structure), and so on.
+                </p>
+
+                <p>
+                    Empirically, the information hierarchy in speech RVQ is approximately:
+                </p>
+                <ul>
+                    <li><strong>Layer 1:</strong> Linguistic content (what phoneme is being spoken), fundamental frequency, broad spectral envelope. This layer carries semantic information.</li>
+                    <li><strong>Layers 2&ndash;3:</strong> Speaker identity, detailed spectral shape, formant bandwidths, harmonic structure.</li>
+                    <li><strong>Layers 4&ndash;6:</strong> Fine acoustic details, noise characteristics, breathiness, micro-prosody.</li>
+                    <li><strong>Layers 7&ndash;8:</strong> Residual details, high-frequency texture, subtle temporal variations.</li>
+                </ul>
+
+                <p>
+                    This hierarchy is deeply important for generative modeling. Systems like VALL-E exploit it by using a powerful autoregressive model for the first codebook (where accurate modeling of linguistic content is critical) and a simpler non-autoregressive model for the remaining codebooks (where the details are more local and less dependent on long-range context).
+                </p>
+
+                <p>
+                    <strong>Mathematical analysis of residual reduction.</strong> Let us analyze how the quantization error decreases with each RVQ stage. If each quantizer achieves an average distortion of $d_k = \mathbb{E}[\|\mathbf{r}_{k-1} - Q_k(\mathbf{r}_{k-1})\|^2]$, and if the residuals become progressively smaller and more uniformly distributed, then we can show that the total distortion after $K$ stages is:
+                </p>
+                $$D_K = \mathbb{E}[\|\mathbf{z} - \hat{\mathbf{z}}\|^2] = \mathbb{E}[\|\mathbf{r}_K\|^2] = \prod_{k=1}^{K} \frac{d_k}{\|\mathbf{r}_{k-1}\|^2} \cdot \|\mathbf{z}\|^2$$
+
+                <p>
+                    If each quantizer reduces the residual energy by a factor $\alpha_k = d_k / \|\mathbf{r}_{k-1}\|^2 < 1$, then $D_K = \|\mathbf{z}\|^2 \prod_{k=1}^{K} \alpha_k$. For a well-designed codebook, $\alpha_k$ is roughly constant across stages (since the residuals become smaller but also more uniformly distributed, keeping the relative quantization error stable). In this case, $D_K \approx \|\mathbf{z}\|^2 \cdot \alpha^K$, showing exponential decrease in distortion with the number of quantizers.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Rate-Distortion Theory Connection</div>
+                    <p style="margin-bottom: 0;">
+                        RVQ can be understood through the lens of rate-distortion theory. For a Gaussian source with variance $\sigma^2$, the rate-distortion function is $R(D) = \frac{1}{2}\log_2(\sigma^2/D)$ bits per sample. This gives the theoretical minimum bitrate for a given distortion level. Each RVQ stage adds $\log_2 N$ bits to the rate and reduces the distortion. The total achievable distortion at rate $R = K \log_2 N$ bits per frame is bounded below by $D^* = \sigma^2 \cdot 2^{-2R/D_{\text{dim}}}$ where $D_{\text{dim}}$ is the vector dimension. In practice, neural codecs operate within 3&ndash;6 dB of this theoretical bound &mdash; a testament to the effectiveness of learned quantization.
+                    </p>
+                </div>
+
+
+                <!-- Section 4: SoundStream Architecture -->
+                <h2 id="soundstream">SoundStream Architecture</h2>
+
+                <p>
+                    <strong>SoundStream</strong> (Zeghidour et al., Google, 2021) was the first neural audio codec to demonstrate that a single model could achieve high-quality compression at bitrates as low as 3 kbps &mdash; rivaling or exceeding Opus at 12 kbps. SoundStream introduced several architectural innovations that became the blueprint for subsequent neural codecs.
+                </p>
+
+                <p>
+                    <strong>Encoder-decoder architecture.</strong> SoundStream uses the <strong>SEANet</strong> (Sound Enhancement and Analysis Network) architecture, a fully convolutional encoder-decoder with the following structure:
+                </p>
+
+                <p>
+                    The <strong>encoder</strong> consists of a 1D convolution followed by $B$ encoder blocks, each containing residual convolutional units and a strided downsampling convolution. The strides are chosen to achieve the desired temporal compression. For example, with strides $(2, 4, 5, 8)$ and a 24 kHz input, the temporal compression factor is $2 \times 4 \times 5 \times 8 = 320$, giving a frame rate of $24000/320 = 75$ Hz.
+                </p>
+
+<pre><code>Encoder:
+    Conv1d(1, C, kernel=7, stride=1)          # Initial projection
+    EncoderBlock(C, 2C, stride=2)             # Downsample 2x
+    EncoderBlock(2C, 4C, stride=4)            # Downsample 4x
+    EncoderBlock(4C, 8C, stride=5)            # Downsample 5x
+    EncoderBlock(8C, 16C, stride=8)           # Downsample 8x
+    Conv1d(16C, D, kernel=3, stride=1)        # Final projection to D-dim
+
+Each EncoderBlock(C_in, C_out, stride):
+    ResidualUnit(C_in, dilation=1)
+    ResidualUnit(C_in, dilation=3)
+    ResidualUnit(C_in, dilation=9)
+    Conv1d(C_in, C_out, kernel=2*stride, stride=stride)  # Strided downsampling</code></pre>
+
+                <p>
+                    The <strong>decoder</strong> mirrors the encoder with transposed convolutions for upsampling. Each decoder block contains a strided transposed convolution followed by residual units, processing in reverse order of the encoder strides.
+                </p>
+
+                <p>
+                    <strong>Streaming convolutions.</strong> A distinctive feature of SoundStream is its support for <strong>streaming inference</strong> &mdash; the ability to encode and decode audio in real time with minimal latency. Standard convolutions with symmetric padding look at both past and future samples, which is incompatible with streaming. SoundStream uses <strong>causal convolutions</strong> with left-padding only:
+                </p>
+                $$y[n] = \sum_{k=0}^{K-1} w[k] \cdot x[n - k]$$
+
+                <p>
+                    where $K$ is the kernel size. The output at time $n$ depends only on the current and past inputs $x[n], x[n-1], \ldots, x[n-K+1]$. This introduces no algorithmic latency beyond the inherent latency of the striding (one frame = 320 samples = 13.3 ms at 24 kHz).
+                </p>
+
+                <p>
+                    <strong>Multi-scale discriminator.</strong> SoundStream trains with a GAN loss using a <strong>multi-scale STFT discriminator (MS-STFTD)</strong> that operates on the complex-valued STFT at multiple resolutions. For each STFT resolution (window size, hop size), a 2D convolutional network classifies whether the spectrogram is real or generated. Using multiple resolutions forces the generator to produce audio that is realistic at all time-frequency scales.
+                </p>
+
+                <p>
+                    <strong>Quantizer dropout for variable bitrate.</strong> One of SoundStream's most elegant innovations is <strong>quantizer dropout</strong>: during training, a random number $k \sim \text{Uniform}\{1, \ldots, K\}$ of RVQ layers is used, and only the first $k$ layers are summed to produce $\hat{\mathbf{z}}$. This forces the model to produce high-quality output regardless of how many RVQ layers are available, enabling a single model to operate at multiple bitrates at inference time. At bitrate $R_k = k \cdot f_s \cdot \log_2 N$, only the first $k$ codebooks are used.
+                </p>
+
+                <p>
+                    Quantizer dropout also reinforces the information hierarchy in RVQ: the first codebook must always be informative (since sometimes only it is used), while later codebooks can specialize in progressively finer details. Without quantizer dropout, the model might distribute information evenly across codebooks, which would make truncation to fewer codebooks produce poor results.
+                </p>
+
+
+                <!-- Section 5: EnCodec Architecture -->
+                <h2 id="encodec">EnCodec Architecture</h2>
+
+                <p>
+                    <strong>EnCodec</strong> (D&eacute;fossez et al., Meta, 2022) builds on the SoundStream architecture with several improvements that pushed the state of the art in neural audio compression. EnCodec demonstrated high-quality compression at bitrates from 1.5 kbps to 24 kbps, supporting sample rates from 24 kHz (speech) to 48 kHz (music).
+                </p>
+
+                <p>
+                    <strong>Architecture.</strong> EnCodec uses a similar encoder-decoder structure to SoundStream, with residual blocks based on dilated convolutions. The encoder uses strides $(2, 4, 5, 8)$ for the 24 kHz model (same as SoundStream) and strides $(2, 4, 8, 8)$ for the 48 kHz model, giving frame rates of 75 Hz and 75 Hz respectively. Each residual block uses a sequence of dilated convolutions with increasing dilation factors $(1, 3, 9)$ to capture multi-scale temporal patterns without increasing the parameter count.
+                </p>
+
+                <p>
+                    A key architectural addition is a <strong>two-layer LSTM</strong> between the encoder and quantizer (and similarly between the dequantizer and decoder). The LSTM captures long-range temporal dependencies that the purely convolutional encoder might miss, such as sentence-level prosodic patterns and phonological contexts that span many frames.
+                </p>
+
+                <p>
+                    <strong>The EnCodec loss function.</strong> EnCodec is trained with a composite loss that balances four objectives:
+                </p>
+                $$\mathcal{L} = \lambda_t \mathcal{L}_{\text{time}} + \lambda_f \mathcal{L}_{\text{freq}} + \lambda_g \mathcal{L}_{\text{GAN}} + \lambda_c \mathcal{L}_{\text{commit}}$$
+
+                <p>
+                    Let us examine each term in detail.
+                </p>
+
+                <p>
+                    <strong>Time-domain loss</strong> $\mathcal{L}_{\text{time}}$: A simple L1 loss between the input and reconstructed waveform:
+                </p>
+                $$\mathcal{L}_{\text{time}} = \frac{1}{T}\sum_{t=1}^{T} |x_t - \hat{x}_t|$$
+
+                <p>
+                    This encourages overall waveform fidelity. L1 is preferred over L2 because L2 tends to produce overly smooth outputs (the mean of a multimodal distribution), while L1 is more robust to the phase ambiguity inherent in audio reconstruction.
+                </p>
+
+                <p>
+                    <strong>Multi-scale STFT loss</strong> $\mathcal{L}_{\text{freq}}$: This operates in the frequency domain at multiple resolutions. For each STFT configuration $s$ (with different window sizes, e.g., 512, 1024, 2048), the loss combines a spectral convergence term and a log-magnitude term:
+                </p>
+                $$\mathcal{L}_{\text{freq}} = \sum_{s} \left[ \frac{\||\text{STFT}_s(x)| - |\text{STFT}_s(\hat{x})|\|_F}{\||\text{STFT}_s(x)|\|_F} + \frac{1}{M_s} \|\log|\text{STFT}_s(x)| - \log|\text{STFT}_s(\hat{x})|\|_1 \right]$$
+
+                <p>
+                    where $\|\cdot\|_F$ is the Frobenius norm and $M_s$ is the number of STFT bins. The spectral convergence term captures relative spectral shape errors, while the log-magnitude term is sensitive to errors across the full dynamic range. Using multiple window sizes ensures that both temporal transients (best captured by short windows) and tonal structure (best captured by long windows) are accurately reconstructed.
+                </p>
+
+                <p>
+                    <strong>GAN loss</strong> $\mathcal{L}_{\text{GAN}}$: EnCodec uses adversarial training with a combination of discriminators. The generator loss includes both the adversarial loss and a <strong>feature matching loss</strong>:
+                </p>
+                $$\mathcal{L}_{\text{GAN}} = \sum_{d} \left[ \frac{1}{T_d}\sum_{t} \max(0, 1 - D_d(\hat{x})_t) + \lambda_{\text{fm}} \sum_{\ell} \frac{1}{|\phi_d^\ell|} \|\phi_d^\ell(x) - \phi_d^\ell(\hat{x})\|_1 \right]$$
+
+                <p>
+                    where $D_d$ is discriminator $d$, $\phi_d^\ell$ denotes the activations at layer $\ell$ of discriminator $d$, and $\lambda_{\text{fm}}$ weights the feature matching loss. The feature matching loss encourages the generator to produce audio whose intermediate representations (as seen by the discriminator) match those of real audio. This is more stable than relying solely on the adversarial loss.
+                </p>
+
+                <p>
+                    <strong>Commitment loss</strong> $\mathcal{L}_{\text{commit}}$: The standard VQ commitment loss from the VQ-VAE, applied to all RVQ layers:
+                </p>
+                $$\mathcal{L}_{\text{commit}} = \sum_{k=1}^{K} \|\mathbf{r}_{k-1} - \text{sg}[Q_k(\mathbf{r}_{k-1})]\|_2^2$$
+
+                <p>
+                    <strong>Discriminator architecture.</strong> EnCodec employs a <strong>multi-scale STFT discriminator (MS-STFTD)</strong> that operates on the complex STFT representation. Unlike the waveform-domain discriminators used in HiFi-GAN (multi-period discriminator MPD and multi-scale discriminator MSD), the MS-STFTD directly judges spectral quality. It uses 2D convolutions on the time-frequency representation at multiple STFT resolutions (window sizes from 256 to 4096). This design is particularly effective because spectral artifacts &mdash; the most common failure mode of audio codecs &mdash; are directly visible in the STFT representation.
+                </p>
+
+                <p>
+                    <strong>Bandwidth conditioning.</strong> Like SoundStream's quantizer dropout, EnCodec supports variable bitrate through <strong>bandwidth conditioning</strong>. The target bandwidth is provided as a conditioning signal to the model, allowing a single model to operate at different bitrates (1.5, 3, 6, 12, or 24 kbps). During training, the bandwidth is randomly sampled, and the model learns to allocate the appropriate number of codebooks for each bandwidth.
+                </p>
+
+                <p>
+                    <strong>Balancer for loss weighting.</strong> Training a model with four different loss terms requires careful balancing of the loss weights $\lambda_t, \lambda_f, \lambda_g, \lambda_c$. EnCodec introduces a <strong>gradient balancer</strong> that dynamically adjusts the weights so that each loss term contributes approximately equally to the total gradient norm. Specifically, for each loss $\mathcal{L}_i$, the balancer computes the gradient norm $g_i = \|\nabla_\theta \mathcal{L}_i\|$ and rescales the weight:
+                </p>
+                $$\tilde{\lambda}_i = \lambda_i \cdot \frac{\bar{g}}{g_i + \epsilon}$$
+
+                <p>
+                    where $\bar{g} = \frac{1}{M}\sum_{j} g_j$ is the average gradient norm across all losses. This prevents any single loss from dominating training and produces more stable convergence.
+                </p>
+
+
+                <!-- Section 6: DAC (Descript Audio Codec) -->
+                <h2 id="dac">DAC (Descript Audio Codec)</h2>
+
+                <p>
+                    <strong>DAC</strong> (Kumar et al., Descript, 2023) pushed neural audio codec quality further by addressing several limitations of EnCodec, particularly codebook utilization and high-frequency reconstruction. DAC achieves high-fidelity audio compression at 8 kbps for 44.1 kHz audio &mdash; notable because it operates at a higher sample rate than most prior codecs, supporting full-bandwidth music as well as speech.
+                </p>
+
+                <p>
+                    <strong>Improved codebook utilization with factorized codes.</strong> A persistent challenge with RVQ is that later codebooks tend to have poor utilization &mdash; the residuals become small and concentrated, leading to codebook collapse. DAC addresses this with <strong>factorized codes</strong>: instead of quantizing the full $D$-dimensional vector directly, DAC first projects it to a lower dimension $d$ (e.g., $d = 8$), performs quantization in this lower-dimensional space, and then projects back to $D$ dimensions:
+                </p>
+                $$\mathbf{z}_{\text{low}} = W_{\text{down}} \mathbf{z} \in \mathbb{R}^d, \quad \mathbf{c} = Q(\mathbf{z}_{\text{low}}), \quad \hat{\mathbf{z}} = W_{\text{up}} \mathbf{c} \in \mathbb{R}^D$$
+
+                <p>
+                    where $W_{\text{down}} \in \mathbb{R}^{d \times D}$ and $W_{\text{up}} \in \mathbb{R}^{D \times d}$ are learned projection matrices. The quantization happens in $\mathbb{R}^d$ rather than $\mathbb{R}^D$, which means the codebook entries are $d$-dimensional vectors. This has two benefits: (1) the lower-dimensional space is denser, making it easier to achieve good codebook utilization, and (2) the codebook requires far less memory ($N \times d$ instead of $N \times D$).
+                </p>
+
+                <p>
+                    <strong>$L_2$ normalization.</strong> DAC applies $L_2$ normalization to both the encoder outputs and the codebook entries before computing distances. This constrains all vectors to lie on the unit hypersphere $\mathcal{S}^{d-1}$, which prevents codebook collapse caused by norm variation (where some codebook entries have large norms and attract assignments purely because of their magnitude). After normalization, the nearest-neighbor search becomes:
+                </p>
+                $$k = \arg\max_{j} \frac{\mathbf{z}_{\text{low}} \cdot \mathbf{e}_j}{\|\mathbf{z}_{\text{low}}\| \|\mathbf{e}_j\|} = \arg\max_j \cos(\mathbf{z}_{\text{low}}, \mathbf{e}_j)$$
+
+                <p>
+                    which is equivalent to cosine similarity. This is a well-known trick from metric learning that improves training stability.
+                </p>
+
+                <p>
+                    <strong>Snake activation function.</strong> Perhaps DAC's most distinctive contribution is the use of the <strong>Snake activation function</strong> (Ziyin et al., 2020) throughout the encoder and decoder:
+                </p>
+                $$\text{Snake}_\alpha(x) = x + \frac{1}{\alpha} \sin^2(\alpha x)$$
+
+                <p>
+                    where $\alpha$ is a learnable frequency parameter. The key insight is that audio signals are inherently periodic (speech is quasi-periodic with the fundamental frequency, music contains harmonic structures), and a periodic activation function can represent periodic signals more efficiently than standard activations like ReLU or GELU.
+                </p>
+
+                <p>
+                    The Snake activation has a <strong>periodic inductive bias</strong>: the $\sin^2(\alpha x)$ term adds a periodic modulation to the identity mapping, and the learnable parameter $\alpha$ allows different layers to adapt to different frequency ranges. Layers processing low-frequency components learn small $\alpha$ values, while layers processing high-frequency components learn large $\alpha$ values. This is particularly beneficial for high-frequency reconstruction, which has been a weak point of prior codecs.
+                </p>
+
+                <p>
+                    <strong>Discriminator design.</strong> DAC combines three discriminator types from the literature:
+                </p>
+                <ul>
+                    <li><strong>Multi-Period Discriminator (MPD):</strong> From HiFi-GAN. Reshapes the 1D waveform into 2D using different periods $(2, 3, 5, 7, 11)$ and applies 2D convolutions. Captures periodic structures at different fundamental frequencies.</li>
+                    <li><strong>Multi-Scale Discriminator (MSD):</strong> From MelGAN. Operates on the raw waveform at different downsampling rates $(1\times, 2\times, 4\times)$. Captures audio quality at different temporal scales.</li>
+                    <li><strong>Multi-Scale STFT Discriminator (MSSTFTD):</strong> From EnCodec. Operates on complex STFT at multiple window sizes. Captures frequency-domain quality.</li>
+                </ul>
+
+                <p>
+                    Using all three discriminator types provides comprehensive coverage of audio quality dimensions: periodicity (MPD), multi-scale temporal structure (MSD), and spectral fidelity (MSSTFTD).
+                </p>
+
+                <p>
+                    <strong>Training improvements.</strong> DAC also introduces several training improvements: (1) random audio segment cropping with varying segment lengths during training for better generalization, (2) a discriminator warmup period where only the reconstruction losses are used for the first few thousand steps before enabling adversarial training, and (3) a higher sampling rate (44.1 kHz) with corresponding adjustments to the encoder strides to maintain the 75 Hz frame rate.
+                </p>
+
+
+                <!-- Section 7: Semantic vs Acoustic Tokens -->
+                <h2 id="semantic-acoustic">Semantic vs Acoustic Tokens</h2>
+
+                <p>
+                    Neural audio codecs produce <strong>acoustic tokens</strong> &mdash; discrete representations that capture the full acoustic detail of the audio signal, including speaker identity, prosody, recording conditions, and background noise. But for many generative tasks, we also need <strong>semantic tokens</strong> that capture only the linguistic content (what words are being spoken) while discarding speaker-specific and acoustic details.
+                </p>
+
+                <p>
+                    The distinction between semantic and acoustic tokens has become a foundational concept in modern speech generation. Understanding what each type captures, how they are obtained, and how they complement each other is essential for understanding systems like VALL-E, AudioLM, and SoundStorm.
+                </p>
+
+                <p>
+                    <strong>Self-supervised speech representations.</strong> Semantic tokens are typically derived from <strong>self-supervised speech models</strong> like HuBERT (Hsu et al., 2021) and wav2vec 2.0 (Baevski et al., 2020). These models are trained on large amounts of unlabeled speech using masked prediction objectives (similar to BERT for text). The key finding is that different layers of these models capture different types of information:
+                </p>
+
+                <ul>
+                    <li><strong>Early layers (1&ndash;4):</strong> Capture acoustic/phonetic features &mdash; spectral shape, formant frequencies, voice quality. These representations are speaker-dependent and acoustically detailed.</li>
+                    <li><strong>Middle layers (5&ndash;8):</strong> Capture phonemic/linguistic features &mdash; phoneme identity, phoneme boundaries, syllable structure. These representations are more speaker-independent and content-focused.</li>
+                    <li><strong>Late layers (9&ndash;12):</strong> Capture higher-level linguistic features &mdash; word identity, syntactic structure. However, for speech generation, middle layers are preferred because late layers may be too abstract.</li>
+                </ul>
+
+                <p>
+                    <strong>Obtaining semantic tokens.</strong> The standard procedure for extracting semantic tokens from HuBERT is:
+                </p>
+                <ol>
+                    <li>Pass the audio through the pretrained HuBERT model and extract activations from a middle layer (typically layer 6 or 7 of a 12-layer model).</li>
+                    <li>Apply k-means clustering to these activations (typically $k = 500$ or $k = 1000$ clusters) to obtain discrete tokens.</li>
+                    <li>Optionally, remove consecutive duplicate tokens to obtain a de-duplicated sequence that is closer to a phoneme sequence in length.</li>
+                </ol>
+
+                <p>
+                    The resulting semantic tokens have a frame rate of 50 Hz (HuBERT's output rate for 16 kHz input) and carry primarily linguistic information. Two utterances of the same sentence by different speakers will produce very similar semantic token sequences but very different acoustic token sequences.
+                </p>
+
+                <p>
+                    <strong>Information content comparison.</strong> We can quantify the information captured by each token type. Consider two random variables: $C$ (linguistic content / what is said) and $S$ (speaker identity / how it is said). An ideal semantic token representation $Z_{\text{sem}}$ should have high mutual information with content and low mutual information with speaker:
+                </p>
+                $$I(Z_{\text{sem}}; C) \gg I(Z_{\text{sem}}; S) \quad \text{(semantic tokens)}$$
+                $$I(Z_{\text{aco}}; C) > 0, \quad I(Z_{\text{aco}}; S) \gg 0 \quad \text{(acoustic tokens)}$$
+
+                <p>
+                    In practice, semantic tokens achieve high phone classification accuracy (70&ndash;80% without fine-tuning) but poor speaker verification accuracy (~50%, near chance). Acoustic tokens achieve moderate phone classification accuracy (50&ndash;60%) but high speaker verification accuracy (90%+).
+                </p>
+
+                <p>
+                    <strong>The two-stage generation paradigm.</strong> The distinction between semantic and acoustic tokens enables a powerful two-stage generation architecture:
+                </p>
+
+<pre><code>Stage 1: Text &rarr; Semantic tokens  (language model, captures "what to say")
+    Input:  "Hello, how are you?"
+    Output: [sem_42, sem_17, sem_203, sem_17, sem_89, ...]
+
+Stage 2: Semantic tokens &rarr; Acoustic tokens  (acoustic model, captures "how to say it")
+    Input:  [sem_42, sem_17, sem_203, ...] + speaker embedding
+    Output: [RVQ codes: (103,45,782,...), (67,512,34,...), ...]
+
+Stage 3: Acoustic tokens &rarr; Waveform  (codec decoder, deterministic)
+    Input:  RVQ codes
+    Output: Audio waveform</code></pre>
+
+                <p>
+                    This decomposition has several advantages: (1) Stage 1 operates in a low-dimensional, content-focused space, making it easier to model linguistic structure and long-range dependencies. (2) Stage 2 only needs to add acoustic detail conditioned on the content, which is a simpler mapping than generating everything from scratch. (3) Speaker conditioning is injected at Stage 2, enabling zero-shot voice cloning without affecting the linguistic model. (4) The codec decoder in Stage 3 is deterministic and fast, requiring no autoregressive generation.
+                </p>
+
+                <p>
+                    <strong>AudioLM and the unified token paradigm.</strong> AudioLM (Borsos et al., Google, 2022) was the first system to demonstrate the power of combining semantic and acoustic tokens for unconditional audio generation. It showed that generating semantic tokens first and then "upsampling" them to acoustic tokens produces much more coherent long-form audio than generating acoustic tokens directly. Without the semantic token stage, the model could produce acoustically realistic audio that was linguistically incoherent (random phonemes with perfect speaker identity). The semantic tokens provide the high-level structure that ensures coherent speech.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Definition: Semantic vs Acoustic Tokens</div>
+                    <p>
+                        <strong>Semantic tokens</strong> are discrete representations derived from self-supervised speech models (HuBERT, wav2vec 2.0) that primarily encode linguistic content (phoneme identity, word boundaries, prosodic structure) while being largely invariant to speaker identity and acoustic conditions. They are obtained by clustering intermediate-layer representations, typically at 50 Hz with vocabulary size 500&ndash;1000.
+                    </p>
+                    <p>
+                        <strong>Acoustic tokens</strong> are discrete representations produced by neural audio codecs (EnCodec, SoundStream, DAC) that encode the full acoustic signal, including speaker identity, prosody, recording conditions, and fine spectral detail. They are organized hierarchically via RVQ, typically at 75 Hz with $K = 8$&ndash;$16$ codebooks of size 1024 each.
+                    </p>
+                    <p>
+                        Together, the two token types decompose speech into "what is said" (semantic) and "how it is said" (acoustic), enabling modular and controllable generation.
+                    </p>
+                </div>
+
+
+                <!-- Section 8: Training Strategies -->
+                <h2 id="training">Training Strategies</h2>
+
+                <p>
+                    Training a neural audio codec involves simultaneously learning the encoder, decoder, quantizer, and discriminator &mdash; a complex optimization problem with many potential failure modes. This section describes the key training strategies that make this work.
+                </p>
+
+                <p>
+                    <strong>Multi-resolution STFT loss.</strong> The multi-resolution STFT loss is perhaps the single most important loss component for audio quality. It compares the spectral content of the original and reconstructed audio at multiple time-frequency resolutions, using a combination of spectral convergence and log-magnitude losses. A typical configuration uses 5&ndash;7 STFT resolutions:
+                </p>
+
+<pre><code>STFT resolutions (window_size, hop_size, fft_size):
+    (  512,  128,  512)   # Fine temporal, coarse spectral
+    ( 1024,  256, 1024)   # Balanced
+    ( 2048,  512, 2048)   # Standard
+    ( 4096, 1024, 4096)   # Fine spectral, coarse temporal
+    ( 8192, 2048, 8192)   # Very fine spectral resolution</code></pre>
+
+                <p>
+                    For each resolution, the loss has two components. The <strong>spectral convergence loss</strong> is a normalized Frobenius norm:
+                </p>
+                $$\mathcal{L}_{\text{sc}}^{(s)} = \frac{\| |X_s| - |\hat{X}_s| \|_F}{\| |X_s| \|_F}$$
+
+                <p>
+                    where $X_s = \text{STFT}_s(x)$ and $\hat{X}_s = \text{STFT}_s(\hat{x})$ are the complex STFT matrices at resolution $s$. The normalization makes this term scale-invariant &mdash; it measures the <em>relative</em> spectral error regardless of the overall signal energy.
+                </p>
+
+                <p>
+                    The <strong>log-magnitude loss</strong> operates on the log-scale STFT magnitudes:
+                </p>
+                $$\mathcal{L}_{\text{mag}}^{(s)} = \frac{1}{M_s} \| \log|X_s| - \log|\hat{X}_s| \|_1$$
+
+                <p>
+                    The log scale is critical because human loudness perception is approximately logarithmic &mdash; a 1 dB error in a quiet region is just as perceptible as a 1 dB error in a loud region. Without the log, the loss would be dominated by the loudest spectral components, and quiet components (which are perceptually important for consonants, fricatives, and background detail) would be ignored.
+                </p>
+
+                <p>
+                    <strong>Discriminator design.</strong> The choice of discriminator architecture has an outsized impact on audio quality. The three main discriminator types used in neural codecs are:
+                </p>
+
+                <p>
+                    <strong>Multi-Period Discriminator (MPD):</strong> Introduced in HiFi-GAN, the MPD reshapes the 1D waveform into a 2D tensor by folding it at different periods $p \in \{2, 3, 5, 7, 11\}$. For period $p$, the waveform of length $T$ is reshaped to $(T/p) \times p$ and processed by 2D convolutions. This design is motivated by the observation that speech has periodic structure (due to vocal cord vibration at the fundamental frequency), and different periods capture harmonics at different F0 values. For example, speech at F0 = 150 Hz sampled at 24 kHz has a period of 160 samples; the sub-discriminator with $p = 5$ would see this as 32 complete cycles along one axis.
+                </p>
+
+                <p>
+                    <strong>Multi-Scale Discriminator (MSD):</strong> Introduced in MelGAN, the MSD applies 1D convolutions to the waveform at different temporal scales, using average pooling to downsample. Typical configurations use scales of $1\times$, $2\times$, and $4\times$ downsampling. This captures quality at different temporal resolutions: fine temporal detail (clicks, transients) at the original scale, and broader envelope and spectral structure at downsampled scales.
+                </p>
+
+                <p>
+                    <strong>Multi-Scale STFT Discriminator (MS-STFTD):</strong> Introduced in the context of EnCodec, this discriminator operates directly on the complex STFT representation. The real and imaginary parts of the STFT are concatenated and processed by 2D convolutions. Multiple STFT resolutions (e.g., window sizes 256, 512, 1024, 2048) are used, each with its own sub-discriminator. The key advantage is that spectral artifacts are directly visible in this representation, making it easier for the discriminator to detect them.
+                </p>
+
+                <p>
+                    <strong>Bandwidth scheduling.</strong> Rather than fixing the number of RVQ layers throughout training, some training strategies start with a small number of codebooks and gradually increase them. This is called <strong>bandwidth scheduling</strong> or <strong>codebook annealing</strong>. The motivation is that the encoder and decoder benefit from first learning a good coarse representation before attempting to capture fine details:
+                </p>
+
+                <ol>
+                    <li><strong>Phase 1 (0&ndash;50k steps):</strong> Train with $K = 1$ codebook. The encoder and decoder learn the coarsest representation.</li>
+                    <li><strong>Phase 2 (50k&ndash;100k steps):</strong> Increase to $K = 4$ codebooks. The additional codebooks learn to capture the residual details.</li>
+                    <li><strong>Phase 3 (100k+ steps):</strong> Use all $K = 8$ codebooks. Fine-tune the complete system.</li>
+                </ol>
+
+                <p>
+                    This is analogous to progressive training in image generation (ProGAN), where the model first learns to generate low-resolution images and then progressively adds detail.
+                </p>
+
+                <p>
+                    <strong>Data augmentation for robustness.</strong> Neural codecs must handle a wide variety of audio conditions: different speakers, recording environments, noise levels, and sample rates. Training data augmentation is critical for robustness:
+                </p>
+                <ul>
+                    <li><strong>Speed perturbation:</strong> Random speed changes of $\pm$10% (resampling the audio) to handle speaking rate variation.</li>
+                    <li><strong>Additive noise:</strong> Mixing in background noise at random SNR levels (5&ndash;30 dB) to handle noisy input.</li>
+                    <li><strong>Reverberation:</strong> Convolving with random room impulse responses to handle different recording environments.</li>
+                    <li><strong>Volume normalization:</strong> Random gain changes to handle different recording levels.</li>
+                    <li><strong>Codec augmentation:</strong> Applying traditional codecs (Opus, MP3 at low bitrates) to the input audio during training, so the neural codec learns to reconstruct cleanly even from pre-compressed input.</li>
+                </ul>
+
+                <p>
+                    <strong>Training stability.</strong> GAN training for audio codecs is notoriously unstable. Several techniques improve stability: (1) using the hinge loss instead of the original GAN loss, which prevents the discriminator from becoming too confident; (2) applying spectral normalization to the discriminator weights; (3) using a separate learning rate for the discriminator (typically $2\times$ the generator learning rate); (4) using the gradient balancer (described in the EnCodec section) to prevent any single loss from dominating; and (5) using a discriminator warmup period where only reconstruction losses are used for the first 10&ndash;20k steps.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Cross-Reference: GAN Training in Audio</div>
+                    <p style="margin-bottom: 0;">
+                        The adversarial training approach used in neural audio codecs is closely related to the GAN-based vocoder training described in <a href="../04-neural-vocoders/index.html">Tutorial 4: Neural Vocoders</a>. In fact, the decoder of a neural audio codec is architecturally very similar to a neural vocoder &mdash; both take a compact representation and produce a waveform. The key difference is that the codec decoder takes <em>quantized</em> codes as input (through the dequantizer), while a vocoder takes continuous mel spectrogram frames. The discriminator architectures (MPD, MSD, MS-STFTD) are shared across both settings.
+                    </p>
+                </div>
+
+            </article>
+
+            <!-- ==================== CODE TAB ==================== -->
+            <article class="article-content" id="code" style="display: none;">
+                <h2>Code Examples</h2>
+                <p>Five PyTorch implementations covering the core components of neural audio codecs: vector quantization with the straight-through estimator, residual vector quantization, an EnCodec-style encoder, multi-scale STFT loss, and quantizer dropout for variable bitrate.</p>
+
+                <!-- Code Example 1: VQ Layer -->
+                <h3>1. Vector Quantization Layer with Straight-Through Estimator</h3>
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VectorQuantizer(nn.Module):
+    """Vector quantization with EMA codebook updates and straight-through estimator."""
+
+    def __init__(self, num_embeddings: int = 1024, embedding_dim: int = 128,
+                 commitment_cost: float = 0.25, ema_decay: float = 0.99,
+                 epsilon: float = 1e-5):
+        super().__init__()
+        self.N = num_embeddings
+        self.D = embedding_dim
+        self.beta = commitment_cost
+        self.gamma = ema_decay
+        self.eps = epsilon
+
+        # Codebook embeddings
+        self.embedding = nn.Embedding(num_embeddings, embedding_dim)
+        nn.init.uniform_(self.embedding.weight, -1.0 / num_embeddings, 1.0 / num_embeddings)
+
+        # EMA tracking variables (not model parameters)
+        self.register_buffer('ema_count', torch.zeros(num_embeddings))
+        self.register_buffer('ema_weight', self.embedding.weight.clone())
+
+    def forward(self, z: torch.Tensor):
+        """
+        Args:
+            z: Encoder output, shape (B, D, S) where B=batch, D=embed_dim, S=sequence_len
+        Returns:
+            z_q: Quantized output (same shape as z), with straight-through gradient
+            indices: Codebook indices, shape (B, S)
+            vq_loss: Commitment loss (codebook loss is handled by EMA)
+        """
+        B, D, S = z.shape
+        # Reshape to (B*S, D) for distance computation
+        z_flat = z.permute(0, 2, 1).reshape(-1, D)  # (B*S, D)
+
+        # Compute distances: ||z - e||^2 = ||z||^2 - 2*z*e^T + ||e||^2
+        distances = (
+            z_flat.pow(2).sum(dim=1, keepdim=True)
+            - 2 * z_flat @ self.embedding.weight.t()
+            + self.embedding.weight.pow(2).sum(dim=1, keepdim=True).t()
+        )  # (B*S, N)
+
+        # Find nearest codebook entry
+        indices = distances.argmin(dim=1)  # (B*S,)
+        z_q_flat = self.embedding(indices)  # (B*S, D)
+
+        # EMA codebook update (only during training)
+        if self.training:
+            one_hot = F.one_hot(indices, self.N).float()  # (B*S, N)
+            # Update counts
+            self.ema_count = self.gamma * self.ema_count + (1 - self.gamma) * one_hot.sum(0)
+            # Update sums
+            self.ema_weight = self.gamma * self.ema_weight + (1 - self.gamma) * (one_hot.t() @ z_flat)
+            # Laplace smoothing to avoid division by zero
+            n = self.ema_count.sum()
+            count_smoothed = (self.ema_count + self.eps) / (n + self.N * self.eps) * n
+            # Update codebook
+            self.embedding.weight.data = self.ema_weight / count_smoothed.unsqueeze(1)
+
+        # Commitment loss (only encoder is updated through this)
+        commitment_loss = self.beta * F.mse_loss(z_flat, z_q_flat.detach())
+
+        # Straight-through estimator: forward uses z_q, backward uses z
+        z_q_flat = z_flat + (z_q_flat - z_flat).detach()
+
+        # Reshape back to (B, D, S)
+        z_q = z_q_flat.reshape(B, S, D).permute(0, 2, 1)
+        indices = indices.reshape(B, S)
+
+        return z_q, indices, commitment_loss
+
+    def codebook_perplexity(self) -> float:
+        """Compute codebook utilization as perplexity of the usage distribution."""
+        p = self.ema_count / self.ema_count.sum()
+        entropy = -(p * (p + 1e-10).log()).sum()
+        return entropy.exp().item()</code></pre>
+
+                <!-- Code Example 2: RVQ -->
+                <h3>2. Residual Vector Quantization</h3>
+<pre><code>class ResidualVQ(nn.Module):
+    """Residual Vector Quantization: cascaded VQ layers on successive residuals."""
+
+    def __init__(self, num_quantizers: int = 8, num_embeddings: int = 1024,
+                 embedding_dim: int = 128, commitment_cost: float = 0.25):
+        super().__init__()
+        self.K = num_quantizers
+        self.quantizers = nn.ModuleList([
+            VectorQuantizer(num_embeddings, embedding_dim, commitment_cost)
+            for _ in range(num_quantizers)
+        ])
+
+    def forward(self, z: torch.Tensor, num_quantizers: int = None):
+        """
+        Args:
+            z: Encoder output, shape (B, D, S)
+            num_quantizers: Number of quantizers to use (for variable bitrate).
+                            If None, use all K quantizers.
+        Returns:
+            z_q: Quantized output, shape (B, D, S)
+            all_indices: List of codebook indices for each quantizer, each (B, S)
+            total_loss: Sum of commitment losses from all quantizers
+        """
+        K = num_quantizers or self.K
+        residual = z
+        z_q = torch.zeros_like(z)
+        all_indices = []
+        total_loss = 0.0
+
+        for k in range(K):
+            # Quantize the residual
+            quantized_k, indices_k, loss_k = self.quantizers[k](residual)
+
+            # Accumulate the quantized output
+            z_q = z_q + quantized_k
+
+            # Update residual: what the current quantizer couldn't capture
+            residual = residual - quantized_k
+
+            all_indices.append(indices_k)
+            total_loss = total_loss + loss_k
+
+        return z_q, all_indices, total_loss
+
+    def encode(self, z: torch.Tensor, num_quantizers: int = None) -> list:
+        """Encode to discrete codes without computing losses."""
+        K = num_quantizers or self.K
+        residual = z
+        all_indices = []
+        for k in range(K):
+            z_q_k, indices_k, _ = self.quantizers[k](residual)
+            residual = residual - z_q_k
+            all_indices.append(indices_k)
+        return all_indices  # List of K tensors, each (B, S)
+
+    def decode(self, all_indices: list) -> torch.Tensor:
+        """Decode from discrete codes back to continuous vectors."""
+        z_q = torch.zeros(all_indices[0].shape[0],
+                          self.quantizers[0].D,
+                          all_indices[0].shape[1],
+                          device=all_indices[0].device)
+        for k, indices in enumerate(all_indices):
+            z_q = z_q + self.quantizers[k].embedding(indices).permute(0, 2, 1)
+        return z_q</code></pre>
+
+                <!-- Code Example 3: Encoder -->
+                <h3>3. EnCodec-Style Encoder Architecture</h3>
+<pre><code>class ResidualUnit(nn.Module):
+    """Single residual unit with dilated convolution."""
+
+    def __init__(self, channels: int, dilation: int = 1, kernel_size: int = 7):
+        super().__init__()
+        padding = (kernel_size - 1) * dilation // 2  # Causal: use full left padding
+        self.block = nn.Sequential(
+            nn.ELU(),
+            nn.Conv1d(channels, channels, kernel_size, dilation=dilation, padding=padding),
+            nn.ELU(),
+            nn.Conv1d(channels, channels, kernel_size=1),
+        )
+
+    def forward(self, x):
+        return x + self.block(x)
+
+
+class EncoderBlock(nn.Module):
+    """Encoder block: residual units followed by strided downsampling."""
+
+    def __init__(self, in_channels: int, out_channels: int, stride: int):
+        super().__init__()
+        self.residual_units = nn.Sequential(
+            ResidualUnit(in_channels, dilation=1),
+            ResidualUnit(in_channels, dilation=3),
+            ResidualUnit(in_channels, dilation=9),
+        )
+        # Strided convolution for downsampling
+        self.downsample = nn.Conv1d(
+            in_channels, out_channels,
+            kernel_size=2 * stride, stride=stride,
+            padding=stride // 2
+        )
+
+    def forward(self, x):
+        x = self.residual_units(x)
+        x = self.downsample(x)
+        return x
+
+
+class EnCodecEncoder(nn.Module):
+    """EnCodec-style convolutional encoder.
+
+    Compresses 24kHz audio with strides (2, 4, 5, 8) for 320x downsampling,
+    yielding 75 Hz frame rate.
+    """
+
+    def __init__(self, in_channels: int = 1, base_channels: int = 32,
+                 embedding_dim: int = 128, strides: tuple = (2, 4, 5, 8)):
+        super().__init__()
+        channels = base_channels
+        layers = [nn.Conv1d(in_channels, channels, kernel_size=7, padding=3)]
+
+        for stride in strides:
+            out_channels = channels * 2
+            layers.append(EncoderBlock(channels, out_channels, stride))
+            channels = out_channels
+
+        # LSTM for temporal modeling
+        layers.append(nn.ELU())
+        self.conv_layers = nn.Sequential(*layers)
+        self.lstm = nn.LSTM(channels, channels, num_layers=2, batch_first=True)
+        self.final_conv = nn.Conv1d(channels, embedding_dim, kernel_size=3, padding=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Waveform, shape (B, 1, T) where T is number of samples
+        Returns:
+            z: Latent representation, shape (B, D, S) where S = T / product(strides)
+        """
+        h = self.conv_layers(x)                    # (B, C, S)
+        h = h.permute(0, 2, 1)                     # (B, S, C) for LSTM
+        h, _ = self.lstm(h)                         # (B, S, C)
+        h = h.permute(0, 2, 1)                     # (B, C, S)
+        z = self.final_conv(h)                      # (B, D, S)
+        return z</code></pre>
+
+                <!-- Code Example 4: Multi-Scale STFT Loss -->
+                <h3>4. Multi-Scale STFT Loss</h3>
+<pre><code>class STFTLoss(nn.Module):
+    """Single-resolution STFT loss (spectral convergence + log magnitude)."""
+
+    def __init__(self, fft_size: int = 1024, hop_size: int = 256, win_size: int = 1024):
+        super().__init__()
+        self.fft_size = fft_size
+        self.hop_size = hop_size
+        self.register_buffer('window', torch.hann_window(win_size))
+
+    def stft(self, x):
+        """Compute STFT magnitude."""
+        # x: (B, T)
+        X = torch.stft(x, self.fft_size, self.hop_size, window=self.window,
+                        return_complex=True)
+        return X.abs()  # (B, F, T')
+
+    def forward(self, x, x_hat):
+        """Compute spectral convergence + log magnitude loss."""
+        mag_x = self.stft(x)
+        mag_x_hat = self.stft(x_hat)
+
+        # Spectral convergence: relative Frobenius norm
+        sc_loss = torch.norm(mag_x - mag_x_hat, p='fro') / (torch.norm(mag_x, p='fro') + 1e-8)
+
+        # Log-magnitude L1 loss
+        log_mag_loss = F.l1_loss(torch.log(mag_x + 1e-8), torch.log(mag_x_hat + 1e-8))
+
+        return sc_loss + log_mag_loss
+
+
+class MultiScaleSTFTLoss(nn.Module):
+    """Multi-resolution STFT loss combining multiple time-frequency scales."""
+
+    def __init__(self, resolutions=None):
+        super().__init__()
+        if resolutions is None:
+            resolutions = [
+                (512, 128, 512),
+                (1024, 256, 1024),
+                (2048, 512, 2048),
+                (4096, 1024, 4096),
+            ]
+        self.losses = nn.ModuleList([
+            STFTLoss(fft_size=fft, hop_size=hop, win_size=win)
+            for fft, hop, win in resolutions
+        ])
+
+    def forward(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Original waveform, shape (B, T)
+            x_hat: Reconstructed waveform, shape (B, T)
+        Returns:
+            Total multi-scale STFT loss (scalar)
+        """
+        total_loss = 0.0
+        for loss_fn in self.losses:
+            total_loss = total_loss + loss_fn(x, x_hat)
+        return total_loss / len(self.losses)</code></pre>
+
+                <!-- Code Example 5: Quantizer Dropout -->
+                <h3>5. Quantizer Dropout for Variable Bitrate</h3>
+<pre><code>class ResidualVQWithDropout(ResidualVQ):
+    """RVQ with quantizer dropout for training a variable-bitrate codec."""
+
+    def __init__(self, num_quantizers: int = 8, num_embeddings: int = 1024,
+                 embedding_dim: int = 128, commitment_cost: float = 0.25):
+        super().__init__(num_quantizers, num_embeddings, embedding_dim, commitment_cost)
+
+    def forward(self, z: torch.Tensor, num_quantizers: int = None):
+        """
+        During training: randomly sample the number of active quantizers.
+        During inference: use the specified number (or all).
+        """
+        if self.training and num_quantizers is None:
+            # Sample number of active quantizers uniformly from {1, ..., K}
+            num_quantizers = torch.randint(1, self.K + 1, (1,)).item()
+
+        return super().forward(z, num_quantizers=num_quantizers)
+
+
+# --- Example: complete training step ---
+def train_step(encoder, decoder, rvq, discriminators, ms_stft_loss,
+               optimizer_g, optimizer_d, audio_batch,
+               lambda_t=0.1, lambda_f=1.0, lambda_g=1.0, lambda_c=1.0):
+    """One training step for a neural audio codec with adversarial training."""
+
+    # === Generator forward pass ===
+    z = encoder(audio_batch)                    # Encode: (B, 1, T) -> (B, D, S)
+    z_q, indices, commit_loss = rvq(z)          # Quantize with dropout
+    audio_hat = decoder(z_q)                    # Decode: (B, D, S) -> (B, 1, T)
+
+    x = audio_batch.squeeze(1)                  # (B, T)
+    x_hat = audio_hat.squeeze(1)                # (B, T)
+
+    # Time-domain L1 loss
+    loss_time = F.l1_loss(x, x_hat)
+
+    # Multi-scale STFT loss
+    loss_freq = ms_stft_loss(x, x_hat)
+
+    # GAN generator loss + feature matching
+    loss_gan = 0.0
+    for disc in discriminators:
+        real_feats = disc.extract_features(x)
+        fake_feats = disc.extract_features(x_hat)
+        # Hinge loss for generator
+        fake_score = disc(x_hat)
+        loss_gan += torch.mean(F.relu(1 - fake_score))
+        # Feature matching loss
+        for rf, ff in zip(real_feats, fake_feats):
+            loss_gan += F.l1_loss(rf.detach(), ff) / len(real_feats)
+
+    # Total generator loss
+    loss_g = lambda_t * loss_time + lambda_f * loss_freq + lambda_g * loss_gan + lambda_c * commit_loss
+
+    optimizer_g.zero_grad()
+    loss_g.backward()
+    optimizer_g.step()
+
+    # === Discriminator update ===
+    with torch.no_grad():
+        z = encoder(audio_batch)
+        z_q, _, _ = rvq(z)
+        audio_hat = decoder(z_q)
+    x_hat = audio_hat.squeeze(1)
+
+    loss_d = 0.0
+    for disc in discriminators:
+        real_score = disc(x)
+        fake_score = disc(x_hat)
+        loss_d += torch.mean(F.relu(1 - real_score)) + torch.mean(F.relu(1 + fake_score))
+
+    optimizer_d.zero_grad()
+    loss_d.backward()
+    optimizer_d.step()
+
+    return {
+        'loss_g': loss_g.item(), 'loss_d': loss_d.item(),
+        'loss_time': loss_time.item(), 'loss_freq': loss_freq.item(),
+        'commit_loss': commit_loss.item(),
+        'perplexity': [q.codebook_perplexity() for q in rvq.quantizers],
+    }</code></pre>
+
+            </article>
+
+            <!-- ==================== EXERCISES TAB ==================== -->
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding of neural audio codecs, from basic bitrate calculations to advanced codec design. The easy exercises cover essential computations. The medium exercises require deeper analysis of quantization, spectral losses, and information theory. The hard exercises involve designing complete systems and analyzing fundamental trade-offs. Full solutions are provided for self-study.</p>
+
+                <div class="exercise-list">
+
+                <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <!-- Exercise 1 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">1. Bitrate Calculation for RVQ</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>An EnCodec model operates at 24 kHz sample rate with encoder strides $(2, 4, 5, 8)$ and uses RVQ with $K = 8$ codebooks, each of size $N = 1024$. (a) Compute the frame rate (number of latent frames per second). (b) Compute the total bitrate in kbps. (c) Compute the compression ratio relative to 16-bit PCM at 24 kHz. (d) If we reduce to $K = 4$ codebooks, what is the new bitrate? (e) At what codebook size $N$ would a single codebook ($K = 1$) achieve the same bitrate as the original $K = 8, N = 1024$ configuration?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Frame rate:</strong> The total stride is $2 \times 4 \times 5 \times 8 = 320$. The frame rate is:</p>
+                                $$f_s = \frac{24000}{320} = 75 \text{ Hz}$$
+                                <p><strong>(b) Total bitrate:</strong> Each codebook contributes $\log_2(1024) = 10$ bits per frame. With $K = 8$ codebooks:</p>
+                                $$R = K \cdot f_s \cdot \log_2 N = 8 \times 75 \times 10 = 6000 \text{ bits/sec} = 6 \text{ kbps}$$
+                                <p><strong>(c) Compression ratio:</strong> 16-bit PCM at 24 kHz has bitrate $24000 \times 16 = 384{,}000$ bits/sec $= 384$ kbps. The compression ratio is:</p>
+                                $$\frac{384}{6} = 64\times$$
+                                <p><strong>(d) With $K = 4$:</strong></p>
+                                $$R = 4 \times 75 \times 10 = 3000 \text{ bits/sec} = 3 \text{ kbps}$$
+                                <p><strong>(e) Single codebook with same bitrate:</strong> We need $1 \times 75 \times \log_2 N = 6000$, so $\log_2 N = 80$, giving $N = 2^{80} \approx 1.2 \times 10^{24}$. This is astronomically large, which is precisely why RVQ is necessary &mdash; it achieves the same bitrate with $K$ manageable codebooks of size $N$ instead of a single codebook of size $N^K$.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 2 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">2. Codebook Utilization Metric</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A VQ codebook has $N = 1024$ entries. After processing a batch of 10,000 frames, the codebook usage is as follows: 100 entries were each selected 90 times, 24 entries were each selected 50 times, and the remaining 900 entries were never selected. (a) Compute the codebook utilization as a percentage of active entries. (b) Compute the entropy of the usage distribution. (c) Compute the codebook perplexity. (d) What would the perplexity be if all 1024 entries were used equally? (e) Is this codebook suffering from collapse? Justify your answer.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Active entries:</strong> $100 + 24 = 124$ out of 1024 are active. Utilization = $124 / 1024 = 12.1\%$.</p>
+                                <p><strong>(b) Entropy:</strong> Total selections = $100 \times 90 + 24 \times 50 = 9000 + 1200 = 10{,}200$. Wait &mdash; we have 10,000 frames but 10,200 selections. Let me re-read: 10,000 frames. The numbers given imply $100 \times 90 + 24 \times 50 = 10{,}200 \neq 10{,}000$. Since the problem states 10,000 frames, we treat the given counts as approximate and compute with the stated values, normalizing to sum to 1.</p>
+                                <p>For the 100 popular entries: $p_j = 90/10200$ each. For the 24 moderate entries: $p_j = 50/10200$ each. For the 900 dead entries: $p_j = 0$.</p>
+                                $$H = -\left[100 \cdot \frac{90}{10200}\log_2\frac{90}{10200} + 24 \cdot \frac{50}{10200}\log_2\frac{50}{10200}\right]$$
+                                $$= -\left[100 \cdot 0.00882 \cdot \log_2(0.00882) + 24 \cdot 0.00490 \cdot \log_2(0.00490)\right]$$
+                                $$= -\left[0.882 \cdot (-6.826) + 0.1176 \cdot (-7.673)\right]$$
+                                $$= -\left[-6.023 - 0.903\right] = 6.926 \text{ bits}$$
+                                <p><strong>(c) Perplexity:</strong></p>
+                                $$\text{PPL} = 2^{H} = 2^{6.926} \approx 121.7$$
+                                <p><strong>(d) Uniform usage:</strong> $H_{\max} = \log_2(1024) = 10$ bits, so $\text{PPL}_{\max} = 1024$.</p>
+                                <p><strong>(e) Yes, severe codebook collapse.</strong> The perplexity is 121.7 out of a maximum of 1024, meaning only about 12% of the codebook capacity is utilized. The 900 dead entries (87.9%) are wasted. This codebook effectively has the representational capacity of a codebook of size ~122, wasting $\log_2(1024) - \log_2(122) \approx 3.07$ bits per frame of potential information. Codebook reset or EMA updates should be applied.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 3 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">3. Reconstruction Quality vs Number of Codebooks</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>An RVQ system with $K = 8$ codebooks achieves the following PESQ scores (Perceptual Evaluation of Speech Quality, range 1&ndash;4.5) when using different numbers of codebooks at inference: $K=1$: 2.1, $K=2$: 2.8, $K=3$: 3.2, $K=4$: 3.6, $K=5$: 3.8, $K=6$: 4.0, $K=7$: 4.1, $K=8$: 4.2. (a) Plot the PESQ vs. bitrate curve (assume $N=1024$, $f_s = 75$ Hz). (b) At what number of codebooks does the quality exhibit diminishing returns? (c) Estimate the PESQ improvement per additional kbps for codebooks 1&ndash;4 vs codebooks 5&ndash;8. (d) If your application requires PESQ $\geq 3.5$, what is the minimum bitrate?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) PESQ vs. bitrate:</strong> Each codebook adds $75 \times 10 = 750$ bits/sec $= 0.75$ kbps.</p>
+<pre><code>K  | Bitrate (kbps) | PESQ
+---|---------------|-----
+1  |  0.75          | 2.1
+2  |  1.50          | 2.8
+3  |  2.25          | 3.2
+4  |  3.00          | 3.6
+5  |  3.75          | 3.8
+6  |  4.50          | 4.0
+7  |  5.25          | 4.1
+8  |  6.00          | 4.2</code></pre>
+                                <p><strong>(b) Diminishing returns:</strong> The PESQ improvements per codebook are: +0.7, +0.4, +0.4, +0.2, +0.2, +0.1, +0.1. The most significant drop in marginal improvement occurs at $K = 5$ (improvement drops from +0.4 to +0.2). This is the knee of the curve.</p>
+                                <p><strong>(c) PESQ per kbps:</strong></p>
+                                <p>Codebooks 1&ndash;4: PESQ increase = $3.6 - 2.1 = 1.5$, bitrate increase = $3.0 - 0.75 = 2.25$ kbps. Rate = $1.5 / 2.25 = 0.67$ PESQ per kbps.</p>
+                                <p>Codebooks 5&ndash;8: PESQ increase = $4.2 - 3.6 = 0.6$, bitrate increase = $6.0 - 3.0 = 3.0$ kbps. Rate = $0.6 / 3.0 = 0.20$ PESQ per kbps.</p>
+                                <p>The first 4 codebooks are $3.3\times$ more efficient than the last 4 in terms of perceptual quality per bit.</p>
+                                <p><strong>(d) Minimum bitrate for PESQ $\geq 3.5$:</strong> $K = 4$ gives PESQ = 3.6 $\geq$ 3.5, at bitrate $= 3.0$ kbps. This is the minimum.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <!-- Exercise 4 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">4. Straight-Through Estimator Gradient Analysis</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a simple VQ system where the encoder produces $z = f_\theta(x) \in \mathbb{R}^2$ and the decoder reconstructs $\hat{x} = g_\phi(z_q)$ where $z_q = \text{VQ}(z)$. The codebook has 4 entries: $\mathbf{e}_1 = (1, 0)$, $\mathbf{e}_2 = (0, 1)$, $\mathbf{e}_3 = (-1, 0)$, $\mathbf{e}_4 = (0, -1)$. The encoder output is $z = (0.8, 0.3)$ and the reconstruction loss is $\mathcal{L} = \|\hat{x} - x\|^2$. (a) Which codebook entry is selected? (b) Write out the straight-through forward pass: what value does the decoder see? (c) If $\partial \mathcal{L}/\partial z_q = (0.5, -0.2)$, what gradient does the encoder receive via the STE? (d) What is the commitment loss? (e) Combine the gradients from the STE and the commitment loss to find the total gradient on $z$.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Nearest codebook entry:</strong></p>
+                                $$\|z - e_1\|^2 = (0.8-1)^2 + (0.3-0)^2 = 0.04 + 0.09 = 0.13$$
+                                $$\|z - e_2\|^2 = (0.8-0)^2 + (0.3-1)^2 = 0.64 + 0.49 = 1.13$$
+                                $$\|z - e_3\|^2 = (0.8+1)^2 + (0.3-0)^2 = 3.24 + 0.09 = 3.33$$
+                                $$\|z - e_4\|^2 = (0.8-0)^2 + (0.3+1)^2 = 0.64 + 1.69 = 2.33$$
+                                <p>Entry $\mathbf{e}_1 = (1, 0)$ is nearest (distance $0.13$), so $z_q = (1, 0)$.</p>
+                                <p><strong>(b) Straight-through forward pass:</strong> The decoder sees $z_q = \mathbf{e}_1 = (1, 0)$. In implementation: $\hat{z} = z + \text{sg}[z_q - z] = (0.8, 0.3) + \text{sg}[(1, 0) - (0.8, 0.3)] = (0.8, 0.3) + \text{sg}[(0.2, -0.3)]$. In the forward pass, this evaluates to $(1, 0)$. In the backward pass, $\partial \hat{z}/\partial z = I$.</p>
+                                <p><strong>(c) STE gradient:</strong> By the straight-through estimator, the gradient passes through directly:</p>
+                                $$\frac{\partial \mathcal{L}}{\partial z}\bigg|_{\text{STE}} = \frac{\partial \mathcal{L}}{\partial z_q} = (0.5, -0.2)$$
+                                <p><strong>(d) Commitment loss:</strong></p>
+                                $$\mathcal{L}_{\text{commit}} = \beta \|z - \text{sg}[z_q]\|^2 = \beta \|(0.8, 0.3) - (1, 0)\|^2 = \beta (0.04 + 0.09) = 0.13\beta$$
+                                <p>With $\beta = 0.25$: $\mathcal{L}_{\text{commit}} = 0.0325$.</p>
+                                <p><strong>(e) Total gradient on $z$:</strong> The commitment loss gradient is:</p>
+                                $$\frac{\partial \mathcal{L}_{\text{commit}}}{\partial z} = 2\beta(z - z_q) = 2(0.25)(-0.2, 0.3) = (-0.1, 0.15)$$
+                                <p>Total gradient:</p>
+                                $$\frac{\partial \mathcal{L}_{\text{total}}}{\partial z} = (0.5, -0.2) + (-0.1, 0.15) = (0.4, -0.05)$$
+                                <p>The STE gradient pushes $z$ in the direction that reduces reconstruction loss, while the commitment gradient pushes $z$ toward the codebook entry $(1, 0)$. In this case, both are roughly aligned, which is the healthy regime.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 5 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">5. Multi-Scale STFT Loss Derivation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a single-resolution STFT loss with window size $W$, hop size $H$, and FFT size $F$. (a) How many frequency bins does the magnitude STFT have? (b) How many time frames are there for an input of $T$ samples? (c) Explain why the spectral convergence loss $\mathcal{L}_{\text{sc}} = \||\text{STFT}(x)| - |\text{STFT}(\hat{x})|\|_F / \||\text{STFT}(x)|\|_F$ is scale-invariant. (d) Why does the log-magnitude loss $\mathcal{L}_{\text{mag}} = \|\log|X| - \log|\hat{X}|\|_1 / M$ weight quiet spectral regions more equally than the plain magnitude loss $\||X| - |\hat{X}|\|_1 / M$? Prove this mathematically. (e) Explain the time-frequency resolution trade-off: why do we need multiple STFT resolutions?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Frequency bins:</strong> The FFT of size $F$ produces $F$ complex coefficients, but for real-valued signals the spectrum is conjugate-symmetric, so only $F/2 + 1$ unique bins are needed. The number of frequency bins is $F/2 + 1$.</p>
+                                <p><strong>(b) Time frames:</strong> With hop size $H$ and input length $T$, the number of frames is $\lfloor (T - F) / H \rfloor + 1$ (assuming the window size equals $F$ with zero-padding at the end). With standard padding, this is approximately $\lceil T / H \rceil$.</p>
+                                <p><strong>(c) Scale invariance:</strong> If we scale the input by a constant $\alpha$ (i.e., $x \to \alpha x$), then $|\text{STFT}(\alpha x)| = |\alpha| \cdot |\text{STFT}(x)|$ by linearity. The spectral convergence loss becomes:</p>
+                                $$\mathcal{L}_{\text{sc}} = \frac{\||\alpha||X| - |\alpha||\hat{X}|\|_F}{\||\alpha||X|\|_F} = \frac{|\alpha| \cdot \||X| - |\hat{X}|\|_F}{|\alpha| \cdot \||X|\|_F} = \frac{\||X| - |\hat{X}|\|_F}{\||X|\|_F}$$
+                                <p>The $|\alpha|$ cancels, so the loss is independent of the overall signal amplitude. This is important because audio recordings can have arbitrary gain levels.</p>
+                                <p><strong>(d) Log-magnitude weighting:</strong> Consider a spectral bin with magnitude $a$ and reconstructed magnitude $\hat{a}$. The plain magnitude error is $|a - \hat{a}|$. The log-magnitude error is $|\log a - \log \hat{a}|$.</p>
+                                <p>For a small relative error $\hat{a} = a(1 + \epsilon)$ where $|\epsilon| \ll 1$:</p>
+                                $$|a - \hat{a}| = |a \epsilon| = a|\epsilon|$$
+                                $$|\log a - \log \hat{a}| = |\log(1 + \epsilon)| \approx |\epsilon|$$
+                                <p>The plain magnitude error is proportional to $a$ (the absolute magnitude), so a 10% error in a loud bin (say $a = 100$) produces error 10, while the same relative error in a quiet bin ($a = 1$) produces error 0.1. The L1 loss will focus almost entirely on loud bins.</p>
+                                <p>The log-magnitude error is approximately $|\epsilon|$ regardless of $a$. A 10% error contributes roughly the same loss whether the bin is loud or quiet. This matches human perception: a 10% spectral distortion is equally audible in quiet and loud regions (Weber's law).</p>
+                                <p><strong>(e) Time-frequency resolution trade-off:</strong> By the uncertainty principle of the STFT, the time resolution $\Delta t$ and frequency resolution $\Delta f$ satisfy $\Delta t \cdot \Delta f \geq 1/(4\pi)$. A short window (small $W$) gives good time resolution but poor frequency resolution: transients and plosives are well-localized in time, but individual harmonics are blurred together. A long window (large $W$) gives good frequency resolution but poor time resolution: harmonics are well-separated, but transient events are smeared.</p>
+                                <p>No single STFT resolution can accurately represent both transients and tonal content. Multiple resolutions are necessary: short windows catch temporal artifacts (clicks, pops, misaligned transients) and long windows catch spectral artifacts (missing harmonics, formant distortion, spectral holes). The multi-scale loss forces the generator to be accurate in <em>all</em> time-frequency regimes.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 6 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">6. EMA Codebook Update Derivation</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The EMA codebook update maintains running counts $n_j$ and running sums $\mathbf{s}_j$ for each codebook entry $j$. (a) Show that the EMA update with decay $\gamma$ is equivalent to an exponentially-weighted moving average of the mini-batch statistics. Specifically, after $t$ updates with batch counts $m_j^{(1)}, \ldots, m_j^{(t)}$ and batch sums $\mathbf{v}_j^{(1)}, \ldots, \mathbf{v}_j^{(t)}$, derive the formula for $n_j^{(t)}$ and $\mathbf{s}_j^{(t)}$. (b) Show that as $t \to \infty$, the effective number of recent batches being averaged is approximately $1/(1-\gamma)$. (c) Why is Laplace smoothing $\hat{n}_j = (n_j + \epsilon) / (\sum_i n_i + N\epsilon) \cdot \sum_i n_i$ applied before dividing? (d) With $\gamma = 0.99$ and batch size 32 at 75 Hz frame rate and 1-second segments, how many "recent seconds of audio" does each codebook entry's position reflect?</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) EMA expansion:</strong> Unrolling the EMA update $n_j^{(t)} = \gamma n_j^{(t-1)} + (1 - \gamma) m_j^{(t)}$:</p>
+                                $$n_j^{(t)} = (1 - \gamma) \sum_{\tau=1}^{t} \gamma^{t-\tau} m_j^{(\tau)} + \gamma^t n_j^{(0)}$$
+                                <p>where $n_j^{(0)}$ is the initial count (typically 0). Similarly:</p>
+                                $$\mathbf{s}_j^{(t)} = (1 - \gamma) \sum_{\tau=1}^{t} \gamma^{t-\tau} \mathbf{v}_j^{(\tau)} + \gamma^t \mathbf{s}_j^{(0)}$$
+                                <p>This is an exponentially-weighted sum where batch $\tau$ has weight $(1-\gamma)\gamma^{t-\tau}$. Recent batches have weight close to $(1-\gamma)$ and older batches have exponentially decaying weights.</p>
+                                <p><strong>(b) Effective window:</strong> The weights $(1-\gamma)\gamma^{t-\tau}$ for $\tau = t, t-1, \ldots$ form a geometric series summing to 1. The effective number of batches is the reciprocal of the sum of squared weights:</p>
+                                $$n_{\text{eff}} = \frac{(\sum_k w_k)^2}{\sum_k w_k^2} = \frac{1}{(1-\gamma^2)/(1+\gamma)} = \frac{1+\gamma}{1-\gamma}$$
+                                <p>For $\gamma = 0.99$: $n_{\text{eff}} = 1.99/0.01 = 199$ batches. A simpler approximation: the half-life of the weights is $\tau_{1/2} = -1/\log_2 \gamma \approx 1/(1-\gamma) = 100$ batches.</p>
+                                <p><strong>(c) Laplace smoothing:</strong> Without smoothing, a dead entry has $n_j = 0$ (or very close to 0 due to floating-point). Dividing $\mathbf{s}_j / n_j$ with $n_j \approx 0$ produces NaN or infinite values. Laplace smoothing adds a small count $\epsilon$ to every entry, ensuring $\hat{n}_j > 0$. The normalization factor $\sum_i n_i + N\epsilon$ ensures the total count is preserved (up to the $N\epsilon$ correction). For active entries with $n_j \gg \epsilon$, the smoothing has negligible effect. For dead entries with $n_j \approx 0$, the smoothing prevents numerical instability and keeps the entry at a reasonable position (a mixture of all assigned vectors, weighted toward recent ones).</p>
+                                <p><strong>(d) Effective audio window:</strong> Each batch has $32$ segments of 1 second = $32 \times 75 = 2400$ frames. With effective window of ~100 batches, the codebook reflects the last $100 \times 32 = 3200$ seconds = ~53 minutes of audio. However, each individual entry only receives assignments from frames that map to it, so the effective window per entry depends on its usage frequency. A popular entry used in 1% of frames sees $0.01 \times 100 \times 2400 = 2400$ frames, corresponding to 32 seconds of its own assignments over the last ~53 minutes of training.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 7 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">7. Information Content Per RVQ Layer</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider an RVQ system where each codebook has $N = 1024$ entries, but the actual codebook utilization (measured by perplexity) varies by layer: Layer 1: PPL = 980, Layer 2: PPL = 850, Layer 3: PPL = 700, Layer 4: PPL = 500, Layer 5: PPL = 350, Layer 6: PPL = 200, Layer 7: PPL = 100, Layer 8: PPL = 50. (a) Compute the effective bits of information per frame for each layer (use $\log_2(\text{PPL})$). (b) Compute the total effective information rate (effective bits/sec at 75 Hz frame rate). (c) Compare this to the nominal bitrate of $8 \times 10 = 80$ bits/frame. What fraction of the nominal capacity is actually utilized? (d) Explain why later RVQ layers have lower codebook utilization. (e) Propose two strategies to improve utilization in later layers.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Effective bits per layer:</strong></p>
+<pre><code>Layer | PPL  | Effective bits (log2 PPL)
+------|------|------------------------
+  1   |  980 |  9.94
+  2   |  850 |  9.73
+  3   |  700 |  9.45
+  4   |  500 |  8.97
+  5   |  350 |  8.45
+  6   |  200 |  7.64
+  7   |  100 |  6.64
+  8   |   50 |  5.64
+------|------|------------------------
+Total |      | 66.46 bits/frame</code></pre>
+                                <p><strong>(b) Effective information rate:</strong></p>
+                                $$R_{\text{eff}} = 66.46 \times 75 = 4{,}984.5 \text{ bits/sec} \approx 4.98 \text{ kbps}$$
+                                <p><strong>(c) Capacity utilization:</strong> Nominal: 80 bits/frame, effective: 66.46 bits/frame. Utilization = $66.46 / 80 = 83.1\%$. This means 16.9% of the nominal bitrate is wasted due to non-uniform codebook usage.</p>
+                                <p><strong>(d) Why later layers have lower utilization:</strong> Later RVQ layers quantize the residual error from earlier layers. As more layers are applied, the residual becomes (1) smaller in magnitude, meaning the vectors are concentrated in a smaller region of the embedding space, and (2) less structured, meaning the variation between frames is more random and less amenable to clustering. With smaller, less structured residuals, only a few codebook entries near zero are frequently selected, while entries far from zero are rarely used. This is the "residual concentration" phenomenon &mdash; the effective dimensionality of the residual decreases with each layer.</p>
+                                <p><strong>(e) Two strategies to improve utilization:</strong></p>
+                                <p><strong>Strategy 1: Factorized codes (DAC approach).</strong> Project the residual to a lower-dimensional space before quantization. If the residual lives in a low-dimensional subspace, projecting to that subspace makes the distribution denser and more uniform, improving codebook utilization. Different layers can use different projection dimensions.</p>
+                                <p><strong>Strategy 2: Residual normalization.</strong> Normalize each residual $\mathbf{r}_k$ to unit norm (or to a fixed norm) before quantization, and store the original norm as a separate scalar. This "zooms in" on the residual distribution, making it fill the space more uniformly. The norm can be encoded separately with negligible additional bits. This prevents the concentration problem where later residuals have tiny magnitudes.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <!-- Exercise 8 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">8. Designing a Variable-Bitrate Codec</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You are designing a neural audio codec that must operate at three bitrates: 1.5 kbps (low quality, for low-bandwidth channels), 6 kbps (high quality, for normal use), and 12 kbps (transparent quality, for archival). Your codec uses 24 kHz sample rate, strides giving 75 Hz frame rate, and codebook size $N = 1024$. (a) How many RVQ codebooks are needed for each bitrate? (b) Describe in detail how quantizer dropout training works to support all three bitrates with a single model. Write out the training algorithm in pseudocode. (c) Analyze the trade-off: why is a single model with quantizer dropout preferred over training three separate models? (d) The 1.5 kbps mode produces terrible quality. Propose three specific modifications to improve quality at 1.5 kbps without changing the bitrate. (e) Design a perceptual test to verify that your modifications improved 1.5 kbps quality.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Codebooks per bitrate:</strong> Each codebook contributes $75 \times 10 = 750$ bps $= 0.75$ kbps.</p>
+                                $$K_{1.5} = 1.5 / 0.75 = 2, \quad K_6 = 6 / 0.75 = 8, \quad K_{12} = 12 / 0.75 = 16$$
+                                <p><strong>(b) Quantizer dropout training pseudocode:</strong></p>
+<pre><code>for each training batch:
+    x = sample_audio_batch()            # (B, 1, T)
+    z = encoder(x)                       # (B, D, S)
+
+    # Quantizer dropout: sample number of active codebooks
+    K_active = sample_uniform({2, 3, 4, ..., 16})
+    # Or: sample from {2, 8, 16} with equal probability
+    # to focus on the target bitrates
+
+    # Apply RVQ with only K_active codebooks
+    residual = z
+    z_q = 0
+    total_commit_loss = 0
+    for k in range(K_active):
+        c_k, idx_k, loss_k = quantizer[k](residual)
+        z_q += c_k
+        residual -= c_k
+        total_commit_loss += loss_k
+
+    # Decode and compute losses
+    x_hat = decoder(z_q)
+    loss = compute_losses(x, x_hat, total_commit_loss)
+    loss.backward()
+    optimizer.step()</code></pre>
+                                <p>The key insight: by randomly varying $K_{\text{active}}$ during training, the encoder learns to put the most important information in the first codebook, and each subsequent codebook adds refinement. At inference, we simply choose $K$ based on the desired bitrate.</p>
+                                <p><strong>(c) Single model vs. three models:</strong></p>
+                                <ul>
+                                    <li><strong>Parameter efficiency:</strong> One model instead of three saves 2/3 of the total parameters and storage.</li>
+                                    <li><strong>Seamless bitrate switching:</strong> The same encoded audio can be decoded at any bitrate by using more or fewer codebooks. This enables adaptive bitrate streaming &mdash; the encoder runs once, and the decoder adapts.</li>
+                                    <li><strong>Information hierarchy:</strong> The shared model naturally learns a progressive representation where each codebook adds detail. Three separate models would not have this hierarchy.</li>
+                                    <li><strong>Training efficiency:</strong> One training run instead of three. The shared encoder and decoder parameters benefit from seeing all bitrate regimes.</li>
+                                    <li><strong>Trade-off:</strong> The single model may be slightly worse at each individual bitrate compared to a model specialized for that bitrate, because it must compromise across bitrates.</li>
+                                </ul>
+                                <p><strong>(d) Three modifications for better 1.5 kbps quality:</strong></p>
+                                <p><strong>Modification 1: Increase codebook size for the first two codebooks.</strong> Use $N = 4096$ (12 bits) instead of 1024 (10 bits) for codebooks 1 and 2. This increases the 1.5 kbps bitrate to $2 \times 75 \times 12 = 1800$ bps $= 1.8$ kbps. Alternatively, keep 1.5 kbps by using $N = 2048$ (11 bits): $2 \times 75 \times 11 = 1650$ bps $\approx 1.65$ kbps, closer to the target.</p>
+                                <p><strong>Modification 2: Reduce the frame rate.</strong> Increase the encoder stride to get a lower frame rate (e.g., 50 Hz instead of 75 Hz) and use more codebooks at the lower frame rate: $K = 3$ codebooks at 50 Hz with $N = 1024$ gives $3 \times 50 \times 10 = 1500$ bps $= 1.5$ kbps. More codebooks capture more detail even at the lower temporal resolution.</p>
+                                <p><strong>Modification 3: Bandwidth-adaptive discriminator.</strong> Use a discriminator that is specifically designed for low-bitrate evaluation &mdash; for example, one that focuses on spectral quality below 4 kHz (where most speech intelligibility lies) rather than full-band quality. This steers the generator toward preserving intelligibility at the expense of high-frequency detail.</p>
+                                <p><strong>(e) Perceptual test design:</strong> Conduct an AB preference test: present pairs of audio samples (original model at 1.5 kbps vs. modified model at 1.5 kbps) to 30+ listeners. Each listener rates 25 pairs, choosing which sounds better (or "no preference"). Test for statistical significance using a binomial test ($H_0$: 50% preference for each). Additionally, run a MUSHRA (MUltiple Stimuli with Hidden Reference and Anchor) test with a hidden reference, a 3.5 kHz low-pass anchor, and both codec versions, which provides more detailed quality scores on a 0&ndash;100 scale.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 9 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">9. Semantic vs Acoustic Disentanglement</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a speech signal $x$ spoken by speaker $s$ with linguistic content $c$. A semantic encoder produces tokens $Z_{\text{sem}}$ and an acoustic encoder (neural codec) produces tokens $Z_{\text{aco}}$. (a) Using mutual information, write formal conditions for perfect disentanglement where $Z_{\text{sem}}$ captures only content and $Z_{\text{aco}}$ captures only speaker. Why is this unrealistic? (b) Design an experiment to measure how much speaker information leaks into HuBERT semantic tokens. Describe the data, task, and evaluation metric. (c) The first RVQ codebook of EnCodec is often said to contain "semantic-like" information. Design a probing experiment to test this claim. (d) Explain why complete disentanglement is actually undesirable for TTS applications. (e) Propose a training objective that would encourage a neural codec to make its first codebook more "semantic" and its last codebooks more "acoustic."</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Formal disentanglement conditions:</strong></p>
+                                $$I(Z_{\text{sem}}; C) = H(C) \quad \text{(sem tokens fully capture content)}$$
+                                $$I(Z_{\text{sem}}; S \mid C) = 0 \quad \text{(sem tokens carry no speaker info beyond content)}$$
+                                $$I(Z_{\text{aco}}; S) = H(S) \quad \text{(aco tokens fully capture speaker)}$$
+                                $$I(Z_{\text{aco}}; C \mid S) = 0 \quad \text{(aco tokens carry no content info beyond speaker)}$$
+                                <p>This is unrealistic because: (1) Content and speaker are not fully independent &mdash; the same phoneme sounds different for different speakers (coarticulation, vocal tract length), so representing content accurately requires some speaker-dependent information. (2) Prosody (F0 contour, rhythm) carries both content information (question vs. statement) and speaker information (average F0, speaking rate). Prosody cannot be cleanly assigned to either factor. (3) The acoustic realization of phonemes depends on the speaker's accent, speaking style, and vocal tract, creating inherent entanglement.</p>
+                                <p><strong>(b) Speaker information leakage experiment:</strong></p>
+                                <p><strong>Data:</strong> Use a multi-speaker dataset (e.g., LibriSpeech, 100+ speakers). Extract HuBERT semantic tokens (layer 6, k-means with 500 clusters) for all utterances.</p>
+                                <p><strong>Task:</strong> Train a speaker classification probe &mdash; a simple model (e.g., 2-layer MLP with global average pooling over the token sequence) that takes semantic tokens as input and predicts the speaker identity.</p>
+                                <p><strong>Evaluation:</strong> Measure speaker classification accuracy on a held-out set. Compare against: (1) a random baseline ($1/N_{\text{speakers}}$), (2) the same probe trained on EnCodec first-codebook tokens (expected to have more speaker info), and (3) the same probe on mel spectrogram features (upper bound on speaker information). If the semantic token probe achieves significantly above chance (say 15% vs. 1% chance for 100 speakers), there is non-trivial speaker leakage.</p>
+                                <p><strong>(c) Probing the first RVQ codebook:</strong></p>
+                                <p><strong>Setup:</strong> Extract EnCodec codes for a large speech dataset. Isolate only the first codebook indices. Train two probes: (1) a phoneme classifier that predicts the current phoneme from a window of first-codebook tokens, and (2) a speaker classifier as in part (b).</p>
+                                <p><strong>Compare to:</strong> The same probes trained on (a) all 8 codebook indices concatenated, (b) HuBERT semantic tokens, and (c) mel spectrogram features.</p>
+                                <p><strong>If the first codebook is "semantic-like":</strong> The phoneme probe should achieve high accuracy (close to HuBERT tokens), and the speaker probe should achieve lower accuracy than when using all codebooks. If both probes achieve similar accuracy to using all codebooks, then the first codebook is not specifically semantic &mdash; it just carries the most information overall.</p>
+                                <p><strong>(d) Why complete disentanglement is undesirable for TTS:</strong></p>
+                                <p>Complete disentanglement would mean the semantic tokens carry zero information about prosody, speaking rate, emphasis, and emotion. But these are crucial for natural-sounding TTS. If the text-to-semantic model (Stage 1) cannot encode prosodic intent, the resulting speech will be flat and unnatural, regardless of how good the acoustic model is. We <em>want</em> semantic tokens to carry prosodic/expressive information that is determined by the text (question intonation, emphasis on important words) while being invariant to speaker-specific realization of that prosody.</p>
+                                <p><strong>(e) Training objective for semantic-first codebooks:</strong></p>
+                                <p>Add an auxiliary loss during codec training:</p>
+                                $$\mathcal{L}_{\text{aux}} = -\lambda_{\text{sem}} \cdot \text{PhoneCE}(\text{Probe}_{\text{phone}}(\mathbf{c}_1), y_{\text{phone}}) + \lambda_{\text{spk}} \cdot \text{GRL}(\text{Probe}_{\text{spk}}(\mathbf{c}_1))$$
+                                <p>where $\mathbf{c}_1$ is the first codebook output, PhoneCE is cross-entropy for phoneme classification, and GRL is a gradient reversal layer applied to the speaker probe. The first term encourages the first codebook to be predictive of phonemes (semantic). The gradient reversal layer makes the first codebook adversarially unpredictive of speaker identity. For later codebooks, apply the opposite: encourage speaker information, discourage redundant phoneme information. This is a form of adversarial disentanglement applied within the RVQ hierarchy.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exercise 10 -->
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-title">10. Streaming Codec with Causal Convolutions</span>
+                            <span class="exercise-toggle">&darr;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You must design a streaming neural audio codec for real-time voice communication with maximum algorithmic latency of 20 ms. The sample rate is 24 kHz. (a) Compute the maximum encoder stride (total downsampling factor) given the latency constraint. (b) Standard convolutions with kernel size $K$ and dilation $D$ have receptive field $K_{\text{eff}} = D(K-1) + 1$. For the encoder with residual units using dilations $(1, 3, 9)$ and kernel size 7, compute the total receptive field of one encoder block. Convert to milliseconds at 24 kHz. (c) Explain why causal (left-padded) convolutions are necessary for streaming and how they differ from standard symmetric padding. Show the padding computation for a causal convolution with kernel size $K$ and dilation $D$. (d) The transposed convolutions in the decoder can cause checkerboard artifacts. Explain why, and propose an alternative upsampling strategy. (e) Design a complete streaming codec meeting the 20 ms constraint: specify encoder strides, number of encoder blocks, frame rate, number of RVQ codebooks, and resulting bitrate.</p>
+                            <button class="btn btn-sm solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p><strong>Solution:</strong></p>
+                                <p><strong>(a) Maximum encoder stride:</strong> Algorithmic latency is determined by the encoder stride (one frame of lookahead) plus any non-causal computation. For a fully causal system, the latency equals the time to accumulate one frame: $\text{latency} = \text{stride} / f_s$. With $\text{latency} \leq 20$ ms and $f_s = 24000$ Hz:</p>
+                                $$\text{stride} \leq 0.020 \times 24000 = 480 \text{ samples}$$
+                                <p>So the maximum total stride is 480. Common choices: $2 \times 4 \times 5 \times 8 = 320$ (13.3 ms latency, used by SoundStream/EnCodec) or $2 \times 4 \times 8 \times 8 = 512$ (21.3 ms, slightly exceeds limit). The standard $320$ stride with 13.3 ms latency fits comfortably.</p>
+                                <p><strong>(b) Receptive field of one encoder block:</strong> The block has three residual units with dilations $d \in \{1, 3, 9\}$, each with kernel size $K = 7$. Each unit has two convolutions (the dilated conv and a $1\times1$ conv; only the dilated conv contributes to the receptive field).</p>
+                                <p>Receptive field of a single dilated convolution: $R = d(K-1) + 1$.</p>
+                                <ul>
+                                    <li>Dilation 1: $R_1 = 1 \times 6 + 1 = 7$ samples</li>
+                                    <li>Dilation 3: $R_2 = 3 \times 6 + 1 = 19$ samples</li>
+                                    <li>Dilation 9: $R_3 = 9 \times 6 + 1 = 55$ samples</li>
+                                </ul>
+                                <p>For stacked convolutions, the total receptive field is $R_{\text{total}} = \sum_i (R_i - 1) + 1 = (6 + 18 + 54) + 1 = 79$ samples. Adding the strided downsampling convolution with kernel $2s$ (where $s$ is the stride): this adds $2s - 1$ to the receptive field. For stride $s = 2$: $79 + 3 = 82$ samples. At 24 kHz: $82 / 24000 = 3.4$ ms.</p>
+                                <p>With 4 encoder blocks and strides $(2, 4, 5, 8)$, the total receptive field (accounting for stride-induced expansion) is considerably larger, but the <em>latency</em> of a causal system is determined only by the stride, not the receptive field (the receptive field looks only into the past).</p>
+                                <p><strong>(c) Causal convolutions:</strong></p>
+                                <p><strong>Standard (symmetric) padding:</strong> For kernel size $K$ and dilation $D$, symmetric padding is $p = D(K-1)/2$ on each side. The output at time $n$ depends on inputs from $n - D(K-1)/2$ to $n + D(K-1)/2$, requiring future samples.</p>
+                                <p><strong>Causal (left) padding:</strong> All padding is placed on the left: $p_{\text{left}} = D(K-1)$, $p_{\text{right}} = 0$. The output at time $n$ depends only on inputs from $n - D(K-1)$ to $n$, requiring no future samples.</p>
+                                $$p_{\text{causal}} = D \times (K - 1)$$
+                                <p>For kernel $K = 7$, dilation $D = 9$: $p_{\text{causal}} = 9 \times 6 = 54$ samples of left padding. No right padding. The convolution output at each time step depends only on the current and 54 past samples.</p>
+                                <p><strong>Why causal is necessary:</strong> In streaming mode, the encoder processes audio in chunks as it arrives. It cannot wait for future audio samples. Any use of future context (right padding, symmetric convolutions) would introduce additional algorithmic latency equal to the future context required.</p>
+                                <p><strong>(d) Checkerboard artifacts from transposed convolutions:</strong></p>
+                                <p>Transposed convolutions with stride $s > 1$ produce outputs where adjacent samples are computed from different subsets of input features. When the kernel size is not divisible by the stride, some output samples receive contributions from more input elements than others, creating a periodic pattern of amplitude variation &mdash; the "checkerboard artifact."</p>
+                                <p><strong>Alternative: nearest-neighbor upsampling + convolution.</strong> Upsample by nearest-neighbor interpolation (repeat each sample $s$ times), then apply a standard convolution. This avoids the uneven overlap pattern of transposed convolutions. Another option: sub-pixel convolution (PixelShuffle for 1D), which reshapes channel dimensions into temporal dimensions, followed by a convolution.</p>
+                                <p><strong>(e) Complete streaming codec design:</strong></p>
+<pre><code>Sample rate:        24 kHz
+Encoder strides:    (2, 4, 5, 8) = 320 total
+Frame rate:         24000 / 320 = 75 Hz
+Algorithmic latency: 320 / 24000 = 13.3 ms  (within 20 ms)
+Convolution type:   Causal (left-padding only)
+Encoder blocks:     4 blocks, each with 3 residual units
+                    (dilations 1, 3, 9, kernel size 7)
+Embedding dim:      128
+RVQ codebooks:      K = 8, N = 1024
+Bitrate:            8 * 75 * 10 = 6000 bps = 6 kbps
+Variable bitrate:   K = {2, 4, 8} for {1.5, 3, 6} kbps
+Decoder:            Mirror of encoder with nearest-neighbor
+                    upsampling + convolution (no transposed conv)
+Discriminator:      MS-STFTD (lightweight for real-time)
+Total parameters:   ~8M (encoder ~3M, decoder ~4M, VQ ~1M)</code></pre>
+                                <p>The 13.3 ms algorithmic latency leaves 6.7 ms of headroom for computational latency on the target hardware. On a modern mobile GPU, 8M parameters can process a 13.3 ms chunk in well under 6.7 ms, making real-time operation feasible.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </article>
+
+        </main>
+
+        <!-- TOC (Right Side) -->
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#why-codecs" class="toc-link">Why Neural Audio Codecs?</a>
+                <a href="#vq-fundamentals" class="toc-link">VQ Fundamentals</a>
+                <a href="#rvq" class="toc-link">Residual VQ (RVQ)</a>
+                <a href="#soundstream" class="toc-link">SoundStream</a>
+                <a href="#encodec" class="toc-link">EnCodec</a>
+                <a href="#dac" class="toc-link">DAC (Descript Audio Codec)</a>
+                <a href="#semantic-acoustic" class="toc-link">Semantic vs Acoustic Tokens</a>
+                <a href="#training" class="toc-link">Training Strategies</a>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            const tabs = document.querySelectorAll('.tutorial-tab');
+            const articles = document.querySelectorAll('.article-content');
+
+            function switchTab(targetId) {
+                if (!targetId || targetId === '#') targetId = '#theory';
+                tabs.forEach(tab => {
+                    if (tab.getAttribute('href') === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+                articles.forEach(article => {
+                    const articleId = '#' + article.id;
+                    if (articleId === targetId) {
+                        article.style.display = 'block';
+                    } else {
+                        article.style.display = 'none';
+                    }
+                });
+                if (typeof renderMathInElement === 'function') {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+                const toc = document.querySelector('.toc-container');
+                if (toc) {
+                    if (targetId === '#theory') {
+                        toc.style.display = 'block';
+                        setTimeout(() => toc.classList.add('visible'), 100);
+                    } else {
+                        toc.classList.remove('visible');
+                        setTimeout(() => toc.style.display = 'none', 300);
+                    }
+                }
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = tab.getAttribute('href');
+                    history.pushState(null, null, targetId);
+                    switchTab(targetId);
+                });
+            });
+
+            window.addEventListener('popstate', () => {
+                switchTab(window.location.hash);
+            });
+
+            switchTab(window.location.hash);
+        });
+    </script>
+</body>
+</html>
