@@ -95,18 +95,53 @@
             <article class="article-content" id="theory">
 <h1>Sampling Methods</h1>
                 <p>
-                    Training tells us how to denoise, but sampling determines whether that denoiser is practical. A model that needs a thousand perfect reverse steps may have excellent asymptotic quality and still feel too slow for real use, so modern diffusion research is largely the story of better samplers.
+                    Training tells us how to denoise, but sampling determines whether that denoiser is practical. A model that needs a thousand perfect reverse steps may have excellent asymptotic quality and still feel too slow for real use, so modern diffusion research is largely the story of better samplers. Consider the economics: generating a single 512×512 image with DDPM's full 1000-step schedule requires 1000 forward passes through a U-Net, each taking roughly 50 ms on a modern GPU — that is 50 seconds per image. Reducing the step count by 10× or 100× without destroying quality is therefore not a minor optimisation; it is the difference between a research curiosity and a deployed product.
                 </p>
                 <p>
-                    The key trade-off is quality versus trajectory budget. Fast samplers approximate the same reverse path with fewer evaluations, and every improvement asks the same question: how much numerical error can we afford before samples noticeably degrade?
+                    The key trade-off is quality versus trajectory budget. Fast samplers approximate the same reverse path with fewer evaluations, and every improvement asks the same question: how much numerical error can we afford before samples noticeably degrade? The answer depends on the sampler's mathematical structure. Stochastic samplers (DDPM) inject fresh noise at every step, which can self-correct but requires many steps for the corrections to accumulate. Deterministic samplers (DDIM, probability-flow ODE) follow a smooth trajectory that can be integrated with fewer, larger steps, but they have no self-correction mechanism — a bad step stays bad. Higher-order solvers (DPM-Solver, Heun) reduce the error per step, shifting the quality frontier further. And distillation methods (progressive distillation, consistency models) sidestep the ODE entirely by learning a direct map from noise to data.
                 </p>
                 <h2 id="ancestral-ddpm-sampling">DDPM ancestral sampling</h2>
                 <p>
-                    The original DDPM sampler is ancestral: start from $x_T\sim\mathcal N(0,I)$ and repeatedly sample from the learned reverse Gaussian. Each step predicts a mean from the denoiser and then injects fresh randomness according to the chosen reverse variance.
+                    The original DDPM sampler is ancestral: start from $x_T\sim\mathcal N(0,I)$ and repeatedly sample from the learned reverse Gaussian. Each step predicts a mean from the denoiser and then injects fresh randomness according to the chosen reverse variance. Concretely, the model outputs a noise estimate $\epsilon_\theta(x_t, t)$, which is used to compute the posterior mean $\mu_\theta(x_t, t)$. The posterior variance $\sigma_t^2$ can be fixed to either $\beta_t$ (the forward-process variance) or $\tilde{\beta}_t = \frac{1-\bar{\alpha}_{t-1}}{1-\bar{\alpha}_t}\beta_t$ (the true posterior variance when $x_0$ is known). The choice of variance has a modest effect on sample quality but matters more at low step counts.
                 </p>
                 <p>
-                    This stochasticity is not a bug. It is what makes the process a faithful approximate reverse Markov chain, but it also means the path zig-zags through latent space and needs many evaluations to converge gracefully.
+                    This stochasticity is not a bug. It is what makes the process a faithful approximate reverse Markov chain, but it also means the path zig-zags through latent space and needs many evaluations to converge gracefully. Why does the stochasticity help? At each step, the injected noise acts like a form of regularisation: even if the denoiser makes a slightly wrong prediction, the noise prevents the error from compounding deterministically. The downside is that the zig-zagging trajectory covers more "distance" in latent space per step of progress, which is why DDPM typically requires the full schedule of $T = 1000$ steps to produce clean samples.
                 </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Derivation: DDPM ancestral sampling update rule</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            We model the reverse transition as a Gaussian: $p_\theta(x_{t-1}|x_t) = \mathcal{N}(x_{t-1};\, \mu_\theta(x_t, t),\, \sigma_t^2 I)$. The true posterior $q(x_{t-1}|x_t, x_0)$ is also Gaussian with mean $\tilde{\mu}_t = \frac{\sqrt{\bar{\alpha}_{t-1}}\,\beta_t}{1-\bar{\alpha}_t}x_0 + \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}x_t$. Our goal is to express this in terms of the network output $\epsilon_\theta$ instead of the unknown $x_0$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            From the forward process, we know $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\epsilon$, so we can solve for $x_0$: $$\hat{x}_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}\bigl(x_t - \sqrt{1-\bar{\alpha}_t}\,\epsilon_\theta(x_t, t)\bigr)$$ This is the "predicted $x_0$" — the network's best guess of the clean data given the current noisy sample. Every DDPM step implicitly computes this estimate.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Substituting $\hat{x}_0$ into the posterior mean formula and simplifying (using $\bar{\alpha}_t = \alpha_t \bar{\alpha}_{t-1}$ and $\beta_t = 1 - \alpha_t$), we obtain: $$\mu_\theta(x_t, t) = \frac{1}{\sqrt{\alpha_t}}\Bigl(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\,\epsilon_\theta(x_t, t)\Bigr)$$ Notice the structure: we take $x_t$, subtract a scaled version of the predicted noise, and rescale. The coefficient $\frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}$ controls how much noise is removed per step.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            The full ancestral sampling step then draws $z \sim \mathcal{N}(0, I)$ and computes: $$x_{t-1} = \frac{1}{\sqrt{\alpha_t}}\Bigl(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\,\epsilon_\theta(x_t, t)\Bigr) + \sigma_t\, z$$ where $\sigma_t$ is the chosen reverse standard deviation. This is the DDPM update rule: denoise (the first term), then re-inject calibrated noise (the $\sigma_t z$ term). The noise re-injection is what makes DDPM stochastic and self-correcting.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">$\epsilon$-prediction vs $x_0$-prediction vs $v$-prediction</div>
+                    <p>
+                        All three parameterisations are algebraically equivalent — given one output, you can compute the other two — but they differ in practice. <strong>$\epsilon$-prediction</strong> is the standard DDPM choice: the network predicts the noise that was added. This works well across most noise levels but can be numerically unstable at very low noise (where the true $\epsilon$ is tiny relative to $x_0$). <strong>$x_0$-prediction</strong> asks the network to predict the clean image directly, which is natural at low noise but struggles at high noise where the input is nearly pure Gaussian. <strong>$v$-prediction</strong>, defined as $v = \sqrt{\bar{\alpha}_t}\,\epsilon - \sqrt{1-\bar{\alpha}_t}\,x_0$, balances both regimes and is used in modern systems like Stable Diffusion and Imagen Video. The choice of parameterisation interacts with the sampler: some solvers (like DPM-Solver++) convert internally to $x_0$-prediction regardless of how the model was trained.
+                    </p>
+                </div>
                 <div class="svg-container">
                     <svg viewBox="0 0 820 360" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
                         <text x="410" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Different samplers trace different paths through latent space</text>
@@ -151,34 +186,151 @@
                 </div>
                 <h3 id="the-ddim-update">10.1 The DDIM Update</h3>
                 <p>
-                    Song et al. (2021) showed that the same training objective supports a <strong>deterministic</strong> sampling process:
+                    Song et al. (2021) showed that the same training objective supports a <strong>deterministic</strong> sampling process. The key insight is that the DDPM training loss — predicting the noise $\epsilon$ — does not depend on the particular reverse-process distribution used at generation time. DDPM assumes a Markovian reverse, but DDIM constructs a <em>non-Markovian</em> forward process $q_\sigma(x_{1:T}|x_0)$ that has the same marginals $q(x_t|x_0)$ as DDPM while defining a different joint distribution. Because the marginals are unchanged, the model trained under DDPM's objective is equally valid under DDIM's forward process — no retraining is needed.
                 </p>
                 <div class="math-block">
                     $$x_{t-1} = \sqrt{\bar{\alpha}_{t-1}} \hat{x}_0 + \sqrt{1-\bar{\alpha}_{t-1} - \sigma_t^2} \cdot \frac{x_t - \sqrt{\bar{\alpha}_t}\hat{x}_0}{\sqrt{1-\bar{\alpha}_t}} + \sigma_t \epsilon$$
                 </div>
                 <p>
-                    Setting $\sigma_t = 0$ gives a deterministic mapping — the <strong>probability flow ODE</strong>.
+                    Setting $\sigma_t = 0$ gives a deterministic mapping — the <strong>probability flow ODE</strong>. In this case, the update reduces to: $x_{t-1} = \sqrt{\bar{\alpha}_{t-1}} \hat{x}_0 + \sqrt{1-\bar{\alpha}_{t-1}} \cdot \frac{x_t - \sqrt{\bar{\alpha}_t}\hat{x}_0}{\sqrt{1-\bar{\alpha}_t}}$. The same initial noise always produces the same image, making the mapping invertible and enabling latent-space interpolation.
                 </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Derivation: DDIM from a non-Markovian forward process</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            DDPM defines a Markovian forward: $q(x_t|x_{t-1}) = \mathcal{N}(\sqrt{\alpha_t}\,x_{t-1},\, \beta_t I)$. The marginal is $q(x_t|x_0) = \mathcal{N}(\sqrt{\bar{\alpha}_t}\,x_0,\, (1-\bar{\alpha}_t)I)$. DDIM keeps these marginals but defines a <em>family</em> of non-Markovian forwards $q_\sigma(x_{t-1}|x_t, x_0)$ parameterised by a variance schedule $\{\sigma_t\}$. The requirement is that the joint $q_\sigma(x_{1:T}|x_0) = q_\sigma(x_T|x_0)\prod_{t=2}^{T}q_\sigma(x_{t-1}|x_t, x_0)$ produces the same marginals $q(x_t|x_0)$ as DDPM.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            The non-Markovian reverse conditional is defined as: $$q_\sigma(x_{t-1}|x_t, x_0) = \mathcal{N}\!\Bigl(\sqrt{\bar{\alpha}_{t-1}}\,x_0 + \sqrt{1-\bar{\alpha}_{t-1}-\sigma_t^2}\cdot\frac{x_t - \sqrt{\bar{\alpha}_t}\,x_0}{\sqrt{1-\bar{\alpha}_t}},\;\sigma_t^2 I\Bigr)$$ One can verify (by computing the marginal $q_\sigma(x_{t-1}|x_0)$) that this definition is consistent with the required marginals for any choice of $\sigma_t \geq 0$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            At generation time, $x_0$ is unknown. We replace it with the model's prediction $\hat{x}_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}(x_t - \sqrt{1-\bar{\alpha}_t}\,\epsilon_\theta(x_t,t))$ and sample: $$x_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\,\hat{x}_0 + \sqrt{1-\bar{\alpha}_{t-1}-\sigma_t^2}\cdot\frac{x_t - \sqrt{\bar{\alpha}_t}\,\hat{x}_0}{\sqrt{1-\bar{\alpha}_t}} + \sigma_t\,\epsilon$$ The first term points toward the predicted clean image. The second term carries over the "direction pointing to $x_t$" (the residual noise direction). The third term is fresh stochastic noise.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            The parameter $\eta$ controls the variance: $\sigma_t = \eta \sqrt{\frac{(1-\bar{\alpha}_{t-1})}{(1-\bar{\alpha}_t)}} \sqrt{\beta_t}$. When $\eta = 1$, we recover DDPM's variance and the ancestral sampler. When $\eta = 0$, all noise vanishes and the process becomes deterministic — this is the DDIM sampler. Values $0 < \eta < 1$ interpolate smoothly between the two extremes.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            Crucially, the deterministic case ($\eta = 0$) defines an <em>implicit</em> probabilistic model — the randomness comes only from the initial $x_T$. The mapping $x_T \mapsto x_0$ is a bijection (an ODE flow), which is why DDIM is invertible and supports interpolation in latent space. This is not possible with DDPM because the injected noise at each step breaks the bijection.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Common misconception: DDIM is NOT just "DDPM without noise"</div>
+                    <p>
+                        It is tempting to think of DDIM as "take the DDPM update and set the noise term to zero." But this is misleading. DDIM comes from a fundamentally different forward process — a non-Markovian one that happens to share the same marginals (and therefore the same training objective) as DDPM. Setting $\eta = 0$ does not just remove noise from the DDPM update; it produces a <em>different formula</em> for the posterior mean. The DDPM posterior mean $\mu_\theta$ involves $\frac{1}{\sqrt{\alpha_t}}$ and $\frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}$, while the DDIM update involves $\sqrt{\bar{\alpha}_{t-1}}$ and $\sqrt{1-\bar{\alpha}_{t-1}}$ — these are numerically different. The two updates agree only in the limit of infinitesimal step sizes (continuous time).
+                    </p>
+                </div>
+
                 <h3 id="advantages">10.2 Advantages</h3>
                 <ul>
                     <li><strong>Fewer steps</strong>: DDIM can generate good samples in 10-50 steps (vs 1000 for DDPM)</li>
                     <li><strong>Deterministic</strong>: Same noise → same image (useful for interpolation)</li>
                     <li><strong>Invertible</strong>: Can map images to their latent noise representation</li>
                 </ul>
+
+                <h3 id="worked-example-ddpm-vs-ddim">Worked example: DDPM vs DDIM at 50 steps</h3>
+                <p>
+                    Suppose we have a model trained with $T=1000$ and a linear $\beta$ schedule from $\beta_1 = 0.0001$ to $\beta_T = 0.02$. We want to sample with only $S = 50$ steps using uniform respacing, selecting timesteps $\{0, 20, 40, 60, \ldots, 980\}$. Let us compare one DDPM step and one DDIM step at $t = 100$ (with the next timestep being $t' = 80$).
+                </p>
+                <p>
+                    At $t = 100$ with this schedule, the relevant quantities are approximately $\alpha_{100} \approx 0.998$, $\bar{\alpha}_{100} \approx 0.819$, $\bar{\alpha}_{80} \approx 0.857$, and $\beta_{100} \approx 0.002$. Suppose the current noisy image is $x_{100} = 1.5$ (working in a single dimension for clarity) and the model predicts $\epsilon_\theta = 0.7$.
+                </p>
+                <p>
+                    <strong>DDPM step:</strong> Using the ancestral update, the posterior mean is $\mu = \frac{1}{\sqrt{0.998}}(1.5 - \frac{0.002}{\sqrt{1-0.819}} \cdot 0.7) = \frac{1}{0.999}(1.5 - \frac{0.002}{0.4254} \cdot 0.7) = 1.001 \times (1.5 - 0.00329) \approx 1.498$. We then add $\sigma_{100} z$ where $z \sim \mathcal{N}(0,1)$ — say $z = -0.3$ and $\sigma_{100} \approx 0.045$, giving $x_{80} \approx 1.498 + 0.045 \times (-0.3) = 1.484$. Run it again with a different $z = 1.1$ and we get $x_{80} \approx 1.548$. Different noise draws give different results.
+                </p>
+                <p>
+                    <strong>DDIM step:</strong> First compute $\hat{x}_0 = \frac{1}{\sqrt{0.819}}(1.5 - \sqrt{0.181} \times 0.7) = \frac{1}{0.905}(1.5 - 0.298) = 1.327$. Then the deterministic update gives $x_{80} = \sqrt{0.857} \times 1.327 + \sqrt{1 - 0.857} \times \frac{1.5 - 0.905 \times 1.327}{0.4254} = 0.926 \times 1.327 + 0.378 \times \frac{0.299}{0.4254} = 1.228 + 0.266 = 1.494$. This value is <strong>deterministic</strong> — run it 100 times with the same $x_{100}$ and $\epsilon_\theta$ and you get 1.494 every time.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        The key difference is reproducibility and trajectory smoothness. DDPM's stochastic steps create a random walk around the denoising trajectory, which provides self-correction (helpful when steps are plentiful) but wastes budget on "zig-zagging" when steps are scarce. DDIM's deterministic steps follow the shortest path, which is more efficient at low step counts but offers no self-correction if the model's prediction is slightly off. This is why DDPM typically needs the full 1000 steps while DDIM can produce reasonable samples in 50.
+                    </p>
+                </div>
                 <h2 id="timestep-respacing">Timestep respacing and sub-sampling</h2>
                 <p>
-                    Once a model is trained on a long schedule, we do not have to sample every original timestep. Uniform respacing, quadratic respacing, and log-SNR-aware respacing all try to preserve the important parts of the denoising trajectory while discarding redundant evaluations.
+                    Once a model is trained on a long schedule, we do not have to sample every original timestep. Uniform respacing, quadratic respacing, and log-SNR-aware respacing all try to preserve the important parts of the denoising trajectory while discarding redundant evaluations. The central question is: which timesteps carry the most information? Near $t = 0$ (low noise), the signal-to-noise ratio changes rapidly and the model makes fine-grained decisions about texture and detail. Near $t = T$ (high noise), the SNR is nearly flat and consecutive steps make almost indistinguishable corrections. This asymmetry suggests that we should concentrate our limited step budget near $t = 0$, which is exactly what quadratic and log-SNR respacing do.
                 </p>
                 <p>
-                    The important point is that skipped steps are not free: each jump is larger and therefore numerically harder. Good fast samplers succeed because they compensate for that larger jump with better local approximations to the reverse dynamics.
+                    The important point is that skipped steps are not free: each jump is larger and therefore numerically harder. Good fast samplers succeed because they compensate for that larger jump with better local approximations to the reverse dynamics. When you jump from $t = 200$ to $t = 100$ in a single step instead of 100 individual steps, the denoiser must remove 100 steps' worth of noise at once. If the local curvature of the denoising trajectory is high (as it is near $t = 0$), a single large step introduces significant truncation error. This is why respacing alone is not enough — it must be paired with a good solver.
                 </p>
+
+                <div class="note-box">
+                    <div class="box-title">Why respacing works at all</div>
+                    <p>
+                        You might wonder: if the model was trained on timesteps $\{1, 2, \ldots, 1000\}$, how can it possibly work at timesteps like $\{0, 111, 222, \ldots, 999\}$? The key insight is that the denoising network takes $t$ as an explicit input (usually via sinusoidal embeddings) and was trained to handle <em>any</em> timestep $t \in [1, T]$. It does not memorise specific timesteps; it learns a continuous function of $t$. Respacing simply chooses which points along that continuum to query. The network's output at $t = 111$ is just as valid as at $t = 100$ — the only approximation is in the numerical integration between query points, not in the network's ability to denoise at those points.
+                    </p>
+                </div>
+
+                <h3 id="worked-example-respacing">Worked example: Respacing strategies compared</h3>
+                <p>
+                    Consider a model trained with $T = 1000$ timesteps and suppose we can afford only $S = 10$ denoising steps. How should we choose which 10 timesteps to visit? Here are the actual indices for three common strategies:
+                </p>
+                <p>
+                    <strong>Uniform respacing:</strong> Space timesteps evenly: $\{0, 111, 222, 333, 444, 555, 666, 777, 888, 999\}$. This is the simplest choice and allocates equal budget to all noise levels. The gap between consecutive steps is constant at 111.
+                </p>
+                <p>
+                    <strong>Quadratic respacing:</strong> Set $t_i = \lfloor T \cdot (i/S)^2 \rfloor$, concentrating steps near $t = 0$: $\{0, 10, 40, 90, 160, 250, 360, 490, 640, 810\}$. Notice that the first five steps cover only $t = 0$ to $t = 160$ (the high-detail region) while the last five steps cover $t = 250$ to $t = 810$. The gap between steps grows: 10, 30, 50, 70, 90, 110, 130, 150, 170. This makes sense because the log-SNR changes fastest near $t = 0$, so that is where the numerical integration needs the most resolution.
+                </p>
+                <p>
+                    <strong>Trailing respacing:</strong> Use $\{100, 200, 300, 400, 500, 600, 700, 800, 900, 1000\}$, starting from a later timestep and proceeding uniformly. This variant, used in some implementations of Stable Diffusion, avoids querying the model at very low noise levels where the denoiser's predictions can be numerically unstable.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        The optimal respacing depends on the noise schedule and the solver. For Euler-type solvers, quadratic respacing consistently outperforms uniform because it places more steps in the high-curvature region. For higher-order solvers like DPM-Solver-2, the advantage of quadratic over uniform shrinks because the solver can handle larger steps more accurately. In practice, the choice of respacing strategy interacts with the choice of solver, and the best combination is often found empirically.
+                    </p>
+                </div>
                 <h2 id="ode-solvers-and-dpm-solver">ODE solvers and DPM-Solver</h2>
                 <p>
-                    When we move from the stochastic reverse chain to the probability-flow ODE, the problem becomes numerical integration. Euler is the simplest option, Heun and midpoint methods improve local accuracy, and specialized diffusion solvers exploit the semi-linear structure of the reverse equation for even better efficiency.
+                    When we move from the stochastic reverse chain to the probability-flow ODE, the problem becomes numerical integration. Euler is the simplest option, Heun and midpoint methods improve local accuracy, and specialized diffusion solvers exploit the semi-linear structure of the reverse equation for even better efficiency. The probability-flow ODE can be written as $\frac{dx}{dt} = f(t)\,x + g(t)\,\epsilon_\theta(x, t)$, where $f(t)$ and $g(t)$ are known scalar functions of the noise schedule. The first term (linear in $x$) can be integrated exactly, while only the second term (depending on the learned score) requires numerical approximation. Generic ODE solvers do not know about this structure, so they waste effort approximating the linear part.
                 </p>
                 <p>
-                    DPM-Solver and DPM-Solver++ are influential because they solve the linear part of the dynamics analytically and only approximate the nonlinear score-dependent remainder. That design is tailor-made for diffusion, which is why it often beats generic ODE solvers at the same step count.
+                    DPM-Solver and DPM-Solver++ are influential because they solve the linear part of the dynamics analytically and only approximate the nonlinear score-dependent remainder. That design is tailor-made for diffusion, which is why it often beats generic ODE solvers at the same step count. Concretely, DPM-Solver reformulates the ODE in terms of the log-SNR $\lambda_t = \log(\bar{\alpha}_t / (1 - \bar{\alpha}_t))$ and uses an exponential integrator to handle the linear part. The remaining nonlinear integral is then approximated with polynomial interpolation of past score evaluations — first-order uses one evaluation (like Euler), second-order uses two (like midpoint), and third-order uses three. In practice, DPM-Solver-2 with 20 steps or DPM-Solver-3 with 10-15 steps matches the quality of DDIM with 100+ steps.
                 </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Derivation: Why higher-order ODE solvers help in diffusion</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            The probability-flow ODE has the general form $\frac{dx}{dt} = f_\theta(x, t)$, where $f_\theta$ involves the score function (or equivalently, the noise prediction $\epsilon_\theta$). To integrate from $t_n$ to $t_{n+1}$ (with step size $\Delta t = t_{n+1} - t_n$), Euler's method uses a single function evaluation: $$x_{n+1} = x_n + \Delta t \cdot f_\theta(x_n, t_n)$$ The local truncation error is $O(\Delta t^2)$, meaning the error per step scales as the square of the step size. If we halve the step size, each step's error decreases by 4×, but we need twice as many steps — net improvement is only 2×.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Heun's method (a second-order Runge-Kutta method) uses two function evaluations per step: first a predictor $\tilde{x}_{n+1} = x_n + \Delta t \cdot f_\theta(x_n, t_n)$, then a corrector $$x_{n+1} = x_n + \frac{\Delta t}{2}\bigl[f_\theta(x_n, t_n) + f_\theta(\tilde{x}_{n+1}, t_{n+1})\bigr]$$ The local error is now $O(\Delta t^3)$. Each step costs 2 network evaluations instead of 1, but the error per step is much smaller. For diffusion models, each "network evaluation" is the expensive part (a full U-Net forward pass), so the question is whether the 2× cost per step is worth the improved accuracy.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Consider the practical implications: to achieve a target error $\varepsilon$, Euler needs $O(1/\sqrt{\varepsilon})$ steps (each costing 1 evaluation), while Heun needs $O(1/\varepsilon^{1/3})$ steps (each costing 2 evaluations). For $\varepsilon = 10^{-3}$, Euler needs ~32 steps (32 evaluations) while Heun needs ~10 steps (20 evaluations) — a 1.6× speedup in wall-clock time. For $\varepsilon = 10^{-6}$, the gap widens: Euler needs ~1000 evaluations while Heun needs ~200. This is why higher-order methods dominate at low step counts.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            DPM-Solver goes further by exploiting the semi-linear structure. Writing the ODE as $\frac{dx}{dt} = f(t)x + g(t)\epsilon_\theta(x,t)$ and solving the linear part exactly via an integrating factor, the remaining nonlinear integral $\int_{t_n}^{t_{n+1}} g(s)\epsilon_\theta(x(s),s)\,ds$ is approximated with polynomial extrapolation from cached evaluations $\epsilon_\theta(x_n, t_n), \epsilon_\theta(x_{n-1}, t_{n-1}), \ldots$. This reuses past evaluations at zero additional cost, effectively giving higher-order accuracy for the price of a first-order method. This is why DPM-Solver achieves quality comparable to 1000-step DDPM in only 10-20 network evaluations.
+                        </div>
+                    </div>
+                </div>
                 <div class="svg-container">
                     <svg viewBox="0 0 820 250" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
                         <text x="410" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Deterministic samplers support smooth latent interpolation</text>
@@ -243,12 +395,30 @@
                         <text x="18" y="160" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.75" transform="rotate(-90 18 160)">FID (lower is better)</text>
                     </svg>
                 </div>
-                <h2 id="distillation-and-consistency">Progressive distillation and consistency models</h2>
+
+                <h3 id="worked-example-quality-speed">Worked example: The quality-speed frontier</h3>
                 <p>
-                    Progressive distillation compresses a long diffusion sampler into a shorter one by training a student to imitate two teacher steps with one student step. Repeating that procedure can reduce hundreds of evaluations to a handful while preserving much of the teacher's behavior.
+                    The chart above shows stylised curves, but let us pin down concrete numbers. The standard benchmark is FID (Fréchet Inception Distance) on CIFAR-10 at 32×32 resolution, where lower is better and values below ~5 are considered high-quality. Here are approximate FID scores from the literature:
                 </p>
                 <p>
-                    Consistency models push this idea further by learning a map that sends many points on the same diffusion trajectory to a shared denoised answer. The resulting one-step or few-step generators are less faithful to the original ancestral chain, but they are attractive when latency matters more than exact trajectory simulation.
+                    <strong>DDPM, 1000 steps</strong>: FID ≈ 3.17 (Ho et al., 2020). This is the baseline — maximum quality, maximum cost. At ~50 ms per step on an A100 GPU, this takes about 50 seconds per image. <strong>DDIM, 50 steps</strong>: FID ≈ 4.67 (Song et al., 2021). A 20× speedup (2.5 s/image) with only a moderate quality drop. <strong>DDIM, 10 steps</strong>: FID ≈ 13.36. A 100× speedup but now the quality degradation is clearly visible — faces look blurry, textures are smeared. <strong>DPM-Solver-2, 10 steps</strong>: FID ≈ 3.42 (Lu et al., 2022). Nearly matching the 1000-step DDPM quality with only 10 network evaluations — a 100× speedup with negligible quality loss.
+                </p>
+                <p>
+                    <strong>Consistency model, 1 step</strong>: FID ≈ 3.55 (Song et al., 2023). A single-step generator that nearly matches DDPM quality, though at the cost of training a separate model. <strong>Progressive distillation, 4 steps</strong>: FID ≈ 4.51 (Salimans & Ho, 2022). Four steps with a distilled model, competitive with 50-step DDIM.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        The headline result is that DPM-Solver achieves DDPM-level quality in 100× fewer steps. This is not a small improvement — it is the difference between 50 seconds and 0.5 seconds per image. The reason is purely mathematical: DPM-Solver's higher-order integration and semi-linear splitting extract far more information per network evaluation than Euler-based DDIM. For practitioners, the message is clear: unless you need the stochastic diversity of ancestral sampling, you should almost always use DPM-Solver++ or a similar higher-order solver. At very low step budgets (1-4 steps), distillation and consistency models take over because even the best ODE solver cannot produce clean images from a single evaluation of an undistilled model.
+                    </p>
+                </div>
+
+                <h2 id="distillation-and-consistency">Progressive distillation and consistency models</h2>
+                <p>
+                    Progressive distillation compresses a long diffusion sampler into a shorter one by training a student to imitate two teacher steps with one student step. Repeating that procedure can reduce hundreds of evaluations to a handful while preserving much of the teacher's behavior. The technique works by training the student to match the <em>output</em> of two consecutive teacher steps — the student sees the input $x_t$ and must produce the same $x_{t-2}$ that the teacher would after two applications. After one round of distillation, the student needs half as many steps. After two rounds, a quarter. After $k$ rounds, $T/2^k$ steps remain. Salimans and Ho (2022) demonstrated that 4-step distilled models can match the quality of 1024-step teachers on ImageNet 64×64.
+                </p>
+                <p>
+                    Consistency models push this idea further by learning a map that sends many points on the same diffusion trajectory to a shared denoised answer. The resulting one-step or few-step generators are less faithful to the original ancestral chain, but they are attractive when latency matters more than exact trajectory simulation. Formally, a consistency model learns a function $f_\theta(x_t, t)$ such that $f_\theta(x_t, t) = f_\theta(x_{t'}, t')$ for any two points $x_t, x_{t'}$ on the same ODE trajectory. This "self-consistency" property means that evaluating $f_\theta$ at any noise level gives the same clean output, so a single evaluation suffices. The training enforces this via a consistency loss that penalises differences between $f_\theta(x_t, t)$ and $f_\theta(\hat{x}_{t'}, t')$, where $\hat{x}_{t'}$ is obtained by one step of a numerical ODE solver.
                 </p>
                 <div class="math-derivation">
                     <div class="math-derivation-title">Why self-consistency can replace a long sampler</div>
@@ -271,7 +441,7 @@
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
     <h2>Sampling Methods</h2>
     <p>
-        Sampling is where diffusion becomes practical or impractical. Better solvers, better timestep grids, and better distilled models all aim to preserve sample quality while paying for far fewer denoiser evaluations.
+        Sampling is where diffusion becomes practical or impractical. DDPM's ancestral sampler produces high-quality samples but requires ~1000 network evaluations, making it too slow for interactive use. DDIM reinterprets the same trained model through a non-Markovian lens, enabling deterministic 50-step generation with only modest quality loss. Higher-order ODE solvers like DPM-Solver push the frontier further, achieving DDPM-level quality in just 10-20 steps by exploiting the semi-linear structure of the probability-flow ODE. For the fastest generation (1-4 steps), distillation and consistency models trade training-time effort for inference-time speed, learning to shortcut the entire denoising trajectory.
     </p>
 </div>
                 <div class="tutorial-nav">
