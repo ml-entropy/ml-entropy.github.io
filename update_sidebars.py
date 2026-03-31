@@ -56,6 +56,15 @@ NAV_LINKS = {
         ("39-flow-matching", "39. Flow Matching"),
         ("40-diffusion-models", "40. Diffusion Models"),
     ],
+    "diffusion": [
+        ("00-forward-process", "00. The Forward Process"),
+        ("01-reverse-denoising", "01. Reverse Process & DDPM"),
+        ("02-score-matching", "02. Score Matching"),
+        ("03-sampling-methods", "03. Sampling Methods"),
+        ("04-sde-ode-framework", "04. SDE/ODE Framework"),
+        ("05-guidance-conditioning", "05. Guidance & Conditioning"),
+        ("06-architectures", "06. Architectures"),
+    ],
     "linear-algebra": [
         ("01-vectors", "01. Vectors and Spaces"),
         ("02-matrices", "02. Matrices"),
@@ -76,6 +85,15 @@ NAV_LINKS = {
         ("01-entropy", "01. Entropy"),
         ("02-carnot", "02. Carnot Cycle"),
         ("03-differentials", "03. Differentials"),
+    ],
+    "decipherment": [
+        ("00-information-theory", "00. Information Theory"),
+        ("01-egyptian-hieroglyphs", "01. Egyptian Hieroglyphs"),
+        ("02-cuneiform", "02. Cuneiform"),
+        ("03-linear-b", "03. Linear B"),
+        ("04-maya-glyphs", "04. Maya Glyphs"),
+        ("05-undeciphered-scripts", "05. Undeciphered Scripts"),
+        ("06-computational-methods", "06. Computational Methods"),
     ]
 }
 
@@ -83,6 +101,8 @@ TITLES = {
     "tts": "Text-to-Speech",
     "cs": "Computer Science",
     "ml": "Machine Learning",
+    "diffusion": "Diffusion Models",
+    "decipherment": "Decipherment",
     "linear-algebra": "Linear Algebra",
     "calculus": "Calculus",
     "physics": "Physics"
@@ -118,6 +138,8 @@ def generate_sidebar(category, current_folder):
         html += '                    <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>\n'
     if category != 'ml':
         html += '                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>\n'
+    if category != 'diffusion':
+        html += '                    <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>\n'
     if category != 'linear-algebra':
         html += '                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>\n'
     if category != 'calculus':
