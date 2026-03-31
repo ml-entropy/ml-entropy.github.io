@@ -98,7 +98,7 @@
                     The score view of diffusion asks a sharper question than “what clean sample produced this noise?” It asks for the local direction in which log-density increases, which turns sampling into repeated motion toward higher-probability regions combined with carefully calibrated randomness. This reframing is not merely aesthetic — it unlocks an entirely different class of training objectives and sampling algorithms. Instead of modeling the full probability density (which requires knowing an intractable normalizing constant), we model only its gradient, which is both easier to learn and sufficient for generation. The result is a framework where training reduces to regression and sampling reduces to following a vector field with added noise.
                 </p>
                 <p>
-                    This perspective is powerful because it removes the normalization constant from the problem. Gradients of log-densities do not care about unknown partition functions, which is exactly why score-based models can reason about complicated distributions without ever writing them in normalized form. In information-theoretic terms, the score captures the local geometry of the statistical manifold without requiring global normalization. This is analogous to how gradient descent only needs local slope information, not the global shape of the loss landscape. The score-based view also connects diffusion to deep results in statistical physics and stochastic calculus, providing a bridge between machine learning and classical theory. Consider a distribution $p(x) = \frac{1}{Z}\tilde{p}(x)$ where $Z = \int \tilde{p}(x)dx$ is unknown. Taking the gradient of the log gives $\nabla_x \log p(x) = \nabla_x \log \tilde{p}(x) - \nabla_x \log Z = \nabla_x \log \tilde{p}(x)$, because $Z$ is a constant with zero gradient. This seemingly simple observation is the foundation of the entire score-matching paradigm: we can work with unnormalized densities, energy-based models, and Boltzmann distributions without ever computing partition functions — a task that is computationally intractable in high dimensions.
+                    This perspective is powerful because it removes the normalization constant from the problem. Gradients of log-densities do not care about unknown partition functions, which is exactly why score-based models can reason about complicated distributions without ever writing them in normalized form. Consider a distribution $p(x) = \\frac{1}{Z}\\tilde{p}(x)$ where $Z = \\int \\tilde{p}(x)dx$ is unknown. Taking the gradient of the log gives $\\nabla_x \\log p(x) = \\nabla_x \\log \\tilde{p}(x) - \\nabla_x \\log Z = \\nabla_x \\log \\tilde{p}(x)$, because $Z$ is a constant with zero gradient. This seemingly simple observation is the foundation of the entire score-matching paradigm: we can work with unnormalized densities, energy-based models, and Boltzmann distributions without ever computing partition functions — a task that is computationally intractable in high dimensions.
                 </p>
                 <h3 id="the-score-function">7.1 The Score Function</h3>
                 <p>
@@ -108,30 +108,7 @@
                     $$s(x) = \nabla_x \log p(x)$$
                 </div>
                 <p>
-                <p>
-                    It points toward regions of higher probability — like a compass pointing "uphill." At a mode of the distribution the score is zero, because you are already at a peak. Far from any mode, the score is large and points toward the nearest concentration of probability mass. Between two modes, the score reflects a tug-of-war: it points toward whichever mode exerts stronger local influence, weighted by proximity and density. Understanding this vector field is the key to understanding how Langevin sampling navigates complex distributions.
-
-                <h3 id="worked-example-score-1d">Worked example: score of a 1D Gaussian</h3>
-                <p>
-                    Consider $p(x) = \mathcal{N}(3, 4)$, a Gaussian with mean 3 and variance 4. The log-density is $\log p(x) = -\frac{(x-3)^2}{8} + \text{const}$, so the score is $s(x) = \nabla_x \log p(x) = -\frac{x-3}{4}$. At $x=1$: $s(1) = -\frac{1-3}{4} = 0.5$ (points right, toward the mean). At $x=3$: $s(3) = 0$ (at the mode, no preferred direction). At $x=5$: $s(5) = -\frac{5-3}{4} = -0.5$ (points left, back toward the mean). The score always pushes toward the mean, with magnitude proportional to the distance divided by the variance. A tighter distribution (smaller variance) produces a steeper score field, meaning stronger restoring forces.
-                </p>
-                <div class="note-box">
-                    <div class="box-title">What does this mean?</div>
-                    <p>
-                        The score field of a Gaussian is a linear function that always points toward the mean. For more complex distributions like mixtures, the score field becomes nonlinear and much more interesting — it has to simultaneously point toward multiple modes with the right relative strength.
-                    </p>
-                </div>
-
-                <h3 id="worked-example-score-mixture">Worked example: score of a Gaussian mixture</h3>
-                <p>
-                    Consider $p(x) = 0.5\mathcal{N}(-2, 1) + 0.5\mathcal{N}(2, 1)$, a symmetric mixture. At $x=0$ (the midpoint), the left mode pulls with score $-\frac{0-(-2)}{1} = -2$ and the right mode pulls with $-\frac{0-2}{1} = 2$. Since both modes have equal weight and are equidistant, their contributions cancel exactly: $s(0) = 0$. This zero is an unstable equilibrium — a Langevin sampler sitting at $x=0$ would be pushed toward one mode or the other by noise. At $x=3$, the right mode dominates and the score is approximately $-1$, pointing back toward $x=2$. The score field encodes the full geometry of the distribution without ever needing to compute the normalizing constant.
-                </p>
-                <div class="note-box">
-                    <div class="box-title">Common misconception: score matching does NOT require knowing the normalizing constant</div>
-                    <p>
-                        This is the fundamental advantage of the score-based approach. The score $\nabla_x \log p(x)$ involves the gradient of a log, which cancels any multiplicative constant in $p(x)$. If $p(x) = \frac{1}{Z}\tilde{p}(x)$, then $\nabla_x \log p(x) = \nabla_x \log \tilde{p}(x)$ — the partition function $Z$ vanishes. This is why score-based methods can work with energy-based models and other unnormalized distributions where maximum likelihood is intractable.
-                    </p>
-                </div> At any point $x$ in data space, the score vector tells you the direction in which you should move to most rapidly increase the probability density. Where $p(x)$ is large (near a mode), the score is close to zero because you are already near a peak. Where $p(x)$ is small but increasing, the score is large and points toward the nearest mode. This vector field encodes the entire geometry of the distribution without ever requiring us to evaluate $p(x)$ itself.
+                    It points toward regions of higher probability — like a compass pointing "uphill." At any point $x$ in data space, the score vector tells you the direction in which you should move to most rapidly increase the probability density. Where $p(x)$ is large (near a mode), the score is close to zero because you are already near a peak. Where $p(x)$ is small but increasing, the score is large and points toward the nearest mode. This vector field encodes the entire geometry of the distribution without ever requiring us to evaluate $p(x)$ itself.
                 </p>
                 <p>
                     The score function has a deep connection to physics: if we interpret $-\log p(x)$ as an energy landscape, then the score $\nabla_x \log p(x) = -\nabla_x E(x)$ is the negative gradient of the energy — exactly the force that would push a particle toward low-energy (high-probability) states. This is why Langevin dynamics, which we will see shortly, borrows its name from statistical mechanics. The score is also intimately related to the Fisher information matrix $\mathcal{I} = \mathbb{E}[s(x)s(x)^\top]$, which measures how much the score varies. Higher Fisher information means the score varies more, which in turn means the distribution has sharper features that are easier to distinguish.
@@ -190,35 +167,7 @@
                     $$\mathcal{L}_{\text{DSM}} = \mathbb{E}_{t, x_0, \epsilon}\left[\|s_\theta(x_t, t) - \nabla_{x_t} \log q(x_t|x_0)\|^2\right]$$
                 </div>
                 <p>
-                    Since $\nabla_{x_t} \log q(x_t|x_0) = -\epsilon / \sqrt{1-\bar{\alpha}_t}$, this is equivalent to $\epsilon$-prediction! But where does that identity come from? It is not obvious, and understanding the derivation is essential for seeing why score prediction and noise prediction are the same task.
-                </p>
-                <div class="math-derivation">
-                    <div class="math-derivation-title">Deriving the score of a Gaussian perturbation</div>
-                    <div class="math-step">
-                        <div class="math-step-number">1</div>
-                        <div class="math-step-content">The forward process gives $q(x_t|x_0) = \mathcal{N}(x_t; \sqrt{\bar{\alpha}_t}\,x_0,\; (1-\bar{\alpha}_t)I)$. Write the log-density: $\log q(x_t|x_0) = -\frac{\|x_t - \sqrt{\bar{\alpha}_t}\,x_0\|^2}{2(1-\bar{\alpha}_t)} + \text{const}$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">2</div>
-                        <div class="math-step-content">Take the gradient with respect to $x_t$: $\nabla_{x_t}\log q(x_t|x_0) = -\frac{x_t - \sqrt{\bar{\alpha}_t}\,x_0}{1-\bar{\alpha}_t}$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">3</div>
-                        <div class="math-step-content">Recall the reparameterization: $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\epsilon$, so $x_t - \sqrt{\bar{\alpha}_t}\,x_0 = \sqrt{1-\bar{\alpha}_t}\,\epsilon$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">4</div>
-                        <div class="math-step-content">Substitute: $\nabla_{x_t}\log q(x_t|x_0) = -\frac{\sqrt{1-\bar{\alpha}_t}\,\epsilon}{1-\bar{\alpha}_t} = -\frac{\epsilon}{\sqrt{1-\bar{\alpha}_t}}$. This is the key identity linking the score to the noise.</div>
-                    </div>
-                </div>
-                <div class="note-box">
-                    <div class="box-title">What does this mean?</div>
-                    <p>
-                        The score of the noisy distribution at $x_t$ points in the direction opposite to the noise that was added. Learning the score is literally learning to point back at where the clean data was, scaled by the noise level. That is why $\epsilon$-prediction networks and score networks are algebraically identical up to a known scaling factor.
-                    </p>
-                </div>
-                <p>
-                    The practical consequence is profound: any network trained with the simple MSE loss $\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ is simultaneously learning the score function of the noisy data distribution at every noise level. This unification is why the DDPM and NCSN research lines converged But where does this crucial identity come from? Let us derive it step by step.
+                    Since $\nabla_{x_t} \log q(x_t|x_0) = -\epsilon / \sqrt{1-\bar{\alpha}_t}$, this is equivalent to $\epsilon$-prediction! But where does this crucial identity come from? Let us derive it step by step.
                 </p>
 
 <div class="math-derivation">
@@ -317,38 +266,7 @@
                     $$x_{t+1} = x_t + \eta \nabla_x \log p(x_t) + \sqrt{2\eta} \, z, \quad z \sim \mathcal{N}(0, I)$$
                 </div>
                 <p>
-                    This converges to samples from $p(x)$ as $\eta \to 0$ and number of steps $\to \infty$. The intuition is that the gradient term pushes the sample toward high-density regions (like gradient ascent on log-density), while the noise term provides the random exploration needed to visit the full distribution rather than collapsing to a single mode. The balance between these two forces is controlled by the step size $\eta$: the noise scales as $\sqrt{2\eta}$ while the drift scales as $\eta$, ensuring that in the small-$\eta$ limit the process converges to the correct stationary distribution.
-                </p>
-                <div class="math-derivation">
-                    <div class="math-derivation-title">Why Langevin dynamics samples from $p(x)$: the Fokker-Planck argument</div>
-                    <div class="math-step">
-                        <div class="math-step-number">1</div>
-                        <div class="math-step-content">In continuous time, Langevin dynamics is the SDE: $dx = \nabla_x \log p(x)\,dt + \sqrt{2}\,dw$. The drift is the score, and the diffusion coefficient is $\sqrt{2}$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">2</div>
-                        <div class="math-step-content">The Fokker-Planck equation for the density $\rho(x,t)$ of the SDE is: $\frac{\partial \rho}{\partial t} = -\nabla \cdot (\rho \nabla \log p) + \Delta \rho$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">3</div>
-                        <div class="math-step-content">Expand the divergence: $\nabla \cdot (\rho \nabla \log p) = \nabla \cdot (\rho \frac{\nabla p}{p}) = \nabla \cdot (\frac{\rho}{p}\nabla p)$. If $\rho = p$, this becomes $\nabla \cdot (\nabla p) = \Delta p$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">4</div>
-                        <div class="math-step-content">Substituting $\rho = p$ into the Fokker-Planck equation: $\frac{\partial p}{\partial t} = -\Delta p + \Delta p = 0$. The target density $p$ is a stationary solution! Under mild regularity conditions, the SDE converges to this stationary distribution regardless of initialization.</div>
-                    </div>
-                </div>
-
-                <h3 id="worked-example-noise-annealing">Worked example: why noise-scale annealing is essential</h3>
-                <p>
-                    Consider sampling from $p(x) = 0.5\mathcal{N}(-5, 0.1) + 0.5\mathcal{N}(5, 0.1)$ — two very tight, well-separated modes. At $\sigma = 0.01$, the score field between the modes is nearly zero (both modes are too far away to exert meaningful pull), so a Langevin chain initialized at $x=0$ would wander aimlessly for an astronomically long time before finding either mode. At $\sigma = 10$, the smoothed distribution is a single broad bump, and the score field guides the chain toward the center of mass quickly. Annealed Langevin dynamics starts at $\sigma=10$ to find the right neighborhood, then gradually reduces $\sigma$ to sharpen the sample toward a true mode. This coarse-to-fine strategy is what makes score-based sampling practical for multimodal distributions.
-                </p>
-                <div class="note-box">
-                    <div class="box-title">Why multiple noise scales are necessary, not just helpful</div>
-                    <p>
-                        In high dimensions, data concentrates on thin manifolds. The score perpendicular to the manifold is huge (pushing back to the manifold) while the score along the manifold encodes the actual distribution. At low noise, the perpendicular component dominates and the useful tangential component is drowned out. Noise broadens the manifold, making the score field smoother and more isotropic. This is a geometric necessity, not merely a training convenience.
-                    </p>
-                </div> The step size $\eta$ controls the tradeoff between speed and accuracy: larger $\eta$ explores faster but introduces discretization error, while smaller $\eta$ follows the continuous dynamics more faithfully but requires more steps. In practice, one uses an annealing schedule that starts with large $\eta$ for global exploration and gradually decreases it for local refinement. The discrete update rule above is an Euler–Maruyama discretization of the continuous-time Langevin stochastic differential equation (SDE):
+                    This converges to samples from $p(x)$ as $\eta \to 0$ and number of steps $\to \infty$. The step size $\eta$ controls the tradeoff between speed and accuracy: larger $\eta$ explores faster but introduces discretization error, while smaller $\eta$ follows the continuous dynamics more faithfully but requires more steps. In practice, one uses an annealing schedule that starts with large $\eta$ for global exploration and gradually decreases it for local refinement. The discrete update rule above is an Euler–Maruyama discretization of the continuous-time Langevin stochastic differential equation (SDE):
                 </p>
                 <div class="math-block">
                     $$dx = \nabla_x \log p(x)\, dt + \sqrt{2}\, dw$$
@@ -518,7 +436,7 @@
                         <ellipse cx="665" cy="140" rx="82.0" ry="202.0" fill="none" stroke="#f472b6" opacity="0.73"/>
                     </svg>
                 </div>
-                <h3 id="worked-example-noise-annealing-exercise">Worked example: Noise-scale annealing</h3>
+                <h3 id="worked-example-noise-annealing">Worked example: Noise-scale annealing</h3>
                 <p>
                     Consider the same Gaussian mixture $p(x) = 0.5\,\mathcal{N}(-2, 1) + 0.5\,\mathcal{N}(2, 1)$, but now we convolve it with Gaussian noise of different scales. The noisy distribution at scale $\sigma$ is $p_\sigma(x) = \int p(x')\, \mathcal{N}(x; x', \sigma^2)\, dx'$. For our mixture, this yields $p_\sigma(x) = 0.5\,\mathcal{N}(-2, 1+\sigma^2) + 0.5\,\mathcal{N}(2, 1+\sigma^2)$.
                 </p>
@@ -545,27 +463,6 @@
                 <p>
                     Diffusion models and score-based models are therefore not rival camps so much as different coordinate systems for the same underlying object. Predicting the forward noise $\epsilon_\theta(x_t, t)$ and predicting the smoothed score $s_\theta(x_t, t)$ are linked by a simple scale factor determined by the noise schedule. This equivalence was made precise by Song et al. (2021), who showed that DDPM, NCSN, and SDE-based diffusion models are all special cases of a unified framework based on score-parameterized SDEs. Understanding this equivalence is essential because it means insights from one formulation immediately transfer to the other.
                 </p>
-                <div class="math-derivation">
-                    <div class="math-derivation-title">Score-to-epsilon equivalence: one model, two interpretations</div>
-                    <div class="math-step">
-                        <div class="math-step-number">1</div>
-                        <div class="math-step-content">A score network outputs $s_\theta(x_t, t) \approx \nabla_{x_t}\log p_t(x_t)$. A noise-prediction network outputs $\epsilon_\theta(x_t, t) \approx \epsilon$ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">2</div>
-                        <div class="math-step-content">We showed earlier that $\nabla_{x_t}\log q(x_t|x_0) = -\epsilon/\sqrt{1-\bar{\alpha}_t}$. Since both networks are trained to approximate this same quantity (marginalized over $x_0$), they must satisfy $s_\theta = -\epsilon_\theta / \sqrt{1-\bar{\alpha}_t}$.</div>
-                    </div>
-                    <div class="math-step">
-                        <div class="math-step-number">3</div>
-                        <div class="math-step-content">This means any DDPM checkpoint is also a score model and vice versa — just rescale the output by $-1/\sqrt{1-\bar{\alpha}_t}$. The training losses are identical up to a timestep-dependent weighting factor.</div>
-                    </div>
-                </div>
-                <div class="note-box">
-                    <div class="box-title">Information geometry perspective</div>
-                    <p>
-                        The score function is the natural gradient direction in the statistical manifold of distributions. Fisher information, which measures how much the score varies, determines the local curvature of this manifold. Score matching therefore has deep connections to information geometry and natural gradient methods. In diffusion, the multi-scale score hierarchy provides a natural Riemannian metric for the space of images — a connection that is still being explored by researchers.
-                    </p>
-                </div>
                 <div class="math-block">
                     $$s_\theta(x_t,t) = -\frac{\epsilon_\theta(x_t,t)}{\sqrt{1-\bar\alpha_t}}$$
                 </div>
