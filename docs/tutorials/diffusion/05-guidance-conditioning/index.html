@@ -108,7 +108,7 @@
                     $$\nabla_x \log p(x_t | y) = \nabla_x \log p(x_t) + \nabla_x \log p(y | x_t)$$
                 </div>
                 <p>
-                    Train a separate classifier $p(y|x_t)$ on noisy data and add its gradient.
+                    Train a separate classifier $p(y|x_t)$ on noisy data and add its gradient. The classifier must handle inputs at every noise level the diffusion process uses, which means it needs to recognize classes even in heavily corrupted images. At high noise levels this is genuinely difficult — the class signal is almost completely buried under Gaussian noise. This practical difficulty is one of the key motivations behind the shift to classifier-free methods: maintaining and training a robust noisy-data classifier adds significant engineering and computational overhead to the entire generation pipeline.
                 </p>
                 <h3 id="classifier-free-guidance">9.2 Classifier-Free Guidance</h3>
                 <p>
@@ -118,10 +118,10 @@
                     $$\tilde{\epsilon}_\theta = (1 + w) \epsilon_\theta(x_t, t, y) - w \cdot \epsilon_\theta(x_t, t, \emptyset)$$
                 </div>
                 <p>
-                    where $w > 0$ is the guidance weight. Higher $w$ = more adherence to the condition, less diversity.
+                    where $w > 0$ is the guidance weight. Higher $w$ means stronger adherence to the condition but less sample diversity. When $w = 0$ the model is fully unconditional; when $w = 1$ it uses the raw conditional prediction; and when $w > 1$ it amplifies the conditional direction beyond what the model would naturally produce. In practice, values of $w$ between 5 and 15 are common for Stable Diffusion, while DALL-E typically uses $w$ between 2 and 5. The optimal scale depends on the prompt complexity, the model architecture, and the desired trade-off between creative variety and precise prompt matching.
                 </p>
                 <p>
-                    This is what makes text-to-image models like DALL-E and Stable Diffusion work so well.
+                    This simple formula is what makes text-to-image models like DALL-E, Stable Diffusion, and Imagen work so well. Despite its apparent simplicity — just a weighted combination of two noise predictions — classifier-free guidance implicitly performs Bayesian conditioning without ever training an explicit classifier. The idea was introduced by Ho and Salimans (2022) and rapidly became the default steering mechanism across nearly all production diffusion systems. Its elegance lies in the fact that a single denoising network, trained with random conditioning dropout, simultaneously learns both the unconditional and conditional data distributions.
                 </p>
                 <div class="svg-container">
                     <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
@@ -171,6 +171,25 @@
                 <p>
                     The first term is the unconditional score supplied by the diffusion model. The second term comes from a noisy-image classifier and points in the direction that makes the condition $y$ more likely. Sampling then becomes "follow the usual denoising field, plus an extra push toward the condition."
                 </p>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Classifier guidance: from Bayes' rule to temperature-controlled steering</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">Start from Bayes' rule applied to the joint: $p(x \mid y) = \frac{p(x)\,p(y \mid x)}{p(y)}$. Taking logarithms gives $\log p(x \mid y) = \log p(x) + \log p(y \mid x) - \log p(y)$.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">Differentiate with respect to $x$. Since $p(y)$ does not depend on $x$, the gradient of $\log p(y)$ vanishes: $$\nabla_x \log p(x \mid y) = \nabla_x \log p(x) + \nabla_x \log p(y \mid x)$$ The first term is the unconditional score (from the diffusion model) and the second is the classifier gradient.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">Introduce a guidance scale $w$ that controls the strength of the classifier signal. Replace the classifier gradient with a scaled version: $$\nabla_x \log p_w(x \mid y) = \nabla_x \log p(x) + w \cdot \nabla_x \log p(y \mid x)$$ When $w = 1$ we recover exact Bayesian conditioning. When $w > 1$ we sharpen the conditional distribution, effectively sampling from a "temperature-reduced" version $p(y \mid x)^w$ that concentrates more probability mass on regions where $y$ is highly likely.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">In practice, this means the diffusion sampling update at each step $t$ becomes: $$\hat{\mu}_t = \mu_t(x_t) - w \cdot \sigma_t^2 \,\nabla_{x_t} \log p(y \mid x_t)$$ where $\mu_t(x_t)$ is the mean predicted by the unconditional denoiser and $\sigma_t^2$ scales the classifier gradient to match the noise schedule. Larger $w$ bends the denoising trajectory more aggressively toward the condition.</div>
+                    </div>
+                </div>
                 <div class="math-derivation">
                     <div class="math-derivation-title">How classifier and classifier-free guidance are related</div>
                     <div class="math-step">
@@ -227,6 +246,61 @@
                         CFG does not create information the model never learned. It only reweights conditional and unconditional directions, so pushing the scale too high often improves prompt adherence while making realism, diversity, and layout stability worse.
                     </p>
                 </div>
+                <h2 id="cfg-scale-sweep">Worked example: CFG guidance scale sweep</h2>
+                <p>
+                    Let's make the effect of the guidance scale concrete with a simplified numerical example. Consider the prompt "photo of a cat" and suppose, at some denoising step, our model produces the following two-dimensional noise predictions (we compress to 2D for illustration, but real models operate in thousands of dimensions):
+                </p>
+                <div class="math-block">
+                    $$\epsilon_\emptyset = [0.5,\; 0.3] \qquad \text{(unconditional prediction)}$$
+                    $$\epsilon_c = [0.2,\; 0.8] \qquad \text{(conditional prediction for "photo of a cat")}$$
+                </div>
+                <p>
+                    The conditional direction — the difference that captures "cat-ness" — is $\epsilon_c - \epsilon_\emptyset = [-0.3,\; 0.5]$. The CFG formula $\tilde{\epsilon} = \epsilon_\emptyset + w(\epsilon_c - \epsilon_\emptyset)$ amplifies this direction by the guidance scale $w$. Let's compute the guided prediction at several scales:
+                </p>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Guided noise prediction at increasing scales</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">$w = 1$ (no boost): $\tilde{\epsilon} = [0.5, 0.3] + 1 \cdot [-0.3, 0.5] = [0.2, 0.8]$. This just recovers the raw conditional prediction — no amplification at all. Magnitude: $\|\tilde{\epsilon}\| = 0.82$.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">$w = 3$: $\tilde{\epsilon} = [0.5, 0.3] + 3 \cdot [-0.3, 0.5] = [-0.4, 1.8]$. The prediction shifts noticeably toward the "cat" direction. Magnitude: $\|\tilde{\epsilon}\| = 1.84$. The model now pushes harder toward cat-like features.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">$w = 7$: $\tilde{\epsilon} = [0.5, 0.3] + 7 \cdot [-0.3, 0.5] = [-1.6, 3.8]$. The guided vector is strongly dominated by the conditional direction. Magnitude: $\|\tilde{\epsilon}\| = 4.12$. This is the sweet spot for many Stable Diffusion workflows — strong prompt adherence with acceptable image quality.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">$w = 15$: $\tilde{\epsilon} = [0.5, 0.3] + 15 \cdot [-0.3, 0.5] = [-4.0, 7.8]$. The magnitude has exploded to $\|\tilde{\epsilon}\| = 8.77$ — more than 10× the raw conditional prediction. At this point the noise estimate is far outside the range the model was trained on, causing color saturation, loss of fine detail, and repetitive textures.</div>
+                    </div>
+                </div>
+                <p>
+                    Notice how the direction stays roughly the same across all scales (pointing toward "cat"), but the magnitude grows linearly with $w$. This is exactly the quality-diversity trade-off in action. In practice, Stable Diffusion defaults to $w = 7.5$, which sits in the range $[5, 15]$ where prompt fidelity is strong but artifacts are manageable. DALL-E models typically use lower scales around $w \in [2, 5]$, partly because their training and architecture choices already produce strong conditional predictions.
+                </p>
+                <h2 id="computational-cost-cfg">Worked example: computational cost of classifier-free guidance</h2>
+                <p>
+                    One aspect of CFG that practitioners encounter immediately is its computational cost. Because the formula requires both an unconditional prediction $\epsilon_\theta(x_t, t, \emptyset)$ and a conditional prediction $\epsilon_\theta(x_t, t, y)$, every single denoising step needs <strong>two forward passes</strong> through the full U-Net. This effectively doubles the inference cost compared to an unconditional sampler.
+                </p>
+                <p>
+                    Consider Stable Diffusion v1.5, whose U-Net has roughly 860 million parameters. At fp16 precision the model weights occupy about 1.72 GB of GPU memory. On an NVIDIA A100, a single forward pass through this U-Net takes approximately 30–40 ms for a 512×512 latent. With CFG, each denoising step now takes 60–80 ms because we must run two passes.
+                </p>
+                <p>
+                    If we use a DDIM sampler with $T = 50$ steps, the total inference involves $50 \times 2 = 100$ forward passes. At ~35 ms per pass, that's roughly 3.5 seconds of pure compute on an A100 — before accounting for the VAE decoder, text encoding, and memory transfers. The standard optimization is to <strong>batch the two predictions together</strong>: stack the unconditional and conditional inputs into a single batch of size 2, run one batched forward pass (which the GPU can parallelize efficiently), and then split the outputs. This doesn't reduce the total FLOPs, but it eliminates the overhead of two separate kernel launches and often saves 10–20% wall-clock time.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">Failure modes of high guidance scales</div>
+                    <p>
+                        At very high guidance scales ($w > 20$), generated images develop a characteristic set of artifacts that experienced practitioners learn to recognize. Colors become oversaturated and "neon-like," textures take on a plastic or waxy quality, and fine details like hair strands or fabric weave are replaced by smooth, featureless surfaces. Human faces become unnervingly "perfect" — symmetrical to a degree that looks artificial, with skin that appears airbrushed beyond recognition. Anatomical errors also increase: extra fingers, malformed hands, and impossible body proportions become more common because the model is being pushed far from its training distribution. Compositionally, high guidance tends to collapse diversity — run the same prompt ten times and you may get nearly identical outputs. The Stable Diffusion default of $w = 7.5$ exists precisely because it sits at the empirical sweet spot where prompt adherence is strong but these failure modes remain rare.
+                    </p>
+                </div>
+                <div class="note-box">
+                    <div class="box-title">Why CFG works with any sampler</div>
+                    <p>
+                        A common source of confusion is whether CFG is "compatible" with different sampling algorithms. The answer is yes — universally. CFG modifies the <em>noise prediction</em> $\tilde{\epsilon}_\theta$, not the sampling algorithm itself. Once you have the guided noise prediction, you can feed it into DDPM, DDIM, DPM-Solver, DPM-Solver++, Euler, Heun, or any other sampler without modification. The sampler only cares about receiving a noise estimate at each step; it is agnostic to how that estimate was computed. This composability is one of the reasons CFG became the universal standard: it slots cleanly into any sampling pipeline as a drop-in replacement for the raw model prediction.
+                    </p>
+                </div>
                 <h2 id="text-conditioning-and-cross-attention">Text conditioning and cross-attention</h2>
                 <p>
                     In text-to-image systems, the condition is usually encoded by a language model such as CLIP or T5. Cross-attention lets image features query those text embeddings so that different spatial regions can focus on different words or concepts during denoising.
@@ -263,6 +337,21 @@
                 <p>
                     Inpainting and image-to-image methods work by partially constraining the reverse process: known pixels are reinserted or softly preserved while unknown regions are regenerated. Negative prompts and compositional prompting can be understood in the same algebraic spirit — they shape the denoising field by adding or subtracting concept directions.
                 </p>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Negative prompting as vector arithmetic in epsilon-space</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">Standard CFG uses the null-conditioned prediction $\epsilon_\emptyset$ as its baseline: $\hat{\epsilon} = \epsilon_\emptyset + w\,(\epsilon_c - \epsilon_\emptyset)$. A negative prompt replaces that null baseline with an explicit "anti-condition" — a text description of what we want to <em>avoid</em>. Let $\epsilon_n = \epsilon_\theta(x_t, t, y_{\text{neg}})$ denote the model's prediction conditioned on the negative prompt $y_{\text{neg}}$.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">The simplest negative-prompt formula substitutes $\epsilon_n$ for $\epsilon_\emptyset$: $$\hat{\epsilon} = \epsilon_n + w\,(\epsilon_c - \epsilon_n)$$ This moves the denoising prediction toward the positive concept $y$ and away from the negative concept $y_{\text{neg}}$. The guidance direction $\epsilon_c - \epsilon_n$ now spans from the negative concept to the positive one, which can be a larger and more informative vector than $\epsilon_c - \epsilon_\emptyset$.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">A more general formulation uses separate scales for the positive and negative guidance: $$\hat{\epsilon} = \epsilon_\emptyset + w\,(\epsilon_c - \epsilon_\emptyset) - w_n\,(\epsilon_n - \epsilon_\emptyset)$$ Geometrically, this is vector arithmetic in epsilon-space: we take the null prediction as our origin, add $w$ times the "toward positive concept" direction, and subtract $w_n$ times the "toward negative concept" direction. The result is a noise prediction that pulls the sample toward what we want and pushes it away from what we don't — all through simple linear combinations of the model's own predictions.</div>
+                    </div>
+                </div>
                 <div class="note-box">
                     <div class="box-title">Worked example: why zero convolutions matter</div>
                     <p>
@@ -272,7 +361,10 @@
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
     <h2>Guidance & Conditioning</h2>
     <p>
-        Guidance is how diffusion models stop being generic and start being useful. By steering the denoising field with prompts, labels, masks, or structural maps, the same generative prior becomes a flexible conditional generator.
+        Guidance is how diffusion models stop being generic and start being useful. By steering the denoising field with prompts, labels, masks, or structural maps, the same generative prior becomes a flexible conditional generator. Classifier guidance provides the cleanest theoretical derivation — Bayes' rule decomposes the conditional score into an unconditional score plus a classifier gradient — but classifier-free guidance has become the universal practical standard because it avoids training a separate noisy-image classifier entirely.
+    </p>
+    <p>
+        The guidance scale $w$ is the single most important user-facing hyperparameter in modern image generation. It controls the trade-off between prompt fidelity and sample diversity, and getting it right (typically $w \in [5, 15]$ for Stable Diffusion) is the difference between a useful tool and a gallery of oversaturated artifacts. Beyond basic prompting, ControlNet injects spatial structure through zero-initialized side branches, inpainting constrains known pixels at every step, and negative prompting performs concept subtraction in epsilon-space. Together, these techniques turn a single pretrained denoiser into a remarkably versatile conditional generation engine.
     </p>
 </div>
                 <div class="tutorial-nav">
