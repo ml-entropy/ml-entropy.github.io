@@ -147,15 +147,65 @@
                     A diffusion U-Net combines an encoder that builds larger receptive fields with a decoder that reconstructs high-resolution detail. Skip connections make the architecture especially well suited to denoising because low-level structure that is still present in the noisy input can be copied forward rather than rediscovered from scratch.
                 </p>
                 <p>
-                    This is a subtle but powerful inductive bias. Denoising is not pure abstraction; even at moderate noise levels, local edges, color statistics, and geometric hints survive. The U-Net is designed to preserve those hints while still using deep bottleneck layers to reason about global semantics.
+                    This is a subtle but powerful inductive bias. Denoising is not pure abstraction; even at moderate noise levels, local edges, color statistics, and geometric hints survive. The U-Net is designed to preserve those hints while still using deep bottleneck layers to reason about global semantics. The encoder progressively downsamples the spatial resolution, building up abstract feature representations, while the decoder upsamples back to the original resolution. Skip connections bridge matching encoder-decoder levels, ensuring that the fine-grained spatial information captured early in the encoder is directly available to the decoder without being forced through the informational bottleneck.
                 </p>
+
+                <div class="worked-example">
+                    <div class="worked-example-title">Worked example: skip connection information flow</div>
+                    <p>
+                        Consider a 4-level U-Net operating on 64×64 latent feature maps. The encoder downsamples at each level: 64×64 → 32×32 → 16×16 → 8×8. The bottleneck sees only 8×8 spatial features — a compression ratio of 64× compared to the input resolution.
+                    </p>
+                    <p>
+                        <strong>Without skip connections</strong>, the decoder must reconstruct all fine-grained detail from this 8×8 compressed representation alone. Every sharp edge, every texture gradient, every subtle color transition at 64×64 resolution must somehow be inferred from 64 spatial positions. In practice, this produces blurry, over-smoothed outputs because the bottleneck simply cannot preserve enough spatial information to reconstruct high-frequency details faithfully.
+                    </p>
+                    <p>
+                        <strong>With skip connections</strong>, the decoder at each level receives two inputs: the upsampled features from below <em>and</em> the original encoder features at the same resolution, concatenated along the channel axis. At the 64×64 level, the decoder has access to both the semantically rich (but spatially coarse) bottleneck information that has been progressively upsampled, and the spatially precise (but semantically shallow) encoder features that captured the original fine structure. The network can then learn to <em>combine</em> coarse semantic guidance with fine spatial detail — the bottleneck decides <em>what</em> should be there, and the skip features help decide <em>exactly where</em> it goes.
+                    </p>
+                    <p>
+                        This is why U-Nets produce sharp images: they do not force all information through the bottleneck. The fine detail flows around the bottleneck via skip connections, while the bottleneck handles only the global, semantic reasoning. For denoising specifically, this is ideal — at moderate noise levels, most of the fine structure is still present in the input and can be passed directly through the skip connections, so the network only needs to use the bottleneck for the parts that require long-range reasoning.
+                    </p>
+                </div>
                 <h2 id="time-conditioning">Time conditioning with sinusoidal embeddings</h2>
                 <p>
                     The same noisy tensor can mean very different things at different timesteps. Early in the trajectory the network should make gentle local corrections, while late in the trajectory it should infer broad semantic structure from almost pure noise, so the timestep must be injected explicitly into the model.
                 </p>
                 <p>
-                    Sinusoidal embeddings are popular because they map scalar timesteps into a rich continuous representation with multiple frequencies. Those embeddings are then projected and injected into residual blocks, often through FiLM-like scale-and-shift modulation.
+                    Sinusoidal embeddings are popular because they map scalar timesteps into a rich continuous representation with multiple frequencies. Those embeddings are then projected and injected into residual blocks, often through FiLM-like scale-and-shift modulation. The key insight is that different frequencies in the embedding allow the network to distinguish fine-grained timestep differences — a model needs to know whether it is at step 200 vs. 210, not just "somewhere in the middle" — and the continuous nature of the representation means the network can interpolate smoothly between timestep behaviors even for values it has not seen during training.
                 </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">FiLM conditioning: Adaptive Group Normalization</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            The standard Group Normalization operation normalizes features $h$ within groups of channels to zero mean and unit variance. In a diffusion residual block, we augment this with <em>adaptive</em> affine parameters that are functions of the timestep embedding $t_{\text{emb}}$:
+                            $$\text{AdaGN}(h, t) = \gamma(t) \cdot \text{GroupNorm}(h) + \beta(t)$$
+                            Here $\gamma(t)$ and $\beta(t)$ are learned affine transforms of the timestep embedding — typically a linear layer applied to $t_{\text{emb}}$ that outputs per-channel scale and shift values.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            This mechanism is called Feature-wise Linear Modulation (FiLM). It lets the network modulate feature statistics differently at each noise level. At early timesteps (low noise), the network should preserve and refine existing structure, so $\gamma$ values tend to be close to 1 and $\beta$ close to 0 — gentle corrections. At late timesteps (high noise), the network must hallucinate structure from almost-random input, so the affine parameters can be more aggressive, effectively rescaling which feature channels are active.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            The practical benefit is that timestep conditioning penetrates <em>every</em> residual block, not just the input. Without FiLM, the network would need to learn timestep-dependent behavior purely from the initial concatenation or addition of the timestep embedding — a much weaker conditioning signal. With FiLM, every normalization layer in every block can adapt its behavior to the current noise level, giving the model fine-grained control over how it processes features across the full diffusion trajectory.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Why GroupNorm, not BatchNorm?</div>
+                    <p>
+                        Diffusion model training typically uses small effective batch sizes. High-resolution images consume substantial GPU memory, and each batch element may be at a different timestep with different noise characteristics, so the "batch statistics" that BatchNorm relies on become extremely noisy and unreliable. GroupNorm sidesteps this problem entirely: it computes normalization statistics <em>per sample</em>, dividing channels into groups and normalizing within each group independently. This makes it completely invariant to batch size — whether you train with batch size 1 or batch size 256, the normalization statistics are identical for a given input.
+                    </p>
+                    <p>
+                        This is a practical design constraint, not a theoretical preference. Early experiments with BatchNorm in diffusion models showed training instabilities and degraded sample quality, particularly at small batch sizes. GroupNorm resolved these issues with negligible computational overhead. Nearly all modern diffusion architectures — both U-Net and DiT variants — use GroupNorm (or the closely related LayerNorm) as their default normalization layer.
+                    </p>
+                </div>
                 <div class="svg-container">
                     <svg viewBox="0 0 860 250" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
                         <text x="430" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">A diffusion ResBlock injects timestep information into the feature stream</text>
@@ -180,10 +230,10 @@
                 </div>
                 <h2 id="attention-in-diffusion">Self-attention and cross-attention</h2>
                 <p>
-                    Convolutions are excellent at local computation, but diffusion also needs global coordination. Attention layers solve that problem by allowing any spatial location to interact with any other location, which helps maintain object coherence, layout, and long-range consistency.
+                    Convolutions are excellent at local computation, but diffusion also needs global coordination. Attention layers solve that problem by allowing any spatial location to interact with any other location, which helps maintain object coherence, layout, and long-range consistency. Without attention, a convolutional network can only propagate information across distant spatial positions through many successive layers — and even very deep networks can struggle to maintain globally coherent structure across a full image. Attention layers short-circuit this limitation, giving the network direct access to global context in a single operation.
                 </p>
                 <p>
-                    Cross-attention extends this idea to conditioning. Image features generate queries, text or other conditioning features generate keys and values, and the resulting attention weights tell the model which condition tokens matter at each spatial position.
+                    Cross-attention extends this idea to conditioning. Image features generate queries, text or other conditioning features generate keys and values, and the resulting attention weights tell the model which condition tokens matter at each spatial position. This is the mechanism that makes text-to-image generation possible: the model can learn, for example, that spatial positions corresponding to a "red car" should attend strongly to the text tokens "red" and "car" while ignoring tokens about other parts of the prompt. The attention weights are learned end-to-end, so the model automatically discovers the right alignment between text semantics and spatial regions.
                 </p>
                 <div class="svg-container">
                     <svg viewBox="0 0 860 290" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
@@ -207,12 +257,47 @@
                         <line x1="695" y1="120" x2="740" y2="120" stroke="currentColor"/>
                     </svg>
                 </div>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Self-attention in diffusion U-Nets</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Given a spatial feature map $h \in \mathbb{R}^{n \times d}$ (where $n$ is the number of spatial positions and $d$ is the channel dimension), we compute queries, keys, and values with learned projections:
+                            $$Q = W_Q\, h, \quad K = W_K\, h, \quad V = W_V\, h$$
+                            Because $Q$, $K$, and $V$ all come from the same feature map, this is <em>self</em>-attention — every spatial location attends to every other location in the same layer.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            The attention weights are computed as a scaled dot-product:
+                            $$\text{Attn}(Q, K, V) = \text{softmax}\!\left(\frac{Q K^T}{\sqrt{d_k}}\right) V$$
+                            The $\sqrt{d_k}$ scaling prevents the dot products from growing large in magnitude, which would push softmax into saturated regions with near-zero gradients. Each row of the resulting attention matrix tells one spatial position how much to attend to every other position — giving every pixel a <em>global receptive field</em> in a single layer, something a convolutional kernel cannot achieve regardless of depth.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            This global receptive field complements the local convolutions elsewhere in the U-Net. Convolutions capture texture, edges, and local patterns efficiently, while self-attention captures long-range coherence — ensuring, for example, that the left eye and right eye of a face remain symmetric even when they are far apart in pixel space. In practice, self-attention is applied only at lower-resolution feature maps (e.g., 16×16 or 32×32) to keep the $O(n^2 d)$ cost manageable.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            For <strong>cross-attention</strong>, queries still come from the image features, but keys and values come from the conditioning signal $c$ (e.g., text embeddings from CLIP):
+                            $$Q = W_Q\, h, \quad K = W_K\, c, \quad V = W_V\, c$$
+                            The attention formula is identical, but now the weights $\text{softmax}(QK^T / \sqrt{d_k})$ tell each spatial position which parts of the conditioning signal are most relevant to it. This is how text-to-image models "steer" the denoising process — each pixel location selectively reads from the words that describe the content it should produce.
+                        </div>
+                    </div>
+                </div>
+
                 <h2 id="latent-diffusion">Latent diffusion</h2>
                 <p>
-                    Pixel-space diffusion is expensive because every denoising step operates on large images. Latent diffusion first compresses images with an autoencoder and then runs the diffusion process in the latent space, where spatial resolution is drastically reduced but semantic structure is preserved.
+                    Pixel-space diffusion is expensive because every denoising step operates on large images. Latent diffusion first compresses images with an autoencoder and then runs the diffusion process in the latent space, where spatial resolution is drastically reduced but semantic structure is preserved. The autoencoder is trained separately (often as a VAE or VQ-VAE) to learn a compact representation where nearby points in latent space correspond to visually similar images, which gives the diffusion model a well-structured space to operate in.
                 </p>
                 <p>
-                    This is the architectural insight behind Stable Diffusion. By moving the expensive iterative process into a lower-dimensional space, the model becomes practical on commodity hardware without abandoning the expressive power of large denoisers.
+                    This is the architectural insight behind Stable Diffusion. By moving the expensive iterative process into a lower-dimensional space, the model becomes practical on commodity hardware without abandoning the expressive power of large denoisers. A typical compression ratio is 8× per spatial dimension — a 512×512 image becomes a 64×64 latent grid with 4 channels — which reduces the per-step memory and compute by roughly two orders of magnitude compared to pixel-space diffusion at the same resolution. The autoencoder and decoder are applied only once per sample (encode at training time, decode at generation time), so their cost is amortized across all denoising steps.
                 </p>
                 <h2 id="worked-example-latent-compute-budget">Worked example: why latent diffusion changes the budget so much</h2>
                 <p>
@@ -248,10 +333,10 @@
                 </div>
                 <h2 id="diffusion-transformers">Diffusion Transformers (DiT)</h2>
                 <p>
-                    DiT replaces the convolutional U-Net with a transformer over image patches or latent patches. Instead of skip-connected multiscale feature pyramids, the model relies on token mixing, attention, and adaptive layer-normalization conditioned on time and labels.
+                    DiT replaces the convolutional U-Net with a transformer over image patches or latent patches. Instead of skip-connected multiscale feature pyramids, the model relies on token mixing, attention, and adaptive layer-normalization conditioned on time and labels. The architecture is strikingly simple compared to a U-Net: there is no encoder-decoder structure, no multi-scale processing, and no skip connections. Instead, there is a single sequence of identical transformer blocks that process a flat sequence of patch tokens — all the architectural complexity is delegated to the attention mechanism and the conditioning interface.
                 </p>
                 <p>
-                    The attraction of DiT is scaling behavior. Transformers often benefit more predictably from increased model size and training compute, which is why diffusion research increasingly treats the backbone as a scalable sequence model rather than a handcrafted convolutional hierarchy.
+                    The attraction of DiT is scaling behavior. Transformers often benefit more predictably from increased model size and training compute, which is why diffusion research increasingly treats the backbone as a scalable sequence model rather than a handcrafted convolutional hierarchy. Empirically, the original DiT paper showed that simply increasing the number of transformer blocks and the hidden dimension produced consistent FID improvements on ImageNet, with the scaling curve showing no signs of saturation at the model sizes tested. This stands in contrast to U-Net scaling, where adding capacity requires careful decisions about where to add channels, which resolutions to add attention at, and how to balance encoder vs. decoder depth.
                 </p>
                 <h2 id="how-a-dit-processes-an-image">How a DiT actually processes an image</h2>
                 <p>
@@ -279,6 +364,23 @@
                         <div class="math-step-content">Project the updated tokens back to patches and unpatchify them into a denoising prediction.</div>
                     </div>
                 </div>
+
+                <div class="worked-example">
+                    <div class="worked-example-title">Worked example: parameter count and compute comparison</div>
+                    <p>
+                        A concrete comparison helps ground the U-Net vs. DiT trade-off. Stable Diffusion 1.5 uses a convolutional U-Net with approximately <strong>860M parameters</strong>. The separately trained VAE encoder/decoder adds ~84M parameters, bringing the total to ~944M. In contrast, DiT-XL/2 (the largest variant in the original DiT paper) has approximately <strong>675M parameters</strong> and also relies on a pretrained VAE — but the denoiser itself is smaller.
+                    </p>
+                    <p>
+                        The compute characteristics differ more sharply than raw parameter counts suggest. In the U-Net, self-attention is applied at intermediate resolutions (typically 32×32 and 16×16), giving $n = 1024$ or $n = 256$ spatial tokens per attention layer. The attention cost is $O(n^2 d)$ per layer. But many of the U-Net's FLOPs come from convolutions, which scale linearly with spatial resolution and are extremely hardware-efficient on modern GPUs.
+                    </p>
+                    <p>
+                        DiT operates entirely in token space. A 64×64 latent with patch size 2 produces $\frac{64}{2} \times \frac{64}{2} = 1024$ tokens. Every transformer block applies full self-attention over all 1024 tokens, so the attention cost is $O(1024^2 \cdot d)$ <em>per block</em> — and DiT-XL has 28 such blocks. By comparison, a pixel-space model at 256×256 with patch size 4 would produce 4096 tokens, making attention 16× more expensive per layer. This is precisely why latent diffusion is essential for DiT: operating on a compressed 64×64 latent rather than 256×256 pixels keeps the token count tractable.
+                    </p>
+                    <p>
+                        The bottom line: the U-Net packs more parameters and leverages convolutional efficiency, while DiT uses fewer parameters but routes more of the computation through attention. At matched FLOP budgets, DiT tends to produce better FID scores on ImageNet-class benchmarks — but the U-Net's convolutional layers run faster on current hardware, so wall-clock time comparisons are more nuanced than FLOP comparisons alone.
+                    </p>
+                </div>
+
                 <h2 id="scaling-laws-and-practical-design">Scaling laws and practical design</h2>
                 <p>
                     In practice, architecture choices interact with data scale, latent resolution, memory budget, and conditioning method. There is no single best design: U-Nets remain strong and efficient, latent diffusion makes large images affordable, and transformer backbones shine when scale and compute are abundant.
@@ -295,10 +397,23 @@
                         If you are compute-limited, choose the backbone whose bias gives you the most efficiency per denoising step. If you are scale-limited in the opposite direction — enormous data, enormous clusters, and a frontier-quality target — then a transformer backbone may have more headroom even if it is not the most elegant small model.
                     </p>
                 </div>
+
+                <div class="note-box">
+                    <div class="box-title">The scaling hypothesis: why frontier models prefer transformers</div>
+                    <p>
+                        DiT's central advantage over the convolutional U-Net is <em>predictable scaling</em>: doubling model size yields a smooth, predictable improvement in FID, and this relationship holds across multiple orders of magnitude. U-Nets, by contrast, do not scale as predictably because their inductive biases — skip connections, multi-scale feature pyramids, and handcrafted resolution schedules — create diminishing returns once the model is large enough that the bottleneck is data and optimization rather than architecture. At small and medium scales the U-Net's biases are a bargain: they deliver strong performance per FLOP. But at extreme scales the same biases become ceilings, and the generic token-mixing of a transformer keeps climbing.
+                    </p>
+                    <p>
+                        This is why frontier systems (DALL·E 3, Stable Diffusion 3, Sora) increasingly use transformer-based backbones. The bet is not that transformers are inherently better denoisers, but that they are better <em>scaling vehicles</em> — and at frontier budgets, scaling predictability matters more than per-FLOP efficiency. For most practitioners who operate below frontier scale, the U-Net remains an excellent and often superior choice.
+                    </p>
+                </div>
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
     <h2>Diffusion Architectures</h2>
     <p>
         Diffusion architectures are really denoising architectures under tight constraints: they must preserve detail, reason globally, understand time, and absorb conditioning signals. U-Nets and DiTs are two dominant solutions to that design problem.
+        The U-Net leverages multiscale locality and skip connections as powerful inductive biases, making it extremely efficient in the moderate-compute regime and still dominant in production systems like Stable Diffusion 1.x and 2.x.
+        Diffusion Transformers trade those hand-crafted biases for the scaling predictability of general-purpose sequence models, and frontier labs increasingly adopt them when compute and data budgets are large enough to exploit smooth scaling laws.
+        Ultimately, the choice between these backbones is an engineering trade-off between efficiency and scalability — and latent diffusion ensures that either backbone can operate at practical cost by moving the expensive iterative denoising into a compressed representation space.
     </p>
 </div>
                 <div class="tutorial-nav">
