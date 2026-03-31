@@ -95,10 +95,10 @@
             <article class="article-content" id="theory">
 <h1>The SDE/ODE Framework</h1>
                 <p>
-                    Discrete diffusion already works, but the continuous-time viewpoint reveals a deeper structure. Once the number of steps becomes large and each corruption becomes infinitesimal, the forward process is naturally described by a stochastic differential equation rather than a discrete Markov chain.
+                    Discrete diffusion already works, but the continuous-time viewpoint reveals a deeper structure. Once the number of steps becomes large and each corruption becomes infinitesimal, the forward process is naturally described by a stochastic differential equation rather than a discrete Markov chain. This is not merely an aesthetic preference — it is the difference between working with a finite chain of Gaussian transitions and working with a smooth family of distributions parameterized by continuous time. The continuous picture makes it transparent why the same score network can be used at <em>any</em> noise level, not just the finitely many levels chosen for training, and it opens the door to adaptive step-size integrators that automatically concentrate computation where the dynamics change fastest.
                 </p>
                 <p>
-                    This reframing matters because it imports the full toolkit of stochastic calculus and numerical differential equations. Reverse-time sampling, deterministic probability-flow paths, and exact likelihood formulas all become easier to express in the continuous language.
+                    This reframing matters because it imports the full toolkit of stochastic calculus and numerical differential equations. Reverse-time sampling, deterministic probability-flow paths, and exact likelihood formulas all become easier to express in the continuous language. In the SDE picture, the forward process, the reverse process, and the probability-flow ODE are all manifestations of the same underlying object — a time-dependent vector field defined by the score function. The framework was unified in the landmark paper by Song et al. (2021), which showed that DDPM (Ho et al., 2020), SMLD / NCSN (Song &amp; Ermon, 2019), and continuous normalizing flows can all be recovered as special cases of SDEs with particular choices of drift and diffusion coefficients.
                 </p>
                 <div class="svg-container">
                     <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
@@ -148,34 +148,113 @@
                 </div>
                 <h3 id="forward-sde">8.1 Forward SDE</h3>
                 <p>
-                    The discrete forward process becomes a continuous SDE:
+                    The discrete forward process becomes a continuous SDE when we let the step size shrink to zero. In the discrete world we wrote $x_{t+1} = \alpha_t x_t + \sigma_t \epsilon$; in the continuous limit this becomes an Itô stochastic differential equation:
                 </p>
                 <div class="math-block">
-                    $$dx = f(x, t) dt + g(t) dw$$
+                    $$dx = f(x, t)\, dt + g(t)\, dw$$
                 </div>
                 <p>
-                    For VP-SDE: $f(x,t) = -\frac{1}{2}\beta(t)x$, $g(t) = \sqrt{\beta(t)}$
+                    Here $f(x,t)$ is the <strong>drift coefficient</strong> — it specifies the deterministic tendency of the state. The function $g(t)$ is the <strong>diffusion coefficient</strong> — it controls the intensity of the Brownian noise injected at time $t$. The term $dw$ denotes an infinitesimal Wiener increment, a Gaussian random variable with mean zero and variance $dt$. Together, drift and diffusion fully characterize the law of the process: the drift tells probability mass where to go on average, while the diffusion smears it out.
+                </p>
+                <p>
+                    For VP-SDE: $f(x,t) = -\frac{1}{2}\beta(t)x$, $g(t) = \sqrt{\beta(t)}$. The drift is <em>linear and contractive</em> — it pulls the state toward the origin at a rate proportional to $\beta(t)$. This is what makes the signal shrink over time. The diffusion coefficient $\sqrt{\beta(t)}$ injects noise at a rate that is perfectly balanced so that the total variance of the marginal $p_t(x)$ stays bounded (hence "variance-preserving"). As $t \to \infty$, the marginal approaches a standard Gaussian regardless of the initial data distribution.
                 </p>
                 <h3 id="reverse-sde">8.2 Reverse SDE</h3>
                 <p>
-                    Anderson (1982) showed the reverse-time SDE is:
+                    The central question of diffusion generative modelling is: given that we know how to corrupt data into noise, can we <em>reverse</em> that corruption? Anderson (1982) answered this in the affirmative, showing that any Itô diffusion running forward in time induces a well-defined reverse-time diffusion with an explicit formula for its drift. The reverse-time SDE is:
                 </p>
                 <div class="math-block">
-                    $$dx = [f(x,t) - g(t)^2 \nabla_x \log p_t(x)] dt + g(t) d\bar{w}$$
+                    $$dx = [f(x,t) - g(t)^2 \nabla_x \log p_t(x)]\, dt + g(t)\, d\bar{w}$$
                 </div>
                 <p>
-                    The score $\nabla_x \log p_t(x)$ is the only unknown — once learned, we can reverse the process.
+                    The score $\nabla_x \log p_t(x)$ is the only unknown — once learned, we can reverse the process. Notice the structure: the original drift $f(x,t)$ is corrected by a term proportional to $g(t)^2$ times the score. The diffusion coefficient $g(t)$ stays exactly the same as in the forward process, but the Brownian motion $\bar{w}$ now runs backward in time. Intuitively, the score tells us the direction in which the log-density increases most steeply — it points from low-probability regions toward high-probability regions. By following this gradient, the reverse process "un-diffuses" noise back into data. The factor $g(t)^2$ ensures that the correction scales with the amount of noise present: when diffusion is strong, the score correction must also be strong.
                 </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Reverse-time SDE (Anderson's theorem)</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Start from the forward SDE.</strong> Assume the forward process obeys $dx = f(x,t)\,dt + g(t)\,dw$ with marginal densities $p_t(x)$. The associated <em>Fokker–Planck equation</em> (also called the Kolmogorov forward equation) describes how the density evolves:
+                            $$\frac{\partial p_t}{\partial t} = -\nabla \cdot \bigl(f(x,t)\,p_t\bigr) + \frac{1}{2}g(t)^2 \Delta p_t$$
+                            This PDE is the density-level counterpart of the sample-level SDE.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Time-reverse the Fokker–Planck equation.</strong> Substitute $\tau = T - t$ so that $\tau$ increases as we go backward. The density $q_\tau(x) = p_{T-\tau}(x)$ must satisfy a Fokker–Planck equation for the <em>reverse</em> process. After rewriting the time derivative and spatial operators, one finds that the reverse Fokker–Planck equation has the form:
+                            $$\frac{\partial q_\tau}{\partial \tau} = -\nabla \cdot \Bigl(\bigl[f - g^2 \nabla \log p_t\bigr]\,q_\tau\Bigr) + \frac{1}{2}g^2 \Delta q_\tau$$
+                            The key algebraic step uses the identity $\nabla p_t = p_t \,\nabla \log p_t$ to absorb the second-order term's contribution into a modified drift.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Read off the reverse SDE.</strong> Since a Fokker–Planck equation of the form $\partial_\tau q = -\nabla\cdot(\tilde{f}\,q) + \frac{1}{2}\tilde{g}^2 \Delta q$ corresponds to the Itô SDE $dx = \tilde{f}\,d\tau + \tilde{g}\,d\bar{w}$, we can directly identify the reverse-time drift and diffusion:
+                            $$\tilde{f}(x,t) = f(x,t) - g(t)^2\,\nabla_x \log p_t(x), \qquad \tilde{g}(t) = g(t)$$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Interpret each term.</strong> The reverse drift $\tilde{f} = f - g^2 \nabla_x \log p_t$ has two parts. The first part, $f$, is the original forward drift — if we naively ran the forward SDE backward, we would get this. The second part, $-g^2 \nabla_x \log p_t$, is the <em>score correction</em>: it accounts for the information destroyed by the forward diffusion. The diffusion coefficient is unchanged ($\tilde{g} = g$), meaning the reverse process is just as noisy as the forward — only the drift direction changes.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <strong>Practical implication.</strong> The only quantity in the reverse SDE that we cannot compute analytically is the score $\nabla_x \log p_t(x)$, because it depends on the unknown data distribution. This is precisely what the score network $s_\theta(x,t) \approx \nabla_x \log p_t(x)$ is trained to approximate. Once we plug in the learned score, the reverse SDE becomes a concrete stochastic process we can simulate with standard numerical integrators.
+                        </div>
+                    </div>
+                </div>
                 <h3 id="probability-flow-ode">8.3 Probability Flow ODE</h3>
                 <p>
-                    A deterministic ODE with the same marginals:
+                    A remarkable fact discovered by Song et al. (2021) is that for every SDE there exists a <em>deterministic</em> ordinary differential equation whose solutions have exactly the same marginal distributions $p_t(x)$ at every time $t$. This is the <strong>probability-flow ODE</strong>:
                 </p>
                 <div class="math-block">
                     $$dx = \left[f(x,t) - \frac{1}{2}g(t)^2 \nabla_x \log p_t(x)\right] dt$$
                 </div>
                 <p>
-                    This is equivalent to a <strong>continuous normalizing flow</strong> — connecting back to Tutorial 17!
+                    This is equivalent to a <strong>continuous normalizing flow</strong> — connecting back to Tutorial 17! Notice the structural similarity to the reverse SDE: the drift is identical except the factor of $g^2$ in front of the score is halved from $1$ to $\frac{1}{2}$, and the noise term $g(t)\,d\bar{w}$ is dropped entirely. Why does halving the score coefficient and removing the noise give the same marginals? Because in the SDE the noise <em>spreads</em> probability mass, and the full score correction <em>concentrates</em> it; when we remove the noise, we need less concentration — exactly half as much — to maintain the same density evolution.
                 </p>
+                <p>
+                    The probability-flow ODE is powerful for two reasons. First, it provides <strong>deterministic sampling</strong>: given the same initial noise sample, the ODE always produces the same output, making generation reproducible and enabling latent-space interpolation. Second, it enables <strong>exact likelihood computation</strong> via the instantaneous change-of-variables formula for ODEs, something that is impossible with the stochastic path.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Probability-flow ODE derivation</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Start from the Fokker–Planck equation of the forward SDE.</strong> The marginal density $p_t(x)$ satisfies:
+                            $$\frac{\partial p_t}{\partial t} = -\nabla \cdot (f\,p_t) + \frac{1}{2}g^2\,\Delta p_t$$
+                            We want to find a <em>drift-only</em> ODE $dx = \tilde{f}(x,t)\,dt$ (no noise) whose density $\tilde{p}_t$ satisfies the same PDE, so that $\tilde{p}_t = p_t$ for all $t$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Write the continuity equation for a deterministic flow.</strong> A pure ODE $dx = \tilde{f}\,dt$ evolves densities via the continuity (Liouville) equation:
+                            $$\frac{\partial \tilde{p}_t}{\partial t} = -\nabla \cdot (\tilde{f}\,\tilde{p}_t)$$
+                            For $\tilde{p}_t = p_t$ we need $-\nabla\cdot(\tilde{f}\,p_t) = -\nabla\cdot(f\,p_t) + \frac{1}{2}g^2 \Delta p_t$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Absorb the Laplacian into the drift.</strong> Use the identity $\Delta p_t = \nabla \cdot (p_t\,\nabla \log p_t)$ (which follows from $\nabla p_t = p_t \nabla \log p_t$). Substituting:
+                            $$-\nabla\cdot(\tilde{f}\,p_t) = -\nabla\cdot(f\,p_t) + \frac{1}{2}g^2\,\nabla\cdot(p_t\,\nabla\log p_t)$$
+                            This is satisfied by choosing $\tilde{f} = f - \frac{1}{2}g^2\,\nabla\log p_t$, giving the probability-flow ODE.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Key insight.</strong> The $\frac{1}{2}$ factor (compared to the full $g^2$ in the reverse SDE) arises because the noise term in the SDE contributes its own spreading effect. When we remove the noise, we must compensate by reducing the score correction proportionally. The reverse SDE needs the full score to fight against both drift <em>and</em> diffusion; the ODE only needs to account for drift, so half the score suffices.
+                        </div>
+                    </div>
+                </div>
                 <div class="math-derivation">
                     <div class="math-derivation-title">From a discrete DDPM step to the VP-SDE limit</div>
                     <div class="math-step">
@@ -208,12 +287,45 @@
                         The continuous-time language does not replace DDPM intuition; it refines it. The SDE coefficients are just the infinitesimal version of the same schedule-controlled trade-off between signal decay and noise growth that you already met in the discrete forward process.
                     </p>
                 </div>
-                <h2 id="sde-primer">A short SDE primer</h2>
+
+                <h3 id="worked-example-reverse-step">Worked example: one reverse-SDE step vs. one probability-flow ODE step</h3>
                 <p>
-                    An SDE has a drift term and a diffusion term. The drift says where the state would move deterministically, while the diffusion coefficient controls how strongly Brownian motion perturbs that deterministic motion.
+                    Let us make the reverse dynamics concrete by computing a single step with real numbers. Suppose we are at time $t = 0.8$ with current state $x = 0.3$, using the VP-SDE with $\beta(t) = 0.1 + 19.9t$. At $t = 0.8$ we have $\beta(0.8) = 0.1 + 19.9 \times 0.8 = 16.02$. The drift coefficient is $f(x,t) = -\frac{1}{2}\beta(t)x = -\frac{1}{2}(16.02)(0.3) = -2.403$ and the diffusion coefficient is $g(t) = \sqrt{\beta(t)} = \sqrt{16.02} \approx 4.003$.
                 </p>
                 <p>
-                    For diffusion models, the beauty is that the unknown part of the reverse-time SDE is exactly the score. Once the score network is available, the reverse dynamics are specified and can be simulated like any other stochastic system.
+                    Now suppose the score network estimates $s_\theta(x, t) = \nabla_x \log p_t(x) \approx -0.25$ at this point. We will take a reverse step of size $\Delta t = 0.01$ (stepping from $t = 0.80$ to $t = 0.79$). For the <strong>reverse SDE</strong> (Euler–Maruyama), the update is:
+                </p>
+                <div class="math-block">
+                    $$x_{t-\Delta t} = x_t - \bigl[f(x,t) - g(t)^2 \,s_\theta(x,t)\bigr]\Delta t + g(t)\sqrt{\Delta t}\,z$$
+                </div>
+                <p>
+                    where $z \sim \mathcal{N}(0,1)$. Computing the drift correction: $g(t)^2 \cdot s_\theta = (16.02)(-0.25) = -4.005$, so the total reverse drift is $f - g^2 s_\theta = -2.403 - (-4.005) = 1.602$. The deterministic displacement is $-1.602 \times 0.01 = -0.01602$. The stochastic kick is $4.003 \times \sqrt{0.01} \times z = 0.4003z$. If $z = 0.5$, we get $x_{0.79} = 0.3 - 0.01602 + 0.2002 = 0.4842$.
+                </p>
+                <p>
+                    For the <strong>probability-flow ODE</strong>, the update uses half the score coefficient and no noise:
+                </p>
+                <div class="math-block">
+                    $$x_{t-\Delta t} = x_t - \bigl[f(x,t) - \tfrac{1}{2}g(t)^2\,s_\theta(x,t)\bigr]\Delta t$$
+                </div>
+                <p>
+                    The ODE drift is $f - \frac{1}{2}g^2 s_\theta = -2.403 - \frac{1}{2}(-4.005) = -2.403 + 2.0025 = -0.4005$. So the displacement is $-(-0.4005) \times 0.01 = 0.004005$, giving $x_{0.79} = 0.3 + 0.004005 = 0.3040$.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        The ODE step is small and deterministic — it nudges the state gently toward higher-density regions. The SDE step has the same expected drift direction but adds a random perturbation whose magnitude ($\approx 0.40$) dwarfs the drift displacement ($\approx 0.02$). Over many steps, the SDE explores more of the distribution while the ODE traces a single smooth trajectory. Both converge to the same <em>distribution</em> of outputs, but any individual SDE sample path looks much noisier than the corresponding ODE path.
+                    </p>
+                </div>
+
+                <h2 id="sde-primer">A short SDE primer</h2>
+                <p>
+                    An SDE has a drift term and a diffusion term. The drift says where the state would move deterministically, while the diffusion coefficient controls how strongly Brownian motion perturbs that deterministic motion. Formally, the general Itô SDE $dx = f(x,t)\,dt + g(x,t)\,dw$ says: in a tiny interval $[t, t+dt]$, the state shifts by a deterministic amount $f\,dt$ plus a random Gaussian kick of standard deviation $g\sqrt{dt}$. The randomness is Markovian — future increments are independent of the past given the present — which is why the process has no memory beyond the current state $x_t$.
+                </p>
+                <p>
+                    For diffusion models, the beauty is that the unknown part of the reverse-time SDE is exactly the score. Once the score network is available, the reverse dynamics are specified and can be simulated like any other stochastic system. The simplest numerical integrator is the <strong>Euler–Maruyama method</strong>, which discretises the SDE by taking $x_{t+\Delta t} = x_t + f\,\Delta t + g\,\sqrt{\Delta t}\,z$ with $z \sim \mathcal{N}(0, I)$. This is the stochastic analog of the forward Euler method for ODEs, and it has weak order 1 (meaning expectations of smooth functions converge at rate $O(\Delta t)$). Higher-order methods like the stochastic Runge–Kutta scheme or predictor–corrector approaches from Song et al. can improve accuracy per step, but they require additional score evaluations.
+                </p>
+                <p>
+                    One important practical concern is <strong>numerical stiffness</strong>. Near $t = 0$ (the data end), the drift coefficients in the reverse SDE can become very large because the score $\nabla_x \log p_t(x)$ grows as the distribution becomes sharply peaked. This means the ODE/SDE becomes stiff in that regime, and naive fixed-step integrators may require extremely small steps to remain stable. Adaptive-step ODE solvers (such as Dormand–Prince RK45) handle this automatically by shrinking the step when the vector field changes rapidly and enlarging it when the dynamics are smooth, which is why they are preferred for probability-flow ODE sampling in practice.
                 </p>
                 <div class="svg-container">
                     <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
@@ -241,43 +353,164 @@
                         <circle cx="590" cy="155" r="88" fill="none" stroke="#db2777" opacity="0.35"/>
                     </svg>
                 </div>
-                <h2 id="exact-likelihood-and-cnf-view">Exact likelihood and the continuous normalizing-flow view</h2>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">VE-SDE formal definition and comparison with VP-SDE</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Define the Variance Exploding SDE.</strong> The VE-SDE has <em>zero drift</em> and a time-dependent diffusion coefficient tied to an increasing noise schedule $\sigma(t)$:
+                            $$dx = \sqrt{\frac{d[\sigma^2(t)]}{dt}}\,dw$$
+                            Here $f(x,t) = 0$ (no signal decay!) and $g(t) = \sqrt{\frac{d[\sigma^2(t)]}{dt}}$. Because the drift is zero, the signal is never scaled down — only noise is added. The variance of $x_t$ grows without bound as $t$ increases, hence the name "variance exploding."
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Connection to SMLD / NCSN.</strong> In the Score Matching with Langevin Dynamics framework (Song &amp; Ermon, 2019), the forward corruption is $x_i = x_0 + \sigma_i \epsilon$ for a geometric sequence of noise levels $\sigma_1 &lt; \sigma_2 &lt; \cdots &lt; \sigma_L$. Setting $\sigma(t) = \sigma_{\min} \cdot \left(\frac{\sigma_{\max}}{\sigma_{\min}}\right)^t$ for $t \in [0,1]$, the continuous limit is:
+                            $$g(t) = \sigma(t)\sqrt{2 \log\!\left(\frac{\sigma_{\max}}{\sigma_{\min}}\right)}$$
+                            This is the VE-SDE that unifies all discrete NCSN noise levels into a single continuous process.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Side-by-side comparison.</strong> The VP-SDE and VE-SDE differ in a fundamental way:
+                            <br><br>
+                            <strong>VP-SDE:</strong> $f(x,t) = -\frac{1}{2}\beta(t)x$, &nbsp; $g(t) = \sqrt{\beta(t)}$ — signal <em>shrinks</em>, noise is injected, total variance stays $\approx 1$.
+                            <br>
+                            <strong>VE-SDE:</strong> $f(x,t) = 0$, &nbsp; $g(t) = \sqrt{\frac{d[\sigma^2(t)]}{dt}}$ — signal is <em>unchanged</em>, noise is added on top, total variance grows to $\sigma_{\max}^2$.
+                            <br><br>
+                            Both end at approximately the same place (a wide Gaussian), but they get there differently. VP-SDE compresses the signal into a unit ball and fills it with noise; VE-SDE leaves the signal alone and buries it under an ever-growing pile of noise.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Practical implications.</strong> Because the VE-SDE never rescales the signal, the score $\nabla_x \log p_t(x)$ at large $t$ is approximately $-x/\sigma^2(t)$, which is small and smooth. This can make training easier at high noise levels. However, the large dynamic range of $\sigma(t)$ (often spanning 3–4 orders of magnitude) requires careful loss weighting. VP-SDE, by contrast, keeps all quantities order-one throughout the process, which simplifies optimisation but introduces coupling between signal decay and noise injection that VE-SDE avoids.
+                        </div>
+                    </div>
+                </div>
+
+                <h3 id="worked-example-vp-ve-comparison">Worked example: VP-SDE vs VE-SDE signal evolution</h3>
                 <p>
-                    The probability-flow ODE removes the stochastic term while preserving the same one-time marginals as the reverse SDE. That is remarkable, because it means a diffusion model can also be seen as a continuous normalizing flow whose vector field is defined by the same learned score.
+                    Let us trace what happens to a single 1D data point $x_0 = 1$ at time $t = 0.5$ under each SDE. We will compute the mean and variance of the conditional distribution $p(x_t \mid x_0)$.
                 </p>
                 <p>
-                    Once the process is deterministic, log-likelihood can be tracked with the instantaneous change-of-variables formula. In practice the Jacobian trace is estimated with stochastic techniques such as Hutchinson estimators, which makes exact or near-exact density evaluation feasible even in high dimension.
+                    <strong>VP-SDE</strong> with $\beta(t) = 0.1 + 19.9t$. The integrated noise schedule is $\int_0^{0.5} \beta(s)\,ds = \int_0^{0.5}(0.1+19.9s)\,ds = 0.05 + 19.9 \cdot 0.125 = 0.05 + 2.4875 = 2.5375$. For the VP-SDE, $p(x_t \mid x_0) = \mathcal{N}\!\bigl(x_0 \,e^{-\frac{1}{2}\int_0^t \beta(s)ds},\; 1 - e^{-\int_0^t \beta(s)ds}\bigr)$. So:
+                </p>
+                <div class="math-block">
+                    $$\text{mean} = 1 \cdot e^{-2.5375/2} = e^{-1.269} \approx 0.281$$
+                </div>
+                <div class="math-block">
+                    $$\text{variance} = 1 - e^{-2.5375} \approx 1 - 0.0791 = 0.921$$
+                </div>
+                <p>
+                    The signal has shrunk from $1.0$ to $0.281$ (a $72\%$ reduction), and the variance is $0.921$ — close to the terminal value of $1.0$. The VP-SDE aggressively compresses the signal.
+                </p>
+                <p>
+                    <strong>VE-SDE</strong> with $\sigma(t) = 0.01 \cdot 100^t$. At $t = 0.5$: $\sigma(0.5) = 0.01 \cdot 100^{0.5} = 0.01 \cdot 10 = 0.1$. The conditional distribution is $p(x_t \mid x_0) = \mathcal{N}(x_0, \sigma^2(t) - \sigma^2(0))$. Since $\sigma(0) = 0.01$:
+                </p>
+                <div class="math-block">
+                    $$\text{mean} = 1.0 \quad (\text{unchanged!})$$
+                </div>
+                <div class="math-block">
+                    $$\text{variance} = 0.1^2 - 0.01^2 = 0.01 - 0.0001 = 0.0099$$
+                </div>
+                <p>
+                    The signal is exactly $1.0$ — the VE-SDE has not touched it at all. The added noise variance is only $0.0099$, so at $t = 0.5$ the data point is barely corrupted. The VE-SDE's corruption is back-loaded: most of the noise arrives at later times as $\sigma(t)$ grows geometrically.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        The VP-SDE and VE-SDE reach the same destination (a broad Gaussian) but take very different routes. VP-SDE simultaneously shrinks the signal and adds noise, giving a smooth, roughly linear transition from data to noise. VE-SDE leaves the signal intact and piles noise on top, with most corruption concentrated at late times. This has practical consequences: VP-SDE models tend to be easier to train uniformly across time, while VE-SDE models may need careful loss weighting to handle the extreme dynamic range of $\sigma(t)$.
+                    </p>
+                </div>
+
+                <h2 id="exact-likelihood-and-cnf-view">Exact likelihood and the continuous normalizing-flow view</h2>
+                <p>
+                    The probability-flow ODE removes the stochastic term while preserving the same one-time marginals as the reverse SDE. That is remarkable, because it means a diffusion model can also be seen as a continuous normalizing flow whose vector field is defined by the same learned score. A continuous normalizing flow (CNF) is an ODE $\frac{dx}{dt} = v_\theta(x,t)$ that transports samples from a simple base distribution (like a Gaussian) to the data distribution. The probability-flow ODE is exactly such a CNF, except the vector field is not parameterised freely — it is derived from the score function, which constrains it to be consistent with the forward diffusion.
+                </p>
+                <p>
+                    Once the process is deterministic, log-likelihood can be tracked with the instantaneous change-of-variables formula. For an ODE flow $\frac{dx}{dt} = v(x,t)$, the log-density evolves as:
+                </p>
+                <div class="math-block">
+                    $$\frac{d}{dt}\log p_t(x(t)) = -\mathrm{tr}\!\left(\frac{\partial v}{\partial x}\right) = -\nabla \cdot v(x(t), t)$$
+                </div>
+                <p>
+                    This is the <strong>instantaneous change-of-variables</strong> formula (also called the continuous normalizing flow identity). To compute $\log p_0(x_0)$ — the log-likelihood of a data point — we integrate the ODE forward from $t=0$ to $t=T$ and accumulate the divergence along the trajectory: $\log p_0(x_0) = \log p_T(x_T) + \int_0^T \nabla \cdot v(x(t),t)\,dt$. Since $p_T$ is approximately Gaussian, its log-density is trivial to evaluate, so the entire computation reduces to a single ODE solve. In practice the Jacobian trace is estimated with stochastic techniques such as Hutchinson estimators, which makes exact or near-exact density evaluation feasible even in high dimension.
                 </p>
                 <h2 id="why-hutchinson-trace-works">Why Hutchinson's trace estimator works</h2>
                 <p>
-                    The change-of-variables formula needs the trace of the Jacobian of the flow field, which is the divergence term $\mathrm{tr}(J_f(x))$. Forming a full Jacobian at image dimension would be completely impractical, so diffusion likelihood methods rely on the identity $\mathbb{E}[v^T J v] = \mathrm{tr}(J)$ when $v$ is a zero-mean random vector with identity covariance.
+                    The change-of-variables formula needs the trace of the Jacobian of the flow field, which is the divergence term $\mathrm{tr}(J_f(x))$. Forming a full Jacobian at image dimension would be completely impractical — for a 64×64 RGB image the state has $d = 64 \times 64 \times 3 = 12{,}288$ dimensions, so the Jacobian is a $12{,}288 \times 12{,}288$ matrix with over 150 million entries. Computing it would require $d$ backward passes through the score network. Instead, diffusion likelihood methods rely on the identity $\mathbb{E}[v^T J v] = \mathrm{tr}(J)$ when $v$ is a zero-mean random vector with identity covariance.
                 </p>
                 <p>
-                    That is exactly what the code block is doing. It samples a random probe vector, computes a Jacobian-vector product instead of the whole Jacobian, and then takes the inner product with the same probe. Averaging a few such probes gives an unbiased trace estimate at a tiny fraction of the memory cost, which is why exact-likelihood-style diffusion calculations are computationally feasible at all.
+                    Why does this identity hold? Expand: $\mathbb{E}[v^T J v] = \mathbb{E}\bigl[\sum_{ij} v_i J_{ij} v_j\bigr] = \sum_{ij} J_{ij}\,\mathbb{E}[v_i v_j]$. Since $\mathbb{E}[v_i v_j] = \delta_{ij}$ (the Kronecker delta), only the diagonal terms survive, giving $\sum_i J_{ii} = \mathrm{tr}(J)$. In practice, $v$ is drawn from a Rademacher distribution ($\pm 1$ with equal probability) rather than a Gaussian, because this gives lower variance while still satisfying the identity-covariance requirement.
                 </p>
+                <p>
+                    That is exactly what the code block is doing. It samples a random probe vector, computes a Jacobian-vector product instead of the whole Jacobian, and then takes the inner product with the same probe. Averaging a few such probes gives an unbiased trace estimate at a tiny fraction of the memory cost, which is why exact-likelihood-style diffusion calculations are computationally feasible at all. Each probe requires only <em>one</em> Jacobian–vector product (computable via a single backward pass), so $k$ probes cost $k$ backward passes instead of $d$ — a reduction from 12,288 to perhaps 1–5 passes.
+                </p>
+
+                <h3 id="worked-example-likelihood">Worked example: likelihood computation via instantaneous change of variables</h3>
+                <p>
+                    Consider a 64×64 grayscale image, so $d = 4{,}096$. The probability-flow ODE is $\frac{dx}{dt} = v_\theta(x,t)$, and we want $\log p_0(x_0)$ for a given data image $x_0$. We integrate forward from $t=0$ to $t=T=1$ using an adaptive ODE solver and accumulate:
+                </p>
+                <div class="math-block">
+                    $$\log p_0(x_0) = \log p_T(x_T) + \int_0^T \mathrm{tr}\!\left(\frac{\partial v_\theta}{\partial x}(x(t),t)\right) dt$$
+                </div>
+                <p>
+                    At $t = T$ the distribution is approximately $\mathcal{N}(0, I)$, so $\log p_T(x_T) = -\frac{d}{2}\log(2\pi) - \frac{1}{2}\|x_T\|^2$. For $d = 4{,}096$ and $\|x_T\| \approx 64$ (typical for a standard normal sample in this dimension, since $\mathbb{E}[\|z\|^2] = d$), $\log p_T \approx -\frac{4096}{2}\log(2\pi) - \frac{64^2}{2} = -2048 \times 1.838 - 2048 \approx -3764 - 2048 = -5812$.
+                </p>
+                <p>
+                    Now for the divergence integral. Without the Hutchinson trick, each evaluation of $\mathrm{tr}(J)$ would require building the full $4{,}096 \times 4{,}096$ Jacobian — about 16.8 million entries — needing 4,096 backward passes per function evaluation. With the Hutchinson estimator, we draw $v \sim \text{Rademacher}(d)$ and compute $v^T \frac{\partial v_\theta}{\partial x} v$ using a single vector–Jacobian product (one backward pass). If the ODE solver takes 100 function evaluations and we use 1 probe each, that is 100 backward passes total — a $41\times$ reduction compared to the naive approach's 409,600 backward passes.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        The Hutchinson trace estimator is what makes diffusion models competitive as <em>density estimators</em>, not just samplers. Without it, computing $\log p(x)$ for a single image would be prohibitively expensive. With it, we get unbiased likelihood estimates at a cost comparable to generating a single sample — opening the door to model comparison, out-of-distribution detection, and hybrid training objectives that combine score matching with maximum likelihood.
+                    </p>
+                </div>
                 <h2 id="physical-diffusion-connection">Connection to physics</h2>
                 <p>
-                    The name “diffusion model” is not metaphorical. The forward process is genuinely a diffusion process in the stochastic-calculus sense, closely tied to Brownian motion, the heat equation, and the Fokker-Planck equation for density evolution.
+                    The name “diffusion model” is not metaphorical. The forward process is genuinely a diffusion process in the stochastic-calculus sense, closely tied to Brownian motion, the heat equation, and the Fokker-Planck equation for density evolution. In 1827, Robert Brown observed pollen grains jittering randomly in water; a century later, Einstein and Smoluchowski formalized this as a consequence of molecular bombardment. The mathematics of that physical phenomenon — Brownian motion driving a particle through a viscous fluid — is <em>exactly</em> the mathematics of the forward corruption process in diffusion generative models. The only difference is interpretation: instead of a pollen grain, we have a data point; instead of thermal energy, the noise is injected deliberately by the modeller.
                 </p>
                 <p>
-                    The Fokker-Planck equation describes how an entire probability density moves under drift and noise. In the pure-diffusion limit it reduces to the heat equation, whose job is to smooth away sharp structure over time. That is exactly the intuition of the forward process: detailed data distributions blur into broader, simpler noise distributions as entropy increases.
+                    The Fokker-Planck equation describes how an entire probability density moves under drift and noise. In the pure-diffusion limit it reduces to the heat equation, whose job is to smooth away sharp structure over time. That is exactly the intuition of the forward process: detailed data distributions blur into broader, simpler noise distributions as entropy increases. The Fokker-Planck viewpoint is powerful because it operates at the <em>distribution</em> level rather than the <em>sample</em> level — it tells us how the entire ensemble of possible states evolves, not just one trajectory.
                 </p>
                 <p>
-                    Reverse diffusion therefore is not "undoing randomness" by magic. It supplies the missing feedback term — the score — that tells probability mass how to flow back toward concentrated data regions instead of continuing to disperse. The reverse SDE is a physically meaningful diffusion process whose drift has been corrected by learned information about the data manifold.
+                    Reverse diffusion therefore is not “undoing randomness” by magic. It supplies the missing feedback term — the score — that tells probability mass how to flow back toward concentrated data regions instead of continuing to disperse. The reverse SDE is a physically meaningful diffusion process whose drift has been corrected by learned information about the data manifold. In a physical analogy, imagine an inkdrop spreading in water (forward diffusion). Normally you cannot un-spread ink. But if at every point in the fluid you knew the local concentration gradient (the “score”), you could design a counter-flow that reconcentrates the ink. That is precisely what the reverse SDE does.
                 </p>
                 <p>
                     This makes the information-theoretic interpretation especially vivid. Uncontrolled diffusion spends information by washing structure away; the learned reverse field spends model capacity to inject the right directional bits back in. Sampling is successful precisely because the network has learned how entropy should be reversed locally at every noise scale.
                 </p>
                 <div class="note-box">
-                    <div class="box-title">Common misconception: same marginals do not mean same paths</div>
+                    <div class="box-title">The Fokker–Planck equation</div>
                     <p>
-                        The reverse SDE and the probability-flow ODE match at the level of one-time distributions, not sample-by-sample trajectories. A stochastic path can wander while the ODE path stays smooth, and both can still induce the same marginal density at each time.
+                        For the SDE $dx = f(x,t)\,dt + g(t)\,dw$, the probability density $p_t(x)$ satisfies the Fokker–Planck (or Kolmogorov forward) equation:
+                    </p>
+                    <div class="math-block">
+                        $$\frac{\partial p_t}{\partial t} = -\nabla \cdot \bigl(f(x,t)\,p_t(x)\bigr) + \frac{1}{2}g(t)^2\,\Delta p_t(x)$$
+                    </div>
+                    <p>
+                        The first term, $-\nabla \cdot (f\,p_t)$, is <strong>advection</strong>: it transports probability mass along the drift field $f$, like a current carrying a dye through fluid. The second term, $\frac{1}{2}g^2 \Delta p_t$, is <strong>diffusion</strong>: the Laplacian $\Delta p_t$ measures how the density curves in space, and the diffusion coefficient causes mass to flow from regions of high concentration to low concentration (Fick's law). In the special case $f = 0$ and $g = \text{const}$, this reduces to the classical <strong>heat equation</strong> $\frac{\partial p}{\partial t} = \frac{g^2}{2}\Delta p$, which smooths any initial distribution toward a uniform (or Gaussian) steady state — precisely the forward corruption process of a VE-SDE.
+                    </p>
+                </div>
+                <div class="note-box">
+                    <div class="box-title">Common misconception: the reverse SDE and probability-flow ODE do NOT give the same samples</div>
+                    <p>
+                        The reverse SDE and the probability-flow ODE share the same marginal densities $p_t(x)$ at every time $t$, but they do <strong>not</strong> produce the same sample paths. If you start both processes from the same noise vector $x_T$, the ODE will follow a single deterministic streamline, while the SDE will wander stochastically around it. After many samples, the <em>distribution</em> of endpoints will match — but any individual sample pair will differ. This distinction matters in practice: the ODE gives reproducible outputs (useful for interpolation and editing), while the SDE's stochasticity can improve sample diversity and quality by allowing the sampler to explore multiple modes.
+                    </p>
+                </div>
+                <div class="note-box">
+                    <div class="box-title">Why the score appears everywhere</div>
+                    <p>
+                        You may have noticed that $\nabla_x \log p_t(x)$ — the score function — appears in nearly every equation in this chapter. This is not a coincidence; it is the central object of the entire framework. In the <strong>reverse SDE</strong>, the score tells probability mass which direction to flow to undo diffusion. In the <strong>probability-flow ODE</strong>, it provides the "missing information" that makes deterministic transport possible without stochastic noise. In the <strong>likelihood computation</strong>, it appears inside the divergence term of the instantaneous change-of-variables formula. In the <strong>Fokker–Planck equation</strong>, the score converts the Laplacian of the density into a first-order drift. The score is the universal bridge between the sample-level dynamics (SDEs/ODEs operating on individual points $x$) and the distribution-level description (Fokker–Planck operating on the density $p_t$). This is why <em>score matching</em> — training a network to approximate $\nabla_x \log p_t(x)$ — is the single most important objective in diffusion modelling.
                     </p>
                 </div>
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
     <h2>The SDE/ODE Framework</h2>
     <p>
-        The continuous-time view reveals diffusion as a family of stochastic and deterministic transport equations. It unifies DDPMs, score models, and flow-like likelihood methods under one mathematical roof.
+        The continuous-time view reveals diffusion as a family of stochastic and deterministic transport equations. It unifies DDPMs, score models, and flow-like likelihood methods under one mathematical roof. The forward SDE defines noise corruption; Anderson's reverse-time SDE provides the stochastic denoising path; and the probability-flow ODE offers a deterministic alternative with the same marginal densities. Together, these three equations — connected by the score function $\nabla_x \log p_t(x)$ — form the theoretical backbone of modern diffusion generative modelling, enabling not just sampling but also exact likelihood computation, latent-space manipulation, and principled connections to physics via the Fokker–Planck equation.
     </p>
 </div>
                 <div class="tutorial-nav">
