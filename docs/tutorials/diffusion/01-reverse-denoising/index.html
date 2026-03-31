@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse Process &amp; DDPM | Diffusion Models</title>
+    <meta name="description" content="Learn the reverse diffusion process, the tractable posterior, the diffusion ELBO, the simple DDPM loss, and the main sampling equations.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link active">Diffusion Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Diffusion Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Reverse Process &amp; DDPM</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Diffusion Models</h3>
+        <nav class="sidebar-nav">
+            <a href="../00-forward-process/index.html" class="sidebar-link">00. The Forward Process</a>
+            <a href="../01-reverse-denoising/index.html" class="sidebar-link active">01. Reverse Process & DDPM</a>
+            <a href="../02-score-matching/index.html" class="sidebar-link">02. Score Matching</a>
+            <a href="../03-sampling-methods/index.html" class="sidebar-link">03. Sampling Methods</a>
+            <a href="../04-sde-ode-framework/index.html" class="sidebar-link">04. SDE/ODE Framework</a>
+            <a href="../05-guidance-conditioning/index.html" class="sidebar-link">05. Guidance & Conditioning</a>
+            <a href="../06-architectures/index.html" class="sidebar-link">06. Architectures</a>
+        </nav>
+    </div>
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+            <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+            <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+            <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+            <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+        </nav>
+    </div>
+</aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Reverse Process &amp; DDPM</h1>
+                <p>
+                    Once the forward chain is fixed, the entire learning problem becomes: given a noisy state $x_t$, predict how to move one step toward a less noisy state $x_{t-1}$. The reverse process is where the generative power lives, because it converts a simple reference distribution into realistic structure.
+                </p>
+                <p>
+                    The subtle point is that the exact reverse conditional $q(x_{t-1}\mid x_t)$ is not available in closed form for arbitrary data. Diffusion models win by noticing that if training also conditions on the original clean sample $x_0$, then the needed posterior becomes Gaussian and can be matched with a neural network.
+                </p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <defs><marker id="arrowA" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="currentColor"/></marker></defs>
+                        <text x="380" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Forward and learned reverse chains</text>
+                        <circle cx="90" cy="80" r="28" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+                        <text x="90" y="85" text-anchor="middle" font-size="14" fill="#1d4ed8">x0</text>
+                        <circle cx="90" cy="170" r="28" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+                        <text x="90" y="175" text-anchor="middle" font-size="14" fill="#15803d">x0</text>
+                        <circle cx="230" cy="80" r="28" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+                        <text x="230" y="85" text-anchor="middle" font-size="14" fill="#1d4ed8">x1</text>
+                        <circle cx="230" cy="170" r="28" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+                        <text x="230" y="175" text-anchor="middle" font-size="14" fill="#15803d">x1</text>
+                        <circle cx="370" cy="80" r="28" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+                        <text x="370" y="85" text-anchor="middle" font-size="14" fill="#1d4ed8">x2</text>
+                        <circle cx="370" cy="170" r="28" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+                        <text x="370" y="175" text-anchor="middle" font-size="14" fill="#15803d">x2</text>
+                        <circle cx="510" cy="80" r="28" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+                        <text x="510" y="85" text-anchor="middle" font-size="14" fill="#1d4ed8">...</text>
+                        <circle cx="510" cy="170" r="28" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+                        <text x="510" y="175" text-anchor="middle" font-size="14" fill="#15803d">...</text>
+                        <circle cx="650" cy="80" r="28" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+                        <text x="650" y="85" text-anchor="middle" font-size="14" fill="#1d4ed8">xT</text>
+                        <circle cx="650" cy="170" r="28" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+                        <text x="650" y="175" text-anchor="middle" font-size="14" fill="#15803d">xT</text>
+                        <line x1="118" y1="80" x2="202" y2="80" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="160" y="62" text-anchor="middle" font-size="11" fill="#1d4ed8">q(xt | xt-1)</text>
+                        <line x1="202" y1="170" x2="118" y2="170" stroke="#16a34a" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="160" y="152" text-anchor="middle" font-size="11" fill="#15803d">pθ(xt-1 | xt)</text>
+                        <line x1="258" y1="80" x2="342" y2="80" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="300" y="62" text-anchor="middle" font-size="11" fill="#1d4ed8">q(xt | xt-1)</text>
+                        <line x1="342" y1="170" x2="258" y2="170" stroke="#16a34a" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="300" y="152" text-anchor="middle" font-size="11" fill="#15803d">pθ(xt-1 | xt)</text>
+                        <line x1="398" y1="80" x2="482" y2="80" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="440" y="62" text-anchor="middle" font-size="11" fill="#1d4ed8">q(xt | xt-1)</text>
+                        <line x1="482" y1="170" x2="398" y2="170" stroke="#16a34a" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="440" y="152" text-anchor="middle" font-size="11" fill="#15803d">pθ(xt-1 | xt)</text>
+                        <line x1="538" y1="80" x2="622" y2="80" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="580" y="62" text-anchor="middle" font-size="11" fill="#1d4ed8">q(xt | xt-1)</text>
+                        <line x1="622" y1="170" x2="538" y2="170" stroke="#16a34a" stroke-width="2.2" marker-end="url(#arrowA)"/>
+                        <text x="580" y="152" text-anchor="middle" font-size="11" fill="#15803d">pθ(xt-1 | xt)</text>
+                    </svg>
+                </div>
+                <h3 id="reversing-the-chain">4.1 Reversing the Chain</h3>
+                <p>
+                    We want to sample from $q(x_{t-1} | x_t)$ — given a noisy image, recover a slightly less noisy one.
+                </p>
+                <p>
+                    This posterior is intractable (requires knowing the data distribution), so we learn it:
+                </p>
+                <div class="math-block">
+                    $$p_\theta(x_{t-1} | x_t) = \mathcal{N}(x_{t-1}; \mu_\theta(x_t, t), \sigma_t^2 I)$$
+                </div>
+                <p>
+                    <strong>Why is this Gaussian?</strong> For small $\beta_t$, the reverse transition $q(x_{t-1} | x_t)$ is approximately Gaussian. This was proven by Feller (1949) and is the theoretical foundation of diffusion models.
+                </p>
+                <h3 id="the-tractable-posterior">4.2 The Tractable Posterior</h3>
+                <p>
+                    When we condition on $x_0$ (which we have during training), the posterior <strong>is</strong> tractable:
+                </p>
+                <div class="math-block">
+                    $$q(x_{t-1} | x_t, x_0) = \mathcal{N}(x_{t-1}; \tilde{\mu}_t(x_t, x_0), \tilde{\beta}_t I)$$
+                </div>
+                <p>
+                    where:
+                </p>
+                <div class="math-block">
+                    $$\tilde{\mu}_t = \frac{\sqrt{\bar{\alpha}_{t-1}} \beta_t}{1 - \bar{\alpha}_t} x_0 + \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} x_t$$
+                </div>
+                <div class="math-block">
+                    $$\tilde{\beta}_t = \frac{(1-\bar{\alpha}_{t-1})}{(1-\bar{\alpha}_t)} \beta_t$$
+                </div>
+                <h3 id="variational-lower-bound-elbo">5.1 Variational Lower Bound (ELBO)</h3>
+                <p>
+                    The negative log-likelihood can be bounded:
+                </p>
+                <div class="math-block">
+                    $$-\log p_\theta(x_0) \leq \mathbb{E}_q\left[-\log \frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}\right] = L_{VLB}$$
+                </div>
+                <p>
+                    This decomposes into:
+                </p>
+                <div class="math-block">
+                    $$L_{VLB} = \underbrace{D_{KL}(q(x_T|x_0) \| p(x_T))}_{L_T \text{ (prior loss)}} + \sum_{t=2}^T \underbrace{D_{KL}(q(x_{t-1}|x_t,x_0) \| p_\theta(x_{t-1}|x_t))}_{L_{t-1}} + \underbrace{(-\log p_\theta(x_0|x_1))}_{L_0}$$
+                </div>
+                <ul>
+                    <li>$L_T$: compares the final noised distribution to the prior (no learnable parameters)</li>
+                    <li>$L_{t-1}$: KL between the true posterior and the learned reverse step (this is what we train)</li>
+                    <li>$L_0$: reconstruction term</li>
+                </ul>
+                <h3 id="simplified-training-objective">5.2 Simplified Training Objective</h3>
+                <p>
+                    Ho et al. (2020) showed that a <strong>simplified loss</strong> works even better:
+                </p>
+                <div class="math-block">
+                    $$L_{simple} = \mathbb{E}_{t, x_0, \epsilon}\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
+                </div>
+                <p>
+                    where $x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1-\bar{\alpha}_t} \epsilon$.
+                </p>
+                <p>
+                    <strong>This is just denoising!</strong> Given a noisy input $x_t$, predict the noise $\epsilon$ that was added.
+                </p>
+                <h3 id="why-the-simple-loss-works">5.3 Why the Simple Loss Works</h3>
+                <p>
+                    The KL divergence between two Gaussians with the same variance reduces to an MSE between their means:
+                </p>
+                <div class="math-block">
+                    $$D_{KL}(q(x_{t-1}|x_t,x_0) \| p_\theta(x_{t-1}|x_t)) = \frac{1}{2\sigma_t^2} \|\tilde{\mu}_t - \mu_\theta\|^2$$
+                </div>
+                <p>
+                    Since $\tilde{\mu}_t$ depends on $x_0$, and $x_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}(x_t - \sqrt{1-\bar{\alpha}_t}\epsilon)$, predicting $\epsilon$ is equivalent to predicting $\mu_\theta$.
+                </p>
+                <p>
+                    The model can equivalently predict different quantities:
+                </p>
+                <h3 id="predict-noise-epsilon-prediction-ddpm">6.1 Predict Noise ($\epsilon$-prediction, DDPM)</h3>
+                <div class="math-block">
+                    $$\epsilon_\theta(x_t, t) \approx \epsilon$$
+                </div>
+                <p>
+                    Mean: $\mu_\theta(x_t, t) = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(x_t, t)\right)$
+                </p>
+                <h3 id="predict-clean-data-x-0-prediction">6.2 Predict Clean Data ($x_0$-prediction)</h3>
+                <div class="math-block">
+                    $$\hat{x}_0 = f_\theta(x_t, t) \approx x_0$$
+                </div>
+                <p>
+                    Mean: $\mu_\theta = \frac{\sqrt{\bar{\alpha}_{t-1}}\beta_t}{1-\bar{\alpha}_t} f_\theta + \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t} x_t$
+                </p>
+                <h3 id="predict-score-s-prediction">6.3 Predict Score ($s$-prediction)</h3>
+                <div class="math-block">
+                    $$s_\theta(x_t, t) \approx \nabla_{x_t} \log q(x_t)$$
+                </div>
+                <p>
+                    Connection: $\nabla_{x_t} \log q(x_t | x_0) = -\frac{\epsilon}{\sqrt{1-\bar{\alpha}_t}}$
+                </p>
+                <p>
+                    So: $s_\theta = -\frac{\epsilon_\theta}{\sqrt{1-\bar{\alpha}_t}}$
+                </p>
+                <h3 id="equivalence">6.4 Equivalence</h3>
+                <p>
+                    All three parameterizations are related by simple algebra:
+                </p>
+                <div class="math-block">
+                    $$\epsilon = -\sqrt{1-\bar{\alpha}_t} \cdot s = \frac{x_t - \sqrt{\bar{\alpha}_t} \hat{x}_0}{\sqrt{1-\bar{\alpha}_t}}$$
+                </div>
+                <div class="svg-container">
+                    <svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="380" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Conditioning on x0 sharpens the posterior</text>
+                        <line x1="70" y1="210" x2="690" y2="210" stroke="currentColor" opacity="0.4"/>
+                        <polyline fill="none" stroke="#94a3b8" stroke-width="3" points="80.0,203.9 83.8,203.4 87.5,202.9 91.3,202.3 95.1,201.8 98.9,201.1 102.6,200.5 106.4,199.8 110.2,199.1 114.0,198.4 117.7,197.6 121.5,196.8 125.3,195.9 129.1,195.0 132.8,194.1 136.6,193.1 140.4,192.1 144.2,191.1 147.9,190.0 151.7,188.9 155.5,187.7 159.2,186.5 163.0,185.3 166.8,184.1 170.6,182.8 174.3,181.5 178.1,180.1 181.9,178.7 185.7,177.4 189.4,176.0 193.2,174.5 197.0,173.1 200.8,171.6 204.5,170.2 208.3,168.7 212.1,167.2 215.8,165.7 219.6,164.3 223.4,162.8 227.2,161.4 230.9,159.9 234.7,158.5 238.5,157.1 242.3,155.8 246.0,154.5 249.8,153.2 253.6,151.9 257.4,150.7 261.1,149.5 264.9,148.4 268.7,147.4 272.5,146.4 276.2,145.4 280.0,144.6 283.8,143.8 287.5,143.0 291.3,142.4 295.1,141.8 298.9,141.3 302.6,140.9 306.4,140.5 310.2,140.3 314.0,140.1 317.7,140.0 321.5,140.0 325.3,140.1 329.1,140.2 332.8,140.5 336.6,140.8 340.4,141.2 344.2,141.7 347.9,142.3 351.7,142.9 355.5,143.6 359.2,144.4 363.0,145.3 366.8,146.2 370.6,147.2 374.3,148.2 378.1,149.3 381.9,150.5 385.7,151.7 389.4,152.9 393.2,154.2 397.0,155.5 400.8,156.9 404.5,158.3 408.3,159.7 412.1,161.1 415.8,162.5 419.6,164.0 423.4,165.5 427.2,166.9 430.9,168.4 434.7,169.9 438.5,171.3 442.3,172.8 446.0,174.2 449.8,175.7 453.6,177.1 457.4,178.5 461.1,179.8 464.9,181.2 468.7,182.5 472.5,183.8 476.2,185.1 480.0,186.3 483.8,187.5 487.5,188.6 491.3,189.8 495.1,190.8 498.9,191.9 502.6,192.9 506.4,193.9 510.2,194.8 514.0,195.7 517.7,196.6 521.5,197.4 525.3,198.2 529.1,199.0 532.8,199.7 536.6,200.4 540.4,201.0 544.2,201.6 547.9,202.2 551.7,202.8 555.5,203.3 559.2,203.8 563.0,204.2 566.8,204.7 570.6,205.1 574.3,205.5 578.1,205.8 581.9,206.1 585.7,206.5 589.4,206.7 593.2,207.0 597.0,207.3 600.8,207.5 604.5,207.7 608.3,207.9 612.1,208.1 615.8,208.3 619.6,208.4 623.4,208.6 627.2,208.7 630.9,208.8 634.7,208.9 638.5,209.0 642.3,209.1 646.0,209.2 649.8,209.3 653.6,209.4 657.4,209.4 661.1,209.5 664.9,209.5 668.7,209.6 672.5,209.6 676.2,209.7 680.0,209.7"/>
+                        <polyline fill="none" stroke="#60a5fa" stroke-width="3" points="80.0,210.0 83.8,210.0 87.5,210.0 91.3,210.0 95.1,210.0 98.9,210.0 102.6,210.0 106.4,210.0 110.2,210.0 114.0,210.0 117.7,210.0 121.5,210.0 125.3,210.0 129.1,210.0 132.8,210.0 136.6,210.0 140.4,210.0 144.2,210.0 147.9,210.0 151.7,210.0 155.5,210.0 159.2,210.0 163.0,210.0 166.8,210.0 170.6,210.0 174.3,209.9 178.1,209.9 181.9,209.9 185.7,209.9 189.4,209.9 193.2,209.9 197.0,209.8 200.8,209.8 204.5,209.8 208.3,209.7 212.1,209.7 215.8,209.6 219.6,209.5 223.4,209.4 227.2,209.3 230.9,209.2 234.7,209.1 238.5,209.0 242.3,208.8 246.0,208.6 249.8,208.4 253.6,208.1 257.4,207.9 261.1,207.6 264.9,207.2 268.7,206.8 272.5,206.4 276.2,205.9 280.0,205.3 283.8,204.7 287.5,204.1 291.3,203.3 295.1,202.5 298.9,201.7 302.6,200.7 306.4,199.7 310.2,198.6 314.0,197.3 317.7,196.0 321.5,194.6 325.3,193.1 329.1,191.5 332.8,189.8 336.6,188.0 340.4,186.1 344.2,184.1 347.9,182.0 351.7,179.8 355.5,177.5 359.2,175.1 363.0,172.7 366.8,170.1 370.6,167.5 374.3,164.9 378.1,162.2 381.9,159.5 385.7,156.8 389.4,154.0 393.2,151.3 397.0,148.5 400.8,145.9 404.5,143.2 408.3,140.7 412.1,138.2 415.8,135.8 419.6,133.6 423.4,131.4 427.2,129.5 430.9,127.6 434.7,126.0 438.5,124.5 442.3,123.2 446.0,122.1 449.8,121.3 453.6,120.6 457.4,120.2 461.1,120.0 464.9,120.0 468.7,120.3 472.5,120.8 476.2,121.5 480.0,122.4 483.8,123.5 487.5,124.9 491.3,126.4 495.1,128.1 498.9,130.0 502.6,132.0 506.4,134.2 510.2,136.5 514.0,138.9 517.7,141.4 521.5,144.0 525.3,146.6 529.1,149.3 532.8,152.0 536.6,154.8 540.4,157.5 544.2,160.2 547.9,163.0 551.7,165.6 555.5,168.3 559.2,170.8 563.0,173.3 566.8,175.8 570.6,178.1 574.3,180.4 578.1,182.6 581.9,184.6 585.7,186.6 589.4,188.5 593.2,190.3 597.0,192.0 600.8,193.5 604.5,195.0 608.3,196.4 612.1,197.7 615.8,198.9 619.6,200.0 623.4,201.0 627.2,201.9 630.9,202.8 634.7,203.6 638.5,204.3 642.3,204.9 646.0,205.5 649.8,206.0 653.6,206.5 657.4,206.9 661.1,207.3 664.9,207.6 668.7,207.9 672.5,208.2 676.2,208.4 680.0,208.7"/>
+                        <polyline fill="none" stroke="#22c55e" stroke-width="3" points="80.0,210.0 83.8,210.0 87.5,210.0 91.3,210.0 95.1,210.0 98.9,210.0 102.6,210.0 106.4,210.0 110.2,210.0 114.0,210.0 117.7,210.0 121.5,210.0 125.3,210.0 129.1,210.0 132.8,210.0 136.6,210.0 140.4,210.0 144.2,210.0 147.9,210.0 151.7,210.0 155.5,210.0 159.2,210.0 163.0,210.0 166.8,210.0 170.6,210.0 174.3,210.0 178.1,210.0 181.9,210.0 185.7,210.0 189.4,210.0 193.2,210.0 197.0,210.0 200.8,210.0 204.5,210.0 208.3,210.0 212.1,210.0 215.8,210.0 219.6,210.0 223.4,210.0 227.2,210.0 230.9,210.0 234.7,210.0 238.5,210.0 242.3,209.9 246.0,209.9 249.8,209.9 253.6,209.8 257.4,209.8 261.1,209.7 264.9,209.5 268.7,209.4 272.5,209.2 276.2,208.9 280.0,208.5 283.8,208.1 287.5,207.5 291.3,206.8 295.1,206.0 298.9,204.9 302.6,203.6 306.4,202.0 310.2,200.2 314.0,198.0 317.7,195.5 321.5,192.5 325.3,189.2 329.1,185.4 332.8,181.2 336.6,176.5 340.4,171.4 344.2,165.9 347.9,160.0 351.7,153.8 355.5,147.3 359.2,140.8 363.0,134.1 366.8,127.5 370.6,121.1 374.3,114.9 378.1,109.2 381.9,104.1 385.7,99.6 389.4,95.9 393.2,93.0 397.0,91.1 400.8,90.1 404.5,90.1 408.3,91.2 412.1,93.2 415.8,96.1 419.6,99.9 423.4,104.5 427.2,109.7 430.9,115.4 434.7,121.5 438.5,128.0 442.3,134.6 446.0,141.2 449.8,147.8 453.6,154.3 457.4,160.4 461.1,166.3 464.9,171.8 468.7,176.9 472.5,181.5 476.2,185.7 480.0,189.5 483.8,192.8 487.5,195.7 491.3,198.2 495.1,200.3 498.9,202.2 502.6,203.7 506.4,205.0 510.2,206.0 514.0,206.9 517.7,207.6 521.5,208.1 525.3,208.6 529.1,208.9 532.8,209.2 536.6,209.4 540.4,209.6 544.2,209.7 547.9,209.8 551.7,209.8 555.5,209.9 559.2,209.9 563.0,209.9 566.8,210.0 570.6,210.0 574.3,210.0 578.1,210.0 581.9,210.0 585.7,210.0 589.4,210.0 593.2,210.0 597.0,210.0 600.8,210.0 604.5,210.0 608.3,210.0 612.1,210.0 615.8,210.0 619.6,210.0 623.4,210.0 627.2,210.0 630.9,210.0 634.7,210.0 638.5,210.0 642.3,210.0 646.0,210.0 649.8,210.0 653.6,210.0 657.4,210.0 661.1,210.0 664.9,210.0 668.7,210.0 672.5,210.0 676.2,210.0 680.0,210.0"/>
+                        <line x1="480" y1="55" x2="505" y2="55" stroke="#94a3b8" stroke-width="3"/>
+                        <text x="515" y="59" font-size="11" fill="currentColor">broad prior</text>
+                        <line x1="480" y1="75" x2="505" y2="75" stroke="#60a5fa" stroke-width="3"/>
+                        <text x="515" y="79" font-size="11" fill="currentColor">likelihood from xt</text>
+                        <line x1="480" y1="95" x2="505" y2="95" stroke="#22c55e" stroke-width="3"/>
+                        <text x="515" y="99" font-size="11" fill="currentColor">posterior given xt and x0</text>
+                    </svg>
+                </div>
+                <h2 id="ddpm-training-algorithm">DDPM training algorithm in plain language</h2>
+                <p>
+                    Each training update chooses a random clean sample, a random timestep, and a fresh Gaussian noise draw. Instead of asking the model to reconstruct the entire image in one shot, we ask for a much narrower task: explain the specific noise that turned $x_0$ into $x_t$.
+                </p>
+                <p>
+                    That random-timestep design is surprisingly important. It means one network learns the entire denoising family at once, from nearly-clean states to almost-pure-noise states, and the timestep embedding tells the network which denoising regime it should operate in.
+                </p>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">A compact view of DDPM training</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">Sample a clean datum $x_0$ from the dataset.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">Sample a timestep $t$ uniformly from $\{1,\dots,T\}$.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">Sample Gaussian noise $\epsilon\sim\mathcal N(0,I)$ and construct $x_t$ with the direct forward formula.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">Run the network $\epsilon_\theta(x_t,t)$ and minimize mean-squared error to the true noise.</div>
+                    </div>
+                </div>
+                <div class="svg-container">
+                    <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="380" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">The variational bound decomposes into interpretable losses</text>
+                        <rect x="35" y="70" width="690" height="90" rx="14" fill="#f8fafc" stroke="currentColor" opacity="0.18"/>
+                        <rect x="50" y="88" width="140" height="54" rx="10" fill="#60a5fa" fill-opacity="0.18" stroke="#60a5fa" stroke-width="2"/>
+                        <text x="120" y="110" text-anchor="middle" font-size="16" font-weight="600" fill="currentColor">LT</text>
+                        <text x="120" y="128" text-anchor="middle" font-size="11" fill="currentColor">prior term</text>
+                        <rect x="250" y="88" width="140" height="54" rx="10" fill="#a78bfa" fill-opacity="0.18" stroke="#a78bfa" stroke-width="2"/>
+                        <text x="320" y="110" text-anchor="middle" font-size="16" font-weight="600" fill="currentColor">Σ Lt-1</text>
+                        <text x="320" y="128" text-anchor="middle" font-size="11" fill="currentColor">denoising KL terms</text>
+                        <rect x="500" y="88" width="140" height="54" rx="10" fill="#34d399" fill-opacity="0.18" stroke="#34d399" stroke-width="2"/>
+                        <text x="570" y="110" text-anchor="middle" font-size="16" font-weight="600" fill="currentColor">L0</text>
+                        <text x="570" y="128" text-anchor="middle" font-size="11" fill="currentColor">reconstruction term</text>
+                    </svg>
+                </div>
+                <h2 id="what-the-network-learns">What the network actually learns</h2>
+                <p>
+                    At a geometric level, the network learns how a noisy sample should move if we want to land closer to the data manifold. When the input is very noisy, that motion is broad and semantic; when the input is already fairly clean, the motion becomes local and detail-oriented.
+                </p>
+                <p>
+                    This is why the three parameterizations are equivalent but not identical in flavor. Predicting $\epsilon$ makes optimization simple, predicting $x_0$ makes reconstruction intuition transparent, and predicting the score makes the connection to continuous-time stochastic dynamics almost unavoidable.
+                </p>
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Reverse Process & DDPM</h2>
+    <p>
+        DDPM turns generative modeling into local denoising. The key move is to approximate a Gaussian reverse conditional whose training target is tractable when the clean sample is known.
+    </p>
+</div>
+                <div class="tutorial-nav">
+                    <a href="../00-forward-process/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← The Forward Process</span>
+                    </a>
+                    <a href="../02-score-matching/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Score Matching →</span>
+                    </a>
+                </div>
+            </article>
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="posterior-mean-and-variance">Posterior mean and variance</h2>
+                <p>
+                    During training we can compute the exact Gaussian posterior $q(x_{t-1}\mid x_t, x_0)$. This is the object that makes the variational bound tractable.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+import torch
+
+def posterior_terms(beta, alpha, alpha_bar):
+    alpha_bar_prev = torch.cat([torch.ones(1, device=beta.device), alpha_bar[:-1]])
+    posterior_var = beta * (1 - alpha_bar_prev) / (1 - alpha_bar)
+    posterior_mean_coef1 = beta * torch.sqrt(alpha_bar_prev) / (1 - alpha_bar)
+    posterior_mean_coef2 = (1 - alpha_bar_prev) * torch.sqrt(alpha) / (1 - alpha_bar)
+    return posterior_var, posterior_mean_coef1, posterior_mean_coef2
+
+
+def q_posterior_mean(x0, xt, t, coef1, coef2):
+    c1 = coef1[t].view(-1, 1, 1, 1)
+    c2 = coef2[t].view(-1, 1, 1, 1)
+    return c1 * x0 + c2 * xt
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        These coefficients are purely algebraic functions of the schedule. The only learned piece is the network that approximates the correct reverse-direction mean.
+    </p>
+</div>
+                <h2 id="simple-ddpm-loss">Simple DDPM loss</h2>
+                <p>
+                    The famous DDPM simplification reduces training to noise prediction. Under the Gaussian derivation, this is a reweighted form of the variational objective rather than an unrelated heuristic.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+import torch.nn.functional as F
+
+def ddpm_simple_loss(model, x0, t, sqrt_alpha_bar, sqrt_one_minus_alpha_bar):
+    noise = torch.randn_like(x0)
+    xt = sqrt_alpha_bar[t].view(-1, 1, 1, 1) * x0 + \
+         sqrt_one_minus_alpha_bar[t].view(-1, 1, 1, 1) * noise
+    pred_noise = model(xt, t)
+    return F.mse_loss(pred_noise, noise)
+
+
+# training step
+optimizer.zero_grad()
+loss = ddpm_simple_loss(model, x0, t, sqrt_alpha_bar, sqrt_one_minus_alpha_bar)
+loss.backward()
+optimizer.step()
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        This objective is simple enough to be boring in code, and that is precisely the point. The heavy lifting moves into representation learning rather than fragile objective engineering.
+    </p>
+</div>
+                <h2 id="a-minimal-ddpm-sampling-step">A minimal DDPM sampling step</h2>
+                <p>
+                    At inference time we start from pure Gaussian noise and repeatedly apply the learned reverse kernel. The step below shows the ancestral DDPM update in its common epsilon-prediction form.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def p_sample(model, xt, t, beta, alpha, alpha_bar):
+    pred_noise = model(xt, t)
+    alpha_t = alpha[t].view(-1, 1, 1, 1)
+    beta_t = beta[t].view(-1, 1, 1, 1)
+    alpha_bar_t = alpha_bar[t].view(-1, 1, 1, 1)
+
+    mean = (1 / torch.sqrt(alpha_t)) * (
+        xt - beta_t / torch.sqrt(1 - alpha_bar_t) * pred_noise
+    )
+
+    noise = torch.randn_like(xt)
+    nonzero_mask = (t != 0).float().view(-1, 1, 1, 1)
+    return mean + nonzero_mask * torch.sqrt(beta_t) * noise
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        The stochastic term disappears only at the final denoising step. Earlier steps keep some randomness so that the reverse chain remains a valid generative sampler.
+    </p>
+</div>
+                <h2 id="parameterization-conversion-helpers">Parameterization conversion helpers</h2>
+                <p>
+                    It is often convenient to convert a noise prediction into an $x_0$ estimate or a $v$ prediction. Keeping these helper functions explicit makes debugging and ablation experiments much easier.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+def predict_x0_from_eps(xt, t, pred_eps, sqrt_alpha_bar, sqrt_one_minus_alpha_bar):
+    a = sqrt_alpha_bar[t].view(-1, 1, 1, 1)
+    b = sqrt_one_minus_alpha_bar[t].view(-1, 1, 1, 1)
+    return (xt - b * pred_eps) / a
+
+
+def predict_eps_from_x0(xt, t, pred_x0, sqrt_alpha_bar, sqrt_one_minus_alpha_bar):
+    a = sqrt_alpha_bar[t].view(-1, 1, 1, 1)
+    b = sqrt_one_minus_alpha_bar[t].view(-1, 1, 1, 1)
+    return (xt - a * pred_x0) / b
+
+
+def predict_score_from_eps(t, pred_eps, sqrt_one_minus_alpha_bar):
+    b = sqrt_one_minus_alpha_bar[t].view(-1, 1, 1, 1)
+    return -pred_eps / b
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        When a paper says two parameterizations are equivalent, these algebraic conversion functions are what that statement means in practice.
+    </p>
+</div>
+            </article>
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>
+                    Start with direct computations and concept checks. These should feel like guided repetitions of the core formulas.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 1: Read the learned reverse kernel</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                In $p_\theta(x_{t-1}\mid x_t)=\mathcal N(\mu_\theta(x_t,t),\sigma_t^2 I)$, which pieces are learned and which are fixed?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The mean parameterization $\mu_\theta(x_t,t)$ is learned by the neural network, while the variance choice is usually fixed or selected from a small family. This separation is one reason diffusion training remains stable.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 2: Interpret the posterior</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is $q(x_{t-1}\mid x_t,x_0)$ tractable even though $q(x_{t-1}\mid x_t)$ is not?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Conditioning on $x_0$ removes the need to marginalize over the unknown data distribution. Once both endpoints are known, the posterior is just a Gaussian obtained by multiplying Gaussian factors.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 3: Identify ELBO pieces</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What are the three kinds of terms in the diffusion ELBO decomposition?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    There is a prior-matching term at the noisy endpoint, a sum of denoising KL terms across intermediate timesteps, and a reconstruction term at the final step back to data space.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 4: Write the simple loss target</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What target does the simplified DDPM loss ask the network to predict?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The target is the actual Gaussian noise $\epsilon$ used to construct $x_t$ from $x_0$. The loss is ordinary mean-squared error between true and predicted noise.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 5: Convert epsilon to x0</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                If you have a prediction $\hat\epsilon$, what additional quantities do you need to recover $\hat x_0$?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    You need the current noisy state $x_t$ and the schedule coefficients $\sqrt{\bar\alpha_t}$ and $\sqrt{1-\bar\alpha_t}$. Then the algebraic inversion is immediate.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 6: State the sampling initialization</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Where does ancestral DDPM sampling start?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It starts from a sample drawn from the simple prior, typically $x_T\sim \mathcal N(0,I)$. The reverse chain then denoises that random point step by step.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 7: Explain why timesteps are randomized in training</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does the training loop sample $t$ uniformly rather than always using the same timestep?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Uniform timestep sampling lets one network learn the whole denoising family instead of memorizing a single regime. It also gives an unbiased Monte Carlo estimate of the average training objective across time.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 8: Identify the role of sigma_t</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What does $\sigma_t$ do during sampling?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It sets the amount of stochasticity injected into the reverse step. Larger values encourage more random exploration, while zero yields deterministic behavior as in DDIM.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 9: Connect noise prediction to denoising</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is predicting noise a denoising objective even though the model does not output a clean image directly?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because once the noise is known, the clean image estimate follows by algebra. Predicting the corruption is therefore equivalent to predicting how to undo it.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 10: Compare x0 and epsilon targets</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Which target is usually easier to keep at a stable scale across timesteps: $x_0$ or $\epsilon$?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    $\epsilon$ is usually easier because its distribution is standardized across timesteps. The clean sample target can vary dramatically in effective difficulty depending on noise level.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>
+                    Now move from recall to derivation. These questions ask you to justify formulas, compare viewpoints, and explain why the method works.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 11: Derive the Gaussian KL reduction</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Explain why the denoising KL term reduces to a weighted squared error in the means when covariances match.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    For Gaussians with identical covariance, the log-determinant and trace terms cancel in the KL formula. The remaining term is the Mahalanobis distance between means, which becomes a simple weighted Euclidean norm when the covariance is diagonal and isotropic.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 12: Posterior mean structure</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does the exact posterior mean combine both $x_t$ and $x_0$ rather than depending on only one of them?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The posterior must respect both the noisy observation currently available and the clean endpoint used during training. Gaussian conditioning therefore produces a weighted blend in which the coefficients reflect how reliable each source of information is.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 13: Simple loss versus full VLB</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can an unweighted noise-prediction loss outperform a more exact ELBO implementation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The exact VLB introduces timestep-dependent weights that may overemphasize easy parts of the trajectory. The simplified loss often allocates more effective capacity to difficult high-noise states, which matters more for visual sample quality.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 14: Equivalence of parameterizations</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Argue carefully why predicting $\epsilon$, predicting $x_0$, and predicting the score describe the same family of reverse models.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Each target is linked to the others by an invertible algebraic transformation determined by the schedule coefficients. As long as the same noisy state and timestep are used, converting among them changes representation, not the underlying denoising information.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 15: Training-data dependence</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is the tractable posterior available only during training and not during generation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    During training we know the clean sample $x_0$ that produced the noisy observation, so the exact conditional is computable. During generation there is no such ground-truth clean endpoint, so we must rely on the learned approximation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 16: Sampling error accumulation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can small prediction errors at early reverse steps have large downstream effects?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Every reverse step feeds its output into later denoising steps, so errors compound along the chain. Mistakes made while the sample is still highly ambiguous can steer the trajectory toward a different semantic region altogether.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 17: Why the reverse kernel is approximately Gaussian</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Give the intuition for why small reverse steps can be modeled as Gaussians.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Over an infinitesimal forward step, the only change is a small linear drift plus Gaussian perturbation. Reversing such a tiny local move therefore looks Gaussian to first order, even if the global data distribution is highly non-Gaussian.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 18: Role of timestep embeddings</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does the network need the timestep as an explicit input?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The same noisy tensor can mean very different things at different noise levels. Without timestep information, the model would not know whether to make a coarse semantic correction or a fine local cleanup.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 19: Variance choices</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What trade-off appears when choosing to learn or fix the reverse variance?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Learning variance can tighten likelihood estimates and improve fidelity, but it also makes optimization more delicate. Fixing variance keeps the objective simpler and often suffices when sample quality is the primary goal.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 20: Ancestral versus deterministic sampling</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How does DDPM sampling differ conceptually from DDIM-style deterministic sampling?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    DDPM preserves stochasticity at each reverse step, so the same starting noise can branch into different outputs. DDIM removes that branch noise and follows a deterministic path with the same learned denoiser.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>
+                    These problems push you toward research-level thinking: asymptotics, design choices, edge cases, and deeper theoretical interpretation.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 21: Full ELBO derivation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Outline the derivation that rewrites $-\log p_\theta(x_0)$ as an ELBO involving the forward chain.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Introduce the latent path $x_{1:T}$, multiply and divide by the known forward process, then apply Jensen\'s inequality. After rearranging terms by the Markov factorization, the objective decomposes into a prior term, a sequence of KL denoising terms, and a reconstruction term.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 22: Optimal reverse mean</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Under the Gaussian KL term, what is the optimal learned mean if the model family is unconstrained?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The optimal mean is exactly the true posterior mean $\tilde\mu_t(x_t,x_0)$. The neural network is therefore trying to approximate the Bayes-optimal local denoiser at every timestep.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 23: v-prediction motivation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why do modern latent diffusion systems often prefer $v$-prediction over raw $\epsilon$-prediction?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    $v$ mixes signal and noise in a way that behaves better across the whole SNR range, especially near the extremes. That can improve numerical conditioning and make training/inference more robust in large latent models.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 24: Timestep importance sampling</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How could you change timestep sampling if some parts of the trajectory are much harder than others?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    You could importance-sample timesteps and correct the objective with appropriate weights. This focuses gradient effort where the denoiser is weakest while preserving an unbiased estimate of the desired loss.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 25: Error in learned x0</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                If $\hat x_0$ is slightly biased, how does that bias affect the reverse mean?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The reverse mean is an affine function of the clean estimate, so any bias is transported directly through the posterior coefficients. The exact magnitude depends on timestep, and it is often amplified where the mapping from noise to clean signal is poorly conditioned.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 26: Likelihood versus sample quality</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can a better variational bound fail to translate into visibly better samples?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The ELBO averages many objectives, including terms that matter for likelihood accounting but not necessarily perceptual quality. A model can improve density estimation while allocating less practical capacity to the denoising regimes that dominate human visual judgment.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 27: Boundary behavior at t=1</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is the final reverse step often treated slightly differently from the others?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    At the very last step the sampler no longer needs to inject stochasticity because it is already close to data space. The endpoint also interacts directly with the output parameterization and data scaling convention, so special handling is common.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 28: Posterior consistency</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What consistency condition should hold if a denoiser is perfect across all timesteps?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The denoiser should make every local reverse conditional match the true posterior, so chaining the learned reverse kernels reproduces the data distribution. In that ideal limit, sampling from noise followed by full denoising yields exact draws from the training distribution.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 29: Schedule-dependent conditioning</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why do some schedules make $x_0$ prediction numerically fragile at very late timesteps?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    When $\bar\alpha_t$ becomes extremely small, recovering $x_0$ involves dividing by a tiny coefficient, which amplifies prediction errors. This is one reason alternate parameterizations or careful clipping are often used near the noisy end of the chain.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 30: Design a reverse variance rule</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Propose a principled rule for setting reverse variance during fast sampling.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    During aggressive timestep skipping, the variance should reflect the effective uncertainty of the larger reverse jump rather than the original one-step chain. A reasonable rule is to tie variance to the chosen discrete path spacing or to use the deterministic DDIM limit when reproducibility matters more than stochastic exploration.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\[', right: '\]', display: true},
+                        {left: '\(', right: '\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nyquist-Shannon Sampling Theorem | Audio &amp; DSP</title>
+    <meta name="description" content="The Nyquist-Shannon sampling theorem, aliasing, anti-aliasing filters, sinc interpolation, and oversampling — the mathematical foundation of all digital audio.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x266A;</text></svg>">
+    <style>
+        .note-box{background:var(--color-accent-soft,rgba(220,38,38,.08));border-left:4px solid var(--color-accent,#DC2626);border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.note-box .box-title{font-weight:700;margin-bottom:.5rem;color:var(--color-accent)}.key-concept{background:rgba(59,130,246,.08);border-left:4px solid #3B82F6;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.key-concept .box-title{font-weight:700;margin-bottom:.5rem;color:#3B82F6}.warning-box{background:#fef3c7;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}[data-theme=dark] .warning-box{background:#2d2000}.warning-box .box-title{font-weight:700;margin-bottom:.5rem;color:#f59e0b}svg text{font-family:'Inter',sans-serif}
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">&nabla;</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link">TTS</a>
+                    <a href="../../../tutorials/audio/index.html" class="nav-link active">Audio &amp; DSP</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a><span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Audio &amp; DSP</a><span class="breadcrumb-separator">&rarr;</span>
+                <span>Nyquist-Shannon Sampling Theorem</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Audio &amp; DSP</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-sound-waves/index.html" class="sidebar-link">01. Sound Waves &amp; Acoustics</a>
+                    <a href="../02-digital-audio/index.html" class="sidebar-link">02. Digital Audio Fundamentals</a>
+                    <a href="../03-nyquist-sampling/index.html" class="sidebar-link active">03. Nyquist-Shannon Sampling</a>
+                    <a href="../04-fourier-transform/index.html" class="sidebar-link">04. Fourier Transform &amp; FFT</a>
+                    <a href="../05-spectrograms/index.html" class="sidebar-link">05. Spectrograms &amp; Time-Frequency</a>
+                    <a href="../06-digital-filters/index.html" class="sidebar-link">06. Digital Filters</a>
+                    <a href="../07-audio-effects/index.html" class="sidebar-link">07. Audio Effects &amp; Processing</a>
+                    <a href="../08-psychoacoustics/index.html" class="sidebar-link">08. Psychoacoustics</a>
+                    <a href="../09-audio-compression/index.html" class="sidebar-link">09. Audio Compression &amp; Codecs</a>
+                    <a href="../10-sound-synthesis/index.html" class="sidebar-link">10. Sound Synthesis &amp; Design</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h2 id="sampling-problem">The Sampling Problem</h2>
+
+                <p>Suppose you have a continuous, smooth audio signal — a microphone voltage that varies thousands of times per second. You want to capture it as a sequence of numbers. You take a snapshot every $T_s$ seconds. The question that haunted engineers for decades: <strong>can you ever perfectly reconstruct the original continuous signal from those discrete snapshots?</strong></p>
+
+                <p>The answer is yes — but only under a critical condition. If the signal contains no frequency components above a certain limit, and you sample fast enough relative to that limit, then the samples contain <em>all</em> the information in the original signal. Not approximately — exactly. This is the content of the Nyquist-Shannon sampling theorem, one of the most important results in all of signal processing.</p>
+
+                <div class="key-concept">
+                    <div class="box-title">The Core Insight</div>
+                    <p>A sinusoid at frequency $f$ oscillates at most $f$ times per second. To unambiguously "catch" each oscillation, you need to take at least two samples per cycle — one to see the wave go up, one to see it come back down. Sampling slower than that, and you cannot tell one frequency from another.</p>
+                </div>
+
+                <p>To make this precise, we need the concept of a <strong>bandlimited signal</strong>: a signal whose Fourier transform is zero for all frequencies above some maximum $f_{\max}$. Real-world audio is approximately bandlimited — human hearing tops out near 20 kHz, and we can low-pass filter the signal before processing to enforce this property exactly.</p>
+
+                <h2 id="nyquist-theorem">Nyquist-Shannon Theorem</h2>
+
+                <p>Let $x(t)$ be a continuous-time signal that is bandlimited to $f_{\max}$ Hz — meaning its spectrum $X(f) = 0$ for $|f| > f_{\max}$. Then $x(t)$ can be perfectly reconstructed from its samples $x[n] = x(nT_s)$ if and only if the sample rate satisfies:</p>
+
+                $$f_s > 2f_{\max}$$
+
+                <p>The critical rate $f_N = 2f_{\max}$ is called the <strong>Nyquist rate</strong>. The frequency $f_s/2$ is called the <strong>Nyquist frequency</strong> (or folding frequency) — it is the highest frequency that can be represented at sample rate $f_s$.</p>
+
+                <div class="key-concept">
+                    <div class="box-title">Why Two Samples Per Cycle?</div>
+                    <p>Consider the worst case: a pure sinusoid at exactly $f_{\max}$. One full cycle takes $1/f_{\max}$ seconds. With two samples per cycle, the samples are spaced $T_s = 1/(2f_{\max})$ apart — meaning they land at two distinct phases of every cycle. That is enough to uniquely determine both the amplitude and the phase of the sinusoid. With fewer than two samples per cycle, different sinusoids produce identical sample sequences, making reconstruction impossible.</p>
+                </div>
+
+                <!-- SVG 1: Adequate vs. undersampled -->
+                <svg viewBox="0 0 800 340" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="340" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Adequate Sampling vs. Undersampling</text>
+
+                    <!-- TOP: Adequate sampling -->
+                    <text x="200" y="42" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">Adequate: f&#x209B; = 8f (16 samples/cycle)</text>
+                    <line x1="30" y1="100" x2="390" y2="100" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="30" y1="48" x2="30" y2="145" stroke="#D4D4D8" stroke-width="1"/>
+                    <!-- Continuous sine -->
+                    <path d="M30,100 C55,100 65,55 90,55 C115,55 125,100 150,100 C175,100 185,145 210,145 C235,145 245,100 270,100 C295,100 305,55 330,55 C355,55 365,100 390,100" stroke="#D4D4D8" stroke-width="1.5" fill="none"/>
+                    <!-- Samples — 16 per cycle, mark every other clearly -->
+                    <circle cx="30" cy="100" r="4" fill="#10B981"/>
+                    <line x1="30" y1="100" x2="30" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="45" cy="79" r="4" fill="#10B981"/>
+                    <line x1="45" y1="79" x2="45" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="60" cy="60" r="4" fill="#10B981"/>
+                    <line x1="60" y1="60" x2="60" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="75" cy="56" r="4" fill="#10B981"/>
+                    <line x1="75" y1="56" x2="75" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="90" cy="60" r="4" fill="#10B981"/>
+                    <line x1="90" y1="60" x2="90" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="105" cy="79" r="4" fill="#10B981"/>
+                    <line x1="105" y1="79" x2="105" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="120" cy="100" r="4" fill="#10B981"/>
+                    <circle cx="135" cy="121" r="4" fill="#10B981"/>
+                    <line x1="135" y1="121" x2="135" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="150" cy="140" r="4" fill="#10B981"/>
+                    <line x1="150" y1="140" x2="150" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="165" cy="144" r="4" fill="#10B981"/>
+                    <line x1="165" y1="144" x2="165" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="180" cy="140" r="4" fill="#10B981"/>
+                    <line x1="180" y1="140" x2="180" y2="100" stroke="#10B981" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="195" cy="121" r="4" fill="#10B981"/>
+                    <circle cx="210" cy="100" r="4" fill="#10B981"/>
+                    <circle cx="225" cy="79" r="4" fill="#10B981"/>
+                    <circle cx="240" cy="60" r="4" fill="#10B981"/>
+                    <circle cx="255" cy="56" r="4" fill="#10B981"/>
+                    <circle cx="270" cy="60" r="4" fill="#10B981"/>
+                    <circle cx="285" cy="79" r="4" fill="#10B981"/>
+                    <circle cx="300" cy="100" r="4" fill="#10B981"/>
+                    <circle cx="315" cy="121" r="4" fill="#10B981"/>
+                    <circle cx="330" cy="140" r="4" fill="#10B981"/>
+                    <circle cx="345" cy="144" r="4" fill="#10B981"/>
+                    <circle cx="360" cy="140" r="4" fill="#10B981"/>
+                    <circle cx="375" cy="121" r="4" fill="#10B981"/>
+                    <circle cx="390" cy="100" r="4" fill="#10B981"/>
+                    <text x="400" y="102" font-size="10" fill="#10B981">Reconstructed = original</text>
+
+                    <!-- BOTTOM: Undersampling -->
+                    <text x="200" y="195" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">Undersampled: f&#x209B; = 1.2f (1.2 samples/cycle)</text>
+                    <line x1="30" y1="258" x2="390" y2="258" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="30" y1="208" x2="30" y2="305" stroke="#D4D4D8" stroke-width="1"/>
+                    <!-- True continuous sine (gray, fast) -->
+                    <path d="M30,258 C55,258 65,213 90,213 C115,213 125,258 150,258 C175,258 185,303 210,303 C235,303 245,258 270,258 C295,258 305,213 330,213 C355,213 365,258 390,258" stroke="#D4D4D8" stroke-width="1.5" fill="none"/>
+                    <!-- Sparse sample points -->
+                    <circle cx="30" cy="258" r="5" fill="#DC2626"/>
+                    <line x1="30" y1="258" x2="30" y2="258" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="115" cy="215" r="5" fill="#DC2626"/>
+                    <line x1="115" y1="215" x2="115" y2="258" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="200" cy="302" r="5" fill="#DC2626"/>
+                    <line x1="200" y1="302" x2="200" y2="258" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="285" cy="220" r="5" fill="#DC2626"/>
+                    <line x1="285" y1="220" x2="285" y2="258" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <!-- Aliased low-frequency reconstruction through those same points -->
+                    <path d="M30,258 C80,248 120,215 160,228 C200,243 220,295 250,302 C280,310 310,235 340,218 C360,210 380,234 390,248" stroke="#DC2626" stroke-width="2" fill="none" stroke-dasharray="6,3"/>
+                    <text x="400" y="235" font-size="10" fill="#DC2626">True signal</text>
+                    <text x="400" y="252" font-size="10" fill="#DC2626" font-style="italic">(gray)</text>
+                    <text x="400" y="270" font-size="10" fill="#DC2626">Aliased ghost</text>
+                    <text x="400" y="285" font-size="10" fill="#DC2626" font-style="italic">(dashed)</text>
+                </svg>
+
+                <p>The theorem was proved independently by Harry Nyquist (1928) and Claude Shannon (1949), and in a slightly different form by Vladimir Kotelnikov (1933). Shannon's version is the most general: it applies to any bandlimited signal, not just sinusoids.</p>
+
+                <h2 id="aliasing">Aliasing</h2>
+
+                <p>What happens when you violate the Nyquist condition — when you sample a signal that contains frequencies above $f_s/2$? The high-frequency components do not disappear. Instead, they <strong>fold back</strong> into the baseband and masquerade as lower-frequency signals. This phenomenon is called <strong>aliasing</strong>.</p>
+
+                <p>When sampling at rate $f_s$, a sinusoid at frequency $f$ produces exactly the same sample sequence as sinusoids at frequencies $f \pm f_s$, $f \pm 2f_s$, $f \pm 3f_s$, and so on. These are the <strong>aliases</strong> of $f$. The aliased frequency that appears in the output is the one that falls within $[0, f_s/2]$:</p>
+
+                $$f_{\text{alias}} = \left| f - k f_s \right| \quad \text{for the integer } k \text{ that minimizes the result}$$
+
+                <p><strong>Worked example:</strong> A 15 kHz tone is sampled at $f_s = 10$ kHz. The Nyquist frequency is 5 kHz, so 15 kHz is way above it. What alias appears?</p>
+
+                <p>With $k = 1$: $|15{,}000 - 10{,}000| = 5{,}000$ Hz. So the 15 kHz tone appears as a 5 kHz tone in the sampled signal. Information is irretrievably destroyed — you cannot tell whether the original was 5 kHz or 15 kHz.</p>
+
+                <div class="warning-box">
+                    <div class="box-title">Aliasing is Irreversible</div>
+                    <p>Once a signal has been sampled and aliasing has occurred, the alias cannot be removed in the digital domain. The aliased frequency and the "true" frequency produce <em>identical</em> sample sequences. No amount of post-processing can distinguish them. This is why anti-aliasing must happen in the analog domain, before the ADC.</p>
+                </div>
+
+                <h3 id="wagon-wheel">The Wagon Wheel Effect</h3>
+
+                <p>Aliasing appears visually in film and video. A wagon wheel (or helicopter rotor, or fan blade) spinning at high speed is "sampled" by the camera's frame rate. If the wheel completes slightly more than one full rotation per frame, it looks like it is rotating slowly backwards — the alias of its high rotation rate appears at a low, negative frequency. At exactly one rotation per frame, the wheel appears frozen. This identical mechanism governs audio aliasing.</p>
+
+                <!-- SVG 5: Wagon wheel -->
+                <svg viewBox="0 0 800 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="220" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Wagon Wheel Effect — Spatial Aliasing</text>
+
+                    <!-- Frame 1: Slow rotation (well sampled) -->
+                    <text x="130" y="42" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">f&#x209B; &gt;&gt; f&#x2098;&#x2091;&#x2090; (captured correctly)</text>
+                    <circle cx="80" cy="130" r="50" fill="none" stroke="#D4D4D8" stroke-width="2"/>
+                    <line x1="80" y1="80" x2="80" y2="130" stroke="#10B981" stroke-width="3"/>
+                    <line x1="80" y1="130" x2="80" y2="180" stroke="#10B981" stroke-width="3"/>
+                    <line x1="30" y1="130" x2="130" y2="130" stroke="#10B981" stroke-width="3"/>
+                    <line x1="44" y1="94" x2="116" y2="166" stroke="#10B981" stroke-width="3"/>
+                    <line x1="44" y1="166" x2="116" y2="94" stroke="#10B981" stroke-width="3"/>
+                    <circle cx="80" cy="130" r="8" fill="#18181B"/>
+                    <text x="80" y="200" text-anchor="middle" font-size="10" fill="#10B981">Frame 1</text>
+
+                    <circle cx="185" cy="130" r="50" fill="none" stroke="#D4D4D8" stroke-width="2"/>
+                    <line x1="185" y1="80" x2="185" y2="130" stroke="#10B981" stroke-width="3" transform="rotate(22.5,185,130)"/>
+                    <line x1="185" y1="130" x2="185" y2="180" stroke="#10B981" stroke-width="3" transform="rotate(22.5,185,130)"/>
+                    <line x1="135" y1="130" x2="235" y2="130" stroke="#10B981" stroke-width="3" transform="rotate(22.5,185,130)"/>
+                    <line x1="149" y1="94" x2="221" y2="166" stroke="#10B981" stroke-width="3" transform="rotate(22.5,185,130)"/>
+                    <line x1="149" y1="166" x2="221" y2="94" stroke="#10B981" stroke-width="3" transform="rotate(22.5,185,130)"/>
+                    <circle cx="185" cy="130" r="8" fill="#18181B"/>
+                    <text x="185" y="200" text-anchor="middle" font-size="10" fill="#10B981">Frame 2</text>
+                    <text x="130" y="215" text-anchor="middle" font-size="9" fill="#71717A">Wheel advances smoothly — motion looks correct</text>
+
+                    <!-- Frame set 2: Aliased rotation -->
+                    <text x="540" y="42" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">f&#x209B; &lt; 2f&#x2098;&#x2091;&#x2090; (aliased — looks backwards!)</text>
+
+                    <circle cx="420" cy="130" r="50" fill="none" stroke="#D4D4D8" stroke-width="2"/>
+                    <line x1="420" y1="80" x2="420" y2="130" stroke="#DC2626" stroke-width="3"/>
+                    <line x1="420" y1="130" x2="420" y2="180" stroke="#DC2626" stroke-width="3"/>
+                    <line x1="370" y1="130" x2="470" y2="130" stroke="#DC2626" stroke-width="3"/>
+                    <line x1="384" y1="94" x2="456" y2="166" stroke="#DC2626" stroke-width="3"/>
+                    <line x1="384" y1="166" x2="456" y2="94" stroke="#DC2626" stroke-width="3"/>
+                    <circle cx="420" cy="130" r="8" fill="#18181B"/>
+                    <text x="420" y="200" text-anchor="middle" font-size="10" fill="#DC2626">Frame 1</text>
+
+                    <!-- Nearly full rotation + tiny backward step = alias appears as slight reverse -->
+                    <circle cx="540" cy="130" r="50" fill="none" stroke="#D4D4D8" stroke-width="2"/>
+                    <line x1="540" y1="80" x2="540" y2="130" stroke="#DC2626" stroke-width="3" transform="rotate(-15,540,130)"/>
+                    <line x1="540" y1="130" x2="540" y2="180" stroke="#DC2626" stroke-width="3" transform="rotate(-15,540,130)"/>
+                    <line x1="490" y1="130" x2="590" y2="130" stroke="#DC2626" stroke-width="3" transform="rotate(-15,540,130)"/>
+                    <line x1="504" y1="94" x2="576" y2="166" stroke="#DC2626" stroke-width="3" transform="rotate(-15,540,130)"/>
+                    <line x1="504" y1="166" x2="576" y2="94" stroke="#DC2626" stroke-width="3" transform="rotate(-15,540,130)"/>
+                    <circle cx="540" cy="130" r="8" fill="#18181B"/>
+                    <text x="540" y="200" text-anchor="middle" font-size="10" fill="#DC2626">Frame 2</text>
+
+                    <circle cx="660" cy="130" r="50" fill="none" stroke="#D4D4D8" stroke-width="2"/>
+                    <line x1="660" y1="80" x2="660" y2="130" stroke="#DC2626" stroke-width="3" transform="rotate(-30,660,130)"/>
+                    <line x1="660" y1="130" x2="660" y2="180" stroke="#DC2626" stroke-width="3" transform="rotate(-30,660,130)"/>
+                    <line x1="610" y1="130" x2="710" y2="130" stroke="#DC2626" stroke-width="3" transform="rotate(-30,660,130)"/>
+                    <line x1="624" y1="94" x2="696" y2="166" stroke="#DC2626" stroke-width="3" transform="rotate(-30,660,130)"/>
+                    <line x1="624" y1="166" x2="696" y2="94" stroke="#DC2626" stroke-width="3" transform="rotate(-30,660,130)"/>
+                    <circle cx="660" cy="130" r="8" fill="#18181B"/>
+                    <text x="660" y="200" text-anchor="middle" font-size="10" fill="#DC2626">Frame 3</text>
+                    <text x="540" y="215" text-anchor="middle" font-size="9" fill="#DC2626">Wheel rotates almost a full turn per frame — appears to move backward</text>
+                </svg>
+
+                <!-- SVG 2: Frequency domain spectrum copies -->
+                <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="280" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Frequency Domain: Spectrum Copies at Multiples of f&#x209B;</text>
+
+                    <!-- TOP: No aliasing (fs > 2fmax) -->
+                    <text x="400" y="40" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">No aliasing — spectrum copies do not overlap</text>
+                    <line x1="20" y1="95" x2="780" y2="95" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="20" y1="50" x2="20" y2="100" stroke="#D4D4D8" stroke-width="1"/>
+                    <text x="15" y="99" text-anchor="end" font-size="9" fill="#71717A">0</text>
+                    <!-- Base spectrum copy at 0 -->
+                    <path d="M100,95 L130,95 L155,62 L180,95 L200,95" fill="rgba(16,185,129,0.2)" stroke="#10B981" stroke-width="1.5"/>
+                    <!-- Copy at +fs -->
+                    <path d="M280,95 L310,95 L335,62 L360,95 L380,95" fill="rgba(16,185,129,0.1)" stroke="#10B981" stroke-width="1" stroke-dasharray="4"/>
+                    <!-- Copy at +2fs -->
+                    <path d="M460,95 L490,95 L515,62 L540,95 L560,95" fill="rgba(16,185,129,0.1)" stroke="#10B981" stroke-width="1" stroke-dasharray="4"/>
+                    <!-- Copy at +3fs -->
+                    <path d="M640,95 L670,95 L695,62 L720,95 L740,95" fill="rgba(16,185,129,0.1)" stroke="#10B981" stroke-width="1" stroke-dasharray="4"/>
+                    <!-- Frequency labels -->
+                    <text x="155" y="112" text-anchor="middle" font-size="9" fill="#10B981">f&#x2098;&#x2090;&#x2093;</text>
+                    <line x1="155" y1="95" x2="155" y2="105" stroke="#71717A" stroke-width="1"/>
+                    <text x="210" y="112" text-anchor="middle" font-size="9" fill="#71717A">f&#x209B;/2</text>
+                    <line x1="230" y1="50" x2="230" y2="100" stroke="#D4D4D8" stroke-width="1" stroke-dasharray="3"/>
+                    <text x="335" y="112" text-anchor="middle" font-size="9" fill="#71717A">f&#x209B;</text>
+                    <line x1="335" y1="50" x2="335" y2="100" stroke="#D4D4D8" stroke-width="1" stroke-dasharray="3"/>
+                    <text x="515" y="112" text-anchor="middle" font-size="9" fill="#71717A">2f&#x209B;</text>
+                    <line x1="515" y1="50" x2="515" y2="100" stroke="#D4D4D8" stroke-width="1" stroke-dasharray="3"/>
+                    <text x="695" y="112" text-anchor="middle" font-size="9" fill="#71717A">3f&#x209B;</text>
+
+                    <!-- BOTTOM: Aliasing (fs < 2fmax) -->
+                    <text x="400" y="150" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">Aliasing — spectrum copies overlap in the baseband</text>
+                    <line x1="20" y1="225" x2="780" y2="225" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="20" y1="160" x2="20" y2="230" stroke="#D4D4D8" stroke-width="1"/>
+                    <!-- Base spectrum (wider than fs/2) -->
+                    <path d="M60,225 L90,225 L140,170 L190,225 L220,225" fill="rgba(59,130,246,0.2)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <!-- Copy at +fs — OVERLAPS with base -->
+                    <path d="M230,225 L260,225 L310,170 L360,225 L390,225" fill="rgba(220,38,38,0.2)" stroke="#DC2626" stroke-width="1.5" stroke-dasharray="5,2"/>
+                    <!-- Copy at +2fs -->
+                    <path d="M400,225 L430,225 L480,170 L530,225 L560,225" fill="rgba(220,38,38,0.1)" stroke="#DC2626" stroke-width="1" stroke-dasharray="4"/>
+                    <!-- fs/2 line -->
+                    <line x1="250" y1="160" x2="250" y2="230" stroke="#71717A" stroke-width="1.5" stroke-dasharray="4"/>
+                    <text x="250" y="245" text-anchor="middle" font-size="9" fill="#71717A">f&#x209B;/2</text>
+                    <line x1="350" y1="160" x2="350" y2="230" stroke="#71717A" stroke-width="1" stroke-dasharray="3"/>
+                    <text x="350" y="245" text-anchor="middle" font-size="9" fill="#71717A">f&#x209B;</text>
+                    <text x="140" y="165" text-anchor="middle" font-size="9" fill="#3B82F6">Original</text>
+                    <text x="310" y="165" text-anchor="middle" font-size="9" fill="#DC2626">Alias copy</text>
+                    <!-- Overlap region highlight -->
+                    <rect x="215" y="160" width="75" height="65" fill="rgba(220,38,38,0.1)" stroke="none"/>
+                    <text x="253" y="215" text-anchor="middle" font-size="8" fill="#DC2626" font-weight="600">OVERLAP</text>
+                    <text x="400" y="268" text-anchor="middle" font-size="11" fill="#71717A">Overlapping spectra cannot be separated — aliasing is irreversible</text>
+                </svg>
+
+                <h2 id="anti-aliasing">Anti-Aliasing Filters</h2>
+
+                <p>The solution to aliasing is conceptually simple: before the ADC, apply a <strong>lowpass filter</strong> that removes all frequency components above $f_s/2$. This is called the <strong>anti-aliasing filter</strong> (AAF). Because it operates on the analog signal before digitization, it must be an analog circuit — no digital processing can help once the signal has been sampled at the wrong rate.</p>
+
+                <p>The ideal anti-aliasing filter has a perfectly flat passband up to $f_s/2$ and instantly drops to zero above it — a "brick-wall" response:</p>
+
+                $$H(f) = \begin{cases} 1 & |f| \leq f_s/2 \\ 0 & |f| > f_s/2 \end{cases}$$
+
+                <p>However, this ideal filter is physically unrealizable: it corresponds to a sinc impulse response that extends infinitely in time (non-causal). Real filters must make compromises:</p>
+
+                <ul>
+                    <li><strong>Transition band:</strong> A real filter rolls off gradually between the passband and stopband. This means you cannot use the full bandwidth up to $f_s/2$ — you must leave a "guard band" for the transition.</li>
+                    <li><strong>Passband ripple:</strong> Real filters have small amplitude variations in the passband.</li>
+                    <li><strong>Stopband attenuation:</strong> Real filters suppress but do not completely eliminate out-of-band content.</li>
+                    <li><strong>Phase distortion:</strong> Many analog filters introduce frequency-dependent phase delays. Linear phase designs (like Bessel filters) minimize this at the cost of steeper rolloff requiring higher filter order.</li>
+                </ul>
+
+                <div class="note-box">
+                    <div class="box-title">Common Anti-Aliasing Filter Designs</div>
+                    <p><strong>Butterworth:</strong> Maximally flat passband, moderate rolloff. Simple and widely used.<br>
+                    <strong>Chebyshev Type I:</strong> Steeper rolloff than Butterworth, but with passband ripple.<br>
+                    <strong>Chebyshev Type II:</strong> Flat passband, equiripple in stopband.<br>
+                    <strong>Elliptic (Cauer):</strong> Steepest possible rolloff for a given order, but ripple in both bands.<br>
+                    <strong>Bessel:</strong> Maximally flat group delay (linear phase), but very gradual rolloff.</p>
+                </div>
+
+                <!-- SVG 3: Anti-aliasing filter frequency response -->
+                <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="280" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Anti-Aliasing Filter: Ideal vs. Practical Frequency Response</text>
+                    <!-- Axes -->
+                    <line x1="60" y1="220" x2="760" y2="220" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <line x1="60" y1="40" x2="60" y2="225" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <text x="770" y="224" font-size="11" fill="#71717A">f</text>
+                    <text x="40" y="46" font-size="11" fill="#71717A">|H|</text>
+                    <!-- dB grid lines -->
+                    <line x1="55" y1="60" x2="760" y2="60" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="52" y="64" text-anchor="end" font-size="9" fill="#71717A">0 dB</text>
+                    <line x1="55" y1="110" x2="760" y2="110" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="52" y="114" text-anchor="end" font-size="9" fill="#71717A">-20</text>
+                    <line x1="55" y1="160" x2="760" y2="160" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="52" y="164" text-anchor="end" font-size="9" fill="#71717A">-40</text>
+                    <line x1="55" y1="190" x2="760" y2="190" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="52" y="194" text-anchor="end" font-size="9" fill="#71717A">-60</text>
+                    <!-- Ideal brick-wall (blue) -->
+                    <path d="M60,60 L400,60 L400,220 L760,220" stroke="#3B82F6" stroke-width="2" fill="none" stroke-dasharray="8,4"/>
+                    <text x="230" y="52" text-anchor="middle" font-size="10" fill="#3B82F6">Ideal (brick-wall)</text>
+                    <!-- Butterworth practical rolloff (red) — smooth S-curve rolloff -->
+                    <path d="M60,60 L320,60 Q370,62 400,80 Q430,98 450,130 Q470,162 490,185 Q510,200 540,210 Q570,217 620,219 L760,219" stroke="#DC2626" stroke-width="2.5" fill="none"/>
+                    <!-- Elliptic filter: steeper but with stopband ripple -->
+                    <path d="M60,60 L370,60 Q390,62 400,68 Q410,78 420,110 Q425,145 430,175 Q435,195 445,208 Q460,216 480,215 Q500,212 510,216 Q525,218 540,215 Q560,212 570,217 L760,217" stroke="#10B981" stroke-width="2" fill="none"/>
+                    <!-- fs/2 marker -->
+                    <line x1="400" y1="40" x2="400" y2="225" stroke="#71717A" stroke-width="1.5" stroke-dasharray="5"/>
+                    <text x="400" y="240" text-anchor="middle" font-size="10" fill="#71717A" font-weight="600">f&#x209B;/2 (Nyquist)</text>
+                    <!-- Transition band marker -->
+                    <line x1="320" y1="55" x2="320" y2="225" stroke="#F59E0B" stroke-width="1" stroke-dasharray="3"/>
+                    <text x="320" y="240" text-anchor="middle" font-size="9" fill="#F59E0B">Passband</text>
+                    <text x="320" y="252" text-anchor="middle" font-size="9" fill="#F59E0B">edge</text>
+                    <!-- Transition band annotation -->
+                    <line x1="320" y1="30" x2="400" y2="30" stroke="#F59E0B" stroke-width="1" marker-end="url(#arr_aaf)"/>
+                    <defs><marker id="arr_aaf" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto"><path d="M0,0 L6,2.5 L0,5Z" fill="#F59E0B"/></marker></defs>
+                    <text x="360" y="27" text-anchor="middle" font-size="9" fill="#F59E0B">Transition band</text>
+                    <!-- Legend -->
+                    <line x1="500" y1="75" x2="530" y2="75" stroke="#3B82F6" stroke-width="2" stroke-dasharray="8,4"/>
+                    <text x="540" y="79" font-size="10" fill="#3B82F6">Ideal</text>
+                    <line x1="500" y1="95" x2="530" y2="95" stroke="#DC2626" stroke-width="2.5"/>
+                    <text x="540" y="99" font-size="10" fill="#DC2626">Butterworth</text>
+                    <line x1="500" y1="115" x2="530" y2="115" stroke="#10B981" stroke-width="2"/>
+                    <text x="540" y="119" font-size="10" fill="#10B981">Elliptic</text>
+                    <text x="400" y="270" text-anchor="middle" font-size="11" fill="#71717A">Real filters need a guard band between passband and Nyquist frequency</text>
+                </svg>
+
+                <p>This guard band requirement is why real sample rates are chosen to be somewhat above the theoretical Nyquist minimum. CD audio at 44.1 kHz needs to represent 20 kHz audio (human hearing limit), so $f_s/2 = 22.05$ kHz provides a 2.05 kHz transition band for the anti-aliasing filter — sufficient for a good analog filter implementation.</p>
+
+                <h2 id="reconstruction">Reconstruction — Sinc Interpolation</h2>
+
+                <p>Suppose you have a set of discrete samples $x[n]$ taken at rate $f_s$ from a bandlimited signal. How do you reconstruct the original continuous signal? The Nyquist-Shannon theorem is constructive: it tells you not just that reconstruction is possible, but exactly how to do it. The answer is <strong>sinc interpolation</strong>:</p>
+
+                $$x(t) = \sum_{n=-\infty}^{\infty} x[n]\, \mathrm{sinc}\!\left(\frac{t - nT_s}{T_s}\right)$$
+
+                <p>where $\mathrm{sinc}(u) = \sin(\pi u)/(\pi u)$ and $T_s = 1/f_s$. Every sample contributes a scaled and shifted sinc function; they sum to give the original signal exactly.</p>
+
+                <p><strong>Why sinc?</strong> In the frequency domain, the sinc function is the Fourier transform of a rectangular window. Multiplying the spectrum of the sampled signal by a rectangle that cuts off at $f_s/2$ is equivalent to keeping only the baseband copy of the spectrum (removing all the aliases). In the time domain, this frequency-domain multiplication corresponds to convolution with the sinc — which is exactly the formula above.</p>
+
+                <p>The sinc has a beautiful property: it equals 1 at $t = 0$ and equals 0 at all other integer multiples of $T_s$. This means each sinc term contributes exactly $x[n]$ at sample point $n$, and zero at all other sample points. The reconstruction is an interpolation that passes through all the samples and smoothly fills in between them.</p>
+
+                <!-- SVG 4: Sinc function with labeled zero crossings -->
+                <svg viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="240" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Sinc Function: sinc(t/T&#x209B;) — Ideal Interpolation Kernel</text>
+                    <!-- Axes -->
+                    <line x1="20" y1="120" x2="780" y2="120" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <line x1="400" y1="30" x2="400" y2="200" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <text x="790" y="124" font-size="11" fill="#71717A">t</text>
+                    <text x="404" y="28" font-size="11" fill="#71717A">1</text>
+                    <!-- Sinc curve — main lobe and side lobes -->
+                    <!-- Built from piecewise approximation: sinc(x) = sin(pi*x)/(pi*x) -->
+                    <!-- Peak at center (x=400, y=60 for amplitude 1) -->
+                    <!-- Zero crossings at ±Ts, ±2Ts, ±3Ts mapped to ±80px spacing -->
+                    <path d="M20,120 Q40,122 60,119 Q70,118 80,120 Q90,122 100,121 Q110,119 120,120 L128,120 Q135,125 140,127 Q148,130 160,120 Q172,110 180,120 Q190,130 200,120 Q208,110 215,108 Q225,107 230,109 Q240,116 248,120 L250,120 Q255,114 260,103 Q270,84 280,78 Q290,73 300,72 Q320,68 340,65 Q360,63 380,61 Q390,60 400,60 Q410,60 420,61 Q440,63 460,65 Q480,68 500,72 Q510,73 520,78 Q530,84 540,103 Q545,114 550,120 L552,120 Q555,126 560,130 Q565,133 570,130 Q578,120 580,120 Q585,116 590,113 Q595,111 600,112 Q610,118 618,120 Q630,122 640,120 Q650,118 660,120 Q670,122 680,119 Q700,116 720,119 Q740,121 760,120 L780,120" stroke="#DC2626" stroke-width="2.5" fill="none"/>
+                    <!-- Zero crossings markers at Ts intervals (every 80 px from center 400) -->
+                    <circle cx="320" cy="120" r="4" fill="#3B82F6"/>
+                    <text x="320" y="138" text-anchor="middle" font-size="9" fill="#3B82F6">-T&#x209B;</text>
+                    <circle cx="240" cy="120" r="4" fill="#3B82F6"/>
+                    <text x="240" y="138" text-anchor="middle" font-size="9" fill="#3B82F6">-2T&#x209B;</text>
+                    <circle cx="160" cy="120" r="4" fill="#3B82F6"/>
+                    <text x="160" y="138" text-anchor="middle" font-size="9" fill="#3B82F6">-3T&#x209B;</text>
+                    <circle cx="480" cy="120" r="4" fill="#3B82F6"/>
+                    <text x="480" y="138" text-anchor="middle" font-size="9" fill="#3B82F6">+T&#x209B;</text>
+                    <circle cx="560" cy="120" r="4" fill="#3B82F6"/>
+                    <text x="560" y="138" text-anchor="middle" font-size="9" fill="#3B82F6">+2T&#x209B;</text>
+                    <circle cx="640" cy="120" r="4" fill="#3B82F6"/>
+                    <text x="640" y="138" text-anchor="middle" font-size="9" fill="#3B82F6">+3T&#x209B;</text>
+                    <!-- Peak at t=0 -->
+                    <circle cx="400" cy="60" r="5" fill="#18181B"/>
+                    <line x1="400" y1="60" x2="400" y2="120" stroke="#18181B" stroke-width="1" stroke-dasharray="3"/>
+                    <text x="405" y="57" font-size="10" fill="#18181B">sinc(0) = 1</text>
+                    <!-- Side lobe labels -->
+                    <text x="275" y="75" font-size="9" fill="#71717A">side lobe</text>
+                    <text x="490" y="75" font-size="9" fill="#71717A">side lobe</text>
+                    <!-- Annotation -->
+                    <text x="400" y="225" text-anchor="middle" font-size="11" fill="#71717A">sinc(t/T&#x209B;) = 1 at t=0, zero at t = &plusmn;T&#x209B;, &plusmn;2T&#x209B;, ... &mdash; perfect pass-through at every sample point</text>
+                </svg>
+
+                <p>In practice, exact sinc interpolation requires an infinite sum over all past and future samples — impossible in real-time systems. Practical reconstruction uses:</p>
+
+                <ol>
+                    <li><strong>DAC (Digital-to-Analog Converter):</strong> Converts each sample to an analog voltage and holds it until the next sample (zero-order hold). This produces a staircase approximation with a $\text{sinc}(f/f_s)$ frequency response that must be corrected.</li>
+                    <li><strong>Smoothing (reconstruction) filter:</strong> An analog lowpass filter after the DAC that removes the high-frequency "staircasing" artifacts and the images at multiples of $f_s$. Like the anti-aliasing filter, this must be analog.</li>
+                    <li><strong>Oversampled DACs:</strong> Modern audio DACs oversample (typically 128&times; or more) and apply digital interpolation before the analog stage, making the analog smoothing filter much simpler.</li>
+                </ol>
+
+                <h2 id="oversampling">Oversampling</h2>
+
+                <p>Oversampling means sampling at a rate significantly higher than the Nyquist minimum. If the signal bandwidth is $f_{\max}$ but we sample at $f_s = K \cdot 2f_{\max}$, the <strong>oversampling ratio (OSR)</strong> is $K$. Modern audio hardware routinely oversamples by 64&times;, 128&times;, or 256&times;.</p>
+
+                <p>Oversampling provides several important benefits:</p>
+
+                <p><strong>1. Relaxed anti-aliasing filter requirements.</strong> With a higher sample rate, the Nyquist frequency moves up, leaving a much wider transition band between $f_{\max}$ and the new $f_s/2$. A simple analog filter (say, a 2nd-order Butterworth) is sufficient, avoiding the complexity, cost, and phase distortion of steep high-order analog filters.</p>
+
+                <!-- SVG 6: Oversampling comparison -->
+                <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="280" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Oversampling: Relaxed Filter vs. Brick-Wall Requirement</text>
+
+                    <!-- TOP: Standard sampling — steep filter required -->
+                    <text x="400" y="40" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">Standard sampling (no oversampling) — steep analog filter required</text>
+                    <line x1="30" y1="100" x2="770" y2="100" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="30" y1="50" x2="30" y2="105" stroke="#D4D4D8" stroke-width="1"/>
+                    <!-- Signal band -->
+                    <rect x="30" y="55" width="230" height="45" rx="3" fill="rgba(59,130,246,0.1)" stroke="none"/>
+                    <!-- Steep filter -->
+                    <path d="M30,55 L255,55 Q265,57 270,65 Q275,80 278,95 L285,100 L770,100" stroke="#DC2626" stroke-width="2.5" fill="none"/>
+                    <line x1="260" y1="50" x2="260" y2="105" stroke="#71717A" stroke-width="1" stroke-dasharray="4"/>
+                    <text x="260" y="120" text-anchor="middle" font-size="9" fill="#71717A">f&#x2098;&#x2090;&#x2093; = 20kHz</text>
+                    <line x1="290" y1="50" x2="290" y2="105" stroke="#71717A" stroke-width="1" stroke-dasharray="4"/>
+                    <text x="290" y="120" text-anchor="middle" font-size="9" fill="#71717A">f&#x209B;/2</text>
+                    <!-- Transition band annotation -->
+                    <path d="M260,30 L290,30" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="275" y="27" text-anchor="middle" font-size="8" fill="#DC2626">narrow!</text>
+                    <text x="400" y="55" font-size="10" fill="#3B82F6">Audio band (0–20 kHz)</text>
+                    <text x="450" y="75" font-size="10" fill="#DC2626">Must roll off within a few kHz — needs high-order analog filter</text>
+
+                    <!-- BOTTOM: Oversampled — simple filter sufficient -->
+                    <text x="400" y="155" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">8&times; oversampling — gentle analog filter, digital filter does the work</text>
+                    <line x1="30" y1="230" x2="770" y2="230" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="30" y1="168" x2="30" y2="235" stroke="#D4D4D8" stroke-width="1"/>
+                    <!-- Signal band -->
+                    <rect x="30" y="173" width="230" height="57" rx="3" fill="rgba(59,130,246,0.1)" stroke="none"/>
+                    <!-- Gentle analog filter -->
+                    <path d="M30,173 L255,173 Q310,175 360,185 Q450,205 520,222 Q580,228 620,230 L770,230" stroke="#10B981" stroke-width="2.5" fill="none"/>
+                    <!-- Digital brick-wall in digital domain -->
+                    <path d="M30,173 L258,173 L258,230 L770,230" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="6,3" fill="none"/>
+                    <line x1="260" y1="163" x2="260" y2="235" stroke="#71717A" stroke-width="1" stroke-dasharray="4"/>
+                    <text x="260" y="250" text-anchor="middle" font-size="9" fill="#71717A">f&#x2098;&#x2090;&#x2093;</text>
+                    <line x1="590" y1="163" x2="590" y2="235" stroke="#71717A" stroke-width="1" stroke-dasharray="4"/>
+                    <text x="590" y="250" text-anchor="middle" font-size="9" fill="#71717A">f&#x209B;/2 (8&times;)</text>
+                    <!-- Wide transition annotation -->
+                    <path d="M260,145 L590,145" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="425" y="142" text-anchor="middle" font-size="9" fill="#10B981">wide transition band — simple 2nd-order analog filter is enough</text>
+                    <text x="450" y="185" font-size="10" fill="#3B82F6">Digital decimation filter (sharp, perfect, free)</text>
+                    <text x="400" y="268" text-anchor="middle" font-size="11" fill="#71717A">Sharp rolloff moved from expensive analog to cheap digital — the key insight of oversampled ADC design</text>
+                </svg>
+
+                <p><strong>2. Noise shaping and increased dynamic range.</strong> Quantization noise power is spread over the entire Nyquist band $[0, f_s/2]$. When you oversample, this band is wider, so the noise per unit bandwidth is lower. After digital lowpass filtering and decimation down to the target sample rate, only the in-band noise remains, and its power is reduced by the OSR. Each doubling of the sample rate gains approximately 3 dB of SNR (0.5 bits of effective resolution). Combined with noise shaping (see Tutorial 02), this allows 1-bit sigma-delta converters to achieve 24-bit effective resolution.</p>
+
+                <p><strong>3. Simplified reconstruction.</strong> On the DAC side, oversampling moves the "images" (spectrum copies at multiples of $f_s$) much further from the audio band, so the smoothing filter can be very gentle — a simple RC circuit rather than a complex multi-pole analog design.</p>
+
+                <div class="key-concept">
+                    <div class="box-title">The Modern Audio Conversion Chain</div>
+                    <p>Modern audio hardware exploits all these ideas simultaneously:<br>
+                    <strong>ADC:</strong> Oversample at 512&times; &rarr; simple analog anti-alias filter &rarr; 1-bit sigma-delta quantizer &rarr; digital decimation filter (sharp, perfect) &rarr; 24-bit output at 48 kHz.<br>
+                    <strong>DAC:</strong> 24-bit at 48 kHz &rarr; digital interpolation to 6.144 MHz &rarr; 1-bit sigma-delta modulator &rarr; simple RC smoothing filter &rarr; analog output.</p>
+                </div>
+
+                <p>The Nyquist-Shannon theorem is not merely a theoretical curiosity. It is the foundation on which every digital audio system ever built rests. Understanding it deeply — the aliasing it forbids, the filters it requires, the reconstruction it guarantees — is essential for anyone working with audio, signal processing, communications, or machine learning on time-series data.</p>
+
+            </article>
+
+            <!-- ==================== EXERCISES ==================== -->
+            <article class="article-content" id="exercises" style="display:none;">
+
+                <h2>Exercises: Nyquist-Shannon Sampling Theorem</h2>
+
+                <h3 style="color:#10B981;margin-top:2rem;">Easy (1&ndash;10)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">1</span><span class="exercise-title">Minimum Sample Rate</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A signal contains frequency components up to 8 kHz. What is the minimum sample rate (Nyquist rate) needed to avoid aliasing?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The Nyquist rate is $f_s > 2f_{\max} = 2 \times 8000 = 16{,}000$ Hz.</p><p>Minimum sample rate: <strong>16 kHz</strong> (strictly greater than, so in practice you'd choose slightly above this, e.g., 16.1 kHz or a standard rate like 22.05 kHz).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">2</span><span class="exercise-title">Nyquist Frequency</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A digital audio system uses a sample rate of 44,100 Hz. What is the Nyquist frequency? What is the maximum audio frequency that can be represented without aliasing?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Nyquist frequency = $f_s/2 = 44100/2 = 22{,}050$ Hz = <strong>22.05 kHz</strong>.</p><p>Any frequency component below 22.05 kHz can be represented without aliasing. Frequencies at or above 22.05 kHz will alias.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">3</span><span class="exercise-title">Identify the Alias</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A 3 kHz tone is sampled at $f_s = 8$ kHz. The Nyquist frequency is 4 kHz. Since 3 kHz &lt; 4 kHz, does aliasing occur? What about a 5 kHz tone sampled at 8 kHz?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>3 kHz at 8 kHz sample rate:</strong> No aliasing — 3 kHz is below the Nyquist frequency of 4 kHz. The 3 kHz tone is faithfully represented.</p><p><strong>5 kHz at 8 kHz sample rate:</strong> Aliasing occurs. $f_{\text{alias}} = |5000 - 1 \times 8000| = |{-3000}| = 3{,}000$ Hz. The 5 kHz tone appears as a 3 kHz alias. Interestingly, it produces the same samples as the 3 kHz tone — they are indistinguishable in the digital domain.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">4</span><span class="exercise-title">The 15 kHz Example</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Verify: a 15 kHz tone sampled at $f_s = 10$ kHz appears as a 5 kHz alias. Show the calculation.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Nyquist frequency = $10000/2 = 5$ kHz. Since 15 kHz &gt; 5 kHz, aliasing occurs.</p><p>$f_{\text{alias}} = |f - kf_s|$ minimized over integer $k$:</p><p>$k=1$: $|15000 - 10000| = 5000$ Hz. $k=2$: $|15000 - 20000| = 5000$ Hz. Both give the same result.</p><p>The aliased frequency is <strong>5 kHz</strong>. The 15 kHz tone is indistinguishable from a 5 kHz tone after sampling at 10 kHz.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">5</span><span class="exercise-title">Speech Telephone Sample Rate</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Traditional telephone systems sample speech at 8,000 Hz. What is the maximum representable frequency? Is this adequate for speech intelligibility (typical speech energy is 300 Hz to 3.4 kHz)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Maximum frequency = $8000/2 = 4{,}000$ Hz = <strong>4 kHz</strong>.</p><p>Yes, this is adequate for speech intelligibility. The 300 Hz – 3.4 kHz range that carries the most important speech information (fundamental frequency, formants, consonant articulation) fits comfortably below 4 kHz. That's why telephone audio, though clearly narrowband, remains intelligible. The ITU G.711 standard specifies exactly 8 kHz / 8-bit (with companding) for this reason.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">6</span><span class="exercise-title">Aliased Frequency Calculation</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A 22 kHz tone is sampled at $f_s = 44.1$ kHz. What aliased frequency appears?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Nyquist = 22.05 kHz. Since 22 kHz &lt; 22.05 kHz, the tone is just inside the Nyquist limit — <strong>no aliasing</strong> occurs. The 22 kHz tone is faithfully represented (assuming the anti-aliasing filter passes it).</p><p>If instead the tone were at 23 kHz: $|23000 - 44100| = 21{,}100$ Hz — so it would alias to 21.1 kHz.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">7</span><span class="exercise-title">Sample Period</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>At a sample rate of 48,000 Hz, what is the time between consecutive samples ($T_s$)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$T_s = 1/f_s = 1/48000 \approx 20.83 \times 10^{-6}$ s $\approx$ <strong>20.83 microseconds</strong>.</p><p>In 1 second of audio at 48 kHz, there are 48,000 samples, each spaced 20.83 &mu;s apart.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">8</span><span class="exercise-title">Sinc at Integer Points</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Evaluate $\mathrm{sinc}(n) = \sin(\pi n)/(\pi n)$ for integer $n$. What values does it take at $n = 0, 1, 2, 3$? Why is this important for interpolation?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$n=0$: By L'Hôpital's rule (or the limit), $\lim_{n\to 0} \sin(\pi n)/(\pi n) = 1$. So $\mathrm{sinc}(0) = 1$.</p><p>$n=1, 2, 3, \ldots$: $\sin(\pi n) = 0$ for all nonzero integers. So $\mathrm{sinc}(n) = 0/(\pi n) = 0$.</p><p>This is the key interpolation property: in the reconstruction formula $x(t) = \sum_n x[n]\,\mathrm{sinc}((t-nT_s)/T_s)$, evaluating at sample point $t = mT_s$ gives $x(mT_s) = x[m] \cdot 1 + \sum_{n \neq m} x[n] \cdot 0 = x[m]$. The reconstruction passes through every original sample exactly.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">9</span><span class="exercise-title">Oversampling Ratio</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A sigma-delta ADC samples at 6.144 MHz to produce audio at 48 kHz. What is the oversampling ratio (OSR)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>OSR = $6{,}144{,}000 / 48{,}000 = 128$.</p><p>The ADC is oversampling by <strong>128&times;</strong>. This is typical for high-quality audio sigma-delta converters, which use this oversampling combined with noise shaping to achieve 20+ bit effective resolution.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">10</span><span class="exercise-title">Bandlimited Signal Definition</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Is a square wave bandlimited? Is a real-world piano note bandlimited? Explain why this matters for the Nyquist theorem.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Square wave:</strong> No. A square wave has a Fourier series with harmonics at $f, 3f, 5f, 7f, \ldots$ extending to infinity. Its spectrum never goes to zero, so it is not bandlimited by definition.</p><p><strong>Piano note:</strong> In theory, real physical sounds have infinite bandwidth (sharp transients contain high frequencies). In practice, the piano mechanism, room acoustics, and microphone all act as lowpass filters, making the signal <em>approximately</em> bandlimited above ~20 kHz.</p><p>This matters because the Nyquist theorem's guarantee of perfect reconstruction requires strict bandlimitedness. For real signals, we enforce it artificially with an anti-aliasing filter before sampling. The resulting reconstruction is then not "perfect" (we've cut off very high frequencies), but the loss is inaudible since those frequencies are above human hearing.</p></div></div></div>
+
+                <h3 style="color:#F59E0B;margin-top:2rem;">Medium (11&ndash;20)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">11</span><span class="exercise-title">Anti-Aliasing Filter Design Choice</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You are designing an ADC for audio at $f_s = 44.1$ kHz. You want to pass all frequencies up to 20 kHz and attenuate all frequencies above 22.05 kHz by at least 60 dB. What is the transition band width? Why is this challenging for an analog filter?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Transition band: from 20 kHz (passband edge) to 22.05 kHz (Nyquist). Width = $22050 - 20000 = 2050$ Hz.</p><p>This is a very narrow transition band relative to the passband (about 10% of the passband frequency). Achieving 60 dB attenuation in such a narrow band requires a very high-order analog filter. For reference, a Butterworth filter achieves 60 dB in a decade of frequency (10&times; ratio); here we need it in a 1.1&times; ratio, requiring roughly $60/20\log_{10}(22050/20000) \approx 60/0.84 \approx 71$ dB/octave, needing ~12th order.</p><p>This is expensive, introduces significant phase distortion, has component tolerance issues, and requires precision matching. This is exactly why modern ADC designs use oversampling — to make the anti-aliasing filter trivial.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">12</span><span class="exercise-title">Aliasing in Music Production</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A synthesizer generates a sawtooth wave at 440 Hz (concert A). The sawtooth has harmonics at 440, 880, 1320, ..., $n \times 440$ Hz. If sampled at 44.1 kHz, which harmonics would alias? What are their aliased frequencies?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Nyquist = 22.05 kHz. Harmonics above 22.05 kHz alias. The highest harmonic below 22.05 kHz: $\lfloor 22050/440 \rfloor = 50$, so the 50th harmonic at $50 \times 440 = 22{,}000$ Hz is just under Nyquist.</p><p>The 51st harmonic: $51 \times 440 = 22{,}440$ Hz. Alias: $|22440 - 44100| = 21{,}660$ Hz.<br>52nd: $22{,}880$ Hz. Alias: $|22880 - 44100| = 21{,}220$ Hz.<br>53rd: $23{,}320$ Hz. Alias: $|23320 - 44100| = 20{,}780$ Hz.</p><p>These aliases are high-frequency but not harmonically related to 440 Hz, producing inharmonic distortion called "aliasing distortion." This is why digital synthesizers use <strong>band-limited oscillators</strong> (BLEP, PolyBLEP, or wavetable methods) that artificially remove harmonics above Nyquist before they can alias.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">13</span><span class="exercise-title">Reconstruction from Samples — Unique Signal</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You have samples $x[n] = \sin(2\pi \times 3000 \times n/8000)$ taken at 8 kHz. Write the sinc interpolation formula explicitly for the first few terms and evaluate it at $t = 1/(2 \times 8000)$ s (halfway between the first two samples).</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$T_s = 1/8000$ s. Samples: $x[n] = \sin(2\pi \times 3000n/8000) = \sin(3\pi n/4)$.</p><p>$x[0] = 0,\ x[1] = \sin(3\pi/4) = \sqrt{2}/2 \approx 0.707,\ x[2] = \sin(3\pi/2) = -1,\ x[3] = \sin(9\pi/4) = \sqrt{2}/2,\ x[4] = 0, \ldots$</p><p>At $t = T_s/2 = 1/16000$ s, the argument is $(t - nT_s)/T_s = (1/2 - n)$:</p><p>$$x(T_s/2) = \sum_n x[n]\,\mathrm{sinc}(1/2 - n)$$</p><p>The dominant terms: $\mathrm{sinc}(1/2) = \sin(\pi/2)/(\pi/2) = 2/\pi \approx 0.637$, $\mathrm{sinc}(-1/2) = 2/\pi$.</p><p>$x(T_s/2) \approx x[0]\cdot(2/\pi) + x[1]\cdot(2/\pi) + \ldots = 0 \cdot (2/\pi) + 0.707 \cdot (2/\pi) + (-1)\cdot\mathrm{sinc}(3/2) + \ldots$</p><p>$\mathrm{sinc}(3/2) = \sin(3\pi/2)/(3\pi/2) = (-1)/(3\pi/2) = -2/(3\pi)$. So the $x[2]$ term: $(-1) \times (-2/(3\pi)) = 2/(3\pi)$.</p><p>Partial sum: $0.707 \times 2/\pi + 2/(3\pi) + \ldots \approx 0.450 + 0.212 + \ldots \approx 0.924$. The true value: $\sin(2\pi \times 3000 \times 1/16000) = \sin(3\pi/8) \approx 0.924$. The reconstruction is exact (in the limit of all terms).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">14</span><span class="exercise-title">Oversampling SNR Gain</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A simple oversampling ADC (without noise shaping) samples at 16&times; the Nyquist rate, then digitally filters and decimates. How many dB of SNR improvement does this give over a non-oversampled ADC? How many extra effective bits does this correspond to?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Without noise shaping, oversampling by $K$ spreads quantization noise over a band $K$ times wider. After lowpass filtering to the audio band, only $1/K$ of the noise power remains.</p><p>SNR improvement: $10\log_{10}(K) = 10\log_{10}(16) = 10 \times 1.204 = 12.04$ dB.</p><p>Each 6.02 dB corresponds to 1 bit. Extra bits: $12.04/6.02 = 2$ bits.</p><p>Oversampling by 16&times; gains exactly <strong>2 extra effective bits</strong>. Alternatively: each 4&times; oversampling gains 1 bit (since $10\log_{10}(4) \approx 6$ dB $\approx 1$ bit). $16\times = 4^2$ gives 2 bits.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">15</span><span class="exercise-title">Downsampling and Aliasing</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You have audio sampled at 48 kHz and want to downsample to 16 kHz (for a speech model). What frequency components must you remove before downsampling, and why? What is the new Nyquist frequency?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>New Nyquist frequency: $16000/2 = 8{,}000$ Hz = 8 kHz.</p><p>Before downsampling by 3 (48 kHz &rarr; 16 kHz), all frequency content above 8 kHz must be removed by a lowpass filter. If not removed, those components will alias into the 0–8 kHz band.</p><p>Example: a 10 kHz tone at 48 kHz, when downsampled to 16 kHz, would alias to $|10000 - 16000| = 6{,}000$ Hz, corrupting the speech signal.</p><p>In Python/librosa, this is handled automatically: <code>librosa.resample(y, orig_sr=48000, target_sr=16000)</code> applies an anti-aliasing filter before decimating. Always apply the anti-aliasing lowpass filter before any downsampling operation.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">16</span><span class="exercise-title">Image Frequencies</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>After a DAC outputs samples at 48 kHz, the signal contains "images" — spectral copies at multiples of $f_s$. If the audio band is 0–20 kHz, where do the images appear? Why must they be removed?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The zero-order hold in the DAC creates a periodic spectrum. The baseband signal at 0–20 kHz has images centered at $f_s = 48$ kHz, $2f_s = 96$ kHz, etc. Specifically:</p><p>First image: 48 &plusmn; [0–20] kHz = 28–68 kHz band.<br>Second image: 96 &plusmn; [0–20] kHz = 76–116 kHz band.<br>And so on.</p><p>If not removed, these images would produce audible distortion if any downstream component (amplifier, speaker) is nonlinear at those frequencies. Even if inaudible directly, they can intermodulate with other components. The smoothing (reconstruction) filter after the DAC removes all content above ~24 kHz, eliminating these images.</p><p>With oversampling, the first image starts at $K \times f_s/2$ from the signal band, making the smoothing filter requirement trivial.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">17</span><span class="exercise-title">Sampling a Chirp</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A linear chirp sweeps from 1 kHz to 30 kHz over 1 second. It is sampled at 44.1 kHz (Nyquist = 22.05 kHz). Describe what you would hear in the reconstructed output, including what happens when the chirp crosses the Nyquist frequency.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The reconstructed output would have two distinct phases:</p><p><strong>Phase 1 (0 to ~0.7 seconds, 1–21 kHz):</strong> The chirp rises normally. All frequencies are below Nyquist, so reconstruction is accurate. You'd hear the pitch rising from 1 kHz upward. (Most people cannot hear much above ~15–18 kHz, so a portion of this is inaudible anyway.)</p><p><strong>Phase 2 (~0.7 to 1.0 seconds, 22–30 kHz):</strong> As the chirp crosses 22.05 kHz, aliasing begins. The alias is $f_{\text{alias}} = |f - 44100|$. At 22 kHz: alias = 22.1 kHz (still near 22 kHz). At 25 kHz: alias = |25000 - 44100| = 19.1 kHz. At 30 kHz: alias = |30000 - 44100| = 14.1 kHz.</p><p>Effect: Instead of the pitch continuing to rise, it <em>reflects</em> off the Nyquist frequency and appears to descend. The output would sound like the chirp reaches ~22 kHz and then sweeps back down toward 14 kHz. This "fold-back" is a distinctive audible artifact of aliasing.</p><p>In practice, a proper anti-aliasing filter would have removed the 22+ kHz content before sampling, so you'd only hear silence in phase 2 rather than the aliased chirp.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">18</span><span class="exercise-title">Practical Sinc vs. Windowed Sinc</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Explain why pure sinc interpolation is impractical in real systems, and how windowed-sinc filters (like Kaiser or Blackman windows) improve the situation. What tradeoffs do they introduce?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Why pure sinc is impractical:</strong><br>
+                    1. <em>Infinite support:</em> The sinc function is nonzero for all $t \neq 0$, requiring all past and future samples — impossible for causal (real-time) systems and computationally infinite.<br>
+                    2. <em>Slow decay:</em> Sinc's side lobes fall off as $1/t$, so distant samples have significant weight. Truncating to a finite window causes Gibbs-phenomenon ringing.<br>
+                    3. <em>Non-causal:</em> Future samples are needed, introducing latency.</p>
+                    <p><strong>Windowed-sinc solution:</strong> Multiply the sinc by a smooth window function (e.g., Kaiser $w[n] = I_0(\beta\sqrt{1-(n/M)^2})/I_0(\beta)$, where $I_0$ is the zeroth-order Bessel function). The window tapers the sinc to zero at the filter edges, eliminating truncation artifacts.</p>
+                    <p><strong>Tradeoffs:</strong><br>
+                    - Spectral leakage: The window broadens the mainlobe, widening the transition band (the filter is no longer exactly brick-wall).<br>
+                    - Stopband attenuation: Controlled by window choice. Kaiser window is near-optimal, with $\beta$ controlling the tradeoff between transition bandwidth and stopband attenuation.<br>
+                    - Latency: A filter of length $N$ samples introduces $N/2$ samples of delay.<br>
+                    - Computation: $O(N)$ multiplications per output sample — justified because it's all digital and modern hardware is fast.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">19</span><span class="exercise-title">Multistage Decimation</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You want to decimate audio from 192 kHz to 48 kHz (factor of 4). Explain why doing this in two stages (192 kHz &rarr; 96 kHz &rarr; 48 kHz) is typically more computationally efficient than a single-stage decimation by 4.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>In single-stage decimation by 4, the anti-aliasing lowpass filter must cut off at 24 kHz from a 192 kHz sample rate — a very narrow transition band (24 kHz cutoff from DC, out of a 96 kHz Nyquist). The filter needs many taps: typically $N \propto f_s / (\text{transition band width}) \approx 192000/(96000-24000) = 192000/72000 \approx 2.7$, but with stopband attenuation requirements, realistically hundreds of taps. Computing this filter runs at 192 kHz.</p>
+                    <p>In two-stage decimation:<br>
+                    <em>Stage 1:</em> 192 kHz &rarr; 96 kHz (decimate by 2). Anti-aliasing cutoff at 48 kHz; transition band = 48 kHz to 96 kHz, much wider. Fewer taps needed. Filter runs at 192 kHz but is short.<br>
+                    <em>Stage 2:</em> 96 kHz &rarr; 48 kHz (decimate by 2). Anti-aliasing cutoff at 24 kHz; transition band = 24 kHz to 48 kHz. Filter runs at 96 kHz (half the rate) with a moderately sharp cutoff.</p>
+                    <p>Total computation: Stage 1 (few taps × 192 kHz) + Stage 2 (more taps × 96 kHz). Each stage has a wider relative transition band and runs at a lower rate. In general, the savings from running the expensive sharp filter at the lower rate outweigh the extra stage overhead, especially at high decimation ratios like 64&times; or 128&times;.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">20</span><span class="exercise-title">Sampling Non-Baseband Signals</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A bandpass signal occupies frequencies between 90 kHz and 110 kHz (bandwidth 20 kHz). Naively, the Nyquist rate would be $2 \times 110 = 220$ kHz. However, bandpass sampling allows a much lower rate. What is the minimum sample rate, and what alias appears in the digital domain?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Bandpass sampling theorem: a bandpass signal with bandwidth $B = f_H - f_L$ can be sampled at $f_s = 2B = 40$ kHz (not $2f_H$), as long as $f_s$ is chosen so that the alias falls in baseband without overlapping itself.</p>
+                    <p>With $f_s = 40$ kHz: the signal at 90–110 kHz aliases. The closest alias of the 90–110 kHz band:</p>
+                    <p>$k=2$: $|[90,110]\text{ kHz} - 2 \times 40\text{ kHz}| = |[90,110] - 80| = [10, 30]$ kHz. This is a 20 kHz-wide alias in baseband. $k=3$: $|[90,110] - 120| = [10, 30]$ kHz — same alias.</p>
+                    <p>The signal naturally "downconverts" to 10–30 kHz in the digital domain — equivalent to mixing with a 100 kHz carrier. The spectrum is mirrored (the upper sideband becomes lower and vice versa), which can be corrected digitally.</p>
+                    <p>Bandpass sampling is used extensively in software-defined radio (SDR) where RF signals at hundreds of MHz are directly sampled at moderate rates, with the digital circuitry doing the demodulation work.</p></div></div></div>
+
+                <h3 style="color:#DC2626;margin-top:2rem;">Hard (21&ndash;30)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">21</span><span class="exercise-title">Proof Sketch: Sampling Theorem via Poisson Summation</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Sketch a proof of the Nyquist-Shannon sampling theorem using the Poisson summation formula. Show that sampling in time creates copies of the spectrum at multiples of $f_s$, and that non-overlapping copies allow perfect reconstruction.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Sampling can be modeled as multiplying $x(t)$ by a Dirac comb: $x_s(t) = x(t) \cdot \text{III}_{T_s}(t)$ where $\text{III}_{T_s}(t) = \sum_{n=-\infty}^{\infty} \delta(t - nT_s)$.</p>
+                    <p>The Fourier transform of the Dirac comb is also a Dirac comb: $\mathcal{F}\{\text{III}_{T_s}(t)\} = f_s \cdot \text{III}_{f_s}(f) = f_s\sum_k \delta(f - kf_s)$.</p>
+                    <p>Since multiplication in time = convolution in frequency (Poisson summation):</p>
+                    <p>$$X_s(f) = X(f) * \left[f_s\sum_k \delta(f - kf_s)\right] = f_s\sum_{k=-\infty}^{\infty} X(f - kf_s)$$</p>
+                    <p>The sampled spectrum is an infinite sum of shifted copies of $X(f)$, centered at $0, \pm f_s, \pm 2f_s, \ldots$. Each copy is a replica of the original spectrum shifted by a multiple of $f_s$.</p>
+                    <p><strong>Condition for non-overlap:</strong> The baseband copy ($k=0$) occupies $[-f_{\max}, f_{\max}]$. The adjacent copy ($k=1$) occupies $[f_s - f_{\max}, f_s + f_{\max}]$. These do not overlap if $f_{\max} \leq f_s - f_{\max}$, i.e., $f_s \geq 2f_{\max}$.</p>
+                    <p><strong>Reconstruction:</strong> When copies do not overlap, we can isolate the baseband copy by multiplying $X_s(f)$ by a rectangular window of width $f_s$ centered at zero (i.e., a lowpass filter at $f_s/2$), then dividing by $f_s$. This recovers $X(f)$ exactly. In time domain: convolving $x_s(t)$ with $\text{sinc}(t/T_s)$ (the impulse response of the ideal lowpass filter) recovers $x(t)$ exactly. QED.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">22</span><span class="exercise-title">Non-Bandlimited Signal Analysis</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>A non-bandlimited signal $x(t) = e^{-at}u(t)$ (one-sided exponential, $a > 0$) is sampled at $f_s$ Hz without anti-aliasing filtering. Compute its spectrum and describe the aliasing that occurs. What is the aliased spectrum as a function of frequency?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The Fourier transform of $x(t) = e^{-at}u(t)$:</p>
+                    <p>$$X(f) = \frac{1}{a + j2\pi f}$$</p>
+                    <p>This has nonzero magnitude for all $f$: $|X(f)| = 1/\sqrt{a^2 + 4\pi^2 f^2}$, decaying as $1/f$ at high frequencies. Since $X(f) \neq 0$ for any finite $f$, the signal is not bandlimited and aliasing necessarily occurs when sampled at any finite $f_s$.</p>
+                    <p>The sampled spectrum (from the Poisson summation result):</p>
+                    <p>$$X_s(f) = f_s\sum_{k=-\infty}^{\infty} X(f - kf_s) = f_s\sum_{k=-\infty}^{\infty} \frac{1}{a + j2\pi(f - kf_s)}$$</p>
+                    <p>This sum has a known closed form via the partial fraction expansion of the cotangent:</p>
+                    <p>$$X_s(f) = \frac{f_s}{e^{a/f_s} - e^{j2\pi f/f_s}} = \frac{1}{1 - e^{-(a + j2\pi f)/f_s}}$$</p>
+                    <p>The aliased spectrum looks like the spectrum of a sampled exponential with periodicity $f_s$. The aliasing error at frequency $f$ is $X_s(f) - X(f)$. At low frequencies ($f \ll f_s$), the aliasing is small because the high-frequency copies $X(f - kf_s)$ are small. Near Nyquist, the aliasing is more significant. In practice, a pre-emphasis filter (or direct anti-aliasing) is applied to approximate bandlimitedness before sampling.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">23</span><span class="exercise-title">Reconstruction Error from Finite Window</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>If sinc interpolation is truncated to use only $2M+1$ samples (instead of all $\infty$ samples), analyze the reconstruction error in the frequency domain. What are the error characteristics?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The truncated sinc interpolation uses filter $h_M(t) = \mathrm{sinc}(t/T_s) \cdot \text{rect}(t/(2MT_s))$ (sinc multiplied by a rectangular window of width $2MT_s$).</p>
+                    <p>In the frequency domain, convolving with the rectangular window corresponds to multiplying the filter spectrum by a sinc in frequency:</p>
+                    <p>$$H_M(f) = \text{rect}(fT_s) * [2MT_s \cdot \mathrm{sinc}(2MfT_s)]$$</p>
+                    <p>The ideal lowpass filter is $\text{rect}(fT_s)$ (brick wall at $\pm f_s/2$). The truncated version has the ideal response convolved with a sinc of width $1/(2MT_s) = f_s/(2M)$, which causes:</p>
+                    <ol>
+                    <li><strong>Gibbs phenomenon:</strong> The sharp cutoff at $f_s/2$ develops ringing — overshoot of $\approx 8.9\%$ on each side of the discontinuity, regardless of $M$. This means even large $M$ does not eliminate the ripple, only narrows it.</li>
+                    <li><strong>Transition band:</strong> The filter rolls off over a transition band of width $\approx f_s/(2M)$. Larger $M$ makes this narrower.</li>
+                    <li><strong>Passband ripple:</strong> The rectangular window creates $\approx \pm 8.9\%$ amplitude ripple in the passband.</li>
+                    </ol>
+                    <p>Solutions: (a) Use a smooth window (Hann, Hamming, Kaiser) instead of rectangular — this reduces Gibbs ripple at the cost of a wider transition band. (b) Increase $M$ to reduce transition band width. (c) For offline processing, use the full-length (all samples) computation.</p>
+                    <p>Reconstruction error power: $\|x(t) - \hat{x}_M(t)\|^2 \propto 1/M^2$ (for smooth signals), converging as $M$ increases.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">24</span><span class="exercise-title">Sampling Theorem for Multiband Signals</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The classical Nyquist theorem applies to baseband signals. For a signal occupying multiple disjoint bands with total bandwidth $B$, the minimum sampling rate is $2B$, not $2f_{\max}$. Prove this for a two-band signal and discuss when it holds.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Consider a signal $x(t)$ whose spectrum $X(f)$ is nonzero only on two bands: $B_1 = [f_1, f_1 + W_1]$ and $B_2 = [f_2, f_2 + W_2]$ (and their negatives). Total bandwidth $B = W_1 + W_2$.</p>
+                    <p><strong>Landau's theorem:</strong> The minimum sampling rate for any signal occupying a set of frequencies of total measure $B$ is exactly $2B$, regardless of where those bands are located. This is a lower bound; achievability requires careful construction.</p>
+                    <p><strong>Achievability for two bands:</strong> Choose $f_s = 2B$. The sampled spectrum contains copies of $B_1$ and $B_2$ at shifts $kf_s$. We must find $f_s$ such that all shifts of $B_1$ and $B_2$ land in disjoint locations that tile the frequency axis. This is a tiling/packing problem. For appropriate $f_s$, the two bands' copies do not overlap, and we can reconstruct $x(t)$ with two bandpass filters followed by frequency shifting.</p>
+                    <p><strong>When it holds:</strong> The relationship $f_s = 2B$ requires $f_s$ to be chosen from a discrete set of admissible values that depends on the exact band positions. Not every value $f_s \geq 2B$ works — aliasing can still occur at some rates even above $2B$. Specific arithmetic relationships between $f_1, f_2, W_1, W_2$, and $f_s$ must be satisfied to ensure alias-free sampling.</p>
+                    <p><strong>Practical example:</strong> FM radio occupies 88–108 MHz. Total bandwidth = 20 MHz. Minimum sampling rate = 40 MHz (versus the naïve $2 \times 108 = 216$ MHz). Software-defined radios exploit this for efficient digitization.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">25</span><span class="exercise-title">Jitter and Nyquist Interaction</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Sampling jitter (random timing error with RMS $\sigma_t$) causes SNR degradation that worsens with signal frequency. Show that near the Nyquist frequency ($f \approx f_s/2$), jitter is most damaging, and derive the maximum $\sigma_t$ to maintain 24-bit resolution for a full-scale 20 kHz tone.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>From Tutorial 02 (jitter analysis), the jitter-limited SNR for a sinusoid at frequency $f$:</p>
+                    <p>$$\text{SNR}_\text{jitter} = \frac{1}{(2\pi f \sigma_t)^2} \quad \Rightarrow \quad \text{SNR}_{\text{dB}} = -20\log_{10}(2\pi f \sigma_t)$$</p>
+                    <p>This is maximally damaging at the highest signal frequency, $f = f_s/2$. Near Nyquist, the sinusoid changes most rapidly between samples, so timing errors translate to the largest amplitude errors.</p>
+                    <p><strong>For 24-bit resolution at 20 kHz:</strong> Required SNR: $6.02 \times 24 + 1.76 \approx 146$ dB.</p>
+                    <p>$$-20\log_{10}(2\pi \times 20000 \times \sigma_t) \geq 146$$</p>
+                    <p>$$20\log_{10}(2\pi \times 20000 \times \sigma_t) \leq -146$$</p>
+                    <p>$$2\pi \times 20000 \times \sigma_t \leq 10^{-7.3} = 5.01 \times 10^{-8}$$</p>
+                    <p>$$\sigma_t \leq \frac{5.01 \times 10^{-8}}{2\pi \times 20000} = \frac{5.01 \times 10^{-8}}{125664} \approx 3.99 \times 10^{-13} \text{ s} \approx \mathbf{0.4 \text{ ps}}$$</p>
+                    <p>This is extraordinarily tight — less than 1 picosecond! This is why professional 24-bit audio interfaces require extremely low-jitter crystal oscillators and careful PCB layout. In practice, even state-of-the-art ADCs struggle to achieve 24-bit performance due to jitter alone, which is why ENOB is typically 20–22 bits for nominally 24-bit hardware.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">26</span><span class="exercise-title">Hilbert Transform and Analytic Signals</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>An analytic signal $z(t) = x(t) + j\hat{x}(t)$ (where $\hat{x}$ is the Hilbert transform of $x$) has a one-sided spectrum. Show that an analytic bandpass signal centered at $f_c$ can be sampled at rate $f_s = B$ (the signal bandwidth) rather than $2B$, effectively halving the required sample rate. What is the catch?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The analytic signal $z(t)$ formed from real bandpass signal $x(t)$ (occupying $[f_c - B/2, f_c + B/2]$) has spectrum $Z(f) = 2X(f)$ for $f > 0$ and $Z(f) = 0$ for $f < 0$.</p>
+                    <p>The complex baseband (lowpass equivalent) is $\tilde{z}(t) = z(t)e^{-j2\pi f_c t}$, which occupies $[-B/2, B/2]$ — a complex signal of total bandwidth $B$.</p>
+                    <p>A complex signal $\tilde{z}(t) = I(t) + jQ(t)$ requires sampling both the in-phase ($I$) and quadrature ($Q$) components. Each is real and bandlimited to $B/2$, so each needs sampling at $f_s = B$. The complex sampling rate is $f_s = B$ complex samples/second, carrying $B$ real samples/second worth of information each — same total information as sampling the real bandpass signal at $2B$.</p>
+                    <p><strong>The catch:</strong> You need two real ADCs running at $B$ samples/second each (one for $I$, one for $Q$), along with a quadrature downconverter (analog I/Q demodulator) to shift the signal to baseband first. Any amplitude or phase imbalance between the $I$ and $Q$ channels introduces "image" artifacts at $-f_c$ from the signal, corrupting the reconstruction.</p>
+                    <p>This is the principle behind <em>quadrature sampling</em> (IQ sampling) used in all modern radio receivers and some audio analysis tools. The advantage is a $2\times$ reduction in per-channel sampling rate; the disadvantage is analog complexity and sensitivity to IQ imbalance.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">27</span><span class="exercise-title">Polyphase Decomposition for Efficient Resampling</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>To resample audio from 44.1 kHz to 48 kHz requires upsampling by 160, filtering, then downsampling by 147. Naively, this involves computing $160 \times L$ filter taps at 44,100 &times; 160 Hz. Explain the polyphase decomposition that makes this practical, reducing computation to approximately $L$ multiplications at 48 kHz.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Direct approach: upsample by 160 (insert 159 zeros), apply lowpass filter $H(z)$ with $L$ taps, downsample by 147. Filter runs at $44100 \times 160 = 7.056$ MHz, computing $L$ multiplications per sample = $7.056\text{ MHz} \times L$ multiply-accumulates/second. Most are multiplications by zero (the inserted zeros).</p>
+                    <p><strong>Polyphase decomposition:</strong> Decompose the filter into $M = 160$ subfilters (polyphase branches). The $k$-th polyphase component is:</p>
+                    <p>$$E_k(z) = \sum_{n} h[kM + n] z^{-n}$$</p>
+                    <p>The key identity: $H(z) = \sum_{k=0}^{M-1} z^{-k} E_k(z^M)$.</p>
+                    <p>When upsampling then filtering: instead of filtering at the high rate, you compute only the polyphase subfilter corresponding to the output phase. For each output sample, you select one of the 160 polyphase filters based on which "phase" of the upsampling you're at, and compute $L/M$ multiplications. The downsampling simply picks every 147th output — you compute only those outputs.</p>
+                    <p><strong>Resulting complexity:</strong> For each output at 48 kHz, compute one polyphase filter of length $L/160$: approximately $L/160$ multiplications per output sample. At 48 kHz rate: $48000 \times L/160 = 300L$ multiply-accumulates/second. Versus direct: $7,056,000 \times L$ — a reduction by factor $160 \times 147/160 = 147\times$ (&gt;99% reduction). The polyphase approach is standard in professional audio sample rate converters.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">28</span><span class="exercise-title">Shannon Entropy and Sampling</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Shannon proved that a bandlimited signal with bandwidth $B$ Hz and finite energy over $T$ seconds has at most $2BT$ degrees of freedom (independent parameters). Connect this to the sampling theorem, and explain the implication for audio compression.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Connection to sampling theorem:</strong> The sampling theorem says we need $2B$ samples per second to exactly represent a signal of bandwidth $B$. Over $T$ seconds, this gives exactly $2BT$ samples. Shannon's $2BT$ degrees-of-freedom result is the same number — it says the space of bandlimited signals over $[0, T]$ is exactly $2BT$-dimensional. The samples form a natural basis for this space.</p>
+                    <p>More precisely: the Slepian-Pollak prolate spheroidal wave functions (PSWFs) provide an orthonormal basis for the space of approximately time-and-bandlimited signals, and the number of significant PSWFs in a $T$-second, $B$-Hz window is approximately $2BT$ (the "time-bandwidth product").</p>
+                    <p><strong>Implications for audio compression:</strong><br>
+                    1. <em>Fundamental limit:</em> Any lossless representation of $T$ seconds of $B$-Hz audio must store at least $2BT$ real numbers — you cannot do better without loss.<br>
+                    2. <em>Redundancy in natural signals:</em> Real audio signals are not arbitrary elements of the $2BT$-dimensional space. Music and speech exploit only a small subset of all possible configurations. Compression exploits this structure.<br>
+                    3. <em>Perceptual coding:</em> MP3 and AAC don't store all $2BT$ samples equally. They allocate more bits to perceptually significant components (masking model) and fewer to inaudible ones — achieving &gt;10:1 compression with near-transparent quality.<br>
+                    4. <em>Compressive sensing:</em> If a signal is sparse in some basis (e.g., few large Fourier coefficients), it can be recovered from far fewer than $2BT$ measurements — circumventing the $2BT$ bound for general signals by exploiting sparsity priors.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">29</span><span class="exercise-title">Continuous vs. Discrete Uncertainty Principle</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The Heisenberg-Gabor uncertainty principle states $\sigma_t \sigma_f \geq 1/(4\pi)$, where $\sigma_t$ and $\sigma_f$ are the RMS durations in time and frequency. A Gaussian pulse achieves the minimum. How does this fundamental limit interact with the Nyquist sampling theorem? Can you simultaneously have a signal that is both perfectly time-limited (compact support in time) and bandlimited?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>No — a signal cannot be simultaneously time-limited and bandlimited.</strong> This is a fundamental theorem (Paley-Wiener theorem).</p>
+                    <p><strong>Proof sketch:</strong> If $x(t) = 0$ for all $|t| > T$ (compactly supported), then its Fourier transform $X(f) = \int_{-T}^{T} x(t)e^{-j2\pi ft}dt$ is an entire function of $f$ (holomorphic in the entire complex plane). An entire function that is zero on any interval must be identically zero. Therefore $X(f)$ cannot be identically zero for $|f| > B$ unless $x(t) = 0$ — so $x$ cannot be both nonzero and bandlimited unless it is infinitely extended in time.</p>
+                    <p><strong>Interaction with Nyquist:</strong> This means all practical signals (which are finite in duration) are not strictly bandlimited. When we sample them:</p>
+                    <ol>
+                    <li>The anti-aliasing filter makes the signal "approximately" bandlimited by attenuating high frequencies, but cannot make it exactly bandlimited.</li>
+                    <li>Reconstruction cannot be perfect — there is always some aliasing error from the non-bandlimited tails.</li>
+                    <li>The error can be made arbitrarily small by making the anti-aliasing filter steep enough (or by oversampling more).</li>
+                    </ol>
+                    <p><strong>Practical consequence:</strong> Audio engineering accepts this theoretical imperfection. The anti-aliasing filter is designed so the residual aliasing falls below the quantization noise floor, making it imperceptible. The Nyquist theorem is treated as an engineering approximation (justified by the extremely rapid decay of audio spectra above 20 kHz) rather than an exact mathematical truth.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">30</span><span class="exercise-title">Irregular Sampling and Reconstruction</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The classical Nyquist theorem assumes uniform sampling (equal spacing $T_s$). For non-uniform sampling (samples at irregular times $t_n$), the Paley-Wiener and Beurling-Kadec theorems give conditions for reconstruction. State these conditions and explain how non-uniform sampling arises in practice and how reconstruction is performed.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Paley-Wiener theorem (1934):</strong> A bandlimited function $x \in L^2$ with bandwidth $[-\Omega, \Omega]$ can be reconstructed from non-uniform samples $\{x(t_n)\}$ if the sequence $\{t_n\}$ forms a <em>Riesz basis</em> for $L^2[-\Omega, \Omega]$ — i.e., there exist $A, B > 0$ such that for all coefficient sequences:</p>
+                    <p>$$A\sum|c_n|^2 \leq \left\|\sum_n c_n e^{j2\pi \Omega t_n \cdot}\right\|^2 \leq B\sum|c_n|^2$$</p>
+                    <p><strong>Kadec's 1/4 theorem:</strong> If the sampling times $t_n$ satisfy $|t_n - n/f_s| < 1/(4f_s)$ for all $n$ (each sample deviates by less than 1/4 of the uniform spacing), then the set $\{e^{j2\pi f t_n}\}$ is a Riesz basis and reconstruction is possible. Beurling extended this to density conditions: the Nyquist density $D^- = \liminf_{r\to\infty} N(r)/r \geq 2f_{\max}$ is necessary.</p>
+                    <p><strong>Practical occurrences of non-uniform sampling:</strong><br>
+                    - ADC sample-and-hold timing jitter<br>
+                    - Seismic sensors placed irregularly on terrain<br>
+                    - Medical imaging (spiral MRI k-space trajectories)<br>
+                    - Event-driven ADCs that sample at signal crossings<br>
+                    - Multi-channel systems with inter-channel timing skew</p>
+                    <p><strong>Reconstruction methods:</strong><br>
+                    1. <em>Iterative algorithms:</em> Frame-based iterative reconstruction using the pseudoinverse of the sampling operator. Converges if samples form a frame.<br>
+                    2. <em>Vandermonde / least-squares:</em> For a known set of sample times, solve the linear system relating samples to Fourier coefficients.<br>
+                    3. <em>NUFFT (Non-Uniform FFT):</em> Efficient algorithm for computing Fourier transforms from non-uniform samples. Used in MRI reconstruction.<br>
+                    4. <em>Kriging/Gaussian process interpolation:</em> Statistical approach that uses the signal's power spectral density as a prior for reconstruction, naturally handling noise.</p></div></div></div>
+
+            </article>
+        </main>
+    </div>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

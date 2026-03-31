@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guidance &amp; Conditioning | Diffusion Models</title>
+    <meta name="description" content="Learn classifier guidance, classifier-free guidance, text conditioning, ControlNet, inpainting, and compositional generation in diffusion models.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link active">Diffusion Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Diffusion Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Guidance &amp; Conditioning</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Diffusion Models</h3>
+        <nav class="sidebar-nav">
+            <a href="../00-forward-process/index.html" class="sidebar-link">00. The Forward Process</a>
+            <a href="../01-reverse-denoising/index.html" class="sidebar-link">01. Reverse Process & DDPM</a>
+            <a href="../02-score-matching/index.html" class="sidebar-link">02. Score Matching</a>
+            <a href="../03-sampling-methods/index.html" class="sidebar-link">03. Sampling Methods</a>
+            <a href="../04-sde-ode-framework/index.html" class="sidebar-link">04. SDE/ODE Framework</a>
+            <a href="../05-guidance-conditioning/index.html" class="sidebar-link active">05. Guidance & Conditioning</a>
+            <a href="../06-architectures/index.html" class="sidebar-link">06. Architectures</a>
+        </nav>
+    </div>
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+            <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+            <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+            <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+            <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+        </nav>
+    </div>
+</aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Guidance &amp; Conditioning</h1>
+                <p>
+                    Unconditional generation asks for samples from $p(x)$, but most creative applications ask for samples from $p(x\mid y)$. The conditioning variable $y$ might be a class label, a text prompt, a mask, a depth map, a pose skeleton, or any other side signal that tells the model what to create.
+                </p>
+                <p>
+                    Guidance works by bending the denoising field toward outputs that are more compatible with the condition. The cleverness of modern diffusion systems lies in doing that without retraining a separate generative model for every new condition type.
+                </p>
+                <h3 id="classifier-guidance-formula">9.1 Classifier Guidance</h3>
+                <p>
+                    Condition on class $y$ by modifying the score:
+                </p>
+                <div class="math-block">
+                    $$\nabla_x \log p(x_t | y) = \nabla_x \log p(x_t) + \nabla_x \log p(y | x_t)$$
+                </div>
+                <p>
+                    Train a separate classifier $p(y|x_t)$ on noisy data and add its gradient.
+                </p>
+                <h3 id="classifier-free-guidance">9.2 Classifier-Free Guidance</h3>
+                <p>
+                    Combine conditional and unconditional scores:
+                </p>
+                <div class="math-block">
+                    $$\tilde{\epsilon}_\theta = (1 + w) \epsilon_\theta(x_t, t, y) - w \cdot \epsilon_\theta(x_t, t, \emptyset)$$
+                </div>
+                <p>
+                    where $w > 0$ is the guidance weight. Higher $w$ = more adherence to the condition, less diversity.
+                </p>
+                <p>
+                    This is what makes text-to-image models like DALL-E and Stable Diffusion work so well.
+                </p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <defs><marker id="gArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#ef4444"/></marker></defs>
+                        <text x="380" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Guidance adds a conditional vector to the unconditional denoising field</text>
+                        <circle cx="570" cy="120" r="55" fill="#dcfce7" opacity="0.45"/>
+                        <text x="570" y="122" text-anchor="middle" font-size="12" fill="currentColor">target concept</text>
+                        <line x1="120" y1="90" x2="138" y2="80" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="120" y1="90" x2="160" y2="70" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="120" y1="150" x2="138" y2="140" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="120" y1="150" x2="160" y2="130" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="120" y1="210" x2="138" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="120" y1="210" x2="160" y2="190" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="200" y1="90" x2="218" y2="80" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="200" y1="90" x2="240" y2="70" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="200" y1="150" x2="218" y2="140" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="200" y1="150" x2="240" y2="130" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="200" y1="210" x2="218" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="200" y1="210" x2="240" y2="190" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="280" y1="90" x2="298" y2="80" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="280" y1="90" x2="320" y2="70" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="280" y1="150" x2="298" y2="140" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="280" y1="150" x2="320" y2="130" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="280" y1="210" x2="298" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="280" y1="210" x2="320" y2="190" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="360" y1="90" x2="378" y2="80" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="360" y1="90" x2="400" y2="70" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="360" y1="150" x2="378" y2="140" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="360" y1="150" x2="400" y2="130" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="360" y1="210" x2="378" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="360" y1="210" x2="400" y2="190" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="440" y1="90" x2="458" y2="80" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="440" y1="90" x2="480" y2="70" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="440" y1="150" x2="458" y2="140" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="440" y1="150" x2="480" y2="130" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                        <line x1="440" y1="210" x2="458" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="440" y1="210" x2="480" y2="190" stroke="#ef4444" stroke-width="2.4" marker-end="url(#gArrow)"/>
+                    </svg>
+                </div>
+                <h2 id="classifier-guidance">Classifier guidance from Bayes' rule</h2>
+                <p>
+                    Classifier guidance starts from Bayes' rule. Because $\log p(x\mid y) = \log p(x) + \log p(y\mid x) - \log p(y)$, differentiating with respect to $x$ removes the constant term $\log p(y)$ and leaves a clean steering identity.
+                </p>
+                <div class="math-block">
+                    $$\nabla_x \log p(x\mid y) = \nabla_x \log p(x) + \nabla_x \log p(y\mid x)$$
+                </div>
+                <p>
+                    The first term is the unconditional score supplied by the diffusion model. The second term comes from a noisy-image classifier and points in the direction that makes the condition $y$ more likely. Sampling then becomes "follow the usual denoising field, plus an extra push toward the condition."
+                </p>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">How classifier and classifier-free guidance are related</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">Classifier guidance adds an explicit classifier gradient to the unconditional score.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">Classifier-free guidance avoids a separate classifier by training one denoiser that sometimes sees the condition and sometimes sees a null token.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">Subtracting the unconditional prediction from the conditional one isolates a learned condition direction.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">Scaling that difference plays the same conceptual role as scaling the classifier gradient: stronger adherence to $y$, usually at the cost of diversity.</div>
+                    </div>
+                </div>
+                <p>
+                    This works beautifully in principle, but maintaining a separate classifier is expensive and somewhat awkward. Classifier-free guidance is so successful because it bakes both unconditional and conditional behavior into the same denoiser and recovers a similar steering effect with one extra forward pass.
+                </p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 820 250" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="410" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Increasing CFG scale trades diversity for prompt adherence</text>
+                        <rect x="35" y="70" width="110" height="110" rx="12" fill="none" stroke="currentColor" opacity="0.18"/>
+                        <ellipse cx="90" cy="125" rx="22" ry="22" fill="#93c5fd" opacity="0.65"/>
+                        <text x="90" y="58" text-anchor="middle" font-size="11" fill="currentColor">w=0</text>
+                        <text x="90" y="202" text-anchor="middle" font-size="10" fill="currentColor">broad and diverse</text>
+                        <rect x="215" y="70" width="110" height="110" rx="12" fill="none" stroke="currentColor" opacity="0.18"/>
+                        <ellipse cx="270" cy="125" rx="28" ry="22" fill="#818cf8" opacity="0.65"/>
+                        <text x="270" y="58" text-anchor="middle" font-size="11" fill="currentColor">w=3</text>
+                        <text x="270" y="202" text-anchor="middle" font-size="10" fill="currentColor">balanced</text>
+                        <rect x="395" y="70" width="110" height="110" rx="12" fill="none" stroke="currentColor" opacity="0.18"/>
+                        <ellipse cx="450" cy="125" rx="34" ry="22" fill="#f9a8d4" opacity="0.65"/>
+                        <text x="450" y="58" text-anchor="middle" font-size="11" fill="currentColor">w=7</text>
+                        <text x="450" y="202" text-anchor="middle" font-size="10" fill="currentColor">sharp and on-topic</text>
+                        <rect x="575" y="70" width="110" height="110" rx="12" fill="none" stroke="currentColor" opacity="0.18"/>
+                        <ellipse cx="630" cy="125" rx="40" ry="22" fill="#fca5a5" opacity="0.65"/>
+                        <text x="630" y="58" text-anchor="middle" font-size="11" fill="currentColor">w=15</text>
+                        <text x="630" y="202" text-anchor="middle" font-size="10" fill="currentColor">risk of oversaturation</text>
+                    </svg>
+                </div>
+                <h2 id="worked-example-cfg-scale">Worked example: what the CFG scale is actually doing</h2>
+                <p>
+                    Imagine the unconditional denoiser predicts a direction saying "make this look more like a generic natural image," while the conditional denoiser adds "specifically make it look like a red fox in snow." Classifier-free guidance subtracts those two vectors, keeps the difference as the prompt-specific direction, and then multiplies that direction by the guidance scale.
+                </p>
+                <p>
+                    At moderate scales this is exactly what we want: weak prompt information becomes strong enough to shape the sample. At extreme scales the same multiplication also amplifies modeling error, which is why too much CFG often produces oversaturated colors, brittle composition, repeated motifs, or strange prompt over-literalness.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">Common misconception: higher guidance is not always better</div>
+                    <p>
+                        CFG does not create information the model never learned. It only reweights conditional and unconditional directions, so pushing the scale too high often improves prompt adherence while making realism, diversity, and layout stability worse.
+                    </p>
+                </div>
+                <h2 id="text-conditioning-and-cross-attention">Text conditioning and cross-attention</h2>
+                <p>
+                    In text-to-image systems, the condition is usually encoded by a language model such as CLIP or T5. Cross-attention lets image features query those text embeddings so that different spatial regions can focus on different words or concepts during denoising.
+                </p>
+                <p>
+                    Classifier-free guidance then blends the conditional and unconditional denoiser outputs. Small guidance scales preserve diversity, moderate scales sharpen prompt fidelity, and extreme scales can oversaturate or collapse variety.
+                </p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 840 280" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="420" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">ControlNet adds trainable spatial control while preserving the base model</text>
+                        <rect x="110" y="90" width="180" height="60" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+                        <text x="200" y="126" text-anchor="middle" font-size="12" fill="currentColor">frozen U-Net</text>
+                        <rect x="370" y="90" width="180" height="60" rx="10" fill="#fce7f3" stroke="#db2777" stroke-width="2"/>
+                        <text x="460" y="126" text-anchor="middle" font-size="12" fill="currentColor">ControlNet copy</text>
+                        <rect x="650" y="90" width="120" height="60" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+                        <text x="710" y="126" text-anchor="middle" font-size="12" fill="currentColor">guided output</text>
+                        <rect x="370" y="185" width="180" height="40" rx="8" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
+                        <text x="460" y="210" text-anchor="middle" font-size="11" fill="currentColor">zero-conv control injection</text>
+                        <line x1="290" y1="120" x2="370" y2="120" stroke="currentColor"/>
+                        <line x1="550" y1="120" x2="650" y2="120" stroke="currentColor"/>
+                        <line x1="460" y1="185" x2="460" y2="150" stroke="#f97316" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h2 id="controlnet-inpainting-and-composition">ControlNet, inpainting, and compositional prompts</h2>
+                <p>
+                    ControlNet augments a pretrained denoiser with trainable side branches that inject spatial control signals such as edges, depth, or pose. The base model stays largely intact, which is why ControlNet can add new control modes without relearning the entire visual prior from scratch.
+                </p>
+                <p>
+                    The key engineering trick is the zero-initialized convolution. At initialization the new branch contributes almost nothing, so the copied pretrained U-Net behaves exactly like the original model. During finetuning, the control branch gradually earns influence only where the optimization signal consistently says the structural condition should matter.
+                </p>
+                <p>
+                    A helpful mental model is "frozen broad knowledge plus trainable precise structure." The pretrained backbone remembers what realistic images look like, while the control branch learns how edges, depth maps, segmentation masks, or pose skeletons should bend that realism into a desired spatial arrangement.
+                </p>
+                <p>
+                    Inpainting and image-to-image methods work by partially constraining the reverse process: known pixels are reinserted or softly preserved while unknown regions are regenerated. Negative prompts and compositional prompting can be understood in the same algebraic spirit — they shape the denoising field by adding or subtracting concept directions.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">Worked example: why zero convolutions matter</div>
+                    <p>
+                        If the copied control branch started with large random weights, it would immediately distort the hidden states of the pretrained denoiser and destroy sample quality. Zero initialization makes the branch a no-op on day one, so finetuning can add structure gradually instead of overwriting the visual prior all at once.
+                    </p>
+                </div>
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Guidance & Conditioning</h2>
+    <p>
+        Guidance is how diffusion models stop being generic and start being useful. By steering the denoising field with prompts, labels, masks, or structural maps, the same generative prior becomes a flexible conditional generator.
+    </p>
+</div>
+                <div class="tutorial-nav">
+                    <a href="../04-sde-ode-framework/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← SDE/ODE Framework</span>
+                    </a>
+                    <a href="../06-architectures/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Architectures →</span>
+                    </a>
+                </div>
+            </article>
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="classifier-free-guidance-in-one-function">Classifier-free guidance in one function</h2>
+                <p>
+                    The essence of CFG is a linear combination of two denoiser outputs: one conditional and one unconditional. This tiny line of code is arguably the most economically important equation in modern image generation.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def classifier_free_guidance(model, x, t, cond, scale=7.5):
+    eps_cond = model(x, t, cond)
+    eps_uncond = model(x, t, None)
+    return eps_uncond + scale * (eps_cond - eps_uncond)
+
+# equivalent form
+# guided = (1 + scale) * eps_cond - scale * eps_uncond
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        When <code>scale=0</code>, the sampler is unconditional. As the scale grows, prompt fidelity improves but diversity usually drops.
+    </p>
+</div>
+                <h2 id="classifier-guided-reverse-step">Classifier-guided reverse step</h2>
+                <p>
+                    If a noisy-image classifier is available, its gradient can be added directly to the reverse score. The classifier-free trick above is usually preferred in practice, but the classifier form is still the cleanest Bayes-rule derivation.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def classifier_guided_eps(model, classifier, x, t, y, sigma_t, guidance_scale=1.0):
+    x = x.detach().requires_grad_(True)
+    eps = model(x, t, None)
+    logits = classifier(x, t)
+    logp = torch.log_softmax(logits, dim=-1)
+    selected = logp[torch.arange(x.size(0), device=x.device), y].sum()
+    grad = torch.autograd.grad(selected, x)[0]
+    guided_score = -eps / sigma_t + guidance_scale * grad
+    guided_eps = -sigma_t * guided_score
+    return guided_eps.detach()
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        This is elegant but expensive because every denoising step now also requires a backward pass through the classifier.
+    </p>
+</div>
+                <h2 id="text-conditioning-with-cross-attention-embeddings">Text conditioning with cross-attention embeddings</h2>
+                <p>
+                    A practical text-to-image pipeline first encodes prompts into context vectors. The denoiser then consumes both image latents and text features.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+def encode_prompts(text_encoder, prompts, device):
+    tokens = text_encoder.tokenize(prompts).to(device)
+    with torch.no_grad():
+        context = text_encoder(tokens)
+    return context
+
+
+@torch.no_grad()
+def conditioned_step(unet, x, t, text_context):
+    # the U-Net internally uses cross-attention blocks
+    return unet(x, t, context=text_context)
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        The heavy lifting happens inside the denoiser architecture, where image features query the text representation repeatedly at multiple resolutions.
+    </p>
+</div>
+                <h2 id="inpainting-loop-sketch">Inpainting loop sketch</h2>
+                <p>
+                    Inpainting keeps the known region anchored while allowing unknown regions to evolve under the denoiser. The mask is reimposed at every step so the sampler cannot drift away from observed pixels.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def inpaint(model, init_latent, known_latent, mask, timesteps):
+    x = init_latent.clone()
+    for t in reversed(timesteps):
+        batch_t = torch.full((x.size(0),), t, device=x.device, dtype=torch.long)
+        eps = model(x, batch_t)
+        x = denoise_step_from_eps(x, t, eps)
+        x = mask * known_latent + (1 - mask) * x
+    return x
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        This same pattern generalizes to image-to-image generation, where the “known” latent is a noisy version of an input image rather than a hard mask.
+    </p>
+</div>
+            </article>
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>
+                    Start with direct computations and concept checks. These should feel like guided repetitions of the core formulas.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 1: Conditional versus unconditional generation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What distribution does a guided diffusion model try to sample from?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It tries to sample from a conditional distribution such as $p(x\mid y)$ rather than only the unconditional $p(x)$. The condition may be a label, prompt, or spatial control signal.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 2: Read the CFG formula</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                In classifier-free guidance, what are the two denoiser evaluations being combined?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    They are the conditional prediction and the unconditional prediction. Guidance takes their difference and amplifies it to steer the reverse process.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 3: Effect of zero guidance</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What happens when the CFG scale is set to zero?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The conditional correction disappears, so the sampler behaves like the unconditional model. Prompt adherence drops, but diversity is usually higher.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 4: High guidance intuition</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can extremely high guidance scales produce brittle or oversaturated images?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because the conditional direction is over-amplified relative to the base denoising field. The sampler then sacrifices diversity and can exaggerate textures or colors unnaturally.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 5: Classifier guidance input</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What must a classifier-guidance classifier be trained to do?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It must classify noisy inputs at the same timesteps used by the diffusion process. A clean-image classifier is not enough because the sampler queries it on noisy states.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 6: Negative prompt idea</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What is a negative prompt doing conceptually?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It pushes the denoising trajectory away from features associated with an unwanted concept. In practice it alters the unconditional branch used in CFG-style interpolation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 7: Role of text encoder</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is a separate text encoder often used in text-to-image systems?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It converts variable-length language into dense context embeddings that the denoiser can attend to repeatedly. The denoiser itself is then free to focus on image-space computation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 8: Inpainting constraint</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why are known pixels reinserted during inpainting?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    To stop the reverse process from drifting away from observed content. Reimposing the known region each step preserves consistency with the input image.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 9: ControlNet purpose</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What does ControlNet add that ordinary text conditioning does not?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It adds explicit spatial control, such as edges or depth, rather than only semantic guidance from text. That lets generation obey detailed layouts and structures.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 10: Compositional prompting</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why are diffusion models naturally compatible with combining conditions?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because guidance acts on denoising directions, and those directions can often be added, subtracted, or blended. Composition is therefore an operation on vector fields rather than on hard symbolic rules.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>
+                    Now move from recall to derivation. These questions ask you to justify formulas, compare viewpoints, and explain why the method works.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 11: Bayes-rule derivation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does classifier guidance follow from Bayes\' rule?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The conditional log-density splits as $\log p(x\mid y)=\log p(x)+\log p(y\mid x)-\log p(y)$. Differentiating with respect to $x$ removes the constant term $\log p(y)$ and yields the sum of the unconditional score and classifier gradient.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 12: Implicit classifier in CFG</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is classifier-free guidance often described as learning an implicit classifier?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The difference between conditional and unconditional denoiser outputs acts like a learned estimate of how the condition changes the score. No separate classifier is trained, but the same directional information is encoded in the denoiser pair.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 13: Guidance-diversity trade-off</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does stronger guidance usually reduce diversity?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because more of the sampler\'s freedom is spent following the condition-specific direction rather than exploring the unconditional data prior. The path becomes more concentrated around a narrower subset of satisfying samples.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 14: Noisy classifier challenge</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is training a classifier on noisy images harder than training on clean images?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    At large timesteps the semantic signal is faint and class evidence is heavily corrupted. The classifier must therefore infer labels under severe information loss, which is exactly why classifier-free guidance became so attractive.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 15: Cross-attention role</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What does cross-attention let image features do during denoising?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It lets spatial image tokens query the text context and focus on relevant prompt fragments. Different locations can therefore attend to different words as generation unfolds.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 16: ControlNet zero-conv idea</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why are zero-initialized convolutions useful in ControlNet?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    They ensure the added control branch starts with no effect on the pretrained model. The network can then learn control gradually without immediately disrupting the base denoiser\'s behavior.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 17: Img2img strength parameter</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does stronger initial noising produce bigger edits in image-to-image generation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The more corruption you add to the input image, the less tightly the sampler remains tied to the original content. Strong noising therefore grants more freedom to recompose shape, texture, and semantics.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 18: Negative prompt algebra</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How can negative prompts be interpreted algebraically in CFG?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    They modify the reference branch against which the positive condition is contrasted. That effectively subtracts features associated with the negative concept from the final guided direction.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 19: Multiple conditions</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can multiple conditions often be combined by weighted sums of guidance directions?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because each condition contributes a direction that says how denoising should change to satisfy it. Weighted sums are a natural first approximation when those conditions do not conflict too strongly.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 20: Prompt overfitting</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What does it mean for a sampler to overfit to a prompt?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It means the guidance is so strong that outputs lose variety and repeatedly instantiate the same narrow interpretation of the request. The images become on-topic but less creative or robust.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>
+                    These problems push you toward research-level thinking: asymptotics, design choices, edge cases, and deeper theoretical interpretation.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 21: Optimal guidance scale</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is there unlikely to be one globally optimal guidance scale for every prompt?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The ideal scale depends on prompt ambiguity, dataset bias, sampler noise level, and user preference between fidelity and diversity. Different prompts require different amounts of steering to land in a satisfying regime.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 22: Mode collapse under guidance</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How can aggressive guidance create a diffusion analogue of mode collapse?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    When the conditional direction overwhelms the unconditional prior, many distinct latent starting points are pulled into the same narrow family of outputs. The system is still generative, but effective output diversity collapses.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 23: Conditional score composition</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Under what assumption is it most reasonable to add guidance vectors from multiple conditions?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It is most reasonable when the conditions are approximately compatible and their score contributions combine linearly over the relevant region of latent space. Strongly conflicting conditions break that approximation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 24: Classifier-free versus classifier guidance</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why has CFG largely displaced classifier guidance in large-scale image generation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    CFG avoids training and backpropagating through a separate noisy classifier, integrates naturally with text conditioning, and typically offers a better practical trade-off between quality, compute, and engineering complexity.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 25: Control fidelity versus prior fidelity</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What is the main tension in ControlNet-style methods?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The control branch should impose external structure without destroying the pretrained model\'s rich visual prior. Too little control ignores the conditioning signal; too much control can make images rigid or unnatural.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 26: Inpainting boundary artifacts</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why do seams appear near mask boundaries in naive inpainting?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The generated region and preserved region may follow inconsistent denoising histories near the boundary. Better masking schedules, latent blending, or boundary-aware conditioning are needed to smooth the transition.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 27: Prompt entanglement</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can text prompts interact nonlinearly even when each phrase seems simple in isolation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The denoiser does not represent text as independent symbolic slots; it learns a shared embedding space where concepts influence one another. Guidance therefore acts on an entangled semantic geometry rather than a clean Boolean algebra.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 28: Robust negative prompting</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can negative prompts sometimes accidentally remove desirable features?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Concepts in embedding space are correlated, so steering away from one attribute may also weaken nearby desirable attributes. This is a geometric side effect of operating in a learned representation rather than an explicit symbolic ontology.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 29: Guidance at different noise levels</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why might the best guidance scale depend on the timestep?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    High-noise stages determine global composition and semantics, while low-noise stages refine details. The amount of useful steering can therefore vary across the trajectory rather than remaining constant.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 30: Research extension</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Propose a way to make guidance adaptive rather than using one fixed scale.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    One approach is to let a small policy network predict the guidance scale from timestep, prompt embedding, and current latent statistics. That policy could optimize a downstream reward balancing fidelity, diversity, and artifact suppression.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\[', right: '\]', display: true},
+                        {left: '\(', right: '\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

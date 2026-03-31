@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fourier Transform &amp; FFT | ML Fundamentals</title>
+    <meta name="description" content="Deep dive into the Fourier Transform and FFT: from Fourier series to the DFT, the Cooley-Tukey FFT algorithm, windowing, and practical audio applications.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX for Math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x266A;</text></svg>">
+
+    <style>
+        .info-box {
+            background: var(--color-surface-elevated);
+            border: 2px solid var(--color-accent);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .info-box p { margin: 0; }
+        .info-box .box-title { font-weight: 600; margin: 0 0 0.5rem; }
+        .warning-box {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        [data-theme="dark"] .warning-box { background: #2d2000; border-color: #d97706; }
+        .warning-box p { margin: 0; }
+        .property-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        @media (max-width: 700px) { .property-grid { grid-template-columns: 1fr; } }
+        .property-card {
+            background: var(--color-surface-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            padding: 1.25rem;
+        }
+        .property-card h4 { margin: 0 0 0.5rem; color: var(--color-accent); }
+        .property-card p { margin: 0; font-size: 0.9rem; }
+        svg text { font-family: Inter, sans-serif; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/audio/index.html" class="nav-link active">Audio &amp; DSP</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tutorial Header -->
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Audio &amp; DSP</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Fourier Transform &amp; FFT</span>
+            </nav>
+
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Audio &amp; DSP</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-sound-waves/index.html" class="sidebar-link">01. Sound Waves</a>
+                    <a href="../02-digital-audio/index.html" class="sidebar-link">02. Digital Audio</a>
+                    <a href="../03-nyquist-sampling/index.html" class="sidebar-link">03. Nyquist &amp; Sampling</a>
+                    <a href="../04-fourier-transform/index.html" class="sidebar-link active">04. Fourier Transform &amp; FFT</a>
+                    <a href="../05-spectrograms/index.html" class="sidebar-link">05. Spectrograms</a>
+                    <a href="../06-digital-filters/index.html" class="sidebar-link">06. Digital Filters</a>
+                    <a href="../07-audio-effects/index.html" class="sidebar-link">07. Audio Effects</a>
+                    <a href="../08-psychoacoustics/index.html" class="sidebar-link">08. Psychoacoustics</a>
+                    <a href="../09-audio-compression/index.html" class="sidebar-link">09. Audio Compression</a>
+                    <a href="../10-sound-synthesis/index.html" class="sidebar-link">10. Sound Synthesis</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">On This Page</h3>
+                <nav class="sidebar-nav">
+                    <a href="#the-big-idea" class="sidebar-link">The Big Idea</a>
+                    <a href="#fourier-series" class="sidebar-link">Fourier Series</a>
+                    <a href="#continuous-ft" class="sidebar-link">Continuous FT</a>
+                    <a href="#dft" class="sidebar-link">Discrete FT (DFT)</a>
+                    <a href="#fft" class="sidebar-link">Fast FT (FFT)</a>
+                    <a href="#inverse-fft" class="sidebar-link">Inverse FFT</a>
+                    <a href="#properties" class="sidebar-link">Properties</a>
+                    <a href="#practical-fft" class="sidebar-link">Practical FFT</a>
+                    <a href="#applications" class="sidebar-link">Applications</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Topics</h3>
+                <nav class="sidebar-nav">
+                    <a href="../03-nyquist-sampling/index.html" class="sidebar-link">Nyquist &amp; Sampling</a>
+                    <a href="../05-spectrograms/index.html" class="sidebar-link">Spectrograms</a>
+                    <a href="../06-digital-filters/index.html" class="sidebar-link">Digital Filters</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Article -->
+        <main class="tutorial-main">
+
+            <!-- ============================================================
+                 THEORY TAB
+                 ============================================================ -->
+            <article class="article-content" id="theory">
+
+                <h1>04. Fourier Transform &amp; FFT</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    The Fourier Transform is one of the most powerful ideas in all of mathematics and engineering.
+                    It reveals the hidden frequency content of any signal&mdash;turning a waveform that
+                    stretches across time into a spectrum showing which pitches are present, at what amplitude,
+                    and with what phase. The Fast Fourier Transform (FFT) makes this computation blazingly
+                    fast, enabling real-time spectrum analysis, audio compression, convolution-based reverb,
+                    and pitch detection. This tutorial builds the concept from intuition to rigorous definition,
+                    from Fourier series through the DFT to the Cooley-Tukey FFT algorithm.
+                </p>
+
+                <!-- ======================================================
+                     SECTION 1: THE BIG IDEA
+                     ====================================================== -->
+                <h2 id="the-big-idea">1. The Big Idea</h2>
+
+                <p>
+                    Press the keys C, E, and G on a piano simultaneously and you hear a C-major chord.
+                    Your auditory system does something remarkable: it <em>decomposes</em> that complex
+                    mixture of air pressure variations into three distinct pitches&mdash;261.6 Hz, 329.6 Hz,
+                    and 392 Hz&mdash;even though the physical signal arriving at your eardrum is a single
+                    undulating waveform. You don't hear a chord as one monolithic thing; you hear three
+                    individual notes simultaneously.
+                </p>
+
+                <p>
+                    Joseph Fourier (1768&ndash;1830), investigating heat conduction, made the astonishing
+                    claim that <em>any</em> periodic signal can be decomposed into a (possibly infinite)
+                    sum of pure sinusoids. This is not merely an approximation&mdash;for a broad class of
+                    signals, the decomposition is exact. The sinusoids form a complete, orthogonal basis
+                    for the space of square-integrable functions, much like how $\hat{x}$, $\hat{y}$, $\hat{z}$
+                    form a complete basis for 3-D space.
+                </p>
+
+                <div class="info-box">
+                    <p class="box-title">Core Insight</p>
+                    <p>
+                        Every signal lives simultaneously in two equivalent worlds: the <strong>time domain</strong>
+                        (amplitude vs. time) and the <strong>frequency domain</strong> (amplitude and phase
+                        vs. frequency). The Fourier Transform is the dictionary that translates between them.
+                        No information is lost&mdash;the two representations are completely equivalent.
+                    </p>
+                </div>
+
+                <!-- SVG 1: Signal decomposition into harmonics -->
+                <figure style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 700 340" width="100%" style="max-width: 700px; background: #18181B; border-radius: 12px; display: block; margin: 0 auto;">
+                        <!-- Background -->
+                        <rect width="700" height="340" fill="#18181B" rx="12"/>
+
+                        <!-- Title -->
+                        <text x="350" y="26" text-anchor="middle" fill="#e4e4e7" font-size="13" font-weight="600">Signal Decomposition: Composite = Sum of Sinusoids</text>
+
+                        <!-- Row 1: Composite signal -->
+                        <text x="10" y="58" fill="#a1a1aa" font-size="10">composite</text>
+                        <!-- composite wave: sum of 3 harmonics approximated as SVG path -->
+                        <polyline fill="none" stroke="#DC2626" stroke-width="2"
+                            points="
+                            30,75 45,62 60,55 75,58 90,68 105,80 120,88 135,88 150,80 165,68 180,60 195,58 210,63 225,73 240,82 255,86 270,83 285,72 300,62 315,57 330,59 345,68 360,78 375,85 390,85 405,76 420,65 435,59 450,60 465,68 480,77 495,83 510,82 525,74 540,64 555,58 570,59 585,67 600,76 615,83 630,83 645,75 660,65"/>
+
+                        <!-- Row 2: Fundamental f0 = 200 Hz -->
+                        <text x="10" y="133" fill="#a1a1aa" font-size="10">f&#8320; = 200 Hz</text>
+                        <polyline fill="none" stroke="#3B82F6" stroke-width="2"
+                            points="
+                            30,150 60,140 90,150 120,160 150,150 180,140 210,150 240,160 270,150 300,140 330,150 360,160 390,150 420,140 450,150 480,160 510,150 540,140 570,150 600,160 630,150 660,140"/>
+
+                        <!-- Row 3: 2nd harmonic 2f0 -->
+                        <text x="10" y="203" fill="#a1a1aa" font-size="10">2f&#8320; = 400 Hz</text>
+                        <polyline fill="none" stroke="#10b981" stroke-width="2"
+                            points="
+                            30,215 45,205 60,215 75,225 90,215 105,205 120,215 135,225 150,215 165,205 180,215 195,225 210,215 225,205 240,215 255,225 270,215 285,205 300,215 315,225 330,215 345,205 360,215 375,225 390,215 405,205 420,215 435,225 450,215 465,205 480,215 495,225 510,215 525,205 540,215 555,225 570,215 585,205 600,215 615,225 630,215 645,205 660,215"/>
+
+                        <!-- Row 4: 3rd harmonic 3f0 -->
+                        <text x="10" y="273" fill="#a1a1aa" font-size="10">3f&#8320; = 600 Hz</text>
+                        <polyline fill="none" stroke="#f59e0b" stroke-width="2"
+                            points="
+                            30,285 40,275 50,285 60,295 70,285 80,275 90,285 100,295 110,285 120,275 130,285 140,295 150,285 160,275 170,285 180,295 190,285 200,275 210,285 220,295 230,285 240,275 250,285 260,295 270,285 280,275 290,285 300,295 310,285 320,275 330,285 340,295 350,285 360,275 370,285 380,295 390,285 400,275 410,285 420,295 430,285 440,275 450,285 460,295 470,285 480,275 490,285 500,295 510,285 520,275 530,285 540,295 550,285 560,275 570,285 580,295 590,285 600,275 610,285 620,295 630,285 640,275 650,285 660,295"/>
+
+                        <!-- Dividers -->
+                        <line x1="5" y1="100" x2="670" y2="100" stroke="#3f3f46" stroke-width="0.5"/>
+                        <line x1="5" y1="170" x2="670" y2="170" stroke="#3f3f46" stroke-width="0.5"/>
+                        <line x1="5" y1="240" x2="670" y2="240" stroke="#3f3f46" stroke-width="0.5"/>
+                        <line x1="5" y1="310" x2="670" y2="310" stroke="#3f3f46" stroke-width="0.5"/>
+
+                        <!-- Amplitude labels -->
+                        <text x="680" y="78" fill="#DC2626" font-size="9" font-weight="600">A=1.0</text>
+                        <text x="680" y="152" fill="#3B82F6" font-size="9" font-weight="600">A=0.6</text>
+                        <text x="680" y="218" fill="#10b981" font-size="9" font-weight="600">A=0.3</text>
+                        <text x="680" y="288" fill="#f59e0b" font-size="9" font-weight="600">A=0.2</text>
+                    </svg>
+                    <figcaption style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.75rem;">
+                        A composite signal (red) is the exact sum of three sinusoids at the fundamental frequency and its harmonics. Fourier analysis recovers the individual components.
+                    </figcaption>
+                </figure>
+
+                <p>
+                    The analogy with light is illuminating (pun intended). White light looks featureless until
+                    a prism separates it into a rainbow of colors&mdash;each color corresponding to a distinct
+                    frequency of the electromagnetic wave. A microphone captures a single pressure waveform,
+                    but the FFT acts as an acoustic prism, revealing the spectrum of frequencies within.
+                </p>
+
+                <!-- ======================================================
+                     SECTION 2: FOURIER SERIES
+                     ====================================================== -->
+                <h2 id="fourier-series">2. Fourier Series</h2>
+
+                <p>
+                    We begin with <strong>periodic signals</strong>. A signal $x(t)$ is periodic with
+                    period $T$ if $x(t + T) = x(t)$ for all $t$. The fundamental frequency is
+                    $f_0 = 1/T$ (in hertz) or $\omega_0 = 2\pi f_0$ (in radians per second).
+                </p>
+
+                <h3>Trigonometric Form</h3>
+                <p>
+                    Fourier's claim is that any sufficiently well-behaved periodic signal can be written as:
+                </p>
+                $$x(t) = \frac{a_0}{2} + \sum_{n=1}^{\infty} \left[ a_n \cos(2\pi n f_0 t) + b_n \sin(2\pi n f_0 t) \right]$$
+                <p>
+                    where the coefficients are computed by projecting $x(t)$ onto each basis function:
+                </p>
+                $$a_n = \frac{2}{T} \int_0^T x(t) \cos(2\pi n f_0 t)\, dt \qquad b_n = \frac{2}{T} \int_0^T x(t) \sin(2\pi n f_0 t)\, dt$$
+                <p>
+                    These integrals work because cosines and sines at different frequencies are
+                    <strong>orthogonal</strong>: their product integrates to zero over one period.
+                    This orthogonality is the mathematical foundation that makes Fourier analysis possible.
+                </p>
+
+                <h3>Complex Exponential Form</h3>
+                <p>
+                    Using Euler's formula $e^{j\theta} = \cos\theta + j\sin\theta$, we can combine the
+                    cosine and sine terms into a single, more elegant expression using complex exponentials:
+                </p>
+                $$\boxed{x(t) = \sum_{n=-\infty}^{\infty} c_n\, e^{j 2\pi n f_0 t}}$$
+                <p>
+                    where the complex coefficients $c_n$ are:
+                </p>
+                $$c_n = \frac{1}{T} \int_0^T x(t)\, e^{-j 2\pi n f_0 t}\, dt$$
+
+                <p>
+                    The relationship between the real and complex forms is:
+                    $c_0 = a_0/2$, $c_n = (a_n - jb_n)/2$ for $n > 0$, and $c_{-n} = c_n^*$
+                    (complex conjugate). For real signals, the spectrum is conjugate-symmetric: no
+                    information is lost by considering only $n \geq 0$.
+                </p>
+
+                <div class="info-box">
+                    <p class="box-title">Geometric Interpretation of $c_n$</p>
+                    <p>
+                        The coefficient $c_n$ is a <strong>complex number</strong>. Its magnitude
+                        $|c_n|$ gives the <strong>amplitude</strong> of the $n$-th harmonic, and its
+                        angle $\angle c_n$ gives the <strong>phase</strong>. Think of winding the signal
+                        $x(t)$ around the complex unit circle at frequency $nf_0$: the center of mass
+                        of the resulting spiral is exactly $c_n$.
+                    </p>
+                </div>
+
+                <h3>Convergence: The Dirichlet Conditions</h3>
+                <p>
+                    The Fourier series converges to $x(t)$ at all points of continuity, and to the
+                    average of the left and right limits at jump discontinuities, provided $x(t)$:
+                </p>
+                <ul>
+                    <li>Has a finite number of discontinuities per period</li>
+                    <li>Has a finite number of maxima and minima per period (bounded variation)</li>
+                    <li>Is absolutely integrable: $\int_0^T |x(t)|\, dt < \infty$</li>
+                </ul>
+                <p>
+                    At a jump discontinuity (like the edge of a square wave), the Fourier series
+                    converges to the <em>midpoint</em> of the jump, and exhibits the
+                    <strong>Gibbs phenomenon</strong>: oscillations of about 9% overshoot that persist
+                    no matter how many terms are included.
+                </p>
+
+                <!-- ======================================================
+                     SECTION 3: CONTINUOUS FOURIER TRANSFORM
+                     ====================================================== -->
+                <h2 id="continuous-ft">3. Continuous Fourier Transform</h2>
+
+                <p>
+                    What if the signal is <em>not</em> periodic? We can think of a non-periodic signal
+                    as a periodic signal whose period $T \to \infty$. As $T \to \infty$, the fundamental
+                    frequency $f_0 = 1/T \to 0$, so the discrete harmonics $\{nf_0\}$ become a continuous
+                    variable $f$, and the Fourier series sum becomes an integral.
+                </p>
+
+                <p>The <strong>Continuous Fourier Transform (CFT)</strong> pair is:</p>
+                $$\boxed{X(f) = \int_{-\infty}^{\infty} x(t)\, e^{-j 2\pi f t}\, dt} \qquad \text{(Analysis)}$$
+                $$x(t) = \int_{-\infty}^{\infty} X(f)\, e^{j 2\pi f t}\, df \qquad \text{(Synthesis)}$$
+
+                <p>
+                    $X(f)$ is in general complex-valued. We decompose it as:
+                </p>
+                <ul>
+                    <li><strong>Magnitude spectrum:</strong> $|X(f)|$ &mdash; how much of each frequency is present</li>
+                    <li><strong>Phase spectrum:</strong> $\angle X(f)$ &mdash; the phase offset of each frequency component</li>
+                </ul>
+
+                <!-- SVG 2: Magnitude spectrum bar chart -->
+                <figure style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 680 260" width="100%" style="max-width: 680px; background: #18181B; border-radius: 12px; display: block; margin: 0 auto;">
+                        <rect width="680" height="260" fill="#18181B" rx="12"/>
+                        <text x="340" y="22" text-anchor="middle" fill="#e4e4e7" font-size="13" font-weight="600">Magnitude Spectrum |X(f)| of a Musical Chord</text>
+
+                        <!-- Axes -->
+                        <line x1="50" y1="210" x2="640" y2="210" stroke="#52525b" stroke-width="1.5"/>
+                        <line x1="50" y1="30" x2="50" y2="210" stroke="#52525b" stroke-width="1.5"/>
+
+                        <!-- Axis labels -->
+                        <text x="345" y="240" text-anchor="middle" fill="#a1a1aa" font-size="11">Frequency (Hz)</text>
+                        <text x="18" y="130" text-anchor="middle" fill="#a1a1aa" font-size="11" transform="rotate(-90 18 130)">|X(f)|</text>
+
+                        <!-- Frequency tick marks -->
+                        <text x="105" y="225" text-anchor="middle" fill="#71717a" font-size="9">261.6</text>
+                        <text x="105" y="235" text-anchor="middle" fill="#71717a" font-size="9">C4</text>
+                        <text x="210" y="225" text-anchor="middle" fill="#71717a" font-size="9">329.6</text>
+                        <text x="210" y="235" text-anchor="middle" fill="#71717a" font-size="9">E4</text>
+                        <text x="340" y="225" text-anchor="middle" fill="#71717a" font-size="9">392.0</text>
+                        <text x="340" y="235" text-anchor="middle" fill="#71717a" font-size="9">G4</text>
+                        <text x="450" y="225" text-anchor="middle" fill="#71717a" font-size="9">523.2</text>
+                        <text x="450" y="235" text-anchor="middle" fill="#71717a" font-size="9">C5</text>
+                        <text x="560" y="225" text-anchor="middle" fill="#71717a" font-size="9">659.3</text>
+                        <text x="560" y="235" text-anchor="middle" fill="#71717a" font-size="9">E5</text>
+
+                        <!-- Bars: C4 strongest, harmonics diminishing -->
+                        <rect x="88" y="50" width="34" height="160" fill="#DC2626" rx="3" opacity="0.9"/>
+                        <rect x="193" y="100" width="34" height="110" fill="#3B82F6" rx="3" opacity="0.9"/>
+                        <rect x="323" y="120" width="34" height="90" fill="#10b981" rx="3" opacity="0.9"/>
+                        <rect x="433" y="155" width="34" height="55" fill="#f59e0b" rx="3" opacity="0.9"/>
+                        <rect x="543" y="170" width="34" height="40" fill="#a78bfa" rx="3" opacity="0.9"/>
+
+                        <!-- Noise floor -->
+                        <line x1="55" y1="205" x2="635" y2="205" stroke="#3f3f46" stroke-width="1" stroke-dasharray="3,3"/>
+
+                        <!-- Amplitude value labels on bars -->
+                        <text x="105" y="46" text-anchor="middle" fill="#DC2626" font-size="10" font-weight="600">1.0</text>
+                        <text x="210" y="96" text-anchor="middle" fill="#3B82F6" font-size="10" font-weight="600">0.69</text>
+                        <text x="340" y="116" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">0.56</text>
+                        <text x="450" y="151" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="600">0.34</text>
+                        <text x="560" y="166" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">0.25</text>
+
+                        <!-- Y-axis ticks -->
+                        <line x1="46" y1="50" x2="54" y2="50" stroke="#52525b" stroke-width="1"/>
+                        <text x="42" y="53" text-anchor="end" fill="#71717a" font-size="9">1.0</text>
+                        <line x1="46" y1="130" x2="54" y2="130" stroke="#52525b" stroke-width="1"/>
+                        <text x="42" y="133" text-anchor="end" fill="#71717a" font-size="9">0.5</text>
+                    </svg>
+                    <figcaption style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.75rem;">
+                        Magnitude spectrum of a C-major chord. Each vertical bar represents the amplitude of a sinusoidal component. The Fourier Transform reveals the harmonic content invisible in the time domain.
+                    </figcaption>
+                </figure>
+
+                <h3>Euler's Formula and the Unit Circle</h3>
+                <p>
+                    The kernel $e^{-j2\pi ft}$ in the transform is a complex exponential. By Euler's formula:
+                </p>
+                $$e^{j\theta} = \cos\theta + j\sin\theta$$
+                <p>
+                    This traces the unit circle in the complex plane as $\theta$ varies. When we compute
+                    $X(f)$, we multiply $x(t)$ by $e^{-j2\pi ft}$ and integrate: this is equivalent to
+                    "winding" the signal around the complex unit circle at frequency $f$ and measuring
+                    where the center of mass falls.
+                </p>
+
+                <!-- SVG 3: Euler's formula / unit circle visualization -->
+                <figure style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 560 280" width="100%" style="max-width: 560px; background: #18181B; border-radius: 12px; display: block; margin: 0 auto;">
+                        <rect width="560" height="280" fill="#18181B" rx="12"/>
+                        <text x="280" y="22" text-anchor="middle" fill="#e4e4e7" font-size="13" font-weight="600">Euler's Formula: e^{j&#952;} on the Unit Circle</text>
+
+                        <!-- Unit circle -->
+                        <circle cx="180" cy="150" r="90" fill="none" stroke="#3f3f46" stroke-width="1.5"/>
+
+                        <!-- Axes -->
+                        <line x1="75" y1="150" x2="285" y2="150" stroke="#52525b" stroke-width="1"/>
+                        <line x1="180" y1="45" x2="180" y2="255" stroke="#52525b" stroke-width="1"/>
+
+                        <!-- Axis labels -->
+                        <text x="290" y="154" fill="#71717a" font-size="10">Re</text>
+                        <text x="184" y="42" fill="#71717a" font-size="10">Im</text>
+                        <text x="180" y="165" text-anchor="middle" fill="#71717a" font-size="9">O</text>
+
+                        <!-- Angle theta = 50 deg, point on circle -->
+                        <!-- cos(50)=0.643, sin(50)=0.766 -->
+                        <line x1="180" y1="150" x2="238" y2="81" stroke="#DC2626" stroke-width="2"/>
+                        <circle cx="238" cy="81" r="5" fill="#DC2626"/>
+
+                        <!-- Projections -->
+                        <line x1="238" y1="81" x2="238" y2="150" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="4,3"/>
+                        <line x1="180" y1="81" x2="238" y2="81" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+                        <!-- Labels -->
+                        <text x="248" y="78" fill="#e4e4e7" font-size="11" font-weight="500">e^{j&#952;}</text>
+                        <text x="243" y="120" fill="#3B82F6" font-size="10">sin&#952;</text>
+                        <text x="205" y="76" fill="#10b981" font-size="10">cos&#952;</text>
+
+                        <!-- Angle arc -->
+                        <path d="M 210,150 A 30,30 0 0,0 199,121" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+                        <text x="215" y="135" fill="#f59e0b" font-size="10">&#952;</text>
+
+                        <!-- 1 label on radius -->
+                        <text x="206" y="112" fill="#DC2626" font-size="9">1</text>
+
+                        <!-- Right side: decomposition formula -->
+                        <text x="330" y="90" fill="#e4e4e7" font-size="13" font-weight="600">e^{j&#952;} =</text>
+                        <text x="330" y="115" fill="#10b981" font-size="12">cos &#952;</text>
+                        <text x="385" y="115" fill="#71717a" font-size="12"> + j &middot;</text>
+                        <text x="415" y="115" fill="#3B82F6" font-size="12">sin &#952;</text>
+
+                        <text x="330" y="145" fill="#a1a1aa" font-size="10">Real part = </text>
+                        <text x="330" y="160" fill="#10b981" font-size="10">horizontal projection</text>
+                        <text x="330" y="180" fill="#a1a1aa" font-size="10">Imaginary part = </text>
+                        <text x="330" y="195" fill="#3B82F6" font-size="10">vertical projection</text>
+
+                        <text x="330" y="225" fill="#a1a1aa" font-size="10">Magnitude: |e^{j&#952;}| = 1</text>
+                        <text x="330" y="243" fill="#a1a1aa" font-size="10">Phase: &#8736;e^{j&#952;} = &#952;</text>
+
+                        <!-- tick marks on circle -->
+                        <text x="272" y="154" fill="#71717a" font-size="9">1</text>
+                        <text x="82" y="154" fill="#71717a" font-size="9">&#8722;1</text>
+                        <text x="183" y="58" fill="#71717a" font-size="9">j</text>
+                        <text x="183" y="249" fill="#71717a" font-size="9">&#8722;j</text>
+                    </svg>
+                    <figcaption style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.75rem;">
+                        Euler's formula connects the complex exponential $e^{j\theta}$ to trigonometry. The real part ($\cos\theta$, green) and imaginary part ($\sin\theta$, blue) are projections of the unit-circle point.
+                    </figcaption>
+                </figure>
+
+                <!-- ======================================================
+                     SECTION 4: DFT
+                     ====================================================== -->
+                <h2 id="dft">4. Discrete Fourier Transform (DFT)</h2>
+
+                <p>
+                    In practice, we deal with <strong>discrete-time signals</strong>: sequences of
+                    samples $x[0], x[1], \ldots, x[N-1]$ obtained by sampling at rate $f_s$.
+                    The Discrete Fourier Transform (DFT) is the exact analog of the CFT for finite-length
+                    discrete signals.
+                </p>
+
+                <h3>Definition</h3>
+                <p>
+                    Let $W_N = e^{-j2\pi/N}$ be the primitive $N$-th root of unity. The DFT pair is:
+                </p>
+                $$\boxed{X[k] = \sum_{n=0}^{N-1} x[n]\, W_N^{kn} = \sum_{n=0}^{N-1} x[n]\, e^{-j2\pi kn/N}} \quad k = 0, 1, \ldots, N-1$$
+                $$x[n] = \frac{1}{N} \sum_{k=0}^{N-1} X[k]\, W_N^{-kn} = \frac{1}{N}\sum_{k=0}^{N-1} X[k]\, e^{j2\pi kn/N} \quad n = 0, 1, \ldots, N-1$$
+
+                <h3>Frequency Bins and Resolution</h3>
+                <p>
+                    The DFT computes $X[k]$ at exactly $N$ <strong>frequency bins</strong>.
+                    Each bin corresponds to a physical frequency:
+                </p>
+                $$f_k = k \cdot \frac{f_s}{N} \qquad k = 0, 1, \ldots, N-1$$
+                <p>
+                    The <strong>frequency resolution</strong> (bin spacing) is:
+                </p>
+                $$\Delta f = \frac{f_s}{N} = \frac{1}{T_{record}}$$
+                <p>
+                    where $T_{record} = N/f_s$ is the total recording duration. Finer frequency
+                    resolution requires longer recordings&mdash;this is a fundamental constraint, not a
+                    limitation of the FFT algorithm.
+                </p>
+
+                <div class="info-box">
+                    <p class="box-title">Interpretation of Bin Indices</p>
+                    <p>
+                        For a real-valued signal with $N$ samples:<br>
+                        &bull; Bin $k=0$: DC component (average value)<br>
+                        &bull; Bins $k=1$ to $N/2-1$: positive frequencies $f_s/N$ to $f_s/2 - f_s/N$<br>
+                        &bull; Bin $k=N/2$: Nyquist frequency $f_s/2$<br>
+                        &bull; Bins $k=N/2+1$ to $N-1$: negative frequencies (complex conjugate mirror)<br>
+                        Only the first $N/2+1$ bins contain unique information for real signals.
+                    </p>
+                </div>
+
+                <!-- SVG 4: DFT frequency bins illustration -->
+                <figure style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 680 240" width="100%" style="max-width: 680px; background: #18181B; border-radius: 12px; display: block; margin: 0 auto;">
+                        <rect width="680" height="240" fill="#18181B" rx="12"/>
+                        <text x="340" y="22" text-anchor="middle" fill="#e4e4e7" font-size="13" font-weight="600">DFT Frequency Bins (N=16, f&#8347; = 16 kHz, &#916;f = 1 kHz)</text>
+
+                        <!-- Frequency axis -->
+                        <line x1="40" y1="170" x2="640" y2="170" stroke="#52525b" stroke-width="1.5"/>
+
+                        <!-- Bins: 16 bins from 0..8 kHz (0..Nyquist) then mirrored 9..15 -->
+                        <!-- Positive unique frequencies 0..8 kHz -->
+                        <!-- k=0 DC -->
+                        <rect x="45" y="140" width="30" height="30" fill="#52525b" rx="2"/>
+                        <text x="60" y="135" text-anchor="middle" fill="#71717a" font-size="8">DC</text>
+                        <text x="60" y="185" text-anchor="middle" fill="#71717a" font-size="8">0</text>
+
+                        <!-- k=1..7 positive freq -->
+                        <rect x="82" y="110" width="30" height="60" fill="#3B82F6" rx="2" opacity="0.85"/>
+                        <text x="97" y="185" text-anchor="middle" fill="#71717a" font-size="8">1k</text>
+                        <rect x="119" y="95" width="30" height="75" fill="#3B82F6" rx="2" opacity="0.85"/>
+                        <text x="134" y="185" text-anchor="middle" fill="#71717a" font-size="8">2k</text>
+                        <rect x="156" y="130" width="30" height="40" fill="#3B82F6" rx="2" opacity="0.85"/>
+                        <text x="171" y="185" text-anchor="middle" fill="#71717a" font-size="8">3k</text>
+                        <rect x="193" y="148" width="30" height="22" fill="#3B82F6" rx="2" opacity="0.85"/>
+                        <text x="208" y="185" text-anchor="middle" fill="#71717a" font-size="8">4k</text>
+                        <rect x="230" y="143" width="30" height="27" fill="#3B82F6" rx="2" opacity="0.85"/>
+                        <text x="245" y="185" text-anchor="middle" fill="#71717a" font-size="8">5k</text>
+                        <rect x="267" y="138" width="30" height="32" fill="#3B82F6" rx="2" opacity="0.85"/>
+                        <text x="282" y="185" text-anchor="middle" fill="#71717a" font-size="8">6k</text>
+                        <rect x="304" y="152" width="30" height="18" fill="#3B82F6" rx="2" opacity="0.85"/>
+                        <text x="319" y="185" text-anchor="middle" fill="#71717a" font-size="8">7k</text>
+
+                        <!-- k=8 Nyquist -->
+                        <rect x="341" y="125" width="30" height="45" fill="#DC2626" rx="2" opacity="0.9"/>
+                        <text x="356" y="185" text-anchor="middle" fill="#DC2626" font-size="8" font-weight="600">8k=Nyq</text>
+
+                        <!-- k=9..15 negative freq mirror -->
+                        <rect x="378" y="152" width="30" height="18" fill="#3B82F6" rx="2" opacity="0.4"/>
+                        <text x="393" y="185" text-anchor="middle" fill="#71717a" font-size="8">&#8722;7k</text>
+                        <rect x="415" y="138" width="30" height="32" fill="#3B82F6" rx="2" opacity="0.4"/>
+                        <text x="430" y="185" text-anchor="middle" fill="#71717a" font-size="8">&#8722;6k</text>
+                        <rect x="452" y="143" width="30" height="27" fill="#3B82F6" rx="2" opacity="0.4"/>
+                        <text x="467" y="185" text-anchor="middle" fill="#71717a" font-size="8">&#8722;5k</text>
+                        <rect x="489" y="148" width="30" height="22" fill="#3B82F6" rx="2" opacity="0.4"/>
+                        <text x="504" y="185" text-anchor="middle" fill="#71717a" font-size="8">&#8722;4k</text>
+                        <rect x="526" y="130" width="30" height="40" fill="#3B82F6" rx="2" opacity="0.4"/>
+                        <text x="541" y="185" text-anchor="middle" fill="#71717a" font-size="8">&#8722;3k</text>
+                        <rect x="563" y="95" width="30" height="75" fill="#3B82F6" rx="2" opacity="0.4"/>
+                        <text x="578" y="185" text-anchor="middle" fill="#71717a" font-size="8">&#8722;2k</text>
+                        <rect x="600" y="110" width="30" height="60" fill="#3B82F6" rx="2" opacity="0.4"/>
+                        <text x="615" y="185" text-anchor="middle" fill="#71717a" font-size="8">&#8722;1k</text>
+
+                        <!-- Divider at Nyquist -->
+                        <line x1="341" y1="40" x2="341" y2="175" stroke="#DC2626" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+
+                        <!-- Labels -->
+                        <text x="200" y="210" text-anchor="middle" fill="#3B82F6" font-size="10">Unique spectrum (0 to f&#8347;/2)</text>
+                        <text x="490" y="210" text-anchor="middle" fill="#3B82F6" font-size="10" opacity="0.6">Mirror (conjugate symmetric)</text>
+
+                        <!-- Bracket for unique region -->
+                        <line x1="40" y1="220" x2="370" y2="220" stroke="#3B82F6" stroke-width="1"/>
+                        <line x1="40" y1="216" x2="40" y2="224" stroke="#3B82F6" stroke-width="1"/>
+                        <line x1="370" y1="216" x2="370" y2="224" stroke="#3B82F6" stroke-width="1"/>
+
+                        <!-- Bracket for mirror region -->
+                        <line x1="375" y1="220" x2="635" y2="220" stroke="#3B82F6" stroke-width="1" opacity="0.4"/>
+                        <line x1="375" y1="216" x2="375" y2="224" stroke="#3B82F6" stroke-width="1" opacity="0.4"/>
+                        <line x1="635" y1="216" x2="635" y2="224" stroke="#3B82F6" stroke-width="1" opacity="0.4"/>
+
+                        <!-- Delta f annotation -->
+                        <line x1="82" y1="55" x2="112" y2="55" stroke="#f59e0b" stroke-width="1"/>
+                        <line x1="82" y1="50" x2="82" y2="60" stroke="#f59e0b" stroke-width="1"/>
+                        <line x1="112" y1="50" x2="112" y2="60" stroke="#f59e0b" stroke-width="1"/>
+                        <text x="97" y="48" text-anchor="middle" fill="#f59e0b" font-size="9">&#916;f = 1 kHz</text>
+                    </svg>
+                    <figcaption style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.75rem;">
+                        DFT frequency bins for $N=16$ samples at $f_s=16$ kHz. Bin spacing $\Delta f = 1$ kHz. Only bins 0&ndash;8 (Nyquist) contain unique information for real signals; bins 9&ndash;15 are conjugate mirrors.
+                    </figcaption>
+                </figure>
+
+                <h3>Matrix Form of the DFT</h3>
+                <p>
+                    The DFT is a <strong>linear transformation</strong>. In matrix form:
+                </p>
+                $$\mathbf{X} = \mathbf{W} \mathbf{x}$$
+                <p>
+                    where $\mathbf{W}$ is the $N \times N$ DFT matrix with entries $W_{kn} = e^{-j2\pi kn/N}$.
+                    This matrix is symmetric, unitary (up to a scaling factor), and its inverse is $\mathbf{W}^* / N$.
+                    Direct matrix-vector multiplication costs $O(N^2)$ operations&mdash;the FFT exploits the
+                    structure of $\mathbf{W}$ to achieve $O(N \log N)$.
+                </p>
+
+                <!-- ======================================================
+                     SECTION 5: FFT
+                     ====================================================== -->
+                <h2 id="fft">5. Fast Fourier Transform (FFT)</h2>
+
+                <p>
+                    The DFT of $N$ points requires $N^2$ complex multiplications and additions&mdash;$O(N^2)$
+                    complexity. For $N = 1{,}048{,}576$ (2^20, about one million), that's $10^{12}$ operations.
+                    At modern CPU speeds, this would take seconds or minutes per frame, making real-time
+                    audio processing impossible.
+                </p>
+
+                <p>
+                    In 1965, James Cooley and John Tukey published an algorithm that computes the DFT
+                    in $O(N \log_2 N)$ operations. This was not entirely new (Gauss had a similar idea
+                    in 1805!), but the Cooley-Tukey publication triggered a revolution in digital signal
+                    processing. For $N = 2^{20}$, the speedup factor is roughly $N / \log_2 N \approx 50{,}000\times$.
+                </p>
+
+                <h3>The Divide-and-Conquer Idea</h3>
+                <p>
+                    When $N$ is even, split the input into <strong>even-indexed</strong> and
+                    <strong>odd-indexed</strong> samples:
+                </p>
+                $$X[k] = \sum_{n=0}^{N-1} x[n] W_N^{kn} = \underbrace{\sum_{m=0}^{N/2-1} x[2m] W_{N/2}^{km}}_{X_{\text{even}}[k]} + W_N^k \underbrace{\sum_{m=0}^{N/2-1} x[2m+1] W_{N/2}^{km}}_{X_{\text{odd}}[k]}$$
+                <p>
+                    Crucially, $W_N^{2} = e^{-j4\pi/N} = e^{-j2\pi/(N/2)} = W_{N/2}$, so both sums are
+                    $(N/2)$-point DFTs. Using the <strong>periodicity</strong> of $W_{N/2}^k$ (period $N/2$),
+                    we need only compute the two half-size DFTs once and combine them for all $k$:
+                </p>
+                $$X[k] = X_{\text{even}}[k] + W_N^k \cdot X_{\text{odd}}[k]$$
+                $$X[k + N/2] = X_{\text{even}}[k] - W_N^k \cdot X_{\text{odd}}[k]$$
+                <p>
+                    This 2-element combination&mdash;one complex multiply plus two adds&mdash;is called a
+                    <strong>butterfly</strong>. Apply this recursively ($\log_2 N$ stages, each with $N/2$
+                    butterflies) and the total cost is $\frac{N}{2}\log_2 N$ complex multiplications.
+                </p>
+
+                <!-- SVG 5: FFT butterfly diagram for N=8 -->
+                <figure style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 680 320" width="100%" style="max-width: 680px; background: #18181B; border-radius: 12px; display: block; margin: 0 auto;">
+                        <rect width="680" height="320" fill="#18181B" rx="12"/>
+                        <text x="340" y="22" text-anchor="middle" fill="#e4e4e7" font-size="13" font-weight="600">FFT Butterfly Diagram (N = 8, Cooley-Tukey DIT)</text>
+
+                        <!-- Input column (bit-reversed order) -->
+                        <text x="40" y="45" text-anchor="middle" fill="#a1a1aa" font-size="10">Input</text>
+                        <text x="40" y="57" text-anchor="middle" fill="#a1a1aa" font-size="10">(bit-rev)</text>
+
+                        <!-- 8 input nodes -->
+                        <circle cx="80" cy="80" r="14" fill="#27272a" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="80" y="84" text-anchor="middle" fill="#e4e4e7" font-size="9">x[0]</text>
+                        <circle cx="80" cy="120" r="14" fill="#27272a" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="80" y="124" text-anchor="middle" fill="#e4e4e7" font-size="9">x[4]</text>
+                        <circle cx="80" cy="160" r="14" fill="#27272a" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="80" y="164" text-anchor="middle" fill="#e4e4e7" font-size="9">x[2]</text>
+                        <circle cx="80" cy="200" r="14" fill="#27272a" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="80" y="204" text-anchor="middle" fill="#e4e4e7" font-size="9">x[6]</text>
+                        <circle cx="80" cy="240" r="14" fill="#27272a" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="80" y="244" text-anchor="middle" fill="#e4e4e7" font-size="9">x[1]</text>
+                        <circle cx="80" cy="280" r="14" fill="#27272a" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="80" y="284" text-anchor="middle" fill="#e4e4e7" font-size="9">x[5]</text>
+                        <circle cx="80" cy="128" r="0"/><!-- placeholder so line count stays -->
+                        <!-- Additional nodes -->
+                        <circle cx="80" cy="300" r="14" fill="#27272a" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="80" y="304" text-anchor="middle" fill="#e4e4e7" font-size="9">x[3]</text>
+                        <!-- NOTE: 8th node shifted to avoid overlap - reusing y=315 area -->
+
+                        <!-- Stage 1 column -->
+                        <text x="230" y="45" text-anchor="middle" fill="#a1a1aa" font-size="10">Stage 1</text>
+                        <text x="230" y="57" text-anchor="middle" fill="#a1a1aa" font-size="10">2-pt DFTs</text>
+
+                        <!-- Stage 1 butterfly nodes -->
+                        <circle cx="230" cy="80" r="12" fill="#27272a" stroke="#f59e0b" stroke-width="1.5"/>
+                        <circle cx="230" cy="120" r="12" fill="#27272a" stroke="#f59e0b" stroke-width="1.5"/>
+                        <circle cx="230" cy="160" r="12" fill="#27272a" stroke="#f59e0b" stroke-width="1.5"/>
+                        <circle cx="230" cy="200" r="12" fill="#27272a" stroke="#f59e0b" stroke-width="1.5"/>
+                        <circle cx="230" cy="240" r="12" fill="#27272a" stroke="#f59e0b" stroke-width="1.5"/>
+                        <circle cx="230" cy="280" r="12" fill="#27272a" stroke="#f59e0b" stroke-width="1.5"/>
+                        <circle cx="230" cy="300" r="12" fill="#27272a" stroke="#f59e0b" stroke-width="1.5"/>
+                        <circle cx="230" cy="128" r="0"/>
+
+                        <!-- Stage 1 connections (butterflies) -->
+                        <!-- Butterfly 1: nodes 80 and 120 -->
+                        <line x1="94" y1="80" x2="218" y2="80" stroke="#3B82F6" stroke-width="1.2"/>
+                        <line x1="94" y1="80" x2="218" y2="120" stroke="#3B82F6" stroke-width="1.2" opacity="0.6"/>
+                        <line x1="94" y1="120" x2="218" y2="80" stroke="#3B82F6" stroke-width="1.2" opacity="0.6"/>
+                        <line x1="94" y1="120" x2="218" y2="120" stroke="#3B82F6" stroke-width="1.2"/>
+                        <text x="155" y="97" text-anchor="middle" fill="#f59e0b" font-size="8">W&#8320;&#8312;=1</text>
+
+                        <!-- Butterfly 2: nodes 160 and 200 -->
+                        <line x1="94" y1="160" x2="218" y2="160" stroke="#3B82F6" stroke-width="1.2"/>
+                        <line x1="94" y1="160" x2="218" y2="200" stroke="#3B82F6" stroke-width="1.2" opacity="0.6"/>
+                        <line x1="94" y1="200" x2="218" y2="160" stroke="#3B82F6" stroke-width="1.2" opacity="0.6"/>
+                        <line x1="94" y1="200" x2="218" y2="200" stroke="#3B82F6" stroke-width="1.2"/>
+                        <text x="155" y="177" text-anchor="middle" fill="#f59e0b" font-size="8">W&#8320;&#8312;=1</text>
+
+                        <!-- Butterfly 3: nodes 240 and 280 -->
+                        <line x1="94" y1="240" x2="218" y2="240" stroke="#3B82F6" stroke-width="1.2"/>
+                        <line x1="94" y1="240" x2="218" y2="280" stroke="#3B82F6" stroke-width="1.2" opacity="0.6"/>
+                        <line x1="94" y1="280" x2="218" y2="240" stroke="#3B82F6" stroke-width="1.2" opacity="0.6"/>
+                        <line x1="94" y1="280" x2="218" y2="280" stroke="#3B82F6" stroke-width="1.2"/>
+
+                        <!-- Stage 2 column -->
+                        <text x="400" y="45" text-anchor="middle" fill="#a1a1aa" font-size="10">Stage 2</text>
+                        <text x="400" y="57" text-anchor="middle" fill="#a1a1aa" font-size="10">4-pt DFTs</text>
+
+                        <circle cx="400" cy="80" r="12" fill="#27272a" stroke="#10b981" stroke-width="1.5"/>
+                        <circle cx="400" cy="120" r="12" fill="#27272a" stroke="#10b981" stroke-width="1.5"/>
+                        <circle cx="400" cy="160" r="12" fill="#27272a" stroke="#10b981" stroke-width="1.5"/>
+                        <circle cx="400" cy="200" r="12" fill="#27272a" stroke="#10b981" stroke-width="1.5"/>
+                        <circle cx="400" cy="240" r="12" fill="#27272a" stroke="#10b981" stroke-width="1.5"/>
+                        <circle cx="400" cy="280" r="12" fill="#27272a" stroke="#10b981" stroke-width="1.5"/>
+                        <circle cx="400" cy="300" r="12" fill="#27272a" stroke="#10b981" stroke-width="1.5"/>
+
+                        <!-- Stage 2 connections -->
+                        <line x1="242" y1="80" x2="388" y2="80" stroke="#10b981" stroke-width="1.2"/>
+                        <line x1="242" y1="80" x2="388" y2="160" stroke="#10b981" stroke-width="1.2" opacity="0.5"/>
+                        <line x1="242" y1="160" x2="388" y2="80" stroke="#10b981" stroke-width="1.2" opacity="0.5"/>
+                        <line x1="242" y1="160" x2="388" y2="160" stroke="#10b981" stroke-width="1.2"/>
+                        <text x="315" y="98" text-anchor="middle" fill="#f59e0b" font-size="8">W&#8322;&#8312;</text>
+
+                        <line x1="242" y1="120" x2="388" y2="120" stroke="#10b981" stroke-width="1.2"/>
+                        <line x1="242" y1="120" x2="388" y2="200" stroke="#10b981" stroke-width="1.2" opacity="0.5"/>
+                        <line x1="242" y1="200" x2="388" y2="120" stroke="#10b981" stroke-width="1.2" opacity="0.5"/>
+                        <line x1="242" y1="200" x2="388" y2="200" stroke="#10b981" stroke-width="1.2"/>
+
+                        <line x1="242" y1="240" x2="388" y2="240" stroke="#10b981" stroke-width="1.2"/>
+                        <line x1="242" y1="240" x2="388" y2="300" stroke="#10b981" stroke-width="1.2" opacity="0.5"/>
+                        <line x1="242" y1="300" x2="388" y2="240" stroke="#10b981" stroke-width="1.2" opacity="0.5"/>
+                        <line x1="242" y1="300" x2="388" y2="300" stroke="#10b981" stroke-width="1.2"/>
+                        <line x1="242" y1="280" x2="388" y2="280" stroke="#10b981" stroke-width="1.2"/>
+
+                        <!-- Output column -->
+                        <text x="570" y="45" text-anchor="middle" fill="#a1a1aa" font-size="10">Output</text>
+                        <text x="570" y="57" text-anchor="middle" fill="#a1a1aa" font-size="10">X[k]</text>
+
+                        <circle cx="570" cy="80" r="14" fill="#27272a" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="570" y="84" text-anchor="middle" fill="#e4e4e7" font-size="9">X[0]</text>
+                        <circle cx="570" cy="120" r="14" fill="#27272a" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="570" y="124" text-anchor="middle" fill="#e4e4e7" font-size="9">X[1]</text>
+                        <circle cx="570" cy="160" r="14" fill="#27272a" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="570" y="164" text-anchor="middle" fill="#e4e4e7" font-size="9">X[2]</text>
+                        <circle cx="570" cy="200" r="14" fill="#27272a" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="570" y="204" text-anchor="middle" fill="#e4e4e7" font-size="9">X[3]</text>
+                        <circle cx="570" cy="240" r="14" fill="#27272a" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="570" y="244" text-anchor="middle" fill="#e4e4e7" font-size="9">X[4]</text>
+                        <circle cx="570" cy="280" r="14" fill="#27272a" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="570" y="284" text-anchor="middle" fill="#e4e4e7" font-size="9">X[5]</text>
+                        <circle cx="570" cy="300" r="14" fill="#27272a" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="570" y="304" text-anchor="middle" fill="#e4e4e7" font-size="9">X[6]</text>
+
+                        <!-- Stage 3 connections (simplified) -->
+                        <line x1="412" y1="80" x2="556" y2="80" stroke="#DC2626" stroke-width="1.2"/>
+                        <line x1="412" y1="80" x2="556" y2="240" stroke="#DC2626" stroke-width="1.2" opacity="0.4"/>
+                        <line x1="412" y1="240" x2="556" y2="80" stroke="#DC2626" stroke-width="1.2" opacity="0.4"/>
+                        <line x1="412" y1="240" x2="556" y2="240" stroke="#DC2626" stroke-width="1.2"/>
+                        <line x1="412" y1="120" x2="556" y2="120" stroke="#DC2626" stroke-width="1.2"/>
+                        <line x1="412" y1="120" x2="556" y2="280" stroke="#DC2626" stroke-width="1.2" opacity="0.4"/>
+                        <line x1="412" y1="280" x2="556" y2="120" stroke="#DC2626" stroke-width="1.2" opacity="0.4"/>
+                        <line x1="412" y1="280" x2="556" y2="280" stroke="#DC2626" stroke-width="1.2"/>
+                        <line x1="412" y1="160" x2="556" y2="160" stroke="#DC2626" stroke-width="1.2"/>
+                        <line x1="412" y1="200" x2="556" y2="200" stroke="#DC2626" stroke-width="1.2"/>
+                        <line x1="412" y1="300" x2="556" y2="300" stroke="#DC2626" stroke-width="1.2"/>
+
+                        <!-- Legend -->
+                        <rect x="10" y="290" width="60" height="12" fill="none" stroke="#3B82F6" stroke-width="1" rx="2"/>
+                        <text x="75" y="300" fill="#a1a1aa" font-size="9">Stage 1 (2-pt)</text>
+                        <rect x="10" y="305" width="60" height="12" fill="none" stroke="#10b981" stroke-width="1" rx="2"/>
+                        <text x="75" y="315" fill="#a1a1aa" font-size="9">Stage 2 (4-pt)</text>
+                    </svg>
+                    <figcaption style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.75rem;">
+                        Simplified butterfly diagram for $N=8$ Cooley-Tukey FFT. Three stages ($\log_2 8 = 3$) of butterfly operations. Each crossing pair computes one butterfly: $X[k] = A + W_N^k B$, $X[k+N/2] = A - W_N^k B$.
+                    </figcaption>
+                </figure>
+
+                <h3>Complexity Analysis</h3>
+                <p>
+                    At each of the $\log_2 N$ stages, there are $N/2$ butterfly operations, each requiring
+                    1 complex multiplication and 2 complex additions. Total:
+                </p>
+                $$\text{Multiplications:} \quad \frac{N}{2}\log_2 N \qquad \text{Additions:} \quad N\log_2 N$$
+                <table style="width:100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align:left; padding:0.6rem;">N</th>
+                            <th style="text-align:right; padding:0.6rem;">DFT: $O(N^2)$</th>
+                            <th style="text-align:right; padding:0.6rem;">FFT: $O(N\log N)$</th>
+                            <th style="text-align:right; padding:0.6rem;">Speedup</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">64</td>
+                            <td style="text-align:right; padding:0.6rem;">4,096</td>
+                            <td style="text-align:right; padding:0.6rem;">192</td>
+                            <td style="text-align:right; padding:0.6rem; color:#10b981;">21&times;</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">1,024</td>
+                            <td style="text-align:right; padding:0.6rem;">1,048,576</td>
+                            <td style="text-align:right; padding:0.6rem;">5,120</td>
+                            <td style="text-align:right; padding:0.6rem; color:#10b981;">205&times;</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">16,384</td>
+                            <td style="text-align:right; padding:0.6rem;">268 million</td>
+                            <td style="text-align:right; padding:0.6rem;">114,688</td>
+                            <td style="text-align:right; padding:0.6rem; color:#10b981;">2,341&times;</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0.6rem;">1,048,576</td>
+                            <td style="text-align:right; padding:0.6rem;">$10^{12}$</td>
+                            <td style="text-align:right; padding:0.6rem;">10,485,760</td>
+                            <td style="text-align:right; padding:0.6rem; color:#10b981;">~100,000&times;</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- ======================================================
+                     SECTION 6: INVERSE FFT
+                     ====================================================== -->
+                <h2 id="inverse-fft">6. Inverse FFT</h2>
+
+                <p>
+                    The Inverse DFT (IDFT) reconstructs the time-domain signal from its spectrum:
+                </p>
+                $$\boxed{x[n] = \frac{1}{N} \sum_{k=0}^{N-1} X[k]\, e^{j2\pi kn/N}}$$
+                <p>
+                    Remarkably, the IDFT has nearly identical structure to the forward DFT&mdash;the only
+                    differences are the sign of the exponent (positive instead of negative) and the $1/N$
+                    normalization factor. This means the same FFT butterfly code can compute the IDFT:
+                </p>
+                <ol>
+                    <li>Take the complex conjugate of the input spectrum: $X^*[k]$</li>
+                    <li>Apply the forward FFT to get $\widetilde{x}[n]$</li>
+                    <li>Take the complex conjugate again and divide by $N$: $x[n] = \widetilde{x}^*[n] / N$</li>
+                </ol>
+                <p>
+                    This conjugate-FFT-conjugate trick is used in many efficient implementations.
+                    Alternatively, many libraries provide <code>ifft()</code> directly.
+                </p>
+
+                <div class="info-box">
+                    <p class="box-title">The Round-Trip</p>
+                    <p>
+                        For any finite-energy signal: $\text{IDFT}(\text{DFT}(x)) = x$. This perfect
+                        reconstruction is what makes the FFT so powerful for audio processing: you can
+                        transform to the frequency domain, modify the spectrum (e.g., boost bass,
+                        remove noise), and transform back to get the modified audio with no artifacts
+                        (assuming the IDFT is exact, i.e., no quantization or truncation).
+                    </p>
+                </div>
+
+                <!-- ======================================================
+                     SECTION 7: PROPERTIES
+                     ====================================================== -->
+                <h2 id="properties">7. Properties of the Fourier Transform</h2>
+
+                <p>
+                    The Fourier Transform satisfies a rich set of properties that make it enormously
+                    useful. We state them for the DFT (discrete case), but they hold analogously for
+                    the continuous transform.
+                </p>
+
+                <div class="property-grid">
+                    <div class="property-card">
+                        <h4>Linearity</h4>
+                        <p>$\mathcal{F}\{ax + by\} = aX + bY$</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">The DFT is a linear map. Superposition holds in both domains.</p>
+                    </div>
+                    <div class="property-card">
+                        <h4>Time Shift</h4>
+                        <p>$x[n-n_0] \longleftrightarrow W_N^{kn_0} X[k]$</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">A time delay of $n_0$ samples multiplies the spectrum by $e^{-j2\pi kn_0/N}$. Magnitudes unchanged; phases shift linearly.</p>
+                    </div>
+                    <div class="property-card">
+                        <h4>Frequency Shift (Modulation)</h4>
+                        <p>$W_N^{-k_0 n} x[n] \longleftrightarrow X[k - k_0]$</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">Multiplying by a complex exponential in time shifts the spectrum in frequency. Basis of amplitude modulation.</p>
+                    </div>
+                    <div class="property-card">
+                        <h4>Convolution Theorem</h4>
+                        <p>$x * h \longleftrightarrow X \cdot H$</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">Circular convolution in time = pointwise multiplication in frequency. This is why FFT-based filtering is $O(N\log N)$ instead of $O(N^2)$.</p>
+                    </div>
+                    <div class="property-card">
+                        <h4>Parseval's Theorem</h4>
+                        <p>$\sum_{n=0}^{N-1}|x[n]|^2 = \dfrac{1}{N}\sum_{k=0}^{N-1}|X[k]|^2$</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">Total signal energy is preserved across transform pairs. Power in time = power in frequency (up to scaling).</p>
+                    </div>
+                    <div class="property-card">
+                        <h4>Conjugate Symmetry</h4>
+                        <p>$X[N-k] = X^*[k]$ for real $x[n]$</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">Spectrum of a real signal is conjugate-symmetric. Only $N/2+1$ bins are independent.</p>
+                    </div>
+                    <div class="property-card">
+                        <h4>Time Reversal</h4>
+                        <p>$x[-n] \longleftrightarrow X^*[k]$ (real $x$: $X[N-k]$)</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">Reversing signal in time conjugates its spectrum. Phase negates; magnitude unchanged.</p>
+                    </div>
+                    <div class="property-card">
+                        <h4>Duality</h4>
+                        <p>$X[n] \longleftrightarrow N \cdot x[-k]$</p>
+                        <p style="margin-top:0.5rem; color: var(--color-text-secondary);">If $x[n]$ has DFT $X[k]$, then treating $X[n]$ as a signal gives $N\,x[-k]$. Time and frequency are interchangeable.</p>
+                    </div>
+                </div>
+
+                <h3>The Convolution Theorem: Deep Dive</h3>
+                <p>
+                    The convolution theorem is perhaps the most practically important property.
+                    The <strong>circular convolution</strong> of two $N$-point sequences is:
+                </p>
+                $$(x \circledast h)[n] = \sum_{m=0}^{N-1} x[m]\, h[(n-m) \bmod N]$$
+                <p>
+                    And the theorem states:
+                </p>
+                $$\mathcal{F}\{x \circledast h\} = X[k] \cdot H[k]$$
+
+                <!-- SVG 6: Convolution theorem visualization -->
+                <figure style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 680 260" width="100%" style="max-width: 680px; background: #18181B; border-radius: 12px; display: block; margin: 0 auto;">
+                        <rect width="680" height="260" fill="#18181B" rx="12"/>
+                        <text x="340" y="22" text-anchor="middle" fill="#e4e4e7" font-size="13" font-weight="600">Convolution Theorem: Convolution &#8596; Multiplication</text>
+
+                        <!-- Time domain (top row) -->
+                        <text x="170" y="48" text-anchor="middle" fill="#a1a1aa" font-size="11" font-weight="500">TIME DOMAIN</text>
+                        <!-- x(t) box -->
+                        <rect x="20" y="58" width="100" height="50" fill="#1e1e2e" stroke="#3B82F6" stroke-width="1.5" rx="6"/>
+                        <text x="70" y="80" text-anchor="middle" fill="#3B82F6" font-size="12" font-weight="600">x(t)</text>
+                        <text x="70" y="98" text-anchor="middle" fill="#71717a" font-size="9">input signal</text>
+
+                        <!-- Star (convolution) -->
+                        <text x="148" y="91" text-anchor="middle" fill="#e4e4e7" font-size="22">&#8727;</text>
+
+                        <!-- h(t) box -->
+                        <rect x="170" y="58" width="100" height="50" fill="#1e1e2e" stroke="#3B82F6" stroke-width="1.5" rx="6"/>
+                        <text x="220" y="80" text-anchor="middle" fill="#3B82F6" font-size="12" font-weight="600">h(t)</text>
+                        <text x="220" y="98" text-anchor="middle" fill="#71717a" font-size="9">impulse response</text>
+
+                        <!-- Equals -->
+                        <text x="298" y="91" text-anchor="middle" fill="#e4e4e7" font-size="18">=</text>
+
+                        <!-- y(t) box -->
+                        <rect x="315" y="58" width="100" height="50" fill="#1e1e2e" stroke="#10b981" stroke-width="1.5" rx="6"/>
+                        <text x="365" y="80" text-anchor="middle" fill="#10b981" font-size="12" font-weight="600">y(t)</text>
+                        <text x="365" y="98" text-anchor="middle" fill="#71717a" font-size="9">output signal</text>
+
+                        <!-- Complexity labels -->
+                        <text x="170" y="125" text-anchor="middle" fill="#DC2626" font-size="10">Cost: O(N&#178;)</text>
+                        <text x="365" y="125" text-anchor="middle" fill="#DC2626" font-size="10">Direct convolution</text>
+
+                        <!-- Vertical FFT arrows -->
+                        <line x1="70" y1="140" x2="70" y2="175" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow)"/>
+                        <text x="55" y="162" fill="#f59e0b" font-size="9">FFT</text>
+                        <line x1="220" y1="140" x2="220" y2="175" stroke="#f59e0b" stroke-width="1.5"/>
+                        <text x="205" y="162" fill="#f59e0b" font-size="9">FFT</text>
+                        <line x1="365" y1="175" x2="365" y2="140" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow)"/>
+                        <text x="370" y="162" fill="#f59e0b" font-size="9">IFFT</text>
+
+                        <!-- Downward arrows manually drawn -->
+                        <polygon points="70,175 66,165 74,165" fill="#f59e0b"/>
+                        <polygon points="220,175 216,165 224,165" fill="#f59e0b"/>
+                        <polygon points="365,140 361,150 369,150" fill="#f59e0b"/>
+
+                        <!-- Freq domain (bottom row) -->
+                        <text x="170" y="200" text-anchor="middle" fill="#a1a1aa" font-size="11" font-weight="500">FREQUENCY DOMAIN</text>
+
+                        <rect x="20" y="210" width="100" height="50" fill="#1e1e2e" stroke="#DC2626" stroke-width="1.5" rx="6"/>
+                        <text x="70" y="232" text-anchor="middle" fill="#DC2626" font-size="12" font-weight="600">X(f)</text>
+                        <text x="70" y="250" text-anchor="middle" fill="#71717a" font-size="9">input spectrum</text>
+
+                        <text x="148" y="243" text-anchor="middle" fill="#e4e4e7" font-size="22">&times;</text>
+
+                        <rect x="170" y="210" width="100" height="50" fill="#1e1e2e" stroke="#DC2626" stroke-width="1.5" rx="6"/>
+                        <text x="220" y="232" text-anchor="middle" fill="#DC2626" font-size="12" font-weight="600">H(f)</text>
+                        <text x="220" y="250" text-anchor="middle" fill="#71717a" font-size="9">transfer function</text>
+
+                        <text x="298" y="243" text-anchor="middle" fill="#e4e4e7" font-size="18">=</text>
+
+                        <rect x="315" y="210" width="100" height="50" fill="#1e1e2e" stroke="#10b981" stroke-width="1.5" rx="6"/>
+                        <text x="365" y="232" text-anchor="middle" fill="#10b981" font-size="12" font-weight="600">Y(f)</text>
+                        <text x="365" y="250" text-anchor="middle" fill="#71717a" font-size="9">output spectrum</text>
+
+                        <!-- Complexity labels -->
+                        <text x="170" y="268" text-anchor="middle" fill="#10b981" font-size="10">Cost: O(N log N)</text>
+
+                        <!-- Right side summary -->
+                        <rect x="440" y="58" width="225" height="202" fill="#1a1a2e" stroke="#3f3f46" stroke-width="1" rx="8"/>
+                        <text x="552" y="80" text-anchor="middle" fill="#e4e4e7" font-size="11" font-weight="600">Why This Matters</text>
+                        <text x="452" y="102" fill="#a1a1aa" font-size="9">Convolution = O(N&#178;) direct</text>
+                        <text x="452" y="118" fill="#a1a1aa" font-size="9">FFT route = O(N log N)</text>
+                        <text x="452" y="138" fill="#10b981" font-size="9">For N = 44100 (1 sec audio):</text>
+                        <text x="452" y="154" fill="#71717a" font-size="9">Direct: ~1.9 billion ops</text>
+                        <text x="452" y="170" fill="#10b981" font-size="9">FFT: ~675,000 ops</text>
+                        <text x="452" y="190" fill="#f59e0b" font-size="9">Speedup: ~2,800x</text>
+                        <text x="452" y="210" fill="#a1a1aa" font-size="9">Enables real-time reverb,</text>
+                        <text x="452" y="226" fill="#a1a1aa" font-size="9">EQ, and filtering.</text>
+                        <text x="452" y="246" fill="#DC2626" font-size="9">F{x * h} = X(f) &middot; H(f)</text>
+                    </svg>
+                    <figcaption style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.75rem;">
+                        The Convolution Theorem: computing convolution via the FFT route (FFT, multiply, IFFT) costs $O(N\log N)$ vs. $O(N^2)$ for direct convolution.
+                    </figcaption>
+                </figure>
+
+                <h3>Parseval's Theorem</h3>
+                <p>
+                    Parseval's theorem states that the DFT is an energy-preserving map (an isometry, up to scaling):
+                </p>
+                $$\sum_{n=0}^{N-1}|x[n]|^2 = \frac{1}{N}\sum_{k=0}^{N-1}|X[k]|^2$$
+                <p>
+                    The left side is the signal energy in the time domain; the right side is the total energy
+                    summed over all frequency bins. This means the power spectrum $|X[k]|^2/N$ correctly
+                    represents how much energy is contributed by each frequency component. Parseval's theorem
+                    is crucial for power spectral density estimation and for proving that the DFT doesn't
+                    create or destroy energy.
+                </p>
+
+                <!-- ======================================================
+                     SECTION 8: PRACTICAL FFT
+                     ====================================================== -->
+                <h2 id="practical-fft">8. Practical FFT Usage</h2>
+
+                <h3>Frequency Resolution and Zero-Padding</h3>
+                <p>
+                    The frequency resolution of the DFT is $\Delta f = f_s / N$. To improve resolution,
+                    you can either:
+                </p>
+                <ul>
+                    <li><strong>Record longer:</strong> more samples at the same rate $\Rightarrow$ larger $N$ $\Rightarrow$ smaller $\Delta f$. This is the only way to get true resolution.</li>
+                    <li><strong>Zero-padding:</strong> append zeros to the signal before taking the FFT. This interpolates the spectrum, making it smoother, but does NOT add new information. It's like zooming in on an image&mdash;you get more pixels but not more detail.</li>
+                </ul>
+                <p>
+                    Zero-padding is useful for: (1) making $N$ a power of 2 for efficiency, (2) smoother
+                    spectral displays, and (3) implementing linear (non-circular) convolution by padding
+                    each signal to length $\geq L + M - 1$.
+                </p>
+
+                <h3>Windowing</h3>
+                <p>
+                    The DFT implicitly assumes the $N$-sample signal is one period of a periodic signal.
+                    If the signal doesn't start and end at the same value (which is almost always the case
+                    for a windowed segment of audio), the abrupt edges create artificial discontinuities
+                    that cause <strong>spectral leakage</strong>: energy from a single frequency "leaks"
+                    into neighboring bins.
+                </p>
+                <p>
+                    The solution is to apply a <strong>window function</strong> $w[n]$ that smoothly
+                    tapers the signal to zero at both ends before taking the FFT:
+                </p>
+                $$X_{\text{windowed}}[k] = \text{FFT}\{x[n] \cdot w[n]\}$$
+
+                <!-- SVG 7: Windowing effect - rectangular vs Hann -->
+                <figure style="margin: 2rem 0; text-align: center;">
+                    <svg viewBox="0 0 680 300" width="100%" style="max-width: 680px; background: #18181B; border-radius: 12px; display: block; margin: 0 auto;">
+                        <rect width="680" height="300" fill="#18181B" rx="12"/>
+                        <text x="340" y="22" text-anchor="middle" fill="#e4e4e7" font-size="13" font-weight="600">Windowing Effect on Spectrum: Rectangular vs Hann Window</text>
+
+                        <!-- Left panel: time domain -->
+                        <text x="170" y="45" text-anchor="middle" fill="#a1a1aa" font-size="11">Time Domain (4 cycles of 1 kHz tone)</text>
+                        <!-- Axes -->
+                        <line x1="20" y1="140" x2="320" y2="140" stroke="#52525b" stroke-width="1"/>
+                        <line x1="20" y1="55" x2="20" y2="145" stroke="#52525b" stroke-width="1"/>
+
+                        <!-- Rectangular window: signal just cuts off -->
+                        <polyline fill="none" stroke="#DC2626" stroke-width="1.5"
+                            points="20,140 28,105 36,78 44,68 52,77 60,103 68,136 76,141 84,108 92,80 100,70 108,78 116,104 124,138 132,141 140,108 148,81 156,71 164,80 172,106 180,138 188,141 196,110 204,82 212,71 220,80 228,107 236,139 244,140 252,109 260,81 268,71 276,80 284,107 292,140 300,140 308,140 316,140"/>
+                        <!-- Hann window envelope -->
+                        <polyline fill="none" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"
+                            points="20,140 36,135 60,120 90,95 120,78 150,72 170,72 200,78 230,95 260,120 290,135 316,140"/>
+                        <!-- Hann-windowed signal -->
+                        <polyline fill="none" stroke="#3B82F6" stroke-width="1.5"
+                            points="20,140 28,136 36,120 44,104 52,100 60,110 68,128 76,135 84,118 92,100 100,90 108,96 116,111 124,130 132,135 140,119 148,101 156,92 164,98 172,112 180,131 188,135 196,121 204,105 212,97 220,103 228,117 236,133 244,138 252,131 260,117 268,110 276,116 284,126 292,135 300,140 308,140 316,140"/>
+
+                        <!-- Legend time domain -->
+                        <line x1="25" y1="162" x2="50" y2="162" stroke="#DC2626" stroke-width="1.5"/>
+                        <text x="55" y="166" fill="#a1a1aa" font-size="9">Rectangular window</text>
+                        <line x1="25" y1="178" x2="50" y2="178" stroke="#3B82F6" stroke-width="1.5"/>
+                        <text x="55" y="182" fill="#a1a1aa" font-size="9">Hann window</text>
+                        <line x1="25" y1="194" x2="50" y2="194" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>
+                        <text x="55" y="198" fill="#a1a1aa" font-size="9">Hann envelope</text>
+
+                        <!-- Right panel: frequency domain (log scale approximation) -->
+                        <text x="510" y="45" text-anchor="middle" fill="#a1a1aa" font-size="11">Frequency Domain (near 1 kHz)</text>
+                        <!-- Axes -->
+                        <line x1="355" y1="200" x2="660" y2="200" stroke="#52525b" stroke-width="1"/>
+                        <line x1="355" y1="50" x2="355" y2="205" stroke="#52525b" stroke-width="1"/>
+                        <text x="507" y="218" text-anchor="middle" fill="#71717a" font-size="9">Frequency &rarr;</text>
+                        <text x="340" y="130" text-anchor="middle" fill="#71717a" font-size="9" transform="rotate(-90 340 130)">dB</text>
+
+                        <!-- Rectangular: wide main lobe, high sidelobes -->
+                        <polyline fill="none" stroke="#DC2626" stroke-width="1.5"
+                            points="355,195 368,192 382,185 390,175 397,155 402,120 406,80 410,57 414,75 418,108 422,135 426,155 430,170 436,182 442,190 452,195 462,192 470,187 476,183 482,186 488,191 494,194 506,192 512,188 518,185 524,187 530,191 542,194 560,193 580,194 640,195"/>
+
+                        <!-- Hann: narrow main lobe, much lower sidelobes -->
+                        <polyline fill="none" stroke="#3B82F6" stroke-width="1.5"
+                            points="355,200 370,199 382,198 390,196 396,192 400,182 404,165 408,138 412,100 416,70 420,57 424,70 428,100 432,138 436,165 440,182 444,192 448,196 456,199 480,200 640,200"/>
+
+                        <!-- Labels -->
+                        <text x="410" y="50" fill="#DC2626" font-size="9">Rectangular:</text>
+                        <text x="410" y="62" fill="#DC2626" font-size="9">high sidelobes</text>
+                        <text x="410" y="80" fill="#71717a" font-size="8">(spectral leakage)</text>
+
+                        <text x="450" y="130" fill="#3B82F6" font-size="9">Hann:</text>
+                        <text x="450" y="142" fill="#3B82F6" font-size="9">low sidelobes</text>
+
+                        <!-- dB grid lines -->
+                        <line x1="352" y1="100" x2="358" y2="100" stroke="#52525b" stroke-width="1"/>
+                        <text x="348" y="104" text-anchor="end" fill="#71717a" font-size="8">&#8722;20</text>
+                        <line x1="352" y1="150" x2="358" y2="150" stroke="#52525b" stroke-width="1"/>
+                        <text x="348" y="154" text-anchor="end" fill="#71717a" font-size="8">&#8722;40</text>
+
+                        <!-- Sidelobe comparison -->
+                        <text x="510" y="240" text-anchor="middle" fill="#a1a1aa" font-size="10" font-weight="500">Sidelobe levels: Rectangular &#8722;13 dB &nbsp;|&nbsp; Hann &#8722;31 dB</text>
+                        <text x="510" y="258" text-anchor="middle" fill="#a1a1aa" font-size="10">Hann sacrifices slightly wider main lobe for 18 dB sidelobe reduction</text>
+                    </svg>
+                    <figcaption style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.75rem;">
+                        Windowing comparison. The rectangular window (red) causes spectral leakage with high sidelobes (&minus;13 dB). The Hann window (blue) tapers the signal smoothly, suppressing sidelobes to &minus;31 dB at the cost of a slightly wider main lobe.
+                    </figcaption>
+                </figure>
+
+                <h3>Common Window Functions</h3>
+                <table style="width:100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align:left; padding:0.6rem;">Window</th>
+                            <th style="text-align:left; padding:0.6rem;">Formula</th>
+                            <th style="text-align:right; padding:0.6rem;">Main Lobe Width</th>
+                            <th style="text-align:right; padding:0.6rem;">Peak Sidelobe</th>
+                            <th style="text-align:left; padding:0.6rem;">Use Case</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">Rectangular</td>
+                            <td style="padding:0.6rem;">$w[n] = 1$</td>
+                            <td style="text-align:right; padding:0.6rem;">$4\pi/N$</td>
+                            <td style="text-align:right; padding:0.6rem;">&minus;13 dB</td>
+                            <td style="padding:0.6rem;">Rarely (worst leakage)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">Hann</td>
+                            <td style="padding:0.6rem;">$0.5(1-\cos(2\pi n/N))$</td>
+                            <td style="text-align:right; padding:0.6rem;">$8\pi/N$</td>
+                            <td style="text-align:right; padding:0.6rem;">&minus;31 dB</td>
+                            <td style="padding:0.6rem;">General audio analysis</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">Hamming</td>
+                            <td style="padding:0.6rem;">$0.54 - 0.46\cos(2\pi n/N)$</td>
+                            <td style="text-align:right; padding:0.6rem;">$8\pi/N$</td>
+                            <td style="text-align:right; padding:0.6rem;">&minus;41 dB</td>
+                            <td style="padding:0.6rem;">Speech processing</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">Blackman</td>
+                            <td style="padding:0.6rem;">$0.42 - 0.5\cos(\cdot) + 0.08\cos(2\cdot)$</td>
+                            <td style="text-align:right; padding:0.6rem;">$12\pi/N$</td>
+                            <td style="text-align:right; padding:0.6rem;">&minus;58 dB</td>
+                            <td style="padding:0.6rem;">High dynamic range audio</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0.6rem;">Kaiser</td>
+                            <td style="padding:0.6rem;">Parameterized ($\beta$)</td>
+                            <td style="text-align:right; padding:0.6rem;">Variable</td>
+                            <td style="text-align:right; padding:0.6rem;">Variable</td>
+                            <td style="padding:0.6rem;">Filter design, optimal tradeoff</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="warning-box">
+                    <p><strong>Important:</strong> When using a window for a power spectrum estimate, you must compensate for the amplitude loss introduced by the window. The coherent gain of the Hann window is 0.5, so multiply $|X[k]|$ by $2/N$ (instead of $1/N$) to get correct amplitude scaling for single tones. Use $|X[k]|^2 \cdot (2/N^2) / \sum w[n]^2$ for power spectral density.</p>
+                </div>
+
+                <!-- ======================================================
+                     SECTION 9: APPLICATIONS
+                     ====================================================== -->
+                <h2 id="applications">9. Applications in Audio</h2>
+
+                <h3>Spectrum Analyzers</h3>
+                <p>
+                    A real-time spectrum analyzer takes successive overlapping frames of audio (typically
+                    using 50% overlap), applies a window, computes the FFT, and displays $|X[k]|^2$.
+                    The <strong>Short-Time Fourier Transform (STFT)</strong> is the mathematical framework:
+                </p>
+                $$\text{STFT}\{x\}(m, k) = \sum_{n=0}^{N-1} x[n + mH] \cdot w[n] \cdot e^{-j2\pi kn/N}$$
+                <p>
+                    where $m$ is the frame index and $H$ is the hop size (frame step). Setting
+                    $H = N/2$ gives 50% overlap.
+                </p>
+
+                <h3>Pitch Detection via FFT</h3>
+                <p>
+                    For a quasi-periodic audio signal (speech, music), the FFT reveals the fundamental
+                    frequency $f_0$ as the peak with the lowest frequency (or as the GCD of visible harmonics).
+                    The <strong>Harmonic Product Spectrum (HPS)</strong> method downsamples the spectrum
+                    multiple times and multiplies, reinforcing the true fundamental while suppressing harmonics:
+                </p>
+                $$\text{HPS}[k] = \prod_{r=1}^{R} |X[r \cdot k]|$$
+
+                <h3>Equalization (EQ)</h3>
+                <p>
+                    A graphic EQ boosts or cuts specific frequency bands. Using the convolution theorem,
+                    this is implemented as: FFT the audio, multiply by the desired frequency response $H[k]$
+                    (e.g., 1.5 for +3 dB in the bass band, 0.7 for &minus;3 dB in the midrange), then IFFT.
+                    This is called <strong>fast convolution</strong> and is how reverb plugins, noise
+                    cancellation, and many other effects work.
+                </p>
+
+                <h3>Audio Compression</h3>
+                <p>
+                    MP3 and AAC use frequency-domain transforms (MDCT, a variant of the DCT) to convert
+                    audio frames to the frequency domain, then apply <strong>psychoacoustic masking</strong>:
+                    loud frequencies mask nearby quieter ones, so less precision is needed for masked
+                    components. This allows 10:1 compression while preserving perceptual quality.
+                </p>
+
+                <h3>Summary Table</h3>
+                <table style="width:100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="text-align:left; padding:0.6rem;">Concept</th>
+                            <th style="text-align:left; padding:0.6rem;">Formula</th>
+                            <th style="text-align:left; padding:0.6rem;">Key Parameter</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">Fourier Series</td>
+                            <td style="padding:0.6rem;">$x(t) = \sum c_n e^{j2\pi nf_0 t}$</td>
+                            <td style="padding:0.6rem;">Period $T$, fund. freq $f_0$</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">CFT</td>
+                            <td style="padding:0.6rem;">$X(f) = \int x(t)e^{-j2\pi ft}dt$</td>
+                            <td style="padding:0.6rem;">Continuous frequency $f$</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">DFT</td>
+                            <td style="padding:0.6rem;">$X[k] = \sum_{n=0}^{N-1} x[n] W_N^{kn}$</td>
+                            <td style="padding:0.6rem;">$N$ samples, $\Delta f = f_s/N$</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">FFT</td>
+                            <td style="padding:0.6rem;">Cooley-Tukey, $O(N\log N)$</td>
+                            <td style="padding:0.6rem;">$N = 2^k$, butterflies</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--color-border);">
+                            <td style="padding:0.6rem;">IDFT</td>
+                            <td style="padding:0.6rem;">$x[n] = \frac{1}{N}\sum X[k] W_N^{-kn}$</td>
+                            <td style="padding:0.6rem;">Inverse of DFT</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0.6rem;">Parseval</td>
+                            <td style="padding:0.6rem;">$\sum|x[n]|^2 = \frac{1}{N}\sum|X[k]|^2$</td>
+                            <td style="padding:0.6rem;">Energy conservation</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </article><!-- end #theory -->
+
+            <!-- ==================== EXERCISES ==================== -->
+            <article class="article-content" id="exercises" style="display:none;">
+
+                <h2>Exercises: Fourier Transform &amp; FFT</h2>
+
+                <h3 style="color:#10B981;margin-top:2rem;">Easy (1&ndash;10)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">1</span><span class="exercise-title">DFT of a Constant</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Compute the 4-point DFT of $x[n] = [3, 3, 3, 3]$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$X[k] = \sum_{n=0}^{3} 3 \cdot e^{-j2\pi kn/4}$. For $k=0$: $X[0] = 12$. For $k \neq 0$: the complex exponentials sum to zero.</p><p>$$X = [12, 0, 0, 0]$$</p><p>A constant signal has all its energy at DC (frequency 0).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">2</span><span class="exercise-title">DFT of an Impulse</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Compute the 4-point DFT of $x[n] = [1, 0, 0, 0]$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$X[k] = \sum_{n=0}^{3} x[n] e^{-j2\pi kn/4} = 1 \cdot e^0 = 1$ for all $k$.</p><p>$$X = [1, 1, 1, 1]$$</p><p>An impulse contains all frequencies equally — flat spectrum.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">3</span><span class="exercise-title">Frequency Bin Spacing</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>With $f_s = 48000$ Hz and $N = 1024$, what is the frequency spacing between adjacent DFT bins? What frequency does bin $k = 100$ correspond to?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta f = f_s/N = 48000/1024 = 46.875$ Hz. Bin 100: $100 \times 46.875 = 4687.5$ Hz.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">4</span><span class="exercise-title">FFT Size for Frequency Resolution</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>You need to distinguish two tones 5 Hz apart at $f_s = 44100$ Hz. What is the minimum FFT size (power of 2)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Need $\Delta f \leq 5$ Hz. $N \geq 44100/5 = 8820$. Next power of 2: $N = 16384$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">5</span><span class="exercise-title">FFT Computational Savings</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Compare the number of complex multiplications for a direct DFT vs. FFT with $N = 4096$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>DFT: $N^2 = 4096^2 = 16{,}777{,}216$. FFT: $\frac{N}{2}\log_2 N = 2048 \times 12 = 24{,}576$.</p><p>Speedup: $16{,}777{,}216 / 24{,}576 \approx 683\times$ faster!</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">6</span><span class="exercise-title">Magnitude and Phase</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A DFT bin has value $X[k] = 3 + 4j$. What are the magnitude and phase?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$|X[k]| = \sqrt{3^2 + 4^2} = \sqrt{25} = 5$. Phase: $\angle X[k] = \arctan(4/3) \approx 53.1° \approx 0.927$ rad.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">7</span><span class="exercise-title">Nyquist Bin</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>In a 512-point FFT at 44100 Hz, which bin index corresponds to the Nyquist frequency? What frequency is that?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Nyquist bin: $N/2 = 256$. Frequency: $f_s/2 = 22050$ Hz. Bins 0 through 256 are the unique frequency bins (257 total).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">8</span><span class="exercise-title">Parseval's Theorem Check</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Given $x = [1, 2, 3, 4]$, verify Parseval's theorem: $\sum|x[n]|^2 = \frac{1}{N}\sum|X[k]|^2$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Left: $1 + 4 + 9 + 16 = 30$. DFT: $X = [10, -2+2j, -2, -2-2j]$.</p><p>$|X|^2 = [100, 8, 4, 8]$. Sum $= 120$. Right: $120/4 = 30$. &#10004;</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">9</span><span class="exercise-title">Real Signal Symmetry</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>For a real-valued signal of length $N$, what is the relationship between $X[k]$ and $X[N-k]$?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$X[N-k] = X^*[k]$ (complex conjugate). This means $|X[N-k]| = |X[k]|$ (symmetric magnitude) and $\angle X[N-k] = -\angle X[k]$ (antisymmetric phase). This is why only bins 0 to $N/2$ contain unique information for real signals.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">10</span><span class="exercise-title">Identify Frequency Components</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A 1024-point FFT at 44100 Hz shows peaks at bins 10, 20, and 30. What are the corresponding frequencies? What musical relationship do they have?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta f = 44100/1024 = 43.07$ Hz. Frequencies: $430.7, 861.3, 1292.0$ Hz.</p><p>These are in ratio 1:2:3 — the fundamental and its 2nd and 3rd harmonics.</p></div></div></div>
+
+                <h3 style="color:#F59E0B;margin-top:2rem;">Medium (11&ndash;20)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">11</span><span class="exercise-title">DFT by Hand</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Compute the 4-point DFT of $x = [1, 0, -1, 0]$ by hand.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$W_4 = e^{-j\pi/2} = -j$. So $W_4^0=1, W_4^1=-j, W_4^2=-1, W_4^3=j$.</p><p>$X[0] = 1 + 0 + (-1) + 0 = 0$</p><p>$X[1] = 1 + 0\cdot(-j) + (-1)(-1) + 0\cdot(j) = 1 + 1 = 2$</p><p>$X[2] = 1 + 0\cdot(-1) + (-1)(1) + 0\cdot(-1) = 0$</p><p>$X[3] = 1 + 0\cdot(j) + (-1)(-1) + 0\cdot(-j) = 2$</p><p>$$X = [0, 2, 0, 2]$$</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">12</span><span class="exercise-title">Fourier Coefficients of Square Wave</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Derive the Fourier series coefficients for a square wave of amplitude $A$ and period $T$. Show that only odd harmonics are present.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Square wave: $f(t) = A$ for $0 < t < T/2$, $f(t) = -A$ for $T/2 < t < T$. The function has odd symmetry about $T/4$, so $a_n = 0$ for all $n$.</p><p>$$b_n = \frac{2}{T}\int_0^T f(t)\sin(n\omega_0 t)\,dt = \frac{4A}{n\pi}$$ for odd $n$, and $0$ for even $n$.</p><p>$$f(t) = \frac{4A}{\pi}\sum_{k=0}^{\infty} \frac{\sin((2k+1)\omega_0 t)}{2k+1}$$</p><p>Only odd harmonics ($f_0, 3f_0, 5f_0, \ldots$) with amplitudes decaying as $1/n$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">13</span><span class="exercise-title">Convolution Theorem Application</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Signal $x = [1, 2, 3]$ is convolved with $h = [1, 1]$. Compute using (a) direct convolution and (b) the DFT convolution theorem. Verify they match.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) Direct: $y[0] = 1, y[1] = 2+1 = 3, y[2] = 3+2 = 5, y[3] = 3$. So $y = [1, 3, 5, 3]$.</p><p>(b) Zero-pad both to length 4: $x' = [1,2,3,0]$, $h' = [1,1,0,0]$. DFT: $X = [6, -2+2j, -2, -2-2j]$, $H = [2, 0, 0+0j, 0]$... Actually, let me compute properly:</p><p>$H[0] = 2, H[1] = 1+(-j) = 1-j, H[2] = 0, H[3] = 1+j$.</p><p>$Y = X \cdot H$: $Y[0] = 12, Y[1] = (-2+2j)(1-j) = -2+2j+2j-2j^2 = 0+4j, Y[2] = 0, Y[3] = (-2-2j)(1+j) = -2-2j-2j-2j^2 = 0-4j$.</p><p>IDFT of $[12, 4j, 0, -4j]$: $y = [1, 3, 5, 3]$ &#10004;</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">14</span><span class="exercise-title">Windowing Effect</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Explain why multiplying a signal by a window function in the time domain is equivalent to convolution in the frequency domain. What does this imply for spectral analysis?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>By the convolution theorem: $\mathcal{F}\{x \cdot w\} = X * W$ (convolution in frequency). The window's spectrum $W(f)$ is convolved with the signal's spectrum.</p><p>A rectangular window has a sinc-like spectrum with wide side lobes, which smears (leaks) energy. A Hann or Hamming window has much lower side lobes, reducing leakage at the cost of a wider main lobe (reduced frequency resolution).</p><p>Implication: every spectral peak in the FFT output is actually the true spectrum convolved with the window's Fourier transform. No window is "transparent" — you always see the signal through the window's spectral shape.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">15</span><span class="exercise-title">Zero-Padding</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You have 100 samples of a signal. You compute a 128-point FFT and then a 1024-point FFT (with zero-padding). Does the 1024-point FFT reveal more frequencies? Explain.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>No.</strong> Frequency resolution is determined by the signal duration (100 samples), not the FFT size. Zero-padding interpolates between the frequency bins (giving a smoother spectrum), but doesn't add new information. The minimum resolvable frequency difference remains $\Delta f = f_s/100$.</p><p>Zero-padding is useful for: (1) making peaks easier to locate, (2) achieving power-of-2 FFT sizes for efficiency, (3) visualizing the spectrum more smoothly.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">16</span><span class="exercise-title">Time-Shift Property</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>If $x[n]$ has DFT $X[k]$, show that delaying by $m$ samples gives $X[k] \cdot e^{-j2\pi km/N}$. What happens to the magnitude spectrum?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\text{DFT}\{x[n-m]\} = \sum_{n=0}^{N-1} x[n-m] e^{-j2\pi kn/N}$. Let $p = n-m$:</p><p>$= \sum_{p} x[p] e^{-j2\pi k(p+m)/N} = e^{-j2\pi km/N} \sum_p x[p] e^{-j2\pi kp/N} = e^{-j2\pi km/N} X[k]$</p><p>The magnitude $|X[k]|$ is unchanged — a time shift only affects phase, not magnitude. This is why magnitude spectrograms are time-shift invariant.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">17</span><span class="exercise-title">Power Spectrum</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A 1024-point FFT of white noise at 44100 Hz has an average $|X[k]|^2 = 500$ for all bins. What is the total signal power? What is the power spectral density?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>By Parseval: total power $= \frac{1}{N}\sum|X[k]|^2 = \frac{1}{1024} \times 1024 \times 500 = 500$.</p><p>PSD: power per Hz $= |X[k]|^2 / (N \cdot \Delta f) = 500/(1024 \times 43.07) = 0.01133$ per Hz. Or equivalently: total power / bandwidth $= 500/22050 = 0.02268$ (single-sided).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">18</span><span class="exercise-title">Fourier Transform of Cosine</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A signal $x(t) = \cos(2\pi \cdot 1000t)$ is sampled at 8000 Hz for 0.5 seconds. At which DFT bin(s) will energy appear?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$N = 8000 \times 0.5 = 4000$ samples. $\Delta f = 8000/4000 = 2$ Hz. The 1000 Hz tone falls at bin $k = 1000/2 = 500$.</p><p>Since $\cos(\omega t) = \frac{1}{2}(e^{j\omega t} + e^{-j\omega t})$, energy appears at bins 500 and $N - 500 = 3500$ (the conjugate mirror). Each has magnitude $N/2 = 2000$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">19</span><span class="exercise-title">Butterfly Operation</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Draw the butterfly diagram for a radix-2 DIT FFT of length $N = 8$. How many stages and how many butterflies per stage?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Stages: $\log_2(8) = 3$. Butterflies per stage: $N/2 = 4$. Total butterflies: $3 \times 4 = 12$.</p><p>Each butterfly: inputs $a, b$; outputs $a + W_N^r b$ and $a - W_N^r b$ where $r$ is the twiddle factor index.</p><p>Stage 1: 4 butterflies with $W_8^0$. Stage 2: 2 groups of 2 butterflies with $W_8^0, W_8^2$. Stage 3: 1 group of 4 butterflies with $W_8^0, W_8^1, W_8^2, W_8^3$.</p><p>Input order (bit-reversed): $x[0], x[4], x[2], x[6], x[1], x[5], x[3], x[7]$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">20</span><span class="exercise-title">Circular vs. Linear Convolution</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Explain the difference between circular and linear convolution. How do you use the DFT (which performs circular convolution) to compute linear convolution correctly?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>DFT multiplication performs <strong>circular</strong> convolution (the signals wrap around). Linear convolution of signals of length $M$ and $L$ produces output of length $M + L - 1$.</p><p>To get linear convolution from the DFT: (1) Zero-pad both signals to length $\geq M + L - 1$. (2) FFT both. (3) Multiply. (4) IFFT. The zero-padding prevents wrap-around aliasing.</p><p>Common choice: pad to the next power of 2 $\geq M + L - 1$ for FFT efficiency.</p></div></div></div>
+
+                <h3 style="color:#DC2626;margin-top:2rem;">Hard (21&ndash;30)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">21</span><span class="exercise-title">Prove the Convolution Theorem</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Prove that $\text{DFT}\{x \circledast h\} = X[k] \cdot H[k]$ where $\circledast$ denotes circular convolution.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Let $y[n] = \sum_{m=0}^{N-1} x[m] h[(n-m) \bmod N]$.</p><p>$Y[k] = \sum_{n=0}^{N-1} y[n] W_N^{kn} = \sum_n \sum_m x[m] h[(n-m) \bmod N] W_N^{kn}$</p><p>Substitute $p = (n-m) \bmod N$, so $n = (m+p) \bmod N$:</p><p>$= \sum_m x[m] W_N^{km} \sum_p h[p] W_N^{kp} = X[k] \cdot H[k]$ &square;</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">22</span><span class="exercise-title">FFT Complexity Analysis</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The radix-2 Cooley-Tukey FFT splits an $N$-point DFT into two $N/2$-point DFTs. Write the recurrence relation for the number of complex multiplications and solve it to show $T(N) = O(N\log N)$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The FFT computes: $X[k] = E[k] + W_N^k O[k]$ and $X[k+N/2] = E[k] - W_N^k O[k]$, where $E$ and $O$ are the DFTs of even- and odd-indexed samples.</p><p>Multiplications: two FFTs of size $N/2$ plus $N/2$ twiddle multiplications:</p><p>$T(N) = 2T(N/2) + N/2$, with $T(1) = 0$.</p><p>By the Master Theorem (case 2): $T(N) = \frac{N}{2}\log_2 N = O(N\log N)$.</p><p>Explicitly: at each of $\log_2 N$ stages, there are $N/2$ butterflies, each requiring 1 complex multiplication. Total: $\frac{N}{2}\log_2 N$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">23</span><span class="exercise-title">Goertzel Algorithm</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The Goertzel algorithm computes a single DFT bin in $O(N)$ time. Derive the 2nd-order IIR filter form: $s[n] = x[n] + 2\cos(2\pi k/N)s[n-1] - s[n-2]$, with $X[k] = s[N] - W_N^k s[N-1]$. When is Goertzel more efficient than FFT?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$X[k] = \sum_{n=0}^{N-1} x[n] W_N^{kn}$. Multiply by $W_N^{-kN} = 1$:</p><p>$X[k] = \sum_{n=0}^{N-1} x[n] W_N^{-k(N-n)} = \left.y[n]\right|_{n=N}$ where $y[n] = \sum_{m=0}^{N-1} x[m] W_N^{-k(n-m)}$.</p><p>This is a convolution with filter $h[n] = W_N^{-kn} u[n]$, whose z-transform is $H(z) = \frac{1}{1 - W_N^{-k}z^{-1}}$.</p><p>To avoid complex arithmetic, combine with conjugate pole: $H(z) = \frac{1 - W_N^k z^{-1}}{1 - 2\cos(2\pi k/N)z^{-1} + z^{-2}}$.</p><p>The denominator gives the recurrence $s[n] = x[n] + 2\cos(2\pi k/N)s[n-1] - s[n-2]$, using only real multiplications. The final output uses one complex multiply.</p><p>Goertzel beats FFT when you need fewer than $\sim \log_2 N$ bins. For DTMF detection (8 bins from 205 samples), Goertzel is clearly better.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">24</span><span class="exercise-title">Overlap-Save Method</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Describe the overlap-save method for efficiently convolving a very long signal with a short FIR filter of length $M$ using block FFTs of size $N$. How many output samples per block are valid? What is the computational advantage over direct convolution?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Method: (1) Divide input into overlapping blocks of $N$ samples, each overlapping by $M-1$ samples with the previous. (2) FFT each block and the zero-padded filter. (3) Multiply. (4) IFFT. (5) Discard the first $M-1$ samples of each output block (they're corrupted by circular wrap-around).</p><p>Valid samples per block: $N - M + 1$. Choose $N \gg M$ (e.g., $N = 4M$ or more).</p><p>Cost per output sample: FFT method $\approx \frac{N\log_2 N}{N - M + 1}$ multiplications. Direct: $M$ multiplications per sample. FFT wins when $\log_2 N \ll M$ (true for $M \gtrsim 64$).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">25</span><span class="exercise-title">DFT of a Windowed Sinusoid</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Derive the DFT magnitude of a length-$N$ sinusoid $x[n] = \sin(2\pi f_0 n/f_s)$ when $f_0$ does not land exactly on a bin center. Express the result in terms of the Dirichlet kernel.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$x[n] = \frac{1}{2j}(e^{j2\pi f_0 n/f_s} - e^{-j2\pi f_0 n/f_s})$. Let $k_0 = Nf_0/f_s$ (not necessarily integer).</p><p>$X[k] = \frac{1}{2j}\left[D_N(k - k_0) - D_N(k + k_0)\right]$</p><p>where $D_N(\alpha) = \sum_{n=0}^{N-1} e^{-j2\pi(k - k_0)n/N} = e^{-j\pi(N-1)\alpha/N} \frac{\sin(\pi\alpha)}{\sin(\pi\alpha/N)}$ is the Dirichlet kernel.</p><p>$|D_N(\alpha)| = \left|\frac{\sin(\pi\alpha)}{\sin(\pi\alpha/N)}\right|$. When $k_0$ is integer, this is $N$ at $k = k_0$ and 0 elsewhere. When $k_0$ is non-integer, the sinc-like envelope creates spectral leakage — energy spreads to neighboring bins.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">26</span><span class="exercise-title">Pitch Detection via Autocorrelation</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The autocorrelation $r[l] = \sum_n x[n]x[n+l]$ can be computed efficiently via FFT using $r = \text{IFFT}(|X|^2)$. For pitch detection, we find the lag $l^*$ of the first strong peak after $l=0$. The fundamental frequency is $f_0 = f_s/l^*$. Design a pitch detector for the range 80&ndash;1000 Hz at $f_s = 16000$ Hz.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Lag search range: $l_{\min} = f_s/f_{\max} = 16000/1000 = 16$ samples. $l_{\max} = f_s/f_{\min} = 16000/80 = 200$ samples.</p><p>Algorithm: (1) Window frame (~25 ms = 400 samples). (2) FFT (zero-pad to 1024). (3) Compute $|X[k]|^2$. (4) IFFT to get autocorrelation. (5) Find the maximum of $r[l]$ for $16 \leq l \leq 200$. (6) $f_0 = 16000/l^*$.</p><p>Resolution: at $l = 16$ (1000 Hz), changing lag by 1 changes frequency by $16000/17 - 16000/16 = 941 - 1000 = 59$ Hz — poor resolution at high frequencies. At $l = 200$ (80 Hz): $16000/201 - 16000/200 = 0.4$ Hz — excellent at low frequencies. This asymmetry is inherent to time-domain pitch detection.</p><p>Enhancement: parabolic interpolation around the autocorrelation peak for sub-sample lag accuracy.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">27</span><span class="exercise-title">Discrete Cosine Transform</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The Type-II DCT is defined as $C[k] = \sum_{n=0}^{N-1} x[n] \cos\!\left(\frac{\pi(2n+1)k}{2N}\right)$. Show that the DCT is equivalent to the DFT of a symmetrically extended signal and explain why it has better energy compaction than the DFT for typical audio signals.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Construct $y[n]$ of length $2N$ by: $y[n] = x[n]$ for $0 \leq n < N$ and $y[2N-1-n] = x[n]$ (mirror). The DFT of $y$ yields: $Y[k] = e^{-j\pi k/(2N)} \times 2\sum_{n=0}^{N-1} x[n]\cos(\pi(2n+1)k/(2N))$.</p><p>So $C[k] = \text{Re}(Y[k] e^{j\pi k/(2N)})/2$ — the DCT is essentially the real part of a DFT of a symmetric extension.</p><p><strong>Energy compaction:</strong> Audio signals have strong sample-to-sample correlation (smooth waveforms). The DCT's basis functions (cosines) closely match the eigenvectors of the autocorrelation matrix for first-order Markov processes. This means most energy concentrates in the first few DCT coefficients — far better than DFT, which spreads energy across both real and imaginary parts. This is why JPEG uses DCT, and why MDCT (a variant) is the core of MP3 and AAC.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">28</span><span class="exercise-title">Chirp Z-Transform</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The Chirp Z-Transform (CZT) evaluates the Z-transform on any contour $z_k = AW^{-k}$ for $k = 0, \ldots, M-1$, not just the unit circle. Explain how this can be used to "zoom in" on a narrow frequency band with high resolution, and describe the computational trick that keeps it $O(N\log N)$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Set $A = e^{j2\pi f_1/f_s}$ (start frequency) and $W = e^{-j2\pi(f_2-f_1)/(Mf_s)}$ (frequency step). The CZT then evaluates the spectrum at $M$ equally spaced points between $f_1$ and $f_2$.</p><p>Key identity (Bluestein): $kn = \frac{1}{2}[k^2 + n^2 - (k-n)^2]$. This converts the sum $\sum x[n]W^{kn}$ into a convolution, computable via FFT.</p><p>$X_{\text{CZT}}[k] = W^{k^2/2} \sum_n [x[n] A^{-n} W^{n^2/2}] \cdot W^{-(k-n)^2/2}$</p><p>This is a convolution of two sequences, computable with 3 FFTs of size $\geq N + M - 1$. Total: $O((N+M)\log(N+M))$.</p><p>Use case: you want 1000 frequency points between 440 and 880 Hz. FFT would require $N > f_s/0.44 \approx 100{,}000$ points. CZT does it with any $N$ and $M = 1000$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">29</span><span class="exercise-title">Uncertainty Principle from DFT</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Define the "spread" of a discrete signal in time as $\sigma_n^2 = \sum n^2 |x[n]|^2 / \sum |x[n]|^2$ (centered at 0) and similarly $\sigma_k^2$ in frequency. Prove that $\sigma_n \cdot \sigma_k \geq 1/(4\pi)$ cannot be achieved exactly in the discrete case but is approached by a sampled Gaussian.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The continuous uncertainty principle $\sigma_t \sigma_f \geq 1/(4\pi)$ is achieved exactly by the Gaussian $g(t) = e^{-\alpha t^2}$.</p><p>In the discrete case, the Gaussian $x[n] = e^{-\alpha n^2}$ has Fourier transform that is also approximately Gaussian (exact only for infinite length). The product $\sigma_n \sigma_k > 1/(4\pi)$ strictly, because:</p><p>(1) Truncation to finite length increases spread. (2) Aliasing from sampling in both domains adds uncertainty. (3) The discrete Fourier transform operates on a periodic (circular) domain, which fundamentally changes the geometry.</p><p>The minimum discrete uncertainty product approaches $1/(4\pi)$ as $N \to \infty$ with properly chosen $\alpha \propto 1/N$, but never exactly equals it. For practical window design, the discrete Gaussian remains the best choice for minimizing time-frequency spread.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">30</span><span class="exercise-title">Spectral Analysis System Design</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Design a complete real-time spectrum analyzer for a mixing console: $f_s = 48000$ Hz, 31-band (1/3 octave from 20 Hz to 20 kHz), update rate 30 fps, latency &lt; 50 ms. Choose between FFT, filterbank, or CQT approach and justify all parameters.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Approach: FFT with grouping into 1/3 octave bands.</strong></p><p>For 20 Hz resolution at the low end: $N \geq 48000/20 = 2400$. Use $N = 4096$ ($\Delta f = 11.7$ Hz). Window: Hann. Hop: $48000/30 = 1600$ samples for 30 fps update.</p><p>Latency: window length = $4096/48000 = 85$ ms — exceeds 50 ms spec!</p><p><strong>Better: Multi-rate approach.</strong> Split into octave bands with a tree of halfband filters (efficient!). Each octave halves the sample rate. At the lowest octave (20&ndash;40 Hz), $f_s = 375$ Hz, and a 256-point FFT gives $\Delta f = 1.46$ Hz — more than enough. Higher octaves use smaller FFTs at proportionally higher rates.</p><p>This gives logarithmic frequency resolution naturally, latency proportional to the period of the lowest band (~50 ms for 20 Hz), and computational cost of $O(N)$ total across all bands per update — far more efficient than a single giant FFT.</p></div></div></div>
+
+            </article>
+        </main>
+    </div>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

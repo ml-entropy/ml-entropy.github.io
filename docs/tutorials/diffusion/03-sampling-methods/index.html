@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sampling Methods | Diffusion Models</title>
+    <meta name="description" content="Compare DDPM, DDIM, DPM-Solver, timestep respacing, distillation, and consistency models for fast diffusion sampling.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link active">Diffusion Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Diffusion Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Sampling Methods</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Diffusion Models</h3>
+        <nav class="sidebar-nav">
+            <a href="../00-forward-process/index.html" class="sidebar-link">00. The Forward Process</a>
+            <a href="../01-reverse-denoising/index.html" class="sidebar-link">01. Reverse Process & DDPM</a>
+            <a href="../02-score-matching/index.html" class="sidebar-link">02. Score Matching</a>
+            <a href="../03-sampling-methods/index.html" class="sidebar-link active">03. Sampling Methods</a>
+            <a href="../04-sde-ode-framework/index.html" class="sidebar-link">04. SDE/ODE Framework</a>
+            <a href="../05-guidance-conditioning/index.html" class="sidebar-link">05. Guidance & Conditioning</a>
+            <a href="../06-architectures/index.html" class="sidebar-link">06. Architectures</a>
+        </nav>
+    </div>
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+            <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+            <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+            <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+            <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+        </nav>
+    </div>
+</aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Sampling Methods</h1>
+                <p>
+                    Training tells us how to denoise, but sampling determines whether that denoiser is practical. A model that needs a thousand perfect reverse steps may have excellent asymptotic quality and still feel too slow for real use, so modern diffusion research is largely the story of better samplers.
+                </p>
+                <p>
+                    The key trade-off is quality versus trajectory budget. Fast samplers approximate the same reverse path with fewer evaluations, and every improvement asks the same question: how much numerical error can we afford before samples noticeably degrade?
+                </p>
+                <h2 id="ancestral-ddpm-sampling">DDPM ancestral sampling</h2>
+                <p>
+                    The original DDPM sampler is ancestral: start from $x_T\sim\mathcal N(0,I)$ and repeatedly sample from the learned reverse Gaussian. Each step predicts a mean from the denoiser and then injects fresh randomness according to the chosen reverse variance.
+                </p>
+                <p>
+                    This stochasticity is not a bug. It is what makes the process a faithful approximate reverse Markov chain, but it also means the path zig-zags through latent space and needs many evaluations to converge gracefully.
+                </p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 820 360" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="410" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Different samplers trace different paths through latent space</text>
+                        <circle cx="90" cy="275" r="18" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+                        <text x="90" y="280" text-anchor="middle" font-size="11" fill="#991b1b">noise</text>
+                        <circle cx="725" cy="90" r="22" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+                        <text x="725" y="94" text-anchor="middle" font-size="11" fill="#166534">sample</text>
+                        <polyline fill="none" stroke="#2563eb" stroke-width="3" points="90,275 130,250 155,262 190,225 220,236 255,205 285,214 315,185 350,180 385,150 425,155 470,125 515,133 560,110 605,108 660,95 725,90"/>
+                        <circle cx="130" cy="250" r="3" fill="#2563eb"/>
+                        <circle cx="155" cy="262" r="3" fill="#2563eb"/>
+                        <circle cx="190" cy="225" r="3" fill="#2563eb"/>
+                        <circle cx="220" cy="236" r="3" fill="#2563eb"/>
+                        <circle cx="255" cy="205" r="3" fill="#2563eb"/>
+                        <circle cx="285" cy="214" r="3" fill="#2563eb"/>
+                        <circle cx="315" cy="185" r="3" fill="#2563eb"/>
+                        <circle cx="350" cy="180" r="3" fill="#2563eb"/>
+                        <circle cx="385" cy="150" r="3" fill="#2563eb"/>
+                        <circle cx="425" cy="155" r="3" fill="#2563eb"/>
+                        <circle cx="470" cy="125" r="3" fill="#2563eb"/>
+                        <circle cx="515" cy="133" r="3" fill="#2563eb"/>
+                        <circle cx="560" cy="110" r="3" fill="#2563eb"/>
+                        <circle cx="605" cy="108" r="3" fill="#2563eb"/>
+                        <circle cx="660" cy="95" r="3" fill="#2563eb"/>
+                        <text x="440" y="312" text-anchor="middle" font-size="11" fill="#2563eb">DDPM: stochastic ancestral path</text>
+                        <polyline fill="none" stroke="#9333ea" stroke-width="3" points="90,275 150,245 205,225 260,205 320,180 390,155 470,132 560,113 640,98 725,90"/>
+                        <circle cx="150" cy="245" r="3" fill="#9333ea"/>
+                        <circle cx="205" cy="225" r="3" fill="#9333ea"/>
+                        <circle cx="260" cy="205" r="3" fill="#9333ea"/>
+                        <circle cx="320" cy="180" r="3" fill="#9333ea"/>
+                        <circle cx="390" cy="155" r="3" fill="#9333ea"/>
+                        <circle cx="470" cy="132" r="3" fill="#9333ea"/>
+                        <circle cx="560" cy="113" r="3" fill="#9333ea"/>
+                        <circle cx="640" cy="98" r="3" fill="#9333ea"/>
+                        <text x="440" y="330" text-anchor="middle" font-size="11" fill="#9333ea">DDIM: deterministic path</text>
+                        <polyline fill="none" stroke="#f97316" stroke-width="3" points="90,275 175,230 275,190 395,150 555,112 725,90"/>
+                        <circle cx="175" cy="230" r="3" fill="#f97316"/>
+                        <circle cx="275" cy="190" r="3" fill="#f97316"/>
+                        <circle cx="395" cy="150" r="3" fill="#f97316"/>
+                        <circle cx="555" cy="112" r="3" fill="#f97316"/>
+                        <text x="440" y="348" text-anchor="middle" font-size="11" fill="#f97316">DPM-Solver: few high-order steps</text>
+                    </svg>
+                </div>
+                <h3 id="the-ddim-update">10.1 The DDIM Update</h3>
+                <p>
+                    Song et al. (2021) showed that the same training objective supports a <strong>deterministic</strong> sampling process:
+                </p>
+                <div class="math-block">
+                    $$x_{t-1} = \sqrt{\bar{\alpha}_{t-1}} \hat{x}_0 + \sqrt{1-\bar{\alpha}_{t-1} - \sigma_t^2} \cdot \frac{x_t - \sqrt{\bar{\alpha}_t}\hat{x}_0}{\sqrt{1-\bar{\alpha}_t}} + \sigma_t \epsilon$$
+                </div>
+                <p>
+                    Setting $\sigma_t = 0$ gives a deterministic mapping — the <strong>probability flow ODE</strong>.
+                </p>
+                <h3 id="advantages">10.2 Advantages</h3>
+                <ul>
+                    <li><strong>Fewer steps</strong>: DDIM can generate good samples in 10-50 steps (vs 1000 for DDPM)</li>
+                    <li><strong>Deterministic</strong>: Same noise → same image (useful for interpolation)</li>
+                    <li><strong>Invertible</strong>: Can map images to their latent noise representation</li>
+                </ul>
+                <h2 id="timestep-respacing">Timestep respacing and sub-sampling</h2>
+                <p>
+                    Once a model is trained on a long schedule, we do not have to sample every original timestep. Uniform respacing, quadratic respacing, and log-SNR-aware respacing all try to preserve the important parts of the denoising trajectory while discarding redundant evaluations.
+                </p>
+                <p>
+                    The important point is that skipped steps are not free: each jump is larger and therefore numerically harder. Good fast samplers succeed because they compensate for that larger jump with better local approximations to the reverse dynamics.
+                </p>
+                <h2 id="ode-solvers-and-dpm-solver">ODE solvers and DPM-Solver</h2>
+                <p>
+                    When we move from the stochastic reverse chain to the probability-flow ODE, the problem becomes numerical integration. Euler is the simplest option, Heun and midpoint methods improve local accuracy, and specialized diffusion solvers exploit the semi-linear structure of the reverse equation for even better efficiency.
+                </p>
+                <p>
+                    DPM-Solver and DPM-Solver++ are influential because they solve the linear part of the dynamics analytically and only approximate the nonlinear score-dependent remainder. That design is tailor-made for diffusion, which is why it often beats generic ODE solvers at the same step count.
+                </p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 820 250" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="410" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Deterministic samplers support smooth latent interpolation</text>
+                        <circle cx="90" cy="80" r="18" fill="#60a5fa" opacity="0.9"/>
+                        <text x="90" y="84" text-anchor="middle" font-size="11" fill="currentColor">z1</text>
+                        <ellipse cx="90" cy="165" rx="22" ry="14" fill="#60a5fa" opacity="0.5" stroke="currentColor" opacity="0.6"/>
+                        <line x1="108" y1="80" x2="212" y2="80" stroke="currentColor" opacity="0.3"/>
+                        <circle cx="230" cy="80" r="18" fill="#7dd3fc" opacity="0.9"/>
+                        <text x="230" y="84" text-anchor="middle" font-size="11" fill="currentColor">25%</text>
+                        <ellipse cx="230" cy="165" rx="24" ry="18" fill="#7dd3fc" opacity="0.5" stroke="currentColor" opacity="0.6"/>
+                        <line x1="248" y1="80" x2="352" y2="80" stroke="currentColor" opacity="0.3"/>
+                        <circle cx="370" cy="80" r="18" fill="#c4b5fd" opacity="0.9"/>
+                        <text x="370" y="84" text-anchor="middle" font-size="11" fill="currentColor">50%</text>
+                        <ellipse cx="370" cy="165" rx="28" ry="22" fill="#c4b5fd" opacity="0.5" stroke="currentColor" opacity="0.6"/>
+                        <line x1="388" y1="80" x2="492" y2="80" stroke="currentColor" opacity="0.3"/>
+                        <circle cx="510" cy="80" r="18" fill="#f9a8d4" opacity="0.9"/>
+                        <text x="510" y="84" text-anchor="middle" font-size="11" fill="currentColor">75%</text>
+                        <ellipse cx="510" cy="165" rx="32" ry="26" fill="#f9a8d4" opacity="0.5" stroke="currentColor" opacity="0.6"/>
+                        <line x1="528" y1="80" x2="632" y2="80" stroke="currentColor" opacity="0.3"/>
+                        <circle cx="650" cy="80" r="18" fill="#fda4af" opacity="0.9"/>
+                        <text x="650" y="84" text-anchor="middle" font-size="11" fill="currentColor">z2</text>
+                        <ellipse cx="650" cy="165" rx="36" ry="30" fill="#fda4af" opacity="0.5" stroke="currentColor" opacity="0.6"/>
+                    </svg>
+                </div>
+                <div class="svg-container">
+                    <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="400" y="20" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Quality improves with more steps, but solver choice changes the frontier</text>
+                        <line x1="70" y1="265" x2="775" y2="265" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                        <line x1="70" y1="35" x2="70" y2="265" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                        <line x1="70.0" y1="265" x2="70.0" y2="271" stroke="currentColor" opacity="0.4"/>
+                        <text x="70.0" y="287" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">5</text>
+                        <line x1="211.0" y1="265" x2="211.0" y2="271" stroke="currentColor" opacity="0.4"/>
+                        <text x="211.0" y="287" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">204</text>
+                        <line x1="352.0" y1="265" x2="352.0" y2="271" stroke="currentColor" opacity="0.4"/>
+                        <text x="352.0" y="287" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">403</text>
+                        <line x1="493.0" y1="265" x2="493.0" y2="271" stroke="currentColor" opacity="0.4"/>
+                        <text x="493.0" y="287" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">602</text>
+                        <line x1="634.0" y1="265" x2="634.0" y2="271" stroke="currentColor" opacity="0.4"/>
+                        <text x="634.0" y="287" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">801</text>
+                        <line x1="775.0" y1="265" x2="775.0" y2="271" stroke="currentColor" opacity="0.4"/>
+                        <text x="775.0" y="287" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">1000</text>
+                        <line x1="64" y1="265.0" x2="70" y2="265.0" stroke="currentColor" opacity="0.4"/>
+                        <text x="58" y="269.0" text-anchor="end" font-size="10" fill="currentColor" opacity="0.75">6.50</text>
+                        <line x1="64" y1="207.5" x2="70" y2="207.5" stroke="currentColor" opacity="0.4"/>
+                        <text x="58" y="211.5" text-anchor="end" font-size="10" fill="currentColor" opacity="0.75">16.12</text>
+                        <line x1="64" y1="150.0" x2="70" y2="150.0" stroke="currentColor" opacity="0.4"/>
+                        <text x="58" y="154.0" text-anchor="end" font-size="10" fill="currentColor" opacity="0.75">25.75</text>
+                        <line x1="64" y1="92.5" x2="70" y2="92.5" stroke="currentColor" opacity="0.4"/>
+                        <text x="58" y="96.5" text-anchor="end" font-size="10" fill="currentColor" opacity="0.75">35.38</text>
+                        <line x1="64" y1="35.0" x2="70" y2="35.0" stroke="currentColor" opacity="0.4"/>
+                        <text x="58" y="39.0" text-anchor="end" font-size="10" fill="currentColor" opacity="0.75">45.00</text>
+                        <polyline fill="none" stroke="#2563eb" stroke-width="3" points="73.5,52.9 80.6,136.6 101.9,208.2 137.3,238.1 243.6,253.1 775.0,260.8"/>
+                        <line x1="620" y1="45" x2="644" y2="45" stroke="#2563eb" stroke-width="3"/>
+                        <text x="652" y="49" font-size="11" fill="currentColor">DDPM</text>
+                        <polyline fill="none" stroke="#7c3aed" stroke-width="3" points="73.5,160.5 80.6,196.3 101.9,235.1 137.3,248.9 243.6,255.4"/>
+                        <line x1="620" y1="63" x2="644" y2="63" stroke="#7c3aed" stroke-width="3"/>
+                        <text x="652" y="67" font-size="11" fill="currentColor">DDIM</text>
+                        <polyline fill="none" stroke="#f97316" stroke-width="3" points="70.0,172.4 73.5,220.2 80.6,248.3 87.7,254.8 101.9,257.2"/>
+                        <line x1="620" y1="81" x2="644" y2="81" stroke="#f97316" stroke-width="3"/>
+                        <text x="652" y="85" font-size="11" fill="currentColor">DPM-Solver</text>
+                        <text x="400" y="306" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.75">sampling steps</text>
+                        <text x="18" y="160" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.75" transform="rotate(-90 18 160)">FID (lower is better)</text>
+                    </svg>
+                </div>
+                <h2 id="distillation-and-consistency">Progressive distillation and consistency models</h2>
+                <p>
+                    Progressive distillation compresses a long diffusion sampler into a shorter one by training a student to imitate two teacher steps with one student step. Repeating that procedure can reduce hundreds of evaluations to a handful while preserving much of the teacher's behavior.
+                </p>
+                <p>
+                    Consistency models push this idea further by learning a map that sends many points on the same diffusion trajectory to a shared denoised answer. The resulting one-step or few-step generators are less faithful to the original ancestral chain, but they are attractive when latency matters more than exact trajectory simulation.
+                </p>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Why self-consistency can replace a long sampler</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">Take a noisy point $x_t$ and apply a small denoising update to obtain a nearby point on the same trajectory.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">Train one network so both points map to the same clean estimate or endpoint representation.</div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">Once that fixed-point relation is learned, one evaluation can stand in for many tiny trajectory refinements.</div>
+                    </div>
+                </div>
+                <p>
+                    Mechanically, the model stops trying to reproduce every intermediate reverse step exactly and instead learns the endpoint relation more directly. That is why consistency methods can be astonishingly fast, but it also explains why they may lose subtle texture, stochastic diversity, or long-horizon correction ability compared with a careful multi-step sampler.
+                </p>
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Sampling Methods</h2>
+    <p>
+        Sampling is where diffusion becomes practical or impractical. Better solvers, better timestep grids, and better distilled models all aim to preserve sample quality while paying for far fewer denoiser evaluations.
+    </p>
+</div>
+                <div class="tutorial-nav">
+                    <a href="../02-score-matching/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Score Matching</span>
+                    </a>
+                    <a href="../04-sde-ode-framework/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">SDE/ODE Framework →</span>
+                    </a>
+                </div>
+            </article>
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="ancestral-ddpm-code">Ancestral DDPM sampling</h2>
+                <p>
+                    The ancestral sampler mirrors the original DDPM paper closely. It predicts the reverse mean, injects variance except at the last step, and works best when step count is large.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def sample_ddpm(model, shape, beta, alpha, alpha_bar):
+    x = torch.randn(shape, device=beta.device)
+    T = beta.numel()
+    for step in reversed(range(T)):
+        t = torch.full((shape[0],), step, device=beta.device, dtype=torch.long)
+        eps = model(x, t)
+        a = alpha[step]
+        ab = alpha_bar[step]
+        b = beta[step]
+        mean = (x - b / torch.sqrt(1 - ab) * eps) / torch.sqrt(a)
+        if step &gt; 0:
+            x = mean + torch.sqrt(b) * torch.randn_like(x)
+        else:
+            x = mean
+    return x
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        This sampler is strong but slow because it pays for a model evaluation at every trained timestep.
+    </p>
+</div>
+                <h2 id="ddim-update-rule">DDIM update rule</h2>
+                <p>
+                    DDIM reuses the same denoiser but removes stochasticity. Once a clean estimate is formed, the next state is chosen to stay on a deterministic path with the desired marginal variance.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def sample_ddim(model, shape, timesteps, alpha_bar, eta=0.0):
+    x = torch.randn(shape, device=alpha_bar.device)
+    for i in reversed(range(1, len(timesteps))):
+        t = timesteps[i]
+        t_prev = timesteps[i - 1]
+        batch_t = torch.full((shape[0],), t, device=alpha_bar.device, dtype=torch.long)
+        eps = model(x, batch_t)
+        ab_t = alpha_bar[t]
+        ab_prev = alpha_bar[t_prev]
+        x0 = (x - torch.sqrt(1 - ab_t) * eps) / torch.sqrt(ab_t)
+        sigma = eta * torch.sqrt((1 - ab_prev) / (1 - ab_t) * (1 - ab_t / ab_prev))
+        direction = torch.sqrt(torch.clamp(1 - ab_prev - sigma**2, min=0.0)) * eps
+        x = torch.sqrt(ab_prev) * x0 + direction
+        if eta &gt; 0:
+            x = x + sigma * torch.randn_like(x)
+    return x
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        Setting <code>eta=0</code> yields deterministic DDIM. Larger values smoothly interpolate back toward DDPM-like stochastic behavior.
+    </p>
+</div>
+                <h2 id="choosing-a-respaced-timetable">Choosing a respaced timetable</h2>
+                <p>
+                    Fast sampling begins with a good set of timesteps. Uniform spacing is simple, but many implementations prefer schedules that preserve more resolution near the low-noise end where details are refined.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+import torch
+
+def uniform_respacing(T, steps):
+    return torch.linspace(0, T - 1, steps=steps, dtype=torch.long)
+
+
+def quadratic_respacing(T, steps):
+    grid = torch.linspace(0, 1, steps=steps)
+    return torch.round((grid ** 2) * (T - 1)).long()
+
+
+def trailing_respacing(T, steps):
+    grid = torch.linspace(0, 1, steps=steps)
+    return torch.round((1 - (1 - grid) ** 2) * (T - 1)).long()
+
+# Example: keep more resolution late in the trajectory
+respaced = trailing_respacing(T=1000, steps=30)
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        A respacing rule is a numerical design decision, not just a convenience. It controls where the sampler spends its precious budget of network evaluations.
+    </p>
+</div>
+                <h2 id="ddim-inversion-sketch">DDIM inversion sketch</h2>
+                <p>
+                    Deterministic samplers can approximately invert the generation path. This is the basis for image editing methods that map an existing image into latent noise and then denoise it again under a modified prompt.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def ddim_invert(model, x0, timesteps, alpha_bar):
+    x = x0.clone()
+    trajectory = [x.clone()]
+    for i in range(len(timesteps) - 1):
+        t = timesteps[i]
+        t_next = timesteps[i + 1]
+        batch_t = torch.full((x.size(0),), t, device=x.device, dtype=torch.long)
+        eps = model(x, batch_t)
+        ab_t = alpha_bar[t]
+        ab_next = alpha_bar[t_next]
+        x0_hat = (x - torch.sqrt(1 - ab_t) * eps) / torch.sqrt(ab_t)
+        x = torch.sqrt(ab_next) * x0_hat + torch.sqrt(1 - ab_next) * eps
+        trajectory.append(x.clone())
+    return x, trajectory
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        Inversion is approximate because the denoiser is imperfect, but it is good enough to support many real editing workflows.
+    </p>
+</div>
+            </article>
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>
+                    Start with direct computations and concept checks. These should feel like guided repetitions of the core formulas.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 1: Identify the slow baseline</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Which sampler is the classical thousand-step baseline: DDPM or DDIM?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    DDPM is the classical long-step stochastic baseline. DDIM was introduced precisely to make sampling faster and deterministic when desired.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 2: Effect of eta</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                In DDIM, what happens when $\eta = 0$?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The sampler becomes deterministic because the stochastic noise term disappears. The same starting noise then always yields the same output.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 3: Starting point for sampling</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Where do diffusion samplers begin before any denoising happens?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    They begin from Gaussian noise sampled from the prior. The reverse process then gradually converts that noise into structured data.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 4: Interpret respacing</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why would one use only 50 steps at inference if the model was trained with 1000?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because many adjacent training steps are numerically redundant for generation. A carefully chosen subset can approximate the same trajectory much more cheaply.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 5: DDPM versus DDIM randomness</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Which of DDPM and DDIM is stochastic by default?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    DDPM is stochastic because it injects reverse noise at each step. DDIM is deterministic when used with its usual zero-noise setting.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 6: Read a quality curve</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                If FID drops as step count increases, what does that tell you?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It means sample quality generally improves when the numerical approximation is refined. More steps reduce local truncation error and allow gentler denoising changes.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 7: Interpolation advantage</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why are deterministic samplers especially convenient for latent interpolation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because the same starting condition always follows the same path. That makes interpolated latents produce smooth, predictable interpolated outputs.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 8: Ancestral noise term</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does DDPM inject fresh Gaussian noise during most reverse steps?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It preserves the stochastic nature of the reverse Markov chain and lets the model explore the learned distribution rather than following a single fixed path.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 9: Fast solver intuition</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What is the high-level purpose of DPM-Solver?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It reduces the number of denoiser evaluations needed for good samples by using a higher-order approximation tailored to diffusion ODE structure.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 10: Consistency-model goal</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What is the goal of a consistency model?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It tries to map different points on the same diffusion trajectory to a shared denoised answer, enabling one-step or few-step generation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>
+                    Now move from recall to derivation. These questions ask you to justify formulas, compare viewpoints, and explain why the method works.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 11: DDIM clean estimate</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does DDIM first compute an estimate of $x_0$ before stepping to the next latent?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The clean estimate acts as a stable anchor for the deterministic update. Once $x_0$ is estimated, the next latent can be chosen to preserve the desired marginal variance while remaining on a coherent path.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 12: Respacing trade-off</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What is the main risk of making timestep jumps too large?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Large jumps increase numerical error because the denoiser is asked to extrapolate farther in one move. This can cause oversmoothing, artifacts, or failure to recover fine detail.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 13: Why high-order solvers help</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can a second- or third-order solver outperform Euler with the same number of steps?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Higher-order solvers use more information about local curvature or multiple evaluations to reduce truncation error. That means fewer total steps are needed to achieve the same path accuracy.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 14: Determinism and editing</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does deterministic sampling help with image editing and inversion?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    A deterministic path can be approximately run forward and backward, so an existing image can be associated with a latent state and then edited by restarting denoising under new conditions.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 15: Ancestral diversity</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can DDPM produce more diverse outputs than a deterministic sampler from the same starting point?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because each reverse step adds fresh randomness, so the chain may explore multiple plausible microscopic realizations even when the coarse denoising direction is similar.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 16: DPM-Solver structure</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What does it mean to solve the linear part of the diffusion ODE exactly?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The reverse equation contains a simple linear component driven by schedule coefficients. DPM-Solver isolates that piece analytically and only approximates the harder score-dependent remainder.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 17: Progressive distillation idea</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How does progressive distillation reduce step count?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    A student model is trained so one student update imitates two teacher updates. Repeating that compression halves the required step count again and again.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 18: Consistency objective intuition</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is self-consistency a sensible objective for fast generators?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    If many noisy points truly lie on one denoising trajectory, they should all correspond to the same clean answer. Enforcing that relation directly bypasses explicit trajectory simulation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 19: Quality versus speed frontier</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is there no universally best sampler?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Different applications value latency, diversity, editability, and peak quality differently. A sampler that is ideal for offline art generation may be too slow for interactive use.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 20: Skipped-step variance choice</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can variance selection matter more when many steps are skipped?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Each jump covers a larger region of trajectory space, so the uncertainty associated with that jump becomes more consequential. Poor variance calibration can make fast samplers unstable or overly blurry.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>
+                    These problems push you toward research-level thinking: asymptotics, design choices, edge cases, and deeper theoretical interpretation.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 21: Derive the DDIM family</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can one view DDIM as a non-Markovian family that preserves the same training objective as DDPM?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The training loss depends only on the marginal corruption distribution at each timestep, not on one unique forward transition kernel. DDIM exploits that freedom to choose a deterministic reverse path with the same marginals.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 22: Solver order and diffusion</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why are generic ODE orders not the whole story for diffusion samplers?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Diffusion equations have special semi-linear structure and score-dependent stiffness patterns. Methods that exploit those properties can outperform a generic solver of the same nominal order.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 23: Stochasticity versus fidelity</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                When can adding stochasticity improve results even if a deterministic sampler is already available?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Stochasticity can help recover diversity or escape local numerical biases, especially when conditioning is strong or the score estimate is imperfect. Deterministic paths may otherwise overcommit to a single trajectory.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 24: Distillation error accumulation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can repeated progressive distillation eventually hurt quality?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Each student is trained to imitate a teacher that is itself approximate, so small imitation errors compound over generations of compression. Extreme step reduction therefore tends to sacrifice detail or diversity.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 25: Consistency-model limitation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What kind of information might a one-step consistency model struggle to preserve?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It may struggle with fine-grained stochastic variability or difficult long-horizon refinements that normally emerge gradually across many denoising stages. Compressing all of that into one evaluation is intrinsically demanding.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 26: Optimal respacing question</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What principle would you use to design an optimal timestep grid?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Allocate steps where the reverse dynamics change fastest or where perceptual error is most sensitive to numerical mistakes. In practice this often correlates with log-SNR and with the low-noise refinement regime.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 27: Trajectory curvature</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why do trajectories often bend more near the clean-data end of sampling?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    As the sample approaches the data manifold, fine detail and conditioning constraints can create sharper local geometry in the denoising field. More numerical resolution is therefore useful late in the trajectory.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 28: Likelihood versus sampling</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can an excellent probability-flow ODE integrator still fail to match the subjective feel of ancestral sampling?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The ODE reproduces the same marginals but not the same stochastic path distribution. Subjective diversity and texture variation can therefore differ even when likelihood-related quantities remain consistent.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 29: Inversion error analysis</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is DDIM inversion only approximate in practice?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The forward and inverse maps rely on a learned denoiser rather than an exact vector field, so model error accumulates when marching back to noise. The procedure is useful but not mathematically exact.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 30: Design a hybrid sampler</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Propose a hybrid sampler that mixes deterministic and stochastic phases.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    One sensible design is to use a stochastic ancestral method during the high-noise, high-ambiguity regime for diversity, then switch to a deterministic ODE or DDIM phase for the final detail-refinement regime. This combines exploration early with precision late.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\[', right: '\]', display: true},
+                        {left: '\(', right: '\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

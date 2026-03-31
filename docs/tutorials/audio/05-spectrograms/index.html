@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectrograms &amp; Time-Frequency Analysis | Audio &amp; DSP</title>
+    <meta name="description" content="STFT, window functions, spectrograms, mel spectrograms, constant-Q transform, and the Heisenberg-Gabor uncertainty principle for audio analysis.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x266A;</text></svg>">
+    <style>
+        .note-box{background:var(--color-accent-soft,rgba(220,38,38,.08));border-left:4px solid var(--color-accent,#DC2626);border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.note-box .box-title{font-weight:700;margin-bottom:.5rem;color:var(--color-accent)}.key-concept{background:rgba(59,130,246,.08);border-left:4px solid #3B82F6;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.key-concept .box-title{font-weight:700;margin-bottom:.5rem;color:#3B82F6}.warning-box{background:#fef3c7;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}[data-theme=dark] .warning-box{background:#2d2000}.warning-box .box-title{font-weight:700;margin-bottom:.5rem;color:#f59e0b}svg text{font-family:'Inter',sans-serif}
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">&nabla;</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link">TTS</a>
+                    <a href="../../../tutorials/audio/index.html" class="nav-link active">Audio &amp; DSP</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a><span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Audio &amp; DSP</a><span class="breadcrumb-separator">&rarr;</span>
+                <span>Spectrograms &amp; Time-Frequency Analysis</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Audio &amp; DSP</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-sound-waves/index.html" class="sidebar-link">01. Sound Waves &amp; Acoustics</a>
+                    <a href="../02-digital-audio/index.html" class="sidebar-link">02. Digital Audio Fundamentals</a>
+                    <a href="../03-nyquist-sampling/index.html" class="sidebar-link">03. Nyquist-Shannon Sampling</a>
+                    <a href="../04-fourier-transform/index.html" class="sidebar-link">04. Fourier Transform &amp; FFT</a>
+                    <a href="../05-spectrograms/index.html" class="sidebar-link active">05. Spectrograms &amp; Time-Frequency</a>
+                    <a href="../06-digital-filters/index.html" class="sidebar-link">06. Digital Filters</a>
+                    <a href="../07-audio-effects/index.html" class="sidebar-link">07. Audio Effects &amp; Processing</a>
+                    <a href="../08-psychoacoustics/index.html" class="sidebar-link">08. Psychoacoustics</a>
+                    <a href="../09-audio-compression/index.html" class="sidebar-link">09. Audio Compression &amp; Codecs</a>
+                    <a href="../10-sound-synthesis/index.html" class="sidebar-link">10. Sound Synthesis &amp; Design</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h2 id="time-frequency-dilemma">The Time-Frequency Dilemma</h2>
+
+                <p>The Fourier Transform tells you <em>which</em> frequencies are present — but not <em>when</em> they occur. A 3-second recording of a piano chord and the same notes played as an arpeggio have identical magnitude spectra. For audio analysis, we need both: <strong>what frequency, at what time</strong>.</p>
+
+                <p>But there's a fundamental limit. You can't know the exact frequency and exact time of an event simultaneously — this is the <strong>Gabor uncertainty principle</strong> (the acoustic analog of Heisenberg's):</p>
+
+                $$\Delta t \cdot \Delta f \geq \frac{1}{4\pi}$$
+
+                <p><strong>Intuition:</strong> A short drum hit is precisely located in time but has no clear pitch (many frequencies). A long sustained violin note has a very clear pitch but occupies a large time window. You can't have both precision simultaneously.</p>
+
+                <!-- SVG 1: Time-Frequency Tradeoff -->
+                <svg viewBox="0 0 800 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="260" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Time-Frequency Resolution Tradeoff</text>
+                    <!-- Short window (good time, poor freq) -->
+                    <text x="200" y="45" text-anchor="middle" font-size="12" fill="#DC2626" font-weight="600">Short Window</text>
+                    <!-- Heisenberg box -->
+                    <rect x="90" y="70" width="40" height="140" rx="4" fill="rgba(220,38,38,0.15)" stroke="#DC2626" stroke-width="1.5"/>
+                    <rect x="160" y="70" width="40" height="140" rx="4" fill="rgba(220,38,38,0.15)" stroke="#DC2626" stroke-width="1.5"/>
+                    <rect x="230" y="70" width="40" height="140" rx="4" fill="rgba(220,38,38,0.15)" stroke="#DC2626" stroke-width="1.5"/>
+                    <rect x="300" y="70" width="40" height="140" rx="4" fill="rgba(220,38,38,0.15)" stroke="#DC2626" stroke-width="1.5"/>
+                    <!-- Labels -->
+                    <text x="200" y="230" text-anchor="middle" font-size="10" fill="#DC2626">&Delta;t small, &Delta;f large</text>
+                    <text x="200" y="245" text-anchor="middle" font-size="10" fill="#71717A">Good time resolution, poor frequency</text>
+
+                    <!-- Long window (poor time, good freq) -->
+                    <text x="600" y="45" text-anchor="middle" font-size="12" fill="#3B82F6" font-weight="600">Long Window</text>
+                    <rect x="460" y="100" width="140" height="25" rx="4" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <rect x="460" y="135" width="140" height="25" rx="4" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <rect x="460" y="170" width="140" height="25" rx="4" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <rect x="620" y="100" width="140" height="25" rx="4" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <rect x="620" y="135" width="140" height="25" rx="4" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <rect x="620" y="170" width="140" height="25" rx="4" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="600" y="230" text-anchor="middle" font-size="10" fill="#3B82F6">&Delta;t large, &Delta;f small</text>
+                    <text x="600" y="245" text-anchor="middle" font-size="10" fill="#71717A">Good frequency resolution, poor time</text>
+
+                    <!-- Axes labels -->
+                    <text x="200" y="62" text-anchor="middle" font-size="9" fill="#71717A">time &rarr;</text>
+                    <text x="55" y="145" text-anchor="middle" font-size="9" fill="#71717A" transform="rotate(-90,55,145)">freq &rarr;</text>
+                    <text x="600" y="62" text-anchor="middle" font-size="9" fill="#71717A">time &rarr;</text>
+                    <text x="435" y="145" text-anchor="middle" font-size="9" fill="#71717A" transform="rotate(-90,435,145)">freq &rarr;</text>
+                </svg>
+
+                <h2 id="stft">Short-Time Fourier Transform (STFT)</h2>
+
+                <p>The STFT is the standard solution: apply the DFT to short, overlapping <strong>frames</strong> of the signal. For each frame, multiply the signal by a window function, then compute the FFT:</p>
+
+                $$X(m, k) = \sum_{n=0}^{N-1} x[n + mH] \cdot w[n] \cdot e^{-j2\pi kn/N}$$
+
+                <p>where $m$ is the frame index, $k$ is the frequency bin, $N$ is the window/FFT size, $H$ is the <strong>hop size</strong> (how far the window slides between frames), and $w[n]$ is the window function.</p>
+
+                <!-- SVG 2: STFT Sliding Window -->
+                <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="200" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">STFT: Sliding Window with Overlap</text>
+                    <!-- Signal -->
+                    <path d="M40,100 Q80,60 120,80 Q160,100 200,70 Q240,40 280,90 Q320,140 360,100 Q400,60 440,90 Q480,120 520,80 Q560,40 600,70 Q640,100 680,90 Q720,80 760,95" stroke="#D4D4D8" stroke-width="2" fill="none"/>
+                    <!-- Window 1 -->
+                    <rect x="60" y="40" width="200" height="120" rx="4" fill="rgba(220,38,38,0.08)" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="160" y="175" text-anchor="middle" font-size="10" fill="#DC2626">Frame 0</text>
+                    <!-- Window 2 (overlapping) -->
+                    <rect x="160" y="40" width="200" height="120" rx="4" fill="rgba(59,130,246,0.08)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="260" y="190" text-anchor="middle" font-size="10" fill="#3B82F6">Frame 1</text>
+                    <!-- Window 3 -->
+                    <rect x="260" y="40" width="200" height="120" rx="4" fill="rgba(16,185,129,0.08)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="360" y="175" text-anchor="middle" font-size="10" fill="#10B981">Frame 2</text>
+                    <!-- Hop size -->
+                    <line x1="60" y1="30" x2="160" y2="30" stroke="#18181B" stroke-width="1.5"/>
+                    <text x="110" y="26" text-anchor="middle" font-size="10" fill="#18181B" font-weight="600">H (hop)</text>
+                    <!-- N label -->
+                    <line x1="60" y1="165" x2="260" y2="165" stroke="#DC2626" stroke-width="1"/>
+                    <text x="160" y="163" text-anchor="middle" font-size="9" fill="#DC2626">N (window size)</text>
+                </svg>
+
+                <p><strong>Key parameters and their effects:</strong></p>
+                <ul>
+                    <li><strong>Time resolution:</strong> $\Delta t = N / f_s$ — determined by window size. Smaller $N$ = better time resolution.</li>
+                    <li><strong>Frequency resolution:</strong> $\Delta f = f_s / N$ — also determined by window size. Larger $N$ = better frequency resolution.</li>
+                    <li><strong>Hop size:</strong> $H$ samples between frames. Common: $H = N/4$ (75% overlap) or $H = N/2$ (50% overlap).</li>
+                    <li><strong>Overlap:</strong> $(N - H)/N \times 100\%$. More overlap = smoother time axis but more computation.</li>
+                </ul>
+
+                <div class="warning-box">
+                    <div class="box-title">The Fundamental Tradeoff</div>
+                    <p>$\Delta t \times \Delta f = 1$. A 1024-sample window at 44.1 kHz gives: $\Delta t = 23.2$ ms, $\Delta f = 43.1$ Hz. A 256-sample window: $\Delta t = 5.8$ ms, $\Delta f = 172.3$ Hz. You <em>always</em> trade one for the other. Choose based on your application.</p>
+                </div>
+
+                <h2 id="windows">Window Functions</h2>
+
+                <p>Why not just use a rectangular window (cut a segment and FFT it)? Because sharp edges in time create <strong>spectral leakage</strong> — energy smears across frequency bins. Smooth window functions taper the edges to reduce leakage.</p>
+
+                <!-- SVG 3: Window Functions -->
+                <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="280" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Common Window Functions</text>
+                    <!-- Axes -->
+                    <line x1="80" y1="230" x2="720" y2="230" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="80" y1="50" x2="80" y2="230" stroke="#D4D4D8" stroke-width="1"/>
+                    <text x="400" y="255" text-anchor="middle" font-size="10" fill="#71717A">Sample index n</text>
+                    <text x="72" y="140" text-anchor="end" font-size="10" fill="#71717A" transform="rotate(-90,72,140)">w[n]</text>
+                    <!-- Rectangular -->
+                    <path d="M120,230 L120,60 L640,60 L640,230" stroke="#DC2626" stroke-width="2" fill="none"/>
+                    <!-- Hann -->
+                    <path d="M120,230 Q200,180 280,100 Q360,45 400,40 Q440,45 480,100 Q560,180 640,230" stroke="#3B82F6" stroke-width="2" fill="none"/>
+                    <!-- Hamming -->
+                    <path d="M120,215 Q200,170 280,95 Q360,45 400,40 Q440,45 480,95 Q560,170 640,215" stroke="#10B981" stroke-width="2" fill="none"/>
+                    <!-- Blackman -->
+                    <path d="M120,230 Q200,220 280,140 Q340,60 400,40 Q460,60 480,140 Q560,220 640,230" stroke="#8B5CF6" stroke-width="2" fill="none"/>
+                    <!-- Legend -->
+                    <line x1="100" y1="268" x2="130" y2="268" stroke="#DC2626" stroke-width="2"/>
+                    <text x="135" y="272" font-size="10" fill="#DC2626">Rectangular</text>
+                    <line x1="250" y1="268" x2="280" y2="268" stroke="#3B82F6" stroke-width="2"/>
+                    <text x="285" y="272" font-size="10" fill="#3B82F6">Hann</text>
+                    <line x1="370" y1="268" x2="400" y2="268" stroke="#10B981" stroke-width="2"/>
+                    <text x="405" y="272" font-size="10" fill="#10B981">Hamming</text>
+                    <line x1="510" y1="268" x2="540" y2="268" stroke="#8B5CF6" stroke-width="2"/>
+                    <text x="545" y="272" font-size="10" fill="#8B5CF6">Blackman</text>
+                </svg>
+
+                <table style="width:100%;border-collapse:collapse;margin:1.5rem 0;">
+                    <thead><tr style="border-bottom:2px solid var(--color-border);"><th style="text-align:left;padding:.5rem;">Window</th><th style="text-align:left;padding:.5rem;">Main Lobe</th><th style="text-align:left;padding:.5rem;">Side Lobes</th><th style="text-align:left;padding:.5rem;">Best For</th></tr></thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">Rectangular</td><td style="padding:.4rem .5rem;">Narrowest</td><td style="padding:.4rem .5rem;">&minus;13 dB (worst)</td><td style="padding:.4rem .5rem;">Transient analysis</td></tr>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">Hann</td><td style="padding:.4rem .5rem;">2&times; rect</td><td style="padding:.4rem .5rem;">&minus;31 dB</td><td style="padding:.4rem .5rem;">General purpose (default)</td></tr>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">Hamming</td><td style="padding:.4rem .5rem;">2&times; rect</td><td style="padding:.4rem .5rem;">&minus;42 dB</td><td style="padding:.4rem .5rem;">Speech analysis</td></tr>
+                        <tr><td style="padding:.4rem .5rem;">Blackman</td><td style="padding:.4rem .5rem;">3&times; rect</td><td style="padding:.4rem .5rem;">&minus;58 dB</td><td style="padding:.4rem .5rem;">High dynamic range</td></tr>
+                    </tbody>
+                </table>
+
+                <h2 id="spectrogram">The Spectrogram</h2>
+
+                <p>The <strong>spectrogram</strong> is the squared magnitude of the STFT, displayed as a 2D image:</p>
+
+                $$S(m, k) = |X(m, k)|^2$$
+
+                <p>Convention: horizontal axis = time (frame index $m$), vertical axis = frequency (bin $k$), color/brightness = magnitude (usually in dB). It's the workhorse of audio visualization.</p>
+
+                <!-- SVG 4: Stylized Spectrogram -->
+                <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="300" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Spectrogram: Frequency vs. Time (color = intensity)</text>
+                    <!-- Axes -->
+                    <line x1="80" y1="260" x2="720" y2="260" stroke="#18181B" stroke-width="1"/>
+                    <line x1="80" y1="40" x2="80" y2="260" stroke="#18181B" stroke-width="1"/>
+                    <text x="400" y="285" text-anchor="middle" font-size="11" fill="#71717A">Time &rarr;</text>
+                    <text x="45" y="150" text-anchor="middle" font-size="11" fill="#71717A" transform="rotate(-90,45,150)">Frequency &rarr;</text>
+                    <!-- Freq labels -->
+                    <text x="72" y="255" text-anchor="end" font-size="9" fill="#71717A">0</text>
+                    <text x="72" y="205" text-anchor="end" font-size="9" fill="#71717A">2k</text>
+                    <text x="72" y="155" text-anchor="end" font-size="9" fill="#71717A">5k</text>
+                    <text x="72" y="105" text-anchor="end" font-size="9" fill="#71717A">10k</text>
+                    <text x="72" y="55" text-anchor="end" font-size="9" fill="#71717A">20k</text>
+                    <!-- Simulated spectrogram: harmonic tone followed by noise burst -->
+                    <!-- Fundamental ~200Hz band -->
+                    <rect x="90" y="238" width="250" height="12" rx="2" fill="#DC2626" opacity="0.9"/>
+                    <!-- 2nd harmonic -->
+                    <rect x="90" y="220" width="250" height="8" rx="2" fill="#DC2626" opacity="0.6"/>
+                    <!-- 3rd harmonic -->
+                    <rect x="90" y="200" width="250" height="6" rx="2" fill="#DC2626" opacity="0.4"/>
+                    <!-- 4th harmonic -->
+                    <rect x="90" y="182" width="250" height="5" rx="2" fill="#DC2626" opacity="0.25"/>
+                    <!-- 5th harmonic -->
+                    <rect x="90" y="166" width="250" height="4" rx="2" fill="#DC2626" opacity="0.15"/>
+                    <text x="215" y="175" text-anchor="middle" font-size="9" fill="#DC2626">Harmonic Tone</text>
+                    <!-- Noise burst -->
+                    <rect x="370" y="45" width="120" height="210" rx="2" fill="rgba(59,130,246,0.15)"/>
+                    <!-- Noise: random small rects -->
+                    <rect x="375" y="50" width="110" height="200" rx="2" fill="url(#noiseGrad)" opacity="0.4"/>
+                    <text x="430" y="175" text-anchor="middle" font-size="9" fill="#3B82F6">Noise Burst</text>
+                    <!-- Rising chirp -->
+                    <line x1="530" y1="245" x2="700" y2="70" stroke="#10B981" stroke-width="8" stroke-linecap="round" opacity="0.7"/>
+                    <text x="615" y="175" text-anchor="middle" font-size="9" fill="#10B981">Chirp (sweep)</text>
+                    <!-- Noise gradient approximation -->
+                    <defs>
+                        <linearGradient id="noiseGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.1"/>
+                            <stop offset="30%" stop-color="#3B82F6" stop-opacity="0.3"/>
+                            <stop offset="60%" stop-color="#3B82F6" stop-opacity="0.4"/>
+                            <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+
+                <div class="key-concept">
+                    <div class="box-title">Reading Spectrograms</div>
+                    <p><strong>Horizontal lines</strong> = sustained tones (harmonics). <strong>Vertical lines</strong> = transients (clicks, consonants). <strong>Diagonal lines</strong> = frequency sweeps (chirps, slides). <strong>Broadband fill</strong> = noise. The spacing between harmonics reveals the fundamental frequency.</p>
+                </div>
+
+                <h2 id="mel-spectrogram">Mel Spectrograms</h2>
+
+                <p>Human pitch perception is roughly <strong>logarithmic</strong>: the perceptual difference between 100 Hz and 200 Hz (one octave) feels the same as between 1000 Hz and 2000 Hz. The <strong>mel scale</strong> captures this:</p>
+
+                $$m = 2595 \log_{10}\!\left(1 + \frac{f}{700}\right)$$
+
+                <p>Inverse: $f = 700\left(10^{m/2595} - 1\right)$</p>
+
+                <!-- SVG 5: Mel Scale -->
+                <svg viewBox="0 0 800 250" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="250" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Mel Scale: Perceptual Frequency Mapping</text>
+                    <!-- Axes -->
+                    <line x1="80" y1="200" x2="720" y2="200" stroke="#18181B" stroke-width="1"/>
+                    <line x1="80" y1="40" x2="80" y2="200" stroke="#18181B" stroke-width="1"/>
+                    <text x="400" y="230" text-anchor="middle" font-size="11" fill="#71717A">Frequency (Hz)</text>
+                    <text x="45" y="120" text-anchor="middle" font-size="11" fill="#71717A" transform="rotate(-90,45,120)">Mel</text>
+                    <!-- Scale ticks -->
+                    <text x="80" y="215" text-anchor="middle" font-size="9" fill="#71717A">0</text>
+                    <text x="240" y="215" text-anchor="middle" font-size="9" fill="#71717A">2k</text>
+                    <text x="400" y="215" text-anchor="middle" font-size="9" fill="#71717A">5k</text>
+                    <text x="560" y="215" text-anchor="middle" font-size="9" fill="#71717A">10k</text>
+                    <text x="720" y="215" text-anchor="middle" font-size="9" fill="#71717A">20k</text>
+                    <!-- Mel curve (logarithmic) -->
+                    <path d="M80,200 Q160,140 240,110 Q320,85 400,68 Q480,55 560,48 Q640,43 720,40" stroke="#DC2626" stroke-width="2.5" fill="none"/>
+                    <!-- Linear reference -->
+                    <line x1="80" y1="200" x2="720" y2="40" stroke="#D4D4D8" stroke-width="1.5" stroke-dasharray="6"/>
+                    <text x="620" y="78" font-size="10" fill="#D4D4D8">Linear</text>
+                    <text x="680" y="55" font-size="10" fill="#DC2626" font-weight="600">Mel</text>
+                    <!-- Annotations -->
+                    <text x="250" y="160" font-size="10" fill="#71717A">Below ~1kHz: nearly linear</text>
+                    <text x="500" y="100" font-size="10" fill="#71717A">Above ~1kHz: logarithmic</text>
+                </svg>
+
+                <p>A <strong>mel spectrogram</strong> applies a bank of overlapping triangular filters (the <strong>mel filterbank</strong>) to the power spectrum, then takes the log:</p>
+
+                <!-- SVG 6: Mel Filterbank -->
+                <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="200" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Mel Filterbank: Triangular Filters on Frequency Axis</text>
+                    <line x1="60" y1="160" x2="740" y2="160" stroke="#18181B" stroke-width="1"/>
+                    <text x="400" y="185" text-anchor="middle" font-size="10" fill="#71717A">Frequency (Hz) &rarr;</text>
+                    <!-- Triangular filters (narrower at low freq, wider at high freq) -->
+                    <polygon points="70,160 100,50 130,160" fill="rgba(220,38,38,0.15)" stroke="#DC2626" stroke-width="1"/>
+                    <polygon points="100,160 135,50 170,160" fill="rgba(220,38,38,0.15)" stroke="#DC2626" stroke-width="1"/>
+                    <polygon points="135,160 175,50 215,160" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1"/>
+                    <polygon points="175,160 220,50 265,160" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1"/>
+                    <polygon points="220,160 280,50 340,160" fill="rgba(16,185,129,0.15)" stroke="#10B981" stroke-width="1"/>
+                    <polygon points="280,160 360,50 440,160" fill="rgba(16,185,129,0.15)" stroke="#10B981" stroke-width="1"/>
+                    <polygon points="360,160 460,50 560,160" fill="rgba(139,92,246,0.15)" stroke="#8B5CF6" stroke-width="1"/>
+                    <polygon points="460,160 590,50 720,160" fill="rgba(139,92,246,0.15)" stroke="#8B5CF6" stroke-width="1"/>
+                    <!-- Label -->
+                    <text x="100" y="145" text-anchor="middle" font-size="9" fill="#DC2626">Narrow (low f)</text>
+                    <text x="590" y="145" text-anchor="middle" font-size="9" fill="#8B5CF6">Wide (high f)</text>
+                </svg>
+
+                <p>Mel spectrograms are the <strong>de facto input representation</strong> for modern audio ML: speech recognition (Whisper), music classification, speaker verification, audio generation models. Typically 80 or 128 mel bins.</p>
+
+                <h2 id="cqt">Constant-Q Transform</h2>
+
+                <p>The <strong>Constant-Q Transform (CQT)</strong> uses windows whose length varies with frequency: long windows for low frequencies (good frequency resolution where you need it) and short windows for high frequencies (good time resolution for transients). The quality factor $Q = f/\Delta f$ is constant across all frequency bins.</p>
+
+                <p>This matches musical structure perfectly: each octave gets the same number of bins (typically 12 for semitones), and the frequency resolution is proportional to the frequency — just like human hearing.</p>
+
+                <div class="note-box">
+                    <div class="box-title">STFT vs. Mel Spectrogram vs. CQT</div>
+                    <p><strong>STFT spectrogram:</strong> Uniform time-frequency resolution. Best for general analysis.<br>
+                    <strong>Mel spectrogram:</strong> Perceptually weighted. Best for ML and speech processing.<br>
+                    <strong>CQT:</strong> Logarithmic frequency axis. Best for music analysis (pitch tracking, chord detection).</p>
+                </div>
+
+            </article>
+
+            <!-- ==================== EXERCISES ==================== -->
+            <article class="article-content" id="exercises" style="display:none;">
+
+                <h2>Exercises: Spectrograms &amp; Time-Frequency Analysis</h2>
+
+                <h3 style="color:#10B981;margin-top:2rem;">Easy (1&ndash;10)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">1</span><span class="exercise-title">Hz to Mel Conversion</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Convert 1000 Hz to the mel scale.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$$m = 2595\log_{10}(1 + 1000/700) = 2595\log_{10}(2.4286) = 2595 \times 0.3856 = 1000.5 \text{ mel}$$</p><p>Note: the mel scale was designed so that 1000 Hz &asymp; 1000 mel.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">2</span><span class="exercise-title">Mel to Hz Conversion</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Convert 2500 mel back to Hz.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$$f = 700(10^{2500/2595} - 1) = 700(10^{0.9634} - 1) = 700(9.19 - 1) = 700 \times 8.19 = 5733 \text{ Hz}$$</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">3</span><span class="exercise-title">STFT Frame Count</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A 3-second audio at 44,100 Hz is analyzed with window size $N = 2048$ and hop size $H = 512$. How many STFT frames are produced?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Total samples: $44100 \times 3 = 132{,}300$. Frames $\approx \lfloor(132300 - 2048)/512\rfloor + 1 = \lfloor 130252/512 \rfloor + 1 = 254 + 1 = 255$ frames.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">4</span><span class="exercise-title">Frequency Resolution</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>With $f_s = 44100$ Hz and $N = 4096$, what is the frequency resolution $\Delta f$?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta f = f_s / N = 44100 / 4096 \approx 10.77$ Hz per bin.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">5</span><span class="exercise-title">Time Resolution</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Same setting: $f_s = 44100$, $N = 4096$. What is the time resolution (window duration)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta t = N/f_s = 4096/44100 \approx 92.9$ ms.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">6</span><span class="exercise-title">Overlap Percentage</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>If $N = 1024$ and $H = 256$, what is the overlap percentage?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Overlap $= (N - H)/N = (1024 - 256)/1024 = 768/1024 = 75\%$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">7</span><span class="exercise-title">Number of Frequency Bins</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>An FFT of size $N = 2048$ produces how many unique frequency bins? What is the highest frequency represented if $f_s = 48000$ Hz?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Unique bins: $N/2 + 1 = 1025$ (from DC to Nyquist). Highest frequency: $f_s/2 = 24{,}000$ Hz.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">8</span><span class="exercise-title">Spectrogram Dimensions</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A 10-second mono audio at 16 kHz analyzed with $N=512$, $H=128$. What are the spectrogram dimensions (time frames &times; frequency bins)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Samples: $160{,}000$. Frames: $\lfloor(160000-512)/128\rfloor + 1 = 1246$. Freq bins: $512/2 + 1 = 257$.</p><p>Spectrogram: $1246 \times 257$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">9</span><span class="exercise-title">Mel Filterbank Spacing</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>If a mel filterbank covers 0&ndash;8000 Hz with 40 filters, what is the spacing in mel?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>8000 Hz in mel: $2595\log_{10}(1 + 8000/700) = 2595\log_{10}(12.43) = 2595 \times 1.094 = 2840$ mel.</p><p>With 40 filters and 42 boundary points (including 0 and end): spacing = $2840/41 \approx 69.3$ mel.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">10</span><span class="exercise-title">Window Length for Music</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>You want to distinguish notes a semitone apart near middle C (261.6 Hz vs 277.2 Hz). What minimum window length $N$ do you need at $f_s = 44100$ Hz?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Frequency difference: $277.2 - 261.6 = 15.6$ Hz. Need $\Delta f \leq 15.6$ Hz.</p><p>$N \geq f_s/\Delta f = 44100/15.6 \approx 2827$. Use $N = 4096$ (next power of 2).</p></div></div></div>
+
+                <h3 style="color:#F59E0B;margin-top:2rem;">Medium (11&ndash;20)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">11</span><span class="exercise-title">STFT Time-Frequency Grid</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Design STFT parameters for real-time speech processing: $f_s = 16000$ Hz, target frame rate = 100 frames/sec, want $\Delta f \leq 30$ Hz. Find $N$, $H$, overlap.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Frame rate = $f_s/H = 100 \Rightarrow H = 160$ samples (10 ms). Need $\Delta f = f_s/N \leq 30 \Rightarrow N \geq 533$. Use $N = 1024$.</p><p>Overlap: $(1024 - 160)/1024 = 84.4\%$. $\Delta f = 15.6$ Hz, $\Delta t = 64$ ms window, 10 ms hop.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">12</span><span class="exercise-title">Window Function Effect</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A signal has two tones at 1000 Hz (0 dB) and 1050 Hz (&minus;40 dB). Can a rectangular window resolve them with $N = 1024$, $f_s = 44100$? What about a Blackman window?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta f = 44100/1024 = 43.1$ Hz. The tones are 50 Hz apart &gt; $\Delta f$, so they're in different bins.</p><p>Rectangular window: side lobes at &minus;13 dB. The strong tone's leakage at 50 Hz offset is &sim;&minus;26 dB (falls off as $1/\Delta$), which overwhelms the &minus;40 dB tone. <strong>Cannot resolve.</strong></p><p>Blackman window: side lobes at &minus;58 dB. Leakage at 50 Hz offset well below &minus;40 dB. <strong>Can resolve</strong>, but at the cost of wider main lobe (3&times;).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">13</span><span class="exercise-title">Mel Filterbank Design</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Design a mel filterbank with 10 filters covering 300&ndash;8000 Hz. Calculate the center frequencies in Hz for each filter.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>300 Hz &rarr; $m_{\text{low}} = 2595\log_{10}(1.429) = 401.3$ mel. 8000 Hz &rarr; $m_{\text{high}} = 2840.0$ mel.</p><p>12 equally spaced points (including endpoints): spacing = $(2840 - 401.3)/11 = 221.7$ mel.</p><p>Mel points: 401.3, 623.0, 844.7, 1066.4, 1288.1, 1509.8, 1731.5, 1953.2, 2174.9, 2396.6, 2618.3, 2840.0.</p><p>Convert back to Hz: 300, 462, 681, 977, 1376, 1912, 2627, 3581, 4858, 6571, 8000 Hz (approximate centers of the 10 filters).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">14</span><span class="exercise-title">Choosing Window Size</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>For drum transcription (onset detection), would you use $N = 256$ or $N = 4096$ at $f_s = 44100$? Justify.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$N = 256$: $\Delta t = 5.8$ ms, $\Delta f = 172$ Hz. $N = 4096$: $\Delta t = 92.9$ ms, $\Delta f = 10.8$ Hz.</p><p>Use $N = 256$. Drum hits are short transients (~5&ndash;50 ms). With $N = 4096$, a 93 ms window would smear the onset across the frame and potentially merge closely spaced hits. We don't need precise frequency resolution for drums — we need precise timing.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">15</span><span class="exercise-title">Constant-Q Bins per Octave</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>In a CQT with 24 bins per octave covering 55 Hz (A1) to 14080 Hz (A9), how many total bins are there? What is the frequency ratio between adjacent bins?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Octaves: $\log_2(14080/55) = \log_2(256) = 8$ octaves. Total bins: $8 \times 24 = 192$.</p><p>Frequency ratio: $2^{1/24} = 1.02930$ (quarter-tone resolution).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">16</span><span class="exercise-title">Inverse STFT Reconstruction</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>For perfect reconstruction via overlap-add ISTFT, what condition must the window satisfy? Verify that the Hann window with 75% overlap satisfies this.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The COLA (Constant Overlap-Add) condition: $\sum_m w[n - mH] = c$ for all $n$ (the overlapped windows sum to a constant).</p><p>Hann window: $w[n] = 0.5(1 - \cos(2\pi n/N))$. With $H = N/4$ (75% overlap), at any point 4 windows overlap. Their sum:</p><p>$w[n] + w[n-H] + w[n-2H] + w[n-3H]$. Due to the cosine structure of Hann, this sum equals exactly 1.5 for all $n$ (a constant). Dividing by 1.5 gives perfect reconstruction. &#10004;</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">17</span><span class="exercise-title">Spectrogram Memory</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You compute a spectrogram of a 5-minute stereo song at 44.1 kHz with $N = 2048$, $H = 512$. How much memory (in MB) does the magnitude spectrogram require (32-bit floats, mono mix)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Samples: $44100 \times 300 = 13{,}230{,}000$. Frames: $(13230000 - 2048)/512 + 1 \approx 25836$.</p><p>Freq bins: $1025$. Each value: 4 bytes. Total: $25836 \times 1025 \times 4 = 105{,}927{,}600$ bytes $\approx 101$ MB.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">18</span><span class="exercise-title">Zero Padding Effect</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You have a 512-sample window but zero-pad the FFT to 2048. Does this improve frequency resolution? What does it actually do?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>No</strong> — zero-padding does not improve the fundamental frequency resolution, which is determined by the window length: $\Delta f = f_s/512$ still applies.</p><p>What it does: it interpolates between the original frequency bins, giving a smoother-looking spectrum (4&times; more bins, spaced $f_s/2048$ apart). Think of it as upsampling in the frequency domain. Useful for more precise peak location but doesn't reveal frequencies that the window can't resolve.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">19</span><span class="exercise-title">Mel Spectrogram for ASR</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>The Whisper ASR model uses 80 mel bins, 25ms windows, 10ms hops at 16 kHz. Calculate $N$, $H$, and the mel spectrogram shape for 30 seconds of audio.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$N = 0.025 \times 16000 = 400$ samples. $H = 0.010 \times 16000 = 160$ samples.</p><p>Total samples: $16000 \times 30 = 480{,}000$. Frames: $(480000 - 400)/160 + 1 = 2998$.</p><p>Shape: $2998 \times 80$ (time frames &times; mel bins). This is a compact ~960 KB representation of 30 seconds of audio.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">20</span><span class="exercise-title">Harmonic Analysis</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>On a spectrogram at 44.1 kHz with $N = 4096$, you see energy peaks at bins 30, 60, 90, and 120. What is the fundamental frequency? What note is this?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta f = 44100/4096 = 10.77$ Hz. Bin 30: $10.77 \times 30 = 323$ Hz. The pattern (30, 60, 90, 120) shows harmonics at 1:2:3:4 ratio.</p><p>Fundamental: $\approx 323$ Hz. This is close to E4 (329.6 Hz). The slight discrepancy is because real bin centers are approximate.</p></div></div></div>
+
+                <h3 style="color:#DC2626;margin-top:2rem;">Hard (21&ndash;30)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">21</span><span class="exercise-title">Uncertainty Principle Proof</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The time-frequency uncertainty principle states $\sigma_t \cdot \sigma_f \geq 1/(4\pi)$, where $\sigma_t$ and $\sigma_f$ are the RMS durations in time and frequency. Prove that the Gaussian window $g(t) = e^{-\alpha t^2}$ achieves equality (it's the minimum-uncertainty window).</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$g(t) = e^{-\alpha t^2}$. Its Fourier transform: $G(f) = \sqrt{\pi/\alpha}\, e^{-\pi^2 f^2/\alpha}$.</p><p>Time variance: $\sigma_t^2 = \frac{\int t^2 |g(t)|^2 dt}{\int |g(t)|^2 dt} = \frac{\int t^2 e^{-2\alpha t^2}dt}{\int e^{-2\alpha t^2}dt} = \frac{1}{4\alpha}$.</p><p>Frequency variance: $\sigma_f^2 = \frac{\int f^2 |G(f)|^2 df}{\int |G(f)|^2 df} = \frac{\alpha}{4\pi^2}$.</p><p>Product: $\sigma_t \sigma_f = \sqrt{\frac{1}{4\alpha} \cdot \frac{\alpha}{4\pi^2}} = \frac{1}{4\pi}$.</p><p>This is exactly $1/(4\pi)$, achieving the minimum. The Gaussian window is the unique minimum-uncertainty window. Any other window gives $\sigma_t \sigma_f > 1/(4\pi)$. &square;</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">22</span><span class="exercise-title">Phase Vocoder Time Stretch</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>A phase vocoder stretches audio by factor 2 using STFT with $N=1024$, $H_a = 256$ (analysis hop), $H_s = 512$ (synthesis hop). Explain the phase adjustment needed for each bin and why simply using the STFT magnitudes with new hop causes artifacts.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>At analysis hop $H_a$, bin $k$ expects phase advance $\Delta\phi_k = 2\pi k H_a/N$ between frames. At synthesis hop $H_s$, it should advance by $\Delta\phi_k' = 2\pi k H_s/N$.</p><p>For each bin: (1) Compute instantaneous frequency: $\omega_k = \angle X_m[k] - \angle X_{m-1}[k]$. (2) Unwrap to find true frequency deviation from bin center. (3) Propagate phase at synthesis hop: $\phi_s[k] += \omega_k \times H_s/H_a$.</p><p>Without phase adjustment: adjacent frames have inconsistent phases when overlap-added, causing destructive interference → "phasiness," metallic artifacts, and smeared transients. The phase vocoder maintains coherent phase evolution, but transients still suffer because the STFT time resolution is fixed.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">23</span><span class="exercise-title">Multi-Resolution STFT</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Design a multi-resolution analysis using three different window sizes for: (a) bass frequencies 20&ndash;300 Hz, (b) midrange 300&ndash;4000 Hz, (c) treble 4000&ndash;20000 Hz. Choose appropriate $N$ for each at $f_s = 44100$ Hz and justify.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) Bass: need to resolve down to ~20 Hz. $\Delta f \leq 10$ Hz → $N \geq 4410$. Use $N = 8192$ ($\Delta f = 5.4$ Hz, $\Delta t = 186$ ms). Bass changes slowly, so coarse time resolution is acceptable.</p><p>(b) Midrange: resolve ~50 Hz differences. $N \geq 882$. Use $N = 2048$ ($\Delta f = 21.5$ Hz, $\Delta t = 46$ ms). Good balance.</p><p>(c) Treble: need good time resolution for transients. Use $N = 512$ ($\Delta f = 86$ Hz, $\Delta t = 11.6$ ms). At 4 kHz+, 86 Hz resolution is ~2% — acceptable for a band that's 16 kHz wide.</p><p>This is essentially what the CQT achieves automatically with its frequency-dependent window length.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">24</span><span class="exercise-title">Spectral Leakage Analysis</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>A 1000 Hz tone is analyzed with $f_s = 44100$ and $N = 1000$ (non-standard). Show that because 1000 Hz doesn't land exactly on a bin center, spectral leakage occurs. Calculate the two nearest bins and the scalloping loss.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta f = 44100/1000 = 44.1$ Hz. The 1000 Hz tone falls at bin $k = 1000/44.1 = 22.676$ — between bins 22 (970.2 Hz) and 23 (1014.3 Hz).</p><p>With a rectangular window, the DFT of a tone at fractional bin $k_0 = 22.676$ has magnitude at bin $k$: $|X[k]| \propto |\text{sinc}(k - k_0)|$ (Dirichlet kernel, approximately). Energy leaks into all bins, not just one.</p><p>Scalloping loss (worst case, exactly between two bins): for rectangular window, the peak amplitude drops to $\text{sinc}(0.5) = 2/\pi \approx 0.637$ or &minus;3.92 dB. For Hann window, scalloping loss is only &minus;1.42 dB.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">25</span><span class="exercise-title">CQT Kernel Design</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>In a CQT with $B = 12$ bins per octave, derive the window length $N_k$ for bin $k$ with center frequency $f_k$, given that $Q = f_k / \Delta f_k$ is constant.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>With $B$ bins per octave: $f_k = f_{\min} \cdot 2^{k/B}$. Adjacent bins: $f_{k+1}/f_k = 2^{1/B}$.</p><p>Bandwidth: $\Delta f_k = f_{k+1} - f_k = f_k(2^{1/B} - 1)$.</p><p>$Q = f_k/\Delta f_k = 1/(2^{1/B} - 1)$. For $B = 12$: $Q = 1/(2^{1/12} - 1) \approx 16.82$.</p><p>Window length for bin $k$: $N_k = f_s/\Delta f_k = f_s Q / f_k = \frac{f_s}{f_k(2^{1/B} - 1)}$.</p><p>At $f_k = 55$ Hz ($A1$), $N_k = 44100/(55 \times 0.0595) = 13{,}474$ samples. At $f_k = 7040$ Hz ($A8$), $N_k = 105$ samples. The window length varies by 128&times;!</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">26</span><span class="exercise-title">Griffin-Lim Algorithm</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The Griffin-Lim algorithm reconstructs audio from a magnitude-only spectrogram (no phase). Describe the iterative procedure and explain why it converges. What is the fundamental limitation?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Procedure: (1) Initialize with random phase. (2) Combine target magnitude with current phase → ISTFT → time-domain signal. (3) STFT the result → get new magnitude and phase. (4) Replace magnitude with target, keep new phase. (5) Repeat.</p><p>This is alternating projection between two constraint sets: (a) signals with the correct STFT magnitude, (b) signals that are consistent with overlap-add (valid STFT). Each projection reduces or maintains the distance to the intersection, so the error is non-increasing — it converges to a local minimum.</p><p>Limitation: the phase information encodes critical structure (edges, timing). Without it, the algorithm converges to a valid but often "mushy" reconstruction. Modern approaches (WaveGlow, HiFi-GAN) use neural networks trained to predict waveforms from mel spectrograms, producing far better quality.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">27</span><span class="exercise-title">Reassignment Method</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The reassignment method sharpens spectrograms by moving each time-frequency point to its center of gravity. The reassigned time and frequency are: $\hat{t} = t - \text{Re}\{\frac{X_h(t,f) \overline{X_{Th}(t,f)}}{|X_h(t,f)|^2}\}$ and $\hat{f} = f + \frac{1}{2\pi}\text{Im}\{\frac{X_h(t,f)\overline{X_{Dh}(t,f)}}{|X_h(t,f)|^2}\}$ where $Th$ and $Dh$ are windowed with time-ramped and derivative windows. Why does this produce sharper spectrograms?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>In a standard spectrogram, energy is spread across the Heisenberg box of each window position. The reassignment method computes where the energy actually "comes from" — the instantaneous frequency and group delay — and moves each point there.</p><p>For a pure sinusoid, standard STFT shows energy spread across multiple bins (window's main lobe width). Reassignment concentrates it at the true frequency and true onset time, approaching a delta function in the limit. The result is nearly "perfect" localization for tonal components, at the cost of requiring three STFTs per frame (one with the standard window, one with $tw(t)$, one with $w'(t)$). Noise gets scattered randomly, making it less visible — an additional benefit.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">28</span><span class="exercise-title">Wavelet vs. STFT</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The Continuous Wavelet Transform uses dilated/translated versions of a mother wavelet: $W(a,b) = \int x(t) \frac{1}{\sqrt{a}}\psi^*\!\left(\frac{t-b}{a}\right)dt$. Compare its time-frequency tiling with the STFT. For which audio analysis tasks is CWT superior?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>STFT: uniform tiling — same $\Delta t$ and $\Delta f$ everywhere. CWT: dyadic tiling — at low frequencies, long windows (good $\Delta f$, poor $\Delta t$); at high frequencies, short windows (good $\Delta t$, poor $\Delta f$).</p><p>CWT is superior for: (1) Music where low notes need frequency precision and high notes need timing precision. (2) Analysis of signals with multi-scale structure (transients + sustains). (3) Onset detection across frequency ranges.</p><p>STFT is preferred for: (1) Speech processing where uniform resolution is fine. (2) When you need a simple, invertible representation. (3) Real-time applications (CWT is more computationally expensive).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">29</span><span class="exercise-title">Log-Frequency Spectrogram</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Show that on a log-frequency spectrogram, harmonic series appear as equally spaced horizontal lines, while on a linear spectrogram they have increasing spacing. Derive the relationship.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Harmonics: $f_n = nf_0$ for $n = 1, 2, 3, \ldots$ On linear axis, spacing between adjacent harmonics = $f_0$ (constant) — they appear equally spaced.</p><p>On log axis: $\log(f_n) = \log(n) + \log(f_0)$. Spacing: $\log(f_{n+1}) - \log(f_n) = \log\frac{n+1}{n} = \log(1 + 1/n)$, which <em>decreases</em> as $n$ grows.</p><p>Wait — I inverted the claim. Let me reconsider: on a log-frequency axis, harmonics are NOT equally spaced (they get closer together). It's <em>octaves</em> that are equally spaced on a log axis. The statement should be: "On a log-frequency spectrogram, octaves have equal visual width, and pitch intervals are represented uniformly — useful for music. On a linear spectrogram, harmonics are equally spaced — useful for fundamental frequency estimation."</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">30</span><span class="exercise-title">Optimal Window for Detection</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>You need to detect a 440 Hz tone buried in white noise at &minus;20 dB SNR. You can choose any window length $N$ at $f_s = 44100$. Longer windows average more noise. If the detection SNR improves as $\sqrt{N}$, what window length gives a post-analysis SNR of +10 dB?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Need to gain $10 - (-20) = 30$ dB from averaging. Since SNR improves as $10\log_{10}(\sqrt{N}) = 5\log_{10}(N)$:</p><p>$5\log_{10}(N) = 30 \Rightarrow \log_{10}(N) = 6 \Rightarrow N = 10^6 = 1{,}000{,}000$ samples.</p><p>Duration: $10^6/44100 \approx 22.7$ seconds. This is the coherent integration time needed.</p><p>In practice, you'd use a shorter FFT and average multiple frames (non-coherent integration). With $K$ frames of $N$ points each, the improvement is $\approx 10\log_{10}(NK)/2$. For example, 100 frames of $N = 10000$: gain $= 5\log_{10}(10^6) = 30$ dB. Same total observation time but more practical.</p></div></div></div>
+
+            </article>
+        </main>
+    </div>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

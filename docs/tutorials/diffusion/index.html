@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diffusion Models | Opus Tutorials</title>
+    <meta name="description" content="A comprehensive tutorial track on diffusion models in neural networks: forward process, reverse denoising, score matching, sampling, SDEs, guidance, and architectures.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../css/main.css">
+    <link rel="stylesheet" href="../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../tutorials/diffusion/index.html" class="nav-link active">Diffusion Models</a>
+                    <a href="../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../index.html">Home</a><span class="breadcrumb-separator">→</span><span>Diffusion Models</span></nav>
+            <h1>Diffusion Models</h1>
+            <p class="lead">A dedicated seven-part track on diffusion in neural networks, built from first principles. It begins with controlled corruption, passes through reverse denoising and score theory, and ends with modern fast sampling, conditioning, and architecture design.</p>
+        </div>
+    </header>
+    <section class="section" style="padding-top: 0;">
+        <div class="container" style="max-width: 900px;">
+            <div class="svg-container">
+    <svg viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+        <text x="450" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">A whole diffusion system, from corruption to controllable generation</text>
+        <rect x="70" y="90" width="120" height="72" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="130" y="120" text-anchor="middle" font-size="12" fill="currentColor">clean data</text>
+        <text x="130" y="140" text-anchor="middle" font-size="11" fill="currentColor">x₀</text>
+        <rect x="250" y="90" width="120" height="72" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+        <text x="310" y="120" text-anchor="middle" font-size="12" fill="currentColor">forward noise</text>
+        <text x="310" y="140" text-anchor="middle" font-size="11" fill="currentColor">xₜ</text>
+        <rect x="430" y="90" width="120" height="72" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+        <text x="490" y="120" text-anchor="middle" font-size="12" fill="currentColor">pure noise</text>
+        <text x="490" y="140" text-anchor="middle" font-size="11" fill="currentColor">x_T</text>
+        <rect x="610" y="90" width="120" height="72" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+        <text x="670" y="120" text-anchor="middle" font-size="12" fill="currentColor">learned reverse</text>
+        <text x="670" y="140" text-anchor="middle" font-size="11" fill="currentColor">denoiser</text>
+        <rect x="760" y="90" width="90" height="72" rx="12" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+        <text x="805" y="120" text-anchor="middle" font-size="12" fill="currentColor">guided</text>
+        <text x="805" y="140" text-anchor="middle" font-size="11" fill="currentColor">sample</text>
+        <line x1="190" y1="126" x2="250" y2="126" stroke="currentColor" opacity="0.45"/>
+        <line x1="370" y1="126" x2="430" y2="126" stroke="currentColor" opacity="0.45"/>
+        <line x1="550" y1="126" x2="610" y2="126" stroke="currentColor" opacity="0.45"/>
+        <line x1="730" y1="126" x2="760" y2="126" stroke="currentColor" opacity="0.45"/>
+        <text x="450" y="232" text-anchor="middle" font-size="12" fill="currentColor">The track starts with forward corruption, passes through reverse denoising and score theory, then ends with fast samplers, guidance, and architectures.</text>
+    </svg>
+</div>
+        </div>
+    </section>
+    <main class="tutorial-list">
+        <div class="container">
+            <a href="00-forward-process/index.html" class="tutorial-item">
+    <div class="tutorial-number">00</div>
+    <div class="tutorial-content">
+        <h3>The Forward Diffusion Process</h3>
+        <p>How Gaussian corruption, noise schedules, alpha-bar, and SNR define the easy half of diffusion.</p>
+        <div class="tutorial-meta"><span>Foundations</span><span>Schedules</span><span>SNR</span></div>
+    </div>
+</a><a href="01-reverse-denoising/index.html" class="tutorial-item">
+    <div class="tutorial-number">01</div>
+    <div class="tutorial-content">
+        <h3>Reverse Process & DDPM</h3>
+        <p>The learned denoising chain, the tractable posterior, ELBO intuition, and the simple DDPM loss.</p>
+        <div class="tutorial-meta"><span>DDPM</span><span>ELBO</span><span>Denoising</span></div>
+    </div>
+</a><a href="02-score-matching/index.html" class="tutorial-item">
+    <div class="tutorial-number">02</div>
+    <div class="tutorial-content">
+        <h3>Score Matching & Langevin Dynamics</h3>
+        <p>The score-function view of diffusion, denoising score matching, and Langevin sampling.</p>
+        <div class="tutorial-meta"><span>Scores</span><span>Langevin</span><span>NCSN</span></div>
+    </div>
+</a><a href="03-sampling-methods/index.html" class="tutorial-item">
+    <div class="tutorial-number">03</div>
+    <div class="tutorial-content">
+        <h3>Sampling Methods</h3>
+        <p>DDPM, DDIM, solver-based acceleration, timestep respacing, distillation, and consistency models.</p>
+        <div class="tutorial-meta"><span>DDIM</span><span>DPM-Solver</span><span>Speed</span></div>
+    </div>
+</a><a href="04-sde-ode-framework/index.html" class="tutorial-item">
+    <div class="tutorial-number">04</div>
+    <div class="tutorial-content">
+        <h3>The SDE/ODE Framework</h3>
+        <p>Continuous-time diffusion, reverse SDEs, probability-flow ODEs, and exact-likelihood ideas.</p>
+        <div class="tutorial-meta"><span>VP-SDE</span><span>VE-SDE</span><span>ODE</span></div>
+    </div>
+</a><a href="05-guidance-conditioning/index.html" class="tutorial-item">
+    <div class="tutorial-number">05</div>
+    <div class="tutorial-content">
+        <h3>Guidance & Conditioning</h3>
+        <p>Classifier guidance, classifier-free guidance, text conditioning, ControlNet, and inpainting.</p>
+        <div class="tutorial-meta"><span>CFG</span><span>ControlNet</span><span>Prompting</span></div>
+    </div>
+</a><a href="06-architectures/index.html" class="tutorial-item">
+    <div class="tutorial-number">06</div>
+    <div class="tutorial-content">
+        <h3>Diffusion Architectures</h3>
+        <p>U-Nets, time embeddings, attention, latent diffusion, and diffusion transformers.</p>
+        <div class="tutorial-meta"><span>U-Net</span><span>DiT</span><span>Latents</span></div>
+    </div>
+</a>
+        </div>
+    </main>
+    <section class="section" style="padding-top: 0;">
+        <div class="container" style="max-width: 850px;">
+            <h2>How to use this track</h2>
+            <p>Read chapters <strong>00–02</strong> in order if you want the mathematical story to build naturally. Those chapters establish the forward corruption process, the reverse denoising objective, and the score-based interpretation that the rest of the track depends on.</p>
+            <p>Chapters <strong>03–06</strong> are the advanced toolkit. They assume the core ideas from the first three chapters, but they can also be read as focused references on sampling, continuous-time formulations, guidance, and architecture design.</p>
+            <h2>Prerequisites and reading strategies</h2>
+            <p>You will get the most from this track if Gaussian distributions, basic neural-network training, and simple linear algebra already feel comfortable. If any of that is rusty, the Probability, Machine Learning, and Linear Algebra sections of this site make the best warm-up before diving deep into diffusion.</p>
+            <p>If your goal is intuition, read the theory tab of each chapter first and leave code and exercises for a second pass. If your goal is implementation, pair chapters 01, 03, 05, and 06: together they explain how a practical text-to-image diffusion system is trained, sampled quickly, guided by conditions, and assembled architecturally.</p>
+        </div>
+    </section>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content"><div class="footer-brand"><span class="logo-symbol">∇</span><span>ML Fundamentals</span></div><p class="footer-tagline">Deep understanding through first principles.</p></div>
+            <div class="footer-links"><a href="../../index.html">Home</a><a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a></div>
+        </div>
+    </footer>
+    <script src="../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

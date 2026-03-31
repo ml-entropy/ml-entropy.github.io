@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Matching &amp; Langevin Dynamics | Diffusion Models</title>
+    <meta name="description" content="Study the score function, denoising score matching, Langevin dynamics, multi-scale score networks, and the equivalence between score and noise prediction.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link active">Diffusion Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Diffusion Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Score Matching</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Diffusion Models</h3>
+        <nav class="sidebar-nav">
+            <a href="../00-forward-process/index.html" class="sidebar-link">00. The Forward Process</a>
+            <a href="../01-reverse-denoising/index.html" class="sidebar-link">01. Reverse Process & DDPM</a>
+            <a href="../02-score-matching/index.html" class="sidebar-link active">02. Score Matching</a>
+            <a href="../03-sampling-methods/index.html" class="sidebar-link">03. Sampling Methods</a>
+            <a href="../04-sde-ode-framework/index.html" class="sidebar-link">04. SDE/ODE Framework</a>
+            <a href="../05-guidance-conditioning/index.html" class="sidebar-link">05. Guidance & Conditioning</a>
+            <a href="../06-architectures/index.html" class="sidebar-link">06. Architectures</a>
+        </nav>
+    </div>
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+            <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+            <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+            <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+            <a href="../../physics/index.html" class="sidebar-link">Physics</a>
+        </nav>
+    </div>
+</aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Score Matching &amp; Langevin Dynamics</h1>
+                <p>
+                    The score view of diffusion asks a sharper question than “what clean sample produced this noise?” It asks for the local direction in which log-density increases, which turns sampling into repeated motion toward higher-probability regions combined with carefully calibrated randomness.
+                </p>
+                <p>
+                    This perspective is powerful because it removes the normalization constant from the problem. Gradients of log-densities do not care about unknown partition functions, which is exactly why score-based models can reason about complicated distributions without ever writing them in normalized form.
+                </p>
+                <h3 id="the-score-function">7.1 The Score Function</h3>
+                <p>
+                    The <strong>score</strong> of a distribution is the gradient of its log-density:
+                </p>
+                <div class="math-block">
+                    $$s(x) = \nabla_x \log p(x)$$
+                </div>
+                <p>
+                    It points toward regions of higher probability — like a compass pointing "uphill."
+                </p>
+                <h3 id="score-matching-objective">7.2 Score Matching Objective</h3>
+                <p>
+                    Directly matching the score is intractable (we don't know $\nabla_x \log p(x)$). But <strong>denoising score matching</strong> is tractable:
+                </p>
+                <div class="math-block">
+                    $$\mathbb{E}_{q(x_t|x_0)}\left[\|s_\theta(x_t, t) - \nabla_{x_t} \log q(x_t|x_0)\|^2\right]$$
+                </div>
+                <p>
+                    Since $\nabla_{x_t} \log q(x_t|x_0) = -\epsilon / \sqrt{1-\bar{\alpha}_t}$, this is equivalent to $\epsilon$-prediction!
+                </p>
+                <h3 id="langevin-dynamics">7.3 Langevin Dynamics</h3>
+                <p>
+                    Given the score function, we can sample using Langevin dynamics:
+                </p>
+                <div class="math-block">
+                    $$x_{t+1} = x_t + \eta \nabla_x \log p(x_t) + \sqrt{2\eta} \, z, \quad z \sim \mathcal{N}(0, I)$$
+                </div>
+                <p>
+                    This converges to samples from $p(x)$ as $\eta \to 0$ and number of steps $\to \infty$.
+                </p>
+                <div class="svg-container">
+                    <svg viewBox="0 0 620 520" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <defs><marker id="arrowB" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+                        <text x="310" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Score vectors point toward high-density regions</text>
+                        <ellipse cx="190" cy="280" rx="70" ry="48" fill="#dbeafe" opacity="0.35"/>
+                        <ellipse cx="190" cy="280" rx="40" ry="28" fill="#93c5fd" opacity="0.35"/>
+                        <ellipse cx="430" cy="250" rx="70" ry="48" fill="#dbeafe" opacity="0.35"/>
+                        <ellipse cx="430" cy="250" rx="40" ry="28" fill="#93c5fd" opacity="0.35"/>
+                        <line x1="90" y1="90" x2="98.4" y2="105.9" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="90" y1="145" x2="100.7" y2="159.5" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="90" y1="200" x2="104.1" y2="211.2" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="90" y1="255" x2="107.5" y2="259.4" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="90" y1="310" x2="107.2" y2="304.8" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="90" y1="365" x2="103.7" y2="353.3" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="90" y1="420" x2="100.5" y2="405.4" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="145" y1="90" x2="149.1" y2="107.5" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="145" y1="145" x2="150.7" y2="162.1" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="145" y1="200" x2="153.8" y2="215.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="145" y1="255" x2="160.7" y2="263.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="145" y1="310" x2="160.0" y2="300.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="145" y1="365" x2="153.4" y2="349.1" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="145" y1="420" x2="150.5" y2="402.9" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="200" y1="90" x2="199.1" y2="108.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="200" y1="145" x2="198.7" y2="163.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="200" y1="200" x2="197.8" y2="217.9" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="200" y1="255" x2="193.3" y2="271.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="200" y1="310" x2="194.3" y2="292.9" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="200" y1="365" x2="197.9" y2="347.1" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="200" y1="420" x2="198.7" y2="402.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="255" y1="90" x2="249.2" y2="107.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="255" y1="145" x2="247.2" y2="161.2" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="255" y1="200" x2="243.6" y2="214.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="255" y1="255" x2="238.2" y2="261.5" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="255" y1="310" x2="238.7" y2="302.5" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="255" y1="365" x2="244.1" y2="350.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="255" y1="420" x2="247.4" y2="403.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="310" y1="90" x2="320.8" y2="104.4" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="310" y1="145" x2="323.5" y2="156.9" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="310" y1="200" x2="326.6" y2="206.9" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="310" y1="255" x2="328.0" y2="254.3" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="310" y1="310" x2="292.5" y2="305.6" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="310" y1="365" x2="295.3" y2="354.6" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="310" y1="420" x2="298.3" y2="406.3" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="365" y1="90" x2="371.8" y2="106.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="365" y1="145" x2="374.5" y2="160.3" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="365" y1="200" x2="379.3" y2="211.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="365" y1="255" x2="382.9" y2="253.6" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="365" y1="310" x2="378.2" y2="297.8" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="365" y1="365" x2="373.9" y2="349.3" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="365" y1="420" x2="371.4" y2="403.2" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="420" y1="90" x2="421.1" y2="108.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="420" y1="145" x2="421.7" y2="162.9" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="420" y1="200" x2="423.5" y2="217.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="420" y1="255" x2="436.1" y2="247.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="420" y1="310" x2="423.0" y2="292.2" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="420" y1="365" x2="421.6" y2="347.1" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="420" y1="420" x2="421.1" y2="402.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="475" y1="90" x2="470.1" y2="107.3" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="475" y1="145" x2="467.9" y2="161.5" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="475" y1="200" x2="463.0" y2="213.4" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="475" y1="255" x2="457.1" y2="253.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="475" y1="310" x2="464.2" y2="295.6" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="475" y1="365" x2="468.4" y2="348.2" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="475" y1="420" x2="470.4" y2="402.6" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="530" y1="90" x2="520.5" y2="105.3" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="530" y1="145" x2="517.6" y2="158.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="530" y1="200" x2="513.9" y2="208.0" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="530" y1="255" x2="512.0" y2="254.1" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="530" y1="310" x2="514.6" y2="300.7" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="530" y1="365" x2="518.2" y2="351.4" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                        <line x1="530" y1="420" x2="520.9" y2="404.5" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrowB)"/>
+                    </svg>
+                </div>
+                <h2 id="hyvarinen-score-matching">Hyvärinen score matching and Fisher divergence</h2>
+                <p>
+                    Classical score matching minimizes the squared gap between the true score and a model score field. After an integration-by-parts trick, the objective can be written without the unknown data score itself, which is why the method is appealing despite operating on derivatives of densities.
+                </p>
+                <p>
+                    In diffusion practice, denoising score matching is even more useful. Rather than estimating the score on the raw data manifold — where low-density regions are treacherous — we estimate the score of a smoothed family of noisy distributions. That smoothing is what makes modern diffusion training robust.
+                </p>
+<div class="note-box">
+    <div class="box-title">Why multiple noise scales help</div>
+    <p>
+        At very low noise levels, the data distribution can look like a thin, sharp manifold and score estimation becomes unstable away from the data. Injecting larger noise smooths the density, produces gentler score fields, and gives Langevin dynamics room to move globally before refining local detail.
+    </p>
+</div>
+                <div class="svg-container">
+                    <svg viewBox="0 0 620 500" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="310" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Annealed Langevin dynamics alternates drift and randomness</text>
+                        <circle cx="410" cy="190" r="70" fill="#dcfce7" opacity="0.4"/>
+                        <circle cx="410" cy="190" r="32" fill="#86efac" opacity="0.45"/>
+                        <circle cx="70" cy="420" r="4" fill="#2563eb"/>
+                        <circle cx="110" cy="390" r="4" fill="#2563eb"/>
+                        <circle cx="145" cy="352" r="4" fill="#2563eb"/>
+                        <circle cx="180" cy="365" r="4" fill="#2563eb"/>
+                        <circle cx="220" cy="320" r="4" fill="#2563eb"/>
+                        <circle cx="250" cy="290" r="4" fill="#2563eb"/>
+                        <circle cx="285" cy="275" r="4" fill="#2563eb"/>
+                        <circle cx="315" cy="240" r="4" fill="#2563eb"/>
+                        <circle cx="348" cy="225" r="4" fill="#2563eb"/>
+                        <circle cx="378" cy="210" r="4" fill="#2563eb"/>
+                        <circle cx="406" cy="198" r="4" fill="#2563eb"/>
+                        <polyline fill="none" stroke="#2563eb" stroke-width="3" points="70,420 110,390 145,352 180,365 220,320 250,290 285,275 315,240 348,225 378,210 406,198"/>
+                        <text x="80" y="445" font-size="11" fill="currentColor">start from noise</text>
+                        <text x="410" y="100" text-anchor="middle" font-size="11" fill="currentColor">high-density mode</text>
+                    </svg>
+                </div>
+                <div class="svg-container">
+                    <svg viewBox="0 0 780 260" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="390" y="22" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">At high noise the score field is smoother and more global</text>
+                        <rect x="20" y="48" width="190" height="165" rx="10" fill="none" stroke="currentColor" opacity="0.15"/>
+                        <text x="115" y="68" text-anchor="middle" font-size="11" fill="currentColor">low noise</text>
+                        <ellipse cx="115" cy="140" rx="18.0" ry="10.0" fill="none" stroke="#60a5fa" opacity="0.25"/>
+                        <ellipse cx="115" cy="140" rx="34.0" ry="23.3" fill="none" stroke="#60a5fa" opacity="0.37"/>
+                        <ellipse cx="115" cy="140" rx="50.0" ry="36.7" fill="none" stroke="#60a5fa" opacity="0.49"/>
+                        <ellipse cx="115" cy="140" rx="66.0" ry="50.0" fill="none" stroke="#60a5fa" opacity="0.61"/>
+                        <ellipse cx="115" cy="140" rx="82.0" ry="63.3" fill="none" stroke="#60a5fa" opacity="0.73"/>
+                        <rect x="295" y="48" width="190" height="165" rx="10" fill="none" stroke="currentColor" opacity="0.15"/>
+                        <text x="390" y="68" text-anchor="middle" font-size="11" fill="currentColor">medium noise</text>
+                        <ellipse cx="390" cy="140" rx="18.0" ry="10.0" fill="none" stroke="#a78bfa" opacity="0.25"/>
+                        <ellipse cx="390" cy="140" rx="34.0" ry="31.8" fill="none" stroke="#a78bfa" opacity="0.37"/>
+                        <ellipse cx="390" cy="140" rx="50.0" ry="53.6" fill="none" stroke="#a78bfa" opacity="0.49"/>
+                        <ellipse cx="390" cy="140" rx="66.0" ry="75.5" fill="none" stroke="#a78bfa" opacity="0.61"/>
+                        <ellipse cx="390" cy="140" rx="82.0" ry="97.3" fill="none" stroke="#a78bfa" opacity="0.73"/>
+                        <rect x="570" y="48" width="190" height="165" rx="10" fill="none" stroke="currentColor" opacity="0.15"/>
+                        <text x="665" y="68" text-anchor="middle" font-size="11" fill="currentColor">high noise</text>
+                        <ellipse cx="665" cy="140" rx="18.0" ry="10.0" fill="none" stroke="#f472b6" opacity="0.25"/>
+                        <ellipse cx="665" cy="140" rx="34.0" ry="58.0" fill="none" stroke="#f472b6" opacity="0.37"/>
+                        <ellipse cx="665" cy="140" rx="50.0" ry="106.0" fill="none" stroke="#f472b6" opacity="0.49"/>
+                        <ellipse cx="665" cy="140" rx="66.0" ry="154.0" fill="none" stroke="#f472b6" opacity="0.61"/>
+                        <ellipse cx="665" cy="140" rx="82.0" ry="202.0" fill="none" stroke="#f472b6" opacity="0.73"/>
+                    </svg>
+                </div>
+                <h2 id="noise-conditional-score-networks">Noise-conditional score networks</h2>
+                <p>
+                    NCSN-style models train one score network across many noise scales. Conceptually, the high-noise regime teaches the model global geometry, while the low-noise regime teaches local detail; annealed Langevin dynamics then traverses that hierarchy from broad exploration to sharp refinement.
+                </p>
+                <p>
+                    Diffusion models and score-based models are therefore not rival camps so much as different coordinate systems for the same underlying object. Predicting the forward noise and predicting the smoothed score are linked by a simple scale factor determined by the schedule.
+                </p>
+                <div class="math-block">
+                    $$s_\theta(x_t,t) = -\frac{\epsilon_\theta(x_t,t)}{\sqrt{1-\bar\alpha_t}}$$
+                </div>
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Score Matching & Langevin Dynamics</h2>
+    <p>
+        The score viewpoint reveals diffusion as gradient information about a family of smoothed densities. Once the score is known, sampling becomes a controlled combination of uphill motion and stochastic exploration.
+    </p>
+</div>
+                <div class="tutorial-nav">
+                    <a href="../01-reverse-denoising/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Reverse Process & DDPM</span>
+                    </a>
+                    <a href="../03-sampling-methods/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Sampling Methods →</span>
+                    </a>
+                </div>
+            </article>
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="exact-scores-for-a-gaussian-mixture">Exact scores for a Gaussian mixture</h2>
+                <p>
+                    Before training a neural score network, it is useful to work with a distribution whose score can be computed analytically. Gaussian mixtures are perfect for that purpose because their score is explicit but still rich enough to have multiple modes.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+import torch
+import math
+
+def gaussian_mixture_score(x, means, sigma, logits=None):
+    # x: [N, D], means: [K, D]
+    if logits is None:
+        logits = torch.zeros(len(means), device=x.device)
+    weights = torch.softmax(logits, dim=0)
+
+    diff = x[:, None, :] - means[None, :, :]
+    log_comp = -0.5 * diff.pow(2).sum(dim=-1) / sigma**2
+    log_comp = log_comp + torch.log(weights)[None, :]
+
+    responsibilities = torch.softmax(log_comp, dim=1)
+    component_scores = -(diff / sigma**2)
+    score = (responsibilities[..., None] * component_scores).sum(dim=1)
+    return score
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        This implementation mirrors the analytic derivation: a mixture score is a responsibility-weighted average of component scores.
+    </p>
+</div>
+                <h2 id="denoising-score-matching-loss">Denoising score matching loss</h2>
+                <p>
+                    For Gaussian corruption, the target score of the noised distribution is available in closed form. That is what makes denoising score matching practical.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+import torch.nn.functional as F
+
+def dsm_loss(model, x0, sigma):
+    noise = torch.randn_like(x0)
+    xt = x0 + sigma * noise
+    target_score = -(xt - x0) / (sigma ** 2)
+    pred_score = model(xt, sigma)
+    return F.mse_loss(pred_score, target_score)
+
+
+def epsilon_loss_from_score(pred_score, noise, sigma):
+    pred_eps = -sigma * pred_score
+    return F.mse_loss(pred_eps, noise)
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        The two losses differ only by a scale factor. This is the algebraic heart of the claim that diffusion and score matching are the same game in different notation.
+    </p>
+</div>
+                <h2 id="langevin-dynamics-sampler">Langevin dynamics sampler</h2>
+                <p>
+                    Once a score is available, Langevin dynamics turns it into samples. The deterministic part follows the score uphill, while the random part keeps the chain from collapsing to a single mode.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def langevin_sample(score_fn, x_init, step_size=1e-2, n_steps=200):
+    x = x_init.clone()
+    trajectory = [x.clone()]
+    for _ in range(n_steps):
+        grad = score_fn(x)
+        noise = torch.randn_like(x)
+        x = x + step_size * grad + math.sqrt(2 * step_size) * noise
+        trajectory.append(x.clone())
+    return x, trajectory
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        If the step size is too large, the chain becomes unstable. If it is too small, the chain mixes painfully slowly. That trade-off motivates annealed schedules and better solvers.
+    </p>
+</div>
+                <h2 id="annealed-multi-scale-sampling">Annealed multi-scale sampling</h2>
+                <p>
+                    Annealed Langevin dynamics uses a ladder of noise levels. High noise gives broad, global movement; low noise refines details.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+@torch.no_grad()
+def annealed_langevin(model, x_init, sigmas, steps_per_level=50, eps=1e-2):
+    x = x_init.clone()
+    for sigma in sigmas:
+        alpha = eps * (sigma / sigmas[-1]) ** 2
+        for _ in range(steps_per_level):
+            grad = model(x, sigma)
+            noise = torch.randn_like(x)
+            x = x + alpha * grad + math.sqrt(2 * alpha) * noise
+    return x
+
+# Example sigma ladder
+sigmas = torch.tensor([1.0, 0.5, 0.25, 0.1, 0.05])
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        This annealed strategy is historically important because it makes visible how diffusion-like generation can emerge from score fields alone.
+    </p>
+</div>
+            </article>
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>
+                    Start with direct computations and concept checks. These should feel like guided repetitions of the core formulas.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 1: Score of a standard normal</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Compute the score of $p(x)=\mathcal N(0,1)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The log-density is $-x^2/2$ up to a constant, so the derivative is $-x$. The score always points back toward the origin.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 2: Score at the mean</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What is the score of a Gaussian at its mean?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It is zero because the log-density is locally maximized there. A score field vanishes at stationary points of the density.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 3: Read the Langevin update</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                In Langevin dynamics, which term follows the distribution and which term injects randomness?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The gradient term follows the score and therefore moves toward higher probability. The Gaussian term injects randomness so the chain explores rather than collapsing deterministically.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 4: Explain why normalization constants disappear</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does the score not depend on the partition function of a density?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because differentiating $\log p(x)$ turns multiplicative constants into additive constants, and derivatives of constants vanish. That makes score methods attractive for unnormalized models.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 5: Compute a Gaussian corruption score</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                If $x = x_0 + \sigma \epsilon$, what is $\nabla_x \log q_\sigma(x\mid x_0)$?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It is $-(x-x_0)/\sigma^2$. For Gaussian corruption the score is simply the negative residual divided by the variance.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 6: Direction of the score</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                If a point lies to the right of a unimodal Gaussian mean, in which direction does the score point?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It points left, back toward the mean. More generally, the score points toward regions of higher density.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 7: Interpret NCSN qualitatively</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why train on multiple noise scales instead of only one?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Different scales teach different geometric aspects of the distribution. High noise smooths the density for global guidance, while low noise sharpens local detail.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 8: Link epsilon to score</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                If $\epsilon_\theta$ is known at timestep $t$, how do you recover the score estimate?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Use the scaling relation $s_\theta(x_t,t) = -\epsilon_\theta(x_t,t)/\sqrt{1-\bar\alpha_t}$. The schedule determines the conversion factor.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 9: Low-density regions</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why are low-density regions hard for direct score estimation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because the score can change rapidly there and the model receives little data support. Errors in those regions can badly distort sampling trajectories.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 10: Annealing intuition</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What is the intuitive purpose of annealed Langevin dynamics?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It starts with a smooth landscape that is easy to navigate globally and then gradually sharpens the landscape so fine detail can be resolved near the end.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>
+                    Now move from recall to derivation. These questions ask you to justify formulas, compare viewpoints, and explain why the method works.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 11: Responsibility-weighted mixture score</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does the score of a Gaussian mixture become a responsibility-weighted average of component scores?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The derivative of the mixture density is the sum of derivatives of its components. Dividing by the mixture density introduces posterior responsibilities, which act as adaptive weights on the component score vectors.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 12: Integration by parts idea</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What role does integration by parts play in classical score matching?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    It transfers derivatives from the unknown data density onto the model score field under suitable boundary conditions. That is how the objective becomes computable without direct access to the true score.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 13: DSM as denoising</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can denoising score matching be viewed as a denoising problem?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    For Gaussian corruption, the target score is proportional to the negative residual between noisy and clean samples. Estimating that residual is exactly what a denoiser does.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 14: Annealed step size scaling</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why are step sizes in annealed Langevin often scaled with the noise level?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Because the geometry of the score field changes with smoothing. Large-noise levels permit larger global moves, while low-noise levels require smaller steps to avoid overshooting fine structure.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 15: From score to density geometry</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What geometric information is lost if you know only the density values but not the score field?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    You lose the local directional guidance encoded by gradients. The score says how to move, not just how good the current location is.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 16: Failure mode near a manifold</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can a score network trained only at tiny noise levels fail catastrophically during sampling?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The data manifold is extremely thin, so the network has little incentive to learn meaningful directions away from it. Sampling then wanders into unsupported regions where the estimated score is unreliable.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 17: Diffusion equivalence</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Explain why a DDPM noise predictor can be reinterpreted as a score network.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The forward corruption kernel is Gaussian, so the score of the noised conditional is proportional to the negative forward noise. Predicting that noise therefore yields the score after dividing by the appropriate schedule-dependent scale.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 18: Langevin stationary distribution</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does Langevin dynamics sample from the target distribution in the small-step limit?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The associated Fokker-Planck equation has the target density as its stationary solution. As discretization error vanishes and mixing is sufficient, the chain approaches that equilibrium.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 19: Score scaling with variance</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How does the magnitude of the Gaussian score change when corruption variance increases?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The score magnitude shrinks because it is divided by $\sigma^2$. Smoother distributions therefore produce gentler, more globally informative score fields.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 20: Sampling versus optimization</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is Langevin dynamics not just gradient ascent on log-density?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Pure gradient ascent would converge to a mode and stop exploring. Langevin keeps adding noise so the chain spreads according to the whole target distribution instead of collapsing to a point estimate.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>
+                    These problems push you toward research-level thinking: asymptotics, design choices, edge cases, and deeper theoretical interpretation.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 21: Fisher divergence interpretation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is classical score matching minimizing a Fisher divergence rather than KL divergence?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The objective compares gradients of log-densities directly, which is exactly the Fisher divergence. This is a derivative-based discrepancy and behaves differently from KL because it emphasizes local geometry rather than only density ratios.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 22: Boundary conditions in score matching</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What technical assumption is hidden inside the integration-by-parts derivation?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    One assumes boundary terms vanish at infinity so that the surface integral drops out. In practice this means densities and score fields must decay sufficiently fast.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 23: Noise-level design</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How would you choose a ladder of noise levels for an NCSN-style model on a highly multimodal dataset?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    You want the largest scale high enough to connect distant modes through smoothing and the smallest scale low enough to recover sharp detail. A geometric or log-spaced ladder is often sensible because densities change multiplicatively across scales.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 24: Score error amplification</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can small score errors create large sampling artifacts after many Langevin steps?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Each update uses the model estimate as a direction field, so systematic bias compounds over time. Small rotational or scaling errors can therefore send trajectories into the wrong basin or prevent proper mixing.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 25: High-dimensional score estimation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why does score estimation become more difficult in high dimension even with Gaussian smoothing?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Volume grows rapidly away from the data concentration region, so the model must generalize score behavior over a much larger ambient space. The signal available from finite data becomes comparatively sparse.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 26: Annealed versus reverse diffusion</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                In what sense is annealed Langevin a precursor to reverse diffusion sampling?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Both methods start from a heavily smoothed distribution and progressively refine samples toward the data manifold. Reverse diffusion makes the same idea explicit through a learned time-indexed denoising process with schedule-controlled noise.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 27: Consistency of score conversion</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why must the score-to-noise conversion include the exact schedule coefficient rather than an arbitrary constant?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The scale of the score is determined by the variance of the forward corruption kernel. Using the wrong coefficient miscalibrates every reverse step and effectively asks the sampler to denoise at the wrong SNR.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 28: Mode hopping trade-off</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                How does increasing Langevin noise help and hurt mode exploration?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    More noise helps the chain cross low-density barriers between modes, but too much noise overwhelms the gradient signal and destroys refinement. Good samplers balance exploration and local correction.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 29: Smooth densities as curriculum</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why can one view multi-scale score training as a curriculum learning strategy?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    High-noise distributions are easier because their geometry is smoother and more global. Training then gradually exposes the model to harder, sharper densities as noise decreases.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 30: Research extension</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Propose a principled way to combine score matching with learned feature spaces rather than raw pixels.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Train the score network in a latent representation whose encoder preserves semantics while reducing dimensionality. The key requirement is that the latent corruption process and its score remain well defined so the sampler still corresponds to a valid generative path.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\[', right: '\]', display: true},
+                        {left: '\(', right: '\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

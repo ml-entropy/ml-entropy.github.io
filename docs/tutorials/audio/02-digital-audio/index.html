@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Audio Fundamentals | Audio &amp; DSP</title>
+    <meta name="description" content="Sampling, quantization, bit depth, ADC/DAC, PCM encoding, dynamic range, SNR, and dithering — everything about converting analog sound to digital.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x266A;</text></svg>">
+    <style>
+        .note-box{background:var(--color-accent-soft,rgba(220,38,38,.08));border-left:4px solid var(--color-accent,#DC2626);border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.note-box .box-title{font-weight:700;margin-bottom:.5rem;color:var(--color-accent)}.key-concept{background:rgba(59,130,246,.08);border-left:4px solid #3B82F6;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.key-concept .box-title{font-weight:700;margin-bottom:.5rem;color:#3B82F6}.warning-box{background:#fef3c7;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}[data-theme=dark] .warning-box{background:#2d2000}.warning-box .box-title{font-weight:700;margin-bottom:.5rem;color:#f59e0b}svg text{font-family:'Inter',sans-serif}
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">&nabla;</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link">TTS</a>
+                    <a href="../../../tutorials/audio/index.html" class="nav-link active">Audio &amp; DSP</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a><span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Audio &amp; DSP</a><span class="breadcrumb-separator">&rarr;</span>
+                <span>Digital Audio Fundamentals</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Audio &amp; DSP</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-sound-waves/index.html" class="sidebar-link">01. Sound Waves &amp; Acoustics</a>
+                    <a href="../02-digital-audio/index.html" class="sidebar-link active">02. Digital Audio Fundamentals</a>
+                    <a href="../03-nyquist-sampling/index.html" class="sidebar-link">03. Nyquist-Shannon Sampling</a>
+                    <a href="../04-fourier-transform/index.html" class="sidebar-link">04. Fourier Transform &amp; FFT</a>
+                    <a href="../05-spectrograms/index.html" class="sidebar-link">05. Spectrograms &amp; Time-Frequency</a>
+                    <a href="../06-digital-filters/index.html" class="sidebar-link">06. Digital Filters</a>
+                    <a href="../07-audio-effects/index.html" class="sidebar-link">07. Audio Effects &amp; Processing</a>
+                    <a href="../08-psychoacoustics/index.html" class="sidebar-link">08. Psychoacoustics</a>
+                    <a href="../09-audio-compression/index.html" class="sidebar-link">09. Audio Compression &amp; Codecs</a>
+                    <a href="../10-sound-synthesis/index.html" class="sidebar-link">10. Sound Synthesis &amp; Design</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h2 id="analog-vs-digital">Analog vs. Digital</h2>
+
+                <p>An analog audio signal is a <strong>continuous</strong> function of time — the voltage from a microphone varies smoothly and can take any value at any instant. A digital audio signal is a sequence of <strong>discrete numbers</strong>, each representing the signal's amplitude at a specific moment.</p>
+
+                <p>Why digitize? Digital audio can be copied perfectly (no generational loss), stored compactly, processed with algorithms, and transmitted without degradation. The entire modern audio industry — streaming, recording, synthesis — rests on this conversion.</p>
+
+                <div class="key-concept">
+                    <div class="box-title">The Two Steps of Digitization</div>
+                    <p><strong>Sampling</strong> — discretize <em>time</em>: measure the signal at regular intervals.<br>
+                    <strong>Quantization</strong> — discretize <em>amplitude</em>: round each measurement to the nearest allowed level.</p>
+                </div>
+
+                <h2 id="sampling">Sampling</h2>
+
+                <p>Sampling captures the signal's value at evenly spaced instants. If we sample $f_s$ times per second (the <strong>sample rate</strong>), the time between consecutive samples is:</p>
+
+                $$T_s = \frac{1}{f_s}$$
+
+                <p>The $n$-th sample is: $x[n] = x_a(nT_s)$ where $x_a(t)$ is the original analog signal.</p>
+
+                <!-- SVG 1: Sampling Process -->
+                <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="280" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Sampling: Continuous → Discrete</text>
+                    <!-- Axes -->
+                    <line x1="60" y1="140" x2="760" y2="140" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="60" y1="30" x2="60" y2="250" stroke="#D4D4D8" stroke-width="1"/>
+                    <text x="770" y="144" font-size="11" fill="#71717A">t</text>
+                    <text x="64" y="26" font-size="11" fill="#71717A">x(t)</text>
+                    <!-- Continuous signal (light) -->
+                    <path d="M60,140 Q100,80 140,60 Q180,40 220,80 Q260,120 300,140 Q340,160 380,200 Q420,220 460,180 Q500,120 540,90 Q580,60 620,100 Q660,140 700,160 Q730,170 760,140" stroke="#D4D4D8" stroke-width="2" fill="none"/>
+                    <!-- Sample points -->
+                    <circle cx="100" cy="89" r="5" fill="#DC2626"/>
+                    <line x1="100" y1="89" x2="100" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="160" cy="52" r="5" fill="#DC2626"/>
+                    <line x1="160" y1="52" x2="160" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="220" cy="80" r="5" fill="#DC2626"/>
+                    <line x1="220" y1="80" x2="220" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="280" cy="130" r="5" fill="#DC2626"/>
+                    <line x1="280" y1="130" x2="280" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="340" cy="158" r="5" fill="#DC2626"/>
+                    <line x1="340" y1="158" x2="340" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="400" cy="208" r="5" fill="#DC2626"/>
+                    <line x1="400" y1="208" x2="400" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="460" cy="180" r="5" fill="#DC2626"/>
+                    <line x1="460" y1="180" x2="460" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="520" cy="100" r="5" fill="#DC2626"/>
+                    <line x1="520" y1="100" x2="520" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="580" cy="63" r="5" fill="#DC2626"/>
+                    <line x1="580" y1="63" x2="580" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="640" cy="110" r="5" fill="#DC2626"/>
+                    <line x1="640" y1="110" x2="640" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <circle cx="700" cy="160" r="5" fill="#DC2626"/>
+                    <line x1="700" y1="160" x2="700" y2="140" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <!-- Labels -->
+                    <text x="100" y="265" text-anchor="middle" font-size="9" fill="#DC2626">T&#x209B;</text>
+                    <text x="160" y="265" text-anchor="middle" font-size="9" fill="#DC2626">2T&#x209B;</text>
+                    <text x="220" y="265" text-anchor="middle" font-size="9" fill="#DC2626">3T&#x209B;</text>
+                    <text x="400" y="235" font-size="10" fill="#71717A">Analog signal (gray) sampled at points (red)</text>
+                </svg>
+
+                <p>Common sample rates and why they exist:</p>
+                <table style="width:100%;border-collapse:collapse;margin:1.5rem 0;">
+                    <thead><tr style="border-bottom:2px solid var(--color-border);"><th style="text-align:left;padding:.5rem;">Rate</th><th style="text-align:left;padding:.5rem;">Use</th><th style="text-align:left;padding:.5rem;">Max Freq (Nyquist)</th></tr></thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">8,000 Hz</td><td style="padding:.4rem .5rem;">Telephone</td><td style="padding:.4rem .5rem;">4 kHz</td></tr>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">44,100 Hz</td><td style="padding:.4rem .5rem;">CD audio</td><td style="padding:.4rem .5rem;">22.05 kHz</td></tr>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">48,000 Hz</td><td style="padding:.4rem .5rem;">Video/broadcast</td><td style="padding:.4rem .5rem;">24 kHz</td></tr>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">96,000 Hz</td><td style="padding:.4rem .5rem;">Hi-res audio</td><td style="padding:.4rem .5rem;">48 kHz</td></tr>
+                        <tr><td style="padding:.4rem .5rem;">192,000 Hz</td><td style="padding:.4rem .5rem;">Studio mastering</td><td style="padding:.4rem .5rem;">96 kHz</td></tr>
+                    </tbody>
+                </table>
+
+                <h2 id="quantization">Quantization</h2>
+
+                <p>Once sampled, each value must be stored as a finite number. With $n$ bits, we have $L = 2^n$ quantization levels. The continuous amplitude range is divided into $L$ equal steps:</p>
+
+                $$\Delta = \frac{V_{\max} - V_{\min}}{2^n - 1}$$
+
+                <p>The quantization error for any sample is at most $\pm\Delta/2$. This error acts as <strong>quantization noise</strong>.</p>
+
+                <!-- SVG 2: Quantization -->
+                <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="320" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Quantization: 3-bit (8 levels)</text>
+                    <!-- Axes -->
+                    <line x1="80" y1="160" x2="720" y2="160" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="80" y1="30" x2="80" y2="290" stroke="#D4D4D8" stroke-width="1"/>
+                    <!-- Quantization levels (8 = 3-bit) -->
+                    <line x1="75" y1="50" x2="720" y2="50" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="54" text-anchor="end" font-size="9" fill="#71717A">111</text>
+                    <line x1="75" y1="82" x2="720" y2="82" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="86" text-anchor="end" font-size="9" fill="#71717A">110</text>
+                    <line x1="75" y1="114" x2="720" y2="114" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="118" text-anchor="end" font-size="9" fill="#71717A">101</text>
+                    <line x1="75" y1="146" x2="720" y2="146" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="150" text-anchor="end" font-size="9" fill="#71717A">100</text>
+                    <line x1="75" y1="178" x2="720" y2="178" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="182" text-anchor="end" font-size="9" fill="#71717A">011</text>
+                    <line x1="75" y1="210" x2="720" y2="210" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="214" text-anchor="end" font-size="9" fill="#71717A">010</text>
+                    <line x1="75" y1="242" x2="720" y2="242" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="246" text-anchor="end" font-size="9" fill="#71717A">001</text>
+                    <line x1="75" y1="274" x2="720" y2="274" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <text x="72" y="278" text-anchor="end" font-size="9" fill="#71717A">000</text>
+                    <!-- Continuous signal -->
+                    <path d="M100,160 Q180,50 280,70 Q380,90 440,180 Q500,270 580,200 Q660,120 720,130" stroke="#D4D4D8" stroke-width="2" fill="none"/>
+                    <!-- Quantized staircase -->
+                    <path d="M100,146 L160,82 L160,82 L220,50 L220,50 L280,82 L280,82 L340,114 L340,114 L400,178 L400,178 L460,210 L460,210 L520,242 L520,242 L580,210 L580,210 L640,146 L640,146 L700,146" stroke="#DC2626" stroke-width="2.5" fill="none"/>
+                    <!-- Error illustration -->
+                    <line x1="200" y1="55" x2="200" y2="50" stroke="#3B82F6" stroke-width="2"/>
+                    <text x="210" y="45" font-size="9" fill="#3B82F6">error</text>
+                    <!-- Delta label -->
+                    <line x1="735" y1="50" x2="735" y2="82" stroke="#10B981" stroke-width="2"/>
+                    <text x="750" y="70" font-size="10" fill="#10B981" font-weight="600">&Delta;</text>
+                    <!-- Legend -->
+                    <text x="400" y="310" text-anchor="middle" font-size="11" fill="#71717A">Gray: analog signal &nbsp; Red: quantized output &nbsp; Blue: quantization error</text>
+                </svg>
+
+                <h2 id="bit-depth">Bit Depth &amp; Dynamic Range</h2>
+
+                <p>The <strong>bit depth</strong> determines how many amplitude levels are available. More bits = more levels = finer resolution = less quantization noise:</p>
+
+                <table style="width:100%;border-collapse:collapse;margin:1.5rem 0;">
+                    <thead><tr style="border-bottom:2px solid var(--color-border);"><th style="text-align:left;padding:.5rem;">Bit Depth</th><th style="text-align:right;padding:.5rem;">Levels</th><th style="text-align:right;padding:.5rem;">Dynamic Range</th><th style="text-align:left;padding:.5rem;">Use</th></tr></thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">8-bit</td><td style="text-align:right;padding:.4rem .5rem;">256</td><td style="text-align:right;padding:.4rem .5rem;">~48 dB</td><td style="padding:.4rem .5rem;">Early games, telephone</td></tr>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">16-bit</td><td style="text-align:right;padding:.4rem .5rem;">65,536</td><td style="text-align:right;padding:.4rem .5rem;">~96 dB</td><td style="padding:.4rem .5rem;">CD audio</td></tr>
+                        <tr style="border-bottom:1px solid var(--color-border-light);"><td style="padding:.4rem .5rem;">24-bit</td><td style="text-align:right;padding:.4rem .5rem;">16,777,216</td><td style="text-align:right;padding:.4rem .5rem;">~144 dB</td><td style="padding:.4rem .5rem;">Professional recording</td></tr>
+                        <tr><td style="padding:.4rem .5rem;">32-bit float</td><td style="text-align:right;padding:.4rem .5rem;">&infin; (floating point)</td><td style="text-align:right;padding:.4rem .5rem;">~1528 dB</td><td style="padding:.4rem .5rem;">Internal processing</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="key-concept">
+                    <div class="box-title">The SNR Formula</div>
+                    <p>For an ideal $n$-bit quantizer with a full-scale sinusoidal input, the signal-to-quantization-noise ratio is:</p>
+                    $$\text{SNR} = 6.02n + 1.76 \text{ dB}$$
+                    <p>Each additional bit adds ~6 dB of dynamic range. 16 bits: $6.02 \times 16 + 1.76 = 98.1$ dB.</p>
+                </div>
+
+                <p><strong>Derivation sketch:</strong> The quantization error $e[n]$ is uniformly distributed over $[-\Delta/2, +\Delta/2]$. Its variance (noise power) is:</p>
+
+                $$\sigma_q^2 = \frac{\Delta^2}{12}$$
+
+                <p>For a full-scale sinusoid with amplitude $A = 2^{n-1}\Delta$, the signal power is $A^2/2$. The SNR ratio becomes:</p>
+
+                $$\text{SNR} = \frac{A^2/2}{\Delta^2/12} = \frac{(2^{n-1}\Delta)^2/2}{\Delta^2/12} = \frac{3}{2} \cdot 2^{2n}$$
+
+                <p>In decibels: $10\log_{10}\!\left(\frac{3}{2} \cdot 2^{2n}\right) = 10\log_{10}(1.5) + 20n\log_{10}(2) = 1.76 + 6.02n$ dB.</p>
+
+                <!-- SVG 3: Bit Depth Comparison -->
+                <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="300" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Bit Depth Comparison: Resolution vs. Quality</text>
+                    <!-- 3-bit (left) -->
+                    <text x="140" y="45" text-anchor="middle" font-size="12" fill="#DC2626" font-weight="600">3-bit (8 levels)</text>
+                    <rect x="40" y="55" width="200" height="180" rx="4" fill="none" stroke="#E4E4E7"/>
+                    <path d="M45,145 L65,95 L65,95 L85,75 L85,75 L105,95 L105,95 L125,125 L125,125 L145,165 L145,165 L165,185 L165,185 L185,165 L185,165 L205,125 L205,125 L225,135 L225,135 L235,145" stroke="#DC2626" stroke-width="2" fill="none"/>
+                    <path d="M45,145 Q85,70 125,120 Q165,190 205,130 Q225,140 235,145" stroke="#D4D4D8" stroke-width="1" fill="none"/>
+                    <!-- 8-bit (center) -->
+                    <text x="400" y="45" text-anchor="middle" font-size="12" fill="#3B82F6" font-weight="600">8-bit (256 levels)</text>
+                    <rect x="300" y="55" width="200" height="180" rx="4" fill="none" stroke="#E4E4E7"/>
+                    <path d="M305,145 Q345,72 385,122 Q425,188 465,132 Q485,142 495,145" stroke="#3B82F6" stroke-width="2" fill="none"/>
+                    <path d="M305,145 Q345,70 385,120 Q425,190 465,130 Q485,140 495,145" stroke="#D4D4D8" stroke-width="1" fill="none"/>
+                    <!-- 16-bit (right) -->
+                    <text x="660" y="45" text-anchor="middle" font-size="12" fill="#10B981" font-weight="600">16-bit (65,536 levels)</text>
+                    <rect x="560" y="55" width="200" height="180" rx="4" fill="none" stroke="#E4E4E7"/>
+                    <path d="M565,145 Q605,70 645,120 Q685,190 725,130 Q745,140 755,145" stroke="#10B981" stroke-width="2" fill="none"/>
+                    <path d="M565,145 Q605,70 645,120 Q685,190 725,130 Q745,140 755,145" stroke="#D4D4D8" stroke-width="1" fill="none"/>
+                    <text x="400" y="265" text-anchor="middle" font-size="11" fill="#71717A">More bits → smoother waveform → lower quantization noise</text>
+                    <text x="140" y="255" text-anchor="middle" font-size="10" fill="#DC2626">SNR &asymp; 20 dB</text>
+                    <text x="400" y="255" text-anchor="middle" font-size="10" fill="#3B82F6">SNR &asymp; 50 dB</text>
+                    <text x="660" y="255" text-anchor="middle" font-size="10" fill="#10B981">SNR &asymp; 98 dB</text>
+                </svg>
+
+                <h2 id="adc-dac">ADC &amp; DAC</h2>
+
+                <p>The <strong>Analog-to-Digital Converter (ADC)</strong> performs both sampling and quantization. The pipeline:</p>
+
+                <!-- SVG 4: ADC/DAC Pipeline -->
+                <svg viewBox="0 0 800 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <defs><marker id="arr4" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#18181B"/></marker></defs>
+                    <rect width="800" height="160" fill="none"/>
+                    <!-- ADC chain -->
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">ADC → Processing → DAC Pipeline</text>
+                    <!-- Anti-alias filter -->
+                    <rect x="30" y="45" width="110" height="45" rx="8" fill="rgba(220,38,38,0.1)" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="85" y="65" text-anchor="middle" font-size="10" fill="#DC2626" font-weight="600">Anti-Alias</text>
+                    <text x="85" y="78" text-anchor="middle" font-size="9" fill="#DC2626">Filter</text>
+                    <!-- Arrow -->
+                    <line x1="145" y1="68" x2="170" y2="68" stroke="#18181B" stroke-width="1.5" marker-end="url(#arr4)"/>
+                    <!-- Sample & Hold -->
+                    <rect x="175" y="45" width="100" height="45" rx="8" fill="rgba(59,130,246,0.1)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="225" y="65" text-anchor="middle" font-size="10" fill="#3B82F6" font-weight="600">Sample</text>
+                    <text x="225" y="78" text-anchor="middle" font-size="9" fill="#3B82F6">&amp; Hold</text>
+                    <line x1="280" y1="68" x2="305" y2="68" stroke="#18181B" stroke-width="1.5" marker-end="url(#arr4)"/>
+                    <!-- Quantizer -->
+                    <rect x="310" y="45" width="100" height="45" rx="8" fill="rgba(16,185,129,0.1)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="360" y="65" text-anchor="middle" font-size="10" fill="#10B981" font-weight="600">Quantizer</text>
+                    <text x="360" y="78" text-anchor="middle" font-size="9" fill="#10B981">n-bit ADC</text>
+                    <line x1="415" y1="68" x2="440" y2="68" stroke="#18181B" stroke-width="1.5" marker-end="url(#arr4)"/>
+                    <!-- Digital Processing -->
+                    <rect x="445" y="45" width="100" height="45" rx="8" fill="rgba(139,92,246,0.1)" stroke="#8B5CF6" stroke-width="1.5"/>
+                    <text x="495" y="65" text-anchor="middle" font-size="10" fill="#8B5CF6" font-weight="600">Digital</text>
+                    <text x="495" y="78" text-anchor="middle" font-size="9" fill="#8B5CF6">Processing</text>
+                    <line x1="550" y1="68" x2="575" y2="68" stroke="#18181B" stroke-width="1.5" marker-end="url(#arr4)"/>
+                    <!-- DAC -->
+                    <rect x="580" y="45" width="80" height="45" rx="8" fill="rgba(245,158,11,0.1)" stroke="#F59E0B" stroke-width="1.5"/>
+                    <text x="620" y="68" text-anchor="middle" font-size="10" fill="#F59E0B" font-weight="600">DAC</text>
+                    <line x1="665" y1="68" x2="690" y2="68" stroke="#18181B" stroke-width="1.5" marker-end="url(#arr4)"/>
+                    <!-- Reconstruction filter -->
+                    <rect x="695" y="45" width="90" height="45" rx="8" fill="rgba(220,38,38,0.1)" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="740" y="65" text-anchor="middle" font-size="10" fill="#DC2626" font-weight="600">Smoothing</text>
+                    <text x="740" y="78" text-anchor="middle" font-size="9" fill="#DC2626">Filter</text>
+                    <!-- Labels -->
+                    <text x="85" y="115" text-anchor="middle" font-size="9" fill="#71717A">Analog in</text>
+                    <text x="360" y="115" text-anchor="middle" font-size="9" fill="#71717A">Digital domain</text>
+                    <text x="740" y="115" text-anchor="middle" font-size="9" fill="#71717A">Analog out</text>
+                </svg>
+
+                <h2 id="pcm">PCM — Pulse Code Modulation</h2>
+
+                <p>PCM is the standard way to represent digital audio: each sample is a binary number. In <strong>16-bit signed PCM</strong>, values range from $-32{,}768$ to $+32{,}767$. The WAV file format stores raw PCM data with a header specifying sample rate, bit depth, and channel count.</p>
+
+                <p><strong>File size calculation:</strong></p>
+                $$\text{Size (bytes)} = f_s \times n_{\text{bits}}/8 \times n_{\text{channels}} \times t_{\text{seconds}}$$
+
+                <p>Example: 1 minute of CD-quality audio (44,100 Hz, 16-bit, stereo):</p>
+                <p>$44100 \times 2 \times 2 \times 60 = 10{,}584{,}000$ bytes $\approx 10.1$ MB per minute.</p>
+
+                <h2 id="dithering">Dithering</h2>
+
+                <p>Here's a paradox: <strong>adding noise can improve audio quality</strong>. When reducing bit depth (e.g., 24-bit master → 16-bit CD), the quantization error becomes correlated with the signal, producing audible distortion artifacts. Adding a tiny amount of random noise (<strong>dither</strong>) before quantization breaks this correlation, converting the distortion into a quiet, benign hiss.</p>
+
+                <!-- SVG 5: Dithering -->
+                <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="200" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Dithering: Noise Improves Quality</text>
+                    <!-- Without dither -->
+                    <text x="200" y="45" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">Without Dither</text>
+                    <rect x="40" y="55" width="320" height="60" rx="4" fill="none" stroke="#E4E4E7"/>
+                    <!-- Distorted staircase -->
+                    <path d="M50,85 L90,75 L90,75 L130,75 L130,85 L170,85 L170,75 L210,65 L210,65 L250,75 L250,85 L290,85 L290,75 L330,75 L330,85 L350,85" stroke="#DC2626" stroke-width="2" fill="none"/>
+                    <text x="200" y="135" text-anchor="middle" font-size="10" fill="#DC2626">Correlated error → audible distortion</text>
+                    <!-- With dither -->
+                    <text x="600" y="45" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">With Dither</text>
+                    <rect x="440" y="55" width="320" height="60" rx="4" fill="none" stroke="#E4E4E7"/>
+                    <!-- Smoother with noise -->
+                    <path d="M450,82 L470,78 L490,86 L510,76 L530,84 L550,72 L570,80 L590,68 L610,78 L630,82 L650,74 L670,82 L690,76 L710,84 L730,78 L750,82" stroke="#10B981" stroke-width="2" fill="none"/>
+                    <text x="600" y="135" text-anchor="middle" font-size="10" fill="#10B981">Decorrelated error → benign hiss</text>
+                    <!-- Explanation -->
+                    <text x="400" y="175" text-anchor="middle" font-size="11" fill="#71717A">TPDF (triangular probability density function) dither is the standard choice</text>
+                </svg>
+
+                <div class="note-box">
+                    <div class="box-title">TPDF Dither</div>
+                    <p>Triangular Probability Density Function dither (sum of two uniform random numbers) eliminates both the mean and variance of quantization error's correlation with the signal. It adds noise with amplitude of 2 LSBs (least significant bits), but this noise is completely uncorrelated with the signal — a good tradeoff.</p>
+                </div>
+
+                <!-- SVG 6: Dynamic Range -->
+                <svg viewBox="0 0 800 180" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">
+                    <rect width="800" height="180" fill="none"/>
+                    <text x="400" y="18" text-anchor="middle" font-size="13" fill="#71717A">Dynamic Range: 8-bit vs 16-bit vs 24-bit</text>
+                    <!-- 8-bit bar -->
+                    <rect x="100" y="45" width="144" height="30" rx="4" fill="rgba(220,38,38,0.2)" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="172" y="64" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">8-bit: ~48 dB</text>
+                    <text x="80" y="64" text-anchor="end" font-size="10" fill="#71717A">8-bit</text>
+                    <!-- 16-bit bar -->
+                    <rect x="100" y="85" width="289" height="30" rx="4" fill="rgba(59,130,246,0.2)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="244" y="104" text-anchor="middle" font-size="11" fill="#3B82F6" font-weight="600">16-bit: ~96 dB</text>
+                    <text x="80" y="104" text-anchor="end" font-size="10" fill="#71717A">16-bit</text>
+                    <!-- 24-bit bar -->
+                    <rect x="100" y="125" width="432" height="30" rx="4" fill="rgba(16,185,129,0.2)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="316" y="144" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">24-bit: ~144 dB</text>
+                    <text x="80" y="144" text-anchor="end" font-size="10" fill="#71717A">24-bit</text>
+                    <!-- Scale -->
+                    <text x="100" y="172" font-size="9" fill="#71717A">0 dB</text>
+                    <text x="532" y="172" font-size="9" fill="#71717A">144 dB</text>
+                </svg>
+
+            </article>
+
+            <!-- ==================== EXERCISES ==================== -->
+            <article class="article-content" id="exercises" style="display:none;">
+
+                <h2>Exercises: Digital Audio Fundamentals</h2>
+
+                <h3 style="color:#10B981;margin-top:2rem;">Easy (1&ndash;10)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">1</span><span class="exercise-title">Quantization Levels</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>How many quantization levels does a 12-bit ADC have?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$L = 2^{12} = 4096$ levels.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">2</span><span class="exercise-title">File Size Calculation</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Calculate the file size (in MB) for 3 minutes of 48 kHz, 24-bit, stereo audio (no compression, no header).</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$48000 \times 3 \times 2 \times 180 = 51{,}840{,}000$ bytes.</p><p>Wait — let me recalculate: $48000 \text{ samples/s} \times (24/8) \text{ bytes/sample} \times 2 \text{ channels} \times 180 \text{ s} = 48000 \times 3 \times 2 \times 180 = 51{,}840{,}000$ bytes $\approx 49.4$ MB.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">3</span><span class="exercise-title">SNR from Bit Depth</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>What is the theoretical SNR for 20-bit audio?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\text{SNR} = 6.02 \times 20 + 1.76 = 120.4 + 1.76 = 122.16$ dB.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">4</span><span class="exercise-title">Sample Period</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>What is the time between samples for CD audio (44,100 Hz)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$T_s = 1/44100 \approx 22.68 \times 10^{-6}$ s $= 22.68$ &mu;s.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">5</span><span class="exercise-title">Dynamic Range</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>What is the dynamic range of 16-bit audio in dB using $DR = 20\log_{10}(2^n)$?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$DR = 20\log_{10}(2^{16}) = 20 \times 16 \times \log_{10}(2) = 20 \times 16 \times 0.301 = 96.3$ dB.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">6</span><span class="exercise-title">Quantization Step Size</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A 10-bit ADC has input range &minus;1V to +1V. What is the quantization step size &Delta;?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta = (1 - (-1))/(2^{10} - 1) = 2/1023 \approx 1.955$ mV.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">7</span><span class="exercise-title">Samples in a File</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A mono WAV file is 5 seconds long at 44,100 Hz. How many samples does it contain?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$44100 \times 5 = 220{,}500$ samples.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">8</span><span class="exercise-title">Bit Rate</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>What is the bit rate (in kbps) of uncompressed CD audio (44.1 kHz, 16-bit, stereo)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$44100 \times 16 \times 2 = 1{,}411{,}200$ bits/s $= 1411.2$ kbps $\approx 1.41$ Mbps.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">9</span><span class="exercise-title">Nyquist Frequency</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>What is the maximum audio frequency that can be represented at 96 kHz sample rate?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Nyquist frequency = $f_s/2 = 96000/2 = 48{,}000$ Hz = 48 kHz.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">10</span><span class="exercise-title">PCM Value Range</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>In 16-bit signed PCM, what are the minimum and maximum integer values?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Min: $-2^{15} = -32{,}768$. Max: $2^{15} - 1 = 32{,}767$.</p></div></div></div>
+
+                <h3 style="color:#F59E0B;margin-top:2rem;">Medium (11&ndash;20)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">11</span><span class="exercise-title">Quantization Noise Power</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Derive that the quantization noise power for uniform quantization is $\sigma_q^2 = \Delta^2/12$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Quantization error $e$ is uniformly distributed on $[-\Delta/2, \Delta/2]$. Mean: $\mu = 0$. Variance:</p><p>$$\sigma_q^2 = \frac{1}{\Delta}\int_{-\Delta/2}^{\Delta/2} e^2\, de = \frac{1}{\Delta}\left[\frac{e^3}{3}\right]_{-\Delta/2}^{\Delta/2} = \frac{1}{\Delta} \cdot \frac{2(\Delta/2)^3}{3} = \frac{\Delta^2}{12}$$</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">12</span><span class="exercise-title">Storage Comparison</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A podcast is 60 minutes long. Compare uncompressed file sizes at: (a) 16 kHz/16-bit/mono (speech), (b) 44.1 kHz/16-bit/stereo (music), (c) 96 kHz/24-bit/stereo (hi-res).</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) $16000 \times 2 \times 1 \times 3600 = 115.2$ MB</p><p>(b) $44100 \times 2 \times 2 \times 3600 = 635$ MB</p><p>(c) $96000 \times 3 \times 2 \times 3600 = 2074$ MB $\approx 2.0$ GB</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">13</span><span class="exercise-title">Bit Depth for Target SNR</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You need at least 110 dB of SNR. What is the minimum bit depth required?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$110 = 6.02n + 1.76 \Rightarrow n = (110 - 1.76)/6.02 = 108.24/6.02 = 17.98$</p><p>Round up: <strong>18 bits</strong> minimum.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">14</span><span class="exercise-title">Dither Amplitude</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Explain why TPDF dither has a peak amplitude of 2 LSB but an RMS amplitude of $\text{LSB}/\sqrt{6}$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>TPDF is the sum of two independent uniform random variables, each on $[-\text{LSB}/2, +\text{LSB}/2]$. The sum ranges from $-\text{LSB}$ to $+\text{LSB}$ (peak = 2 LSB peak-to-peak).</p><p>Variance of each uniform: $\text{LSB}^2/12$. Variance of sum: $2 \times \text{LSB}^2/12 = \text{LSB}^2/6$. RMS = $\text{LSB}/\sqrt{6} \approx 0.408 \times \text{LSB}$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">15</span><span class="exercise-title">WAV File Header</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A WAV file's data chunk is 7,056,000 bytes. If it's 16-bit stereo at 44,100 Hz, what is the audio duration?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Bytes per second: $44100 \times 2 \times 2 = 176{,}400$ B/s.</p><p>Duration: $7{,}056{,}000 / 176{,}400 = 40.0$ seconds.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">16</span><span class="exercise-title">Quantization of a Specific Sample</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A 4-bit ADC maps input range [0, 3.0V] to levels 0&ndash;15. What binary code does it output for an input of 1.7V? What is the quantization error?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\Delta = 3.0/15 = 0.2$ V. Level = $\lfloor 1.7/0.2 + 0.5 \rfloor = \lfloor 9.0 \rfloor = 9$ (rounding). Binary: 1001.</p><p>Reconstructed: $9 \times 0.2 = 1.8$ V. Error: $1.7 - 1.8 = -0.1$ V.</p><p>(With truncation instead of rounding: level = 8 (1000), error = +0.1 V.)</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">17</span><span class="exercise-title">Effective Number of Bits</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A real-world 16-bit ADC has measured SNR of 89 dB (due to thermal noise, clock jitter, etc.). What is its effective number of bits (ENOB)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$\text{ENOB} = (\text{SNR} - 1.76)/6.02 = (89 - 1.76)/6.02 = 87.24/6.02 \approx 14.5$ bits.</p><p>Despite being a "16-bit" ADC, it effectively provides only 14.5 bits of useful resolution.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">18</span><span class="exercise-title">Oversampling Benefit</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Oversampling by factor $K$ spreads quantization noise over a wider bandwidth, effectively adding $10\log_{10}(K)/6.02$ bits of resolution. How much oversampling is needed to gain 1 extra effective bit?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>1 bit = 6.02 dB. Need $10\log_{10}(K) = 6.02$, so $K = 10^{0.602} \approx 4$.</p><p>Oversampling by 4&times; gains approximately 1 extra bit of resolution.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">19</span><span class="exercise-title">Sample Rate Conversion</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>You have audio at 44,100 Hz and need to convert it to 48,000 Hz. What is the simplest rational resampling ratio? Describe the process conceptually.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Ratio: $48000/44100 = 480/441 = 160/147$.</p><p>Process: (1) Upsample by 160 (insert 159 zeros between each sample), (2) lowpass filter to remove imaging, (3) downsample by 147 (keep every 147th sample). In practice, a polyphase filter implementation avoids computing samples that will be discarded.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">20</span><span class="exercise-title">Floating Point Audio</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>32-bit IEEE 754 floating point has 23 mantissa bits. Near a signal value of 1.0, what is the effective bit depth? Near 0.001?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Near 1.0: the mantissa provides 23 bits of precision, so the effective resolution is ~23 bits (SNR $\approx 6.02 \times 23 + 1.76 \approx 140$ dB).</p><p>Near 0.001: the exponent scales down, but relative precision stays 23 bits. The absolute step size is much smaller: $\sim 2^{-23} \times 2^{-10} \approx 10^{-10}$. This is the key advantage of floating point — constant <em>relative</em> precision regardless of signal level.</p></div></div></div>
+
+                <h3 style="color:#DC2626;margin-top:2rem;">Hard (21&ndash;30)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">21</span><span class="exercise-title">Prove the SNR Formula</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Rigorously derive $\text{SNR} = 6.02n + 1.76$ dB for an $n$-bit quantizer with full-scale sinusoidal input, starting from first principles.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Full-scale sinusoid: $x(t) = A\sin(\omega t)$ where $A = (2^n - 1)\Delta/2 \approx 2^{n-1}\Delta$.</p><p>Signal power: $P_s = A^2/2 = 2^{2n-2}\Delta^2/2 = 2^{2n-3}\Delta^2$.</p><p>Quantization noise power: $P_q = \Delta^2/12$.</p><p>$$\text{SNR} = \frac{P_s}{P_q} = \frac{2^{2n-3}\Delta^2}{\Delta^2/12} = 12 \cdot 2^{2n-3} = \frac{3}{2} \cdot 2^{2n}$$</p><p>$$\text{SNR}_{\text{dB}} = 10\log_{10}\!\left(\frac{3}{2}\right) + 10 \cdot 2n\log_{10}(2) = 1.761 + 6.021n$$</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">22</span><span class="exercise-title">Noise Shaping</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>In first-order noise shaping, the quantization error is fed back and subtracted from the next sample's input. Show that this shapes the noise spectrum by the filter $H(z) = 1 - z^{-1}$, which is a highpass filter. Why is this beneficial for audio?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Let $e[n]$ be the quantization error at step $n$. Without noise shaping, output = input + $e[n]$. With first-order feedback, the effective error becomes $e[n] - e[n-1]$.</p><p>In z-domain: $E_{\text{shaped}}(z) = E(z)(1 - z^{-1}) = E(z)H(z)$.</p><p>$|H(e^{j\omega})| = |1 - e^{-j\omega}| = 2|\sin(\omega/2)|$</p><p>This is zero at DC ($\omega = 0$) and maximum at Nyquist ($\omega = \pi$). Noise is pushed to high frequencies where (a) human hearing is less sensitive and (b) it can be filtered out. Combined with oversampling, this allows very high effective resolution in the audible band from low-bit quantizers — the principle behind sigma-delta ($\Sigma\Delta$) ADCs used in modern audio equipment.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">23</span><span class="exercise-title">Jitter Analysis</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Clock jitter causes the actual sampling instants to deviate from ideal. If jitter is Gaussian with standard deviation $\sigma_t$ and the signal is $x(t) = A\sin(2\pi f t)$, show that the resulting SNR degradation is approximately $-20\log_{10}(2\pi f \sigma_t)$.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The error from sampling at $t + \delta t$ instead of $t$: $\epsilon \approx x'(t)\delta t = 2\pi f A\cos(2\pi ft)\delta t$.</p><p>Error power: $\langle\epsilon^2\rangle = (2\pi f A)^2 \langle\cos^2\rangle \langle\delta t^2\rangle = (2\pi f A)^2 \cdot \frac{1}{2} \cdot \sigma_t^2$.</p><p>Signal power: $A^2/2$. SNR:</p><p>$$\text{SNR}_{\text{jitter}} = \frac{A^2/2}{2\pi^2 f^2 A^2 \sigma_t^2} = \frac{1}{4\pi^2 f^2 \sigma_t^2}$$</p><p>$$\text{SNR}_{\text{dB}} = -20\log_{10}(2\pi f \sigma_t)$$</p><p>This shows jitter's impact is worse at higher frequencies. For a 20 kHz signal with 100 ps jitter: $\text{SNR} = -20\log_{10}(2\pi \times 20000 \times 10^{-10}) \approx 122$ dB — acceptable for 20-bit audio but not for higher resolution.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">24</span><span class="exercise-title">Sigma-Delta ADC Resolution</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>A 1-bit sigma-delta ADC oversamples at 6.144 MHz for a signal bandwidth of 24 kHz (256&times; oversampling). With Nth-order noise shaping, the effective SNR improvement is approximately $(2N+1) \times 10\log_{10}(\text{OSR}) - 10\log_{10}(\pi^{2N}/(2N+1))$ dB. For a 3rd-order modulator, estimate the ENOB.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>OSR = 256. $10\log_{10}(256) = 24.1$ dB. For $N=3$:</p><p>Improvement $\approx 7 \times 24.1 - 10\log_{10}(\pi^6/7) = 168.7 - 10\log_{10}(133.1) = 168.7 - 21.2 = 147.5$ dB.</p><p>1-bit baseline SNR $= 6.02 \times 1 + 1.76 = 7.78$ dB.</p><p>Total SNR $\approx 7.78 + 147.5 = 155.3$ dB.</p><p>ENOB $= (155.3 - 1.76)/6.02 \approx 25.5$ bits. Extraordinary resolution from a simple 1-bit quantizer!</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">25</span><span class="exercise-title">Dither and Truncation Distortion</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>A 24-bit recording is truncated to 16 bits without dither. Show that for a &minus;90 dBFS sinusoid (near the noise floor), the THD (Total Harmonic Distortion) can exceed &minus;50 dB. Why does dither fix this?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>At &minus;90 dBFS in 16-bit, the signal amplitude is about $2^{16} \times 10^{-90/20} = 65536 \times 3.16 \times 10^{-5} \approx 2$ LSBs peak.</p><p>With only ~2 quantization levels, the output is essentially a square wave switching between two adjacent levels. A square wave's 3rd harmonic is only &minus;9.5 dB below the fundamental; including all odd harmonics, THD $\approx$ &minus;4 dB relative to the fundamental. Even if we're generous and the signal spans ~4 levels, THD is still very poor (&minus;30 to &minus;50 dB).</p><p>Dither (random noise of ~1 LSB) decorrelates the quantization error from the signal. The error becomes white noise spread uniformly across all frequencies, independent of signal content. While the noise floor rises slightly, the tonal distortion products vanish — perceived quality improves dramatically.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">26</span><span class="exercise-title">ADC Aperture Time</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>An ADC's aperture time is the time window during which it captures the input. If the aperture time is $\tau = 50$ ns and the input signal changes by more than 1 LSB during $\tau$, you get aperture error. For a 16-bit ADC with &plusmn;1V range sampling a full-scale sinusoid, what is the maximum frequency that avoids aperture error?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>1 LSB = $2/(2^{16}-1) \approx 30.5$ &mu;V. Maximum slew rate of a sinusoid: $dv/dt|_{\max} = 2\pi f A = 2\pi f \times 1$.</p><p>Require: $(dv/dt)_{\max} \times \tau \leq 1$ LSB:</p><p>$2\pi f \times 50 \times 10^{-9} \leq 30.5 \times 10^{-6}$</p><p>$f \leq 30.5 \times 10^{-6}/(2\pi \times 50 \times 10^{-9}) = 97.1$ Hz.</p><p>This is extremely low! This is why sample-and-hold circuits are essential — they "freeze" the voltage so the ADC has time to digitize it.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">27</span><span class="exercise-title">Optimal Bit Allocation</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>You have a fixed budget of 1,411,200 bits per second (CD bit rate). You can trade sample rate for bit depth. Compare the quality tradeoffs of: (a) 44,100 Hz &times; 16 bit &times; 2 ch, (b) 88,200 Hz &times; 8 bit &times; 2 ch, (c) 22,050 Hz &times; 32 bit &times; 2 ch.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>All three use the same bit rate: $f_s \times n \times 2 = 1{,}411{,}200$.</p><p>(a) Standard CD: 22.05 kHz bandwidth, 96 dB SNR — well-matched to human hearing.</p><p>(b) 44.1 kHz bandwidth (ultrasonic, mostly wasted), only 48 dB SNR — terrible quality, audible quantization noise.</p><p>(c) 11.025 kHz bandwidth (cuts off above ~11 kHz, muffled), but 192 dB SNR (absurd overkill).</p><p>Option (a) is optimal because it balances bandwidth (just above the 20 kHz hearing limit) with sufficient SNR (96 dB covers the ~90 dB dynamic range of human hearing). This is essentially why the CD standard chose these exact parameters.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">28</span><span class="exercise-title">Companding: &mu;-Law</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The &mu;-law companding function is $F(x) = \text{sgn}(x)\frac{\ln(1 + \mu|x|)}{\ln(1 + \mu)}$ where $\mu = 255$ for telephone. Show that this gives approximately uniform SNR across all signal levels, unlike linear PCM where quiet signals have worse SNR.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>For linear PCM, quantization step $\Delta$ is constant. SNR $= 20\log_{10}(|x|/\Delta)$ — drops as $|x|$ decreases.</p><p>For companding, the effective step size after expansion: $\Delta_{\text{eff}} \propto dF^{-1}/dy \propto (dF/dx)^{-1}$.</p><p>$dF/dx = \frac{\mu}{\ln(1+\mu)(1+\mu|x|)}$. So $\Delta_{\text{eff}} \propto (1 + \mu|x|)/\mu$.</p><p>For $\mu|x| \gg 1$: $\Delta_{\text{eff}} \propto |x|$. Therefore $\text{SNR} \propto |x|/\Delta_{\text{eff}} \propto |x|/|x| = \text{constant}$!</p><p>The logarithmic compression makes quantization step proportional to signal level, giving roughly constant relative precision (like floating point) — essential for speech where signal level varies enormously.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">29</span><span class="exercise-title">Multi-Bit vs. 1-Bit DAC</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Explain why many high-end DACs use 1-bit (DSD/sigma-delta) architecture instead of multi-bit R-2R ladders, despite needing extreme oversampling. What is the fundamental advantage regarding linearity?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>A 1-bit DAC has only two output levels: +V and &minus;V. Because there are only two levels, it is <strong>inherently perfectly linear</strong> — two points always define a straight line, so there can be no differential nonlinearity (DNL) or integral nonlinearity (INL) errors.</p><p>Multi-bit DACs require that the step size between every adjacent level be exactly equal. For a 16-bit R-2R DAC, the MSB resistor must match the LSB resistor to within 1 part in 65,536 (&lt;0.0015%). This is extremely difficult to manufacture.</p><p>The tradeoff: 1-bit DACs need massive oversampling (64&times;&ndash;256&times;) and high-order noise shaping to achieve equivalent resolution, requiring sophisticated digital filtering. But since digital filters are implemented in silicon (cheap, perfect, reproducible), this is often preferred over the analog precision required for multi-bit DACs.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">30</span><span class="exercise-title">Information-Theoretic Capacity</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Shannon's channel capacity theorem states $C = B\log_2(1 + \text{SNR})$ bits/s for a channel of bandwidth $B$. For CD audio ($B = 22.05$ kHz, SNR = $2^{16}$), what is the theoretical maximum information rate? Compare with the actual CD bit rate.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$$C = 22050 \times \log_2(1 + 65536) \approx 22050 \times 16.0 = 352{,}800 \text{ bits/s per channel}$$</p><p>For stereo: $\approx 705{,}600$ bits/s.</p><p>Actual CD bit rate: 1,411,200 bits/s (stereo). This is about 2&times; the Shannon capacity.</p><p>Why the difference? The SNR formula assumes the entire dynamic range is used optimally. In practice, real audio signals don't fill the full dynamic range at all times, and we use linear (not optimal) quantization. The "wasted" capacity is the price of simplicity — linear PCM is trivial to implement even if it's not information-theoretically optimal. Audio codecs like FLAC exploit this redundancy, achieving ~50% compression on typical music.</p></div></div></div>
+
+            </article>
+        </main>
+    </div>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

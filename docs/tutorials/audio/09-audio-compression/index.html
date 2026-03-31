@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Compression &amp; Codecs | Audio &amp; DSP</title>
+    <meta name="description" content="How audio compression works: lossless FLAC, lossy MP3/AAC/Opus, psychoacoustic masking, MDCT, sub-band coding, bit allocation, and quality metrics.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\\\[', right: '\\\\]', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x266A;</text></svg>">
+    <style>
+        .note-box{background:var(--color-accent-soft,rgba(220,38,38,.08));border-left:4px solid var(--color-accent,#DC2626);border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.note-box .box-title{font-weight:700;margin-bottom:.5rem;color:var(--color-accent)}.key-concept{background:rgba(59,130,246,.08);border-left:4px solid #3B82F6;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}.key-concept .box-title{font-weight:700;margin-bottom:.5rem;color:#3B82F6}.warning-box{background:#fef3c7;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:1.25rem 1.5rem;margin:1.5rem 0}[data-theme=dark] .warning-box{background:#2d2000}.warning-box .box-title{font-weight:700;margin-bottom:.5rem;color:#f59e0b}svg text{font-family:'Inter',sans-serif}
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">&nabla;</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link">TTS</a>
+                    <a href="../../../tutorials/audio/index.html" class="nav-link active">Audio &amp; DSP</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a><span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Audio &amp; DSP</a><span class="breadcrumb-separator">&rarr;</span>
+                <span>Audio Compression &amp; Codecs</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Audio &amp; DSP</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-sound-waves/index.html" class="sidebar-link">01. Sound Waves &amp; Acoustics</a>
+                    <a href="../02-digital-audio/index.html" class="sidebar-link">02. Digital Audio Fundamentals</a>
+                    <a href="../03-nyquist-sampling/index.html" class="sidebar-link">03. Nyquist-Shannon Sampling</a>
+                    <a href="../04-fourier-transform/index.html" class="sidebar-link">04. Fourier Transform &amp; FFT</a>
+                    <a href="../05-spectrograms/index.html" class="sidebar-link">05. Spectrograms &amp; Time-Frequency</a>
+                    <a href="../06-digital-filters/index.html" class="sidebar-link">06. Digital Filters</a>
+                    <a href="../07-audio-effects/index.html" class="sidebar-link">07. Audio Effects &amp; Processing</a>
+                    <a href="../08-psychoacoustics/index.html" class="sidebar-link">08. Psychoacoustics</a>
+                    <a href="../09-audio-compression/index.html" class="sidebar-link active">09. Audio Compression &amp; Codecs</a>
+                    <a href="../10-sound-synthesis/index.html" class="sidebar-link">10. Sound Synthesis &amp; Design</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+
+                <h2 id="why-compress">Why Compress Audio?</h2>
+
+                <p>Uncompressed stereo CD audio (44.1 kHz, 16-bit) transmits at <strong>1,411 kbps</strong>. A three-minute song consumes about 32 MB. Streaming over the internet, storing on portable devices, or distributing large music libraries makes this impractical. Audio compression reduces these demands dramatically — a 128&ndash;320 kbps MP3 is 4&ndash;11&times; smaller; a 64 kbps Opus stream preserves near-transparent quality at 22&times; smaller.</p>
+
+                <div class="key-concept">
+                    <div class="box-title">Two Fundamentally Different Approaches</div>
+                    <p><strong>Lossless compression</strong> — bit-perfect reconstruction guaranteed. The decompressed signal is mathematically identical to the original. Typical savings: 30&ndash;50% (files are 50&ndash;70% of original).<br>
+                    <strong>Lossy compression</strong> — permanently discards information judged inaudible by a psychoacoustic model. Achieves 10&times;&ndash;20&times; compression while aiming for perceptual transparency.</p>
+                </div>
+
+                <p>Storage and bandwidth constraints are the primary drivers, but the specific codec choice depends on use case: archival (FLAC), streaming music (AAC, Opus), telephony (Opus, G.711), broadcast (AAC-HE), video distribution (AAC, AC-3), and real-time communication (Opus).</p>
+
+                <!-- SVG 1: Lossy compression pipeline block diagram -->
+                <svg viewBox="0 0 820 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;margin:2rem auto;display:block;">
+                    <rect width="820" height="200" fill="none"/>
+                    <text x="410" y="18" text-anchor="middle" font-size="13" fill="#71717A">Lossy Audio Compression Pipeline</text>
+                    <!-- Block: PCM Input -->
+                    <rect x="20" y="70" width="110" height="60" rx="6" fill="rgba(16,185,129,0.12)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="75" y="97" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">PCM Input</text>
+                    <text x="75" y="114" text-anchor="middle" font-size="10" fill="#71717A">1411 kbps</text>
+                    <!-- Arrow -->
+                    <line x1="130" y1="100" x2="155" y2="100" stroke="#A1A1AA" stroke-width="1.5" marker-end="url(#arr1)"/>
+                    <defs><marker id="arr1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#A1A1AA"/></marker></defs>
+                    <!-- Block: Time-Freq Transform -->
+                    <rect x="155" y="60" width="120" height="80" rx="6" fill="rgba(59,130,246,0.12)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="215" y="94" text-anchor="middle" font-size="11" fill="#3B82F6" font-weight="600">Time-Freq</text>
+                    <text x="215" y="110" text-anchor="middle" font-size="11" fill="#3B82F6" font-weight="600">Transform</text>
+                    <text x="215" y="128" text-anchor="middle" font-size="9" fill="#71717A">MDCT / filterbank</text>
+                    <!-- Arrow -->
+                    <line x1="275" y1="100" x2="300" y2="100" stroke="#A1A1AA" stroke-width="1.5" marker-end="url(#arr1)"/>
+                    <!-- Block: Psychoacoustic Model -->
+                    <rect x="300" y="55" width="130" height="90" rx="6" fill="rgba(220,38,38,0.10)" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="365" y="89" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">Psychoacoustic</text>
+                    <text x="365" y="105" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">Model</text>
+                    <text x="365" y="122" text-anchor="middle" font-size="9" fill="#71717A">masking thresholds</text>
+                    <text x="365" y="135" text-anchor="middle" font-size="9" fill="#71717A">bit allocation</text>
+                    <!-- Arrow -->
+                    <line x1="430" y1="100" x2="455" y2="100" stroke="#A1A1AA" stroke-width="1.5" marker-end="url(#arr1)"/>
+                    <!-- Block: Quantize + Code -->
+                    <rect x="455" y="60" width="120" height="80" rx="6" fill="rgba(59,130,246,0.12)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="515" y="94" text-anchor="middle" font-size="11" fill="#3B82F6" font-weight="600">Quantize &amp;</text>
+                    <text x="515" y="110" text-anchor="middle" font-size="11" fill="#3B82F6" font-weight="600">Entropy Code</text>
+                    <text x="515" y="128" text-anchor="middle" font-size="9" fill="#71717A">Huffman / AC</text>
+                    <!-- Arrow -->
+                    <line x1="575" y1="100" x2="600" y2="100" stroke="#A1A1AA" stroke-width="1.5" marker-end="url(#arr1)"/>
+                    <!-- Block: Bitstream Output -->
+                    <rect x="600" y="70" width="110" height="60" rx="6" fill="rgba(16,185,129,0.12)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="655" y="97" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">Bitstream</text>
+                    <text x="655" y="114" text-anchor="middle" font-size="10" fill="#71717A">128&ndash;320 kbps</text>
+                    <!-- Labels below -->
+                    <text x="410" y="178" text-anchor="middle" font-size="10" fill="#71717A">Discarded information is inaudible according to psychoacoustic masking</text>
+                    <text x="410" y="192" text-anchor="middle" font-size="10" fill="#DC2626">Lossy: decompressed signal &ne; original</text>
+                </svg>
+
+                <h2 id="lossless">Lossless Compression</h2>
+
+                <p>Lossless codecs exploit <strong>statistical redundancy</strong> in the audio signal — samples are not independent; knowing previous samples gives information about the next one. The process has two stages:</p>
+
+                <ol>
+                    <li><strong>Prediction</strong> — estimate the next sample from its neighbors. The residual (prediction error) has much lower variance than the original signal.</li>
+                    <li><strong>Entropy coding</strong> — encode the residual using variable-length codes (Rice codes, Huffman, or arithmetic coding), assigning fewer bits to likely values.</li>
+                </ol>
+
+                <p><strong>Linear Predictive Coding (LPC)</strong> is the standard prediction method. The predictor models the current sample as a linear combination of the $p$ previous samples:</p>
+
+                $$\hat{x}[n] = \sum_{k=1}^{p} a_k \, x[n-k]$$
+
+                <p>The residual $e[n] = x[n] - \hat{x}[n]$ has near-Gaussian distribution with low variance. LPC coefficients are computed by minimizing the mean-squared residual (Levinson-Durbin algorithm solves the resulting Yule-Walker equations efficiently in $O(p^2)$).</p>
+
+                <div class="key-concept">
+                    <div class="box-title">Lossless Codec Comparison</div>
+                    <p><strong>FLAC</strong> (Free Lossless Audio Codec) — open standard, widely supported, fixed-point LPC up to order 32, Rice coding. Compresses music to 50&ndash;65% of original.<br>
+                    <strong>ALAC</strong> (Apple Lossless Audio Codec) — Apple's equivalent, natively in iTunes/iOS. Similar compression ratios to FLAC.<br>
+                    <strong>WavPack</strong> — supports hybrid mode (lossy + correction layer), unique lossy-correctable workflow for archival use.</p>
+                </div>
+
+                <p>Typical compression ratios: classical music (highly correlated, sparse spectrum) compresses to ~45%; dense modern pop to ~60%; dynamic range and spectral complexity directly determine compressibility. No matter what, the decoded output is bit-perfect — every sample reconstructed exactly.</p>
+
+                <!-- SVG 6: Lossless vs lossy file size comparison -->
+                <svg viewBox="0 0 820 230" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;margin:2rem auto;display:block;">
+                    <rect width="820" height="230" fill="none"/>
+                    <text x="410" y="18" text-anchor="middle" font-size="13" fill="#71717A">File Size Comparison: 3-minute stereo song (CD source)</text>
+                    <!-- Y axis -->
+                    <line x1="100" y1="30" x2="100" y2="190" stroke="#D4D4D8" stroke-width="1"/>
+                    <line x1="100" y1="190" x2="760" y2="190" stroke="#D4D4D8" stroke-width="1"/>
+                    <!-- Grid lines -->
+                    <line x1="100" y1="150" x2="760" y2="150" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <line x1="100" y1="110" x2="760" y2="110" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <line x1="100" y1="70" x2="760" y2="70" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <line x1="100" y1="30" x2="760" y2="30" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="4"/>
+                    <!-- Y axis labels -->
+                    <text x="90" y="194" text-anchor="end" font-size="9" fill="#71717A">0 MB</text>
+                    <text x="90" y="154" text-anchor="end" font-size="9" fill="#71717A">10</text>
+                    <text x="90" y="114" text-anchor="end" font-size="9" fill="#71717A">20</text>
+                    <text x="90" y="74" text-anchor="end" font-size="9" fill="#71717A">30</text>
+                    <text x="90" y="34" text-anchor="end" font-size="9" fill="#71717A">40</text>
+                    <!-- Bars: scale = (MB / 40) * 160px height, y = 190 - height -->
+                    <!-- WAV: ~32 MB -> height 128, y=62 -->
+                    <rect x="120" y="62" width="60" height="128" rx="3" fill="rgba(220,38,38,0.20)" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="150" y="55" text-anchor="middle" font-size="10" fill="#DC2626" font-weight="600">32 MB</text>
+                    <text x="150" y="207" text-anchor="middle" font-size="10" fill="#71717A">WAV</text>
+                    <!-- AIFF: ~32 MB -->
+                    <rect x="210" y="62" width="60" height="128" rx="3" fill="rgba(220,38,38,0.15)" stroke="#DC2626" stroke-width="1.5"/>
+                    <text x="240" y="55" text-anchor="middle" font-size="10" fill="#DC2626" font-weight="600">32 MB</text>
+                    <text x="240" y="207" text-anchor="middle" font-size="10" fill="#71717A">AIFF</text>
+                    <!-- FLAC: ~18 MB -> height 72, y=118 -->
+                    <rect x="300" y="118" width="60" height="72" rx="3" fill="rgba(59,130,246,0.20)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="330" y="111" text-anchor="middle" font-size="10" fill="#3B82F6" font-weight="600">18 MB</text>
+                    <text x="330" y="207" text-anchor="middle" font-size="10" fill="#71717A">FLAC</text>
+                    <!-- ALAC: ~19 MB -> height 76, y=114 -->
+                    <rect x="390" y="114" width="60" height="76" rx="3" fill="rgba(59,130,246,0.15)" stroke="#3B82F6" stroke-width="1.5"/>
+                    <text x="420" y="107" text-anchor="middle" font-size="10" fill="#3B82F6" font-weight="600">19 MB</text>
+                    <text x="420" y="207" text-anchor="middle" font-size="10" fill="#71717A">ALAC</text>
+                    <!-- MP3 320: ~7.5 MB -> height 30, y=160 -->
+                    <rect x="480" y="160" width="60" height="30" rx="3" fill="rgba(16,185,129,0.25)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="510" y="153" text-anchor="middle" font-size="10" fill="#10B981" font-weight="600">7.5 MB</text>
+                    <text x="510" y="207" text-anchor="middle" font-size="10" fill="#71717A">MP3 320</text>
+                    <!-- AAC 256: ~5.8 MB -> height 23, y=167 -->
+                    <rect x="570" y="167" width="60" height="23" rx="3" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="600" y="160" text-anchor="middle" font-size="10" fill="#10B981" font-weight="600">5.8 MB</text>
+                    <text x="600" y="207" text-anchor="middle" font-size="10" fill="#71717A">AAC 256</text>
+                    <!-- Opus 128: ~2.9 MB -> height 11.6, y~178 -->
+                    <rect x="660" y="178" width="60" height="12" rx="3" fill="rgba(16,185,129,0.30)" stroke="#10B981" stroke-width="1.5"/>
+                    <text x="690" y="171" text-anchor="middle" font-size="10" fill="#10B981" font-weight="600">2.9 MB</text>
+                    <text x="690" y="207" text-anchor="middle" font-size="10" fill="#71717A">Opus 128</text>
+                    <!-- Legend -->
+                    <rect x="195" y="217" width="10" height="8" fill="rgba(220,38,38,0.20)" stroke="#DC2626" stroke-width="1"/>
+                    <text x="210" y="224" font-size="9" fill="#71717A">Uncompressed</text>
+                    <rect x="310" y="217" width="10" height="8" fill="rgba(59,130,246,0.20)" stroke="#3B82F6" stroke-width="1"/>
+                    <text x="325" y="224" font-size="9" fill="#71717A">Lossless</text>
+                    <rect x="405" y="217" width="10" height="8" fill="rgba(16,185,129,0.25)" stroke="#10B981" stroke-width="1"/>
+                    <text x="420" y="224" font-size="9" fill="#71717A">Lossy</text>
+                </svg>
+
+                <h2 id="perceptual">Perceptual (Lossy) Compression</h2>
+
+                <p>The key insight exploited by lossy codecs: <strong>human hearing cannot perceive everything in an audio signal</strong>. Psychoacoustic masking means that a strong signal makes nearby weaker signals inaudible — either in frequency (simultaneous masking) or in time (temporal masking). If we can identify what is masked, we can quantize those components coarsely or omit them entirely without a listener noticing.</p>
+
+                <p>The general lossy compression workflow:</p>
+                <ol>
+                    <li>Transform time-domain signal into frequency domain (filterbank or MDCT).</li>
+                    <li>Run a psychoacoustic model to determine masking thresholds per frequency band.</li>
+                    <li>Allocate bits to spectral coefficients — more bits where masking is weak (perceptually important), fewer where masking is strong.</li>
+                    <li>Quantize and entropy-code the coefficients within the bit budget.</li>
+                    <li>Pack into a bitstream with side information (scale factors, window types, Huffman tables).</li>
+                </ol>
+
+                <!-- SVG 2: Psychoacoustic masking spectrum -->
+                <svg viewBox="0 0 820 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;margin:2rem auto;display:block;">
+                    <rect width="820" height="280" fill="none"/>
+                    <text x="410" y="18" text-anchor="middle" font-size="13" fill="#71717A">Psychoacoustic Masking: Simultaneous Frequency Masking</text>
+                    <!-- Axes -->
+                    <line x1="70" y1="230" x2="760" y2="230" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <line x1="70" y1="30" x2="70" y2="230" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <text x="770" y="234" font-size="10" fill="#71717A">Freq</text>
+                    <text x="30" y="35" font-size="10" fill="#71717A" transform="rotate(-90,30,130)">Level (dB SPL)</text>
+                    <!-- Freq axis ticks -->
+                    <text x="130" y="245" text-anchor="middle" font-size="9" fill="#71717A">100Hz</text>
+                    <text x="240" y="245" text-anchor="middle" font-size="9" fill="#71717A">500Hz</text>
+                    <text x="370" y="245" text-anchor="middle" font-size="9" fill="#71717A">1kHz</text>
+                    <text x="500" y="245" text-anchor="middle" font-size="9" fill="#71717A">4kHz</text>
+                    <text x="630" y="245" text-anchor="middle" font-size="9" fill="#71717A">10kHz</text>
+                    <text x="720" y="245" text-anchor="middle" font-size="9" fill="#71717A">20kHz</text>
+                    <!-- dB level ticks -->
+                    <line x1="65" y1="50" x2="760" y2="50" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <text x="62" y="54" text-anchor="end" font-size="9" fill="#71717A">100</text>
+                    <line x1="65" y1="90" x2="760" y2="90" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <text x="62" y="94" text-anchor="end" font-size="9" fill="#71717A">80</text>
+                    <line x1="65" y1="130" x2="760" y2="130" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <text x="62" y="134" text-anchor="end" font-size="9" fill="#71717A">60</text>
+                    <line x1="65" y1="170" x2="760" y2="170" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <text x="62" y="174" text-anchor="end" font-size="9" fill="#71717A">40</text>
+                    <line x1="65" y1="210" x2="760" y2="210" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <text x="62" y="214" text-anchor="end" font-size="9" fill="#71717A">20</text>
+                    <!-- Absolute threshold of hearing (inverted U, higher at extremes) -->
+                    <path d="M70,210 Q110,215 150,200 Q200,185 280,192 Q350,196 420,200 Q490,204 560,195 Q620,180 680,160 Q720,145 760,115" stroke="#D4D4D8" stroke-width="1.5" fill="none" stroke-dasharray="6,3"/>
+                    <text x="760" y="112" font-size="9" fill="#A1A1AA">ATH</text>
+                    <!-- Masker signal (narrow peak at ~1 kHz) -->
+                    <line x1="370" y1="230" x2="370" y2="55" stroke="#DC2626" stroke-width="3"/>
+                    <circle cx="370" cy="55" r="5" fill="#DC2626"/>
+                    <text x="380" y="50" font-size="10" fill="#DC2626" font-weight="600">Masker (80 dB @ 1kHz)</text>
+                    <!-- Masking threshold curve (spread around masker) -->
+                    <path d="M100,210 Q150,205 200,195 Q270,178 320,150 Q345,110 360,68 Q370,55 380,68 Q395,90 420,118 Q460,155 510,175 Q580,195 660,205 Q710,210 760,210" stroke="#3B82F6" stroke-width="2.5" fill="rgba(59,130,246,0.08)"/>
+                    <text x="530" y="165" font-size="10" fill="#3B82F6" font-weight="600">Masking threshold</text>
+                    <!-- Masked region annotation -->
+                    <rect x="280" y="120" width="170" height="25" rx="4" fill="rgba(16,185,129,0.15)" stroke="#10B981" stroke-width="1"/>
+                    <text x="365" y="136" text-anchor="middle" font-size="9" fill="#10B981" font-weight="600">Components below threshold = inaudible = remove!</text>
+                    <!-- Example masked component -->
+                    <line x1="450" y1="230" x2="450" y2="168" stroke="#71717A" stroke-width="1.5" stroke-dasharray="3"/>
+                    <circle cx="450" cy="168" r="3" fill="#71717A"/>
+                    <text x="460" y="165" font-size="9" fill="#71717A">masked</text>
+                    <!-- Another masked component -->
+                    <line x1="310" y1="230" x2="310" y2="160" stroke="#71717A" stroke-width="1.5" stroke-dasharray="3"/>
+                    <circle cx="310" cy="160" r="3" fill="#71717A"/>
+                    <text x="270" y="157" font-size="9" fill="#71717A">masked</text>
+                    <text x="410" y="267" text-anchor="middle" font-size="10" fill="#71717A">Asymmetric masking: stronger on high-frequency side. Threshold rises ~20 dB near masker.</text>
+                </svg>
+
+                <h2 id="mp3">MP3 Encoding Pipeline</h2>
+
+                <p>MP3 (MPEG-1 Audio Layer III, 1993) introduced the now-classic hybrid filterbank architecture that underlies much of lossy audio coding:</p>
+
+                <ol>
+                    <li><strong>Polyphase filterbank</strong> — splits the wideband PCM signal into 32 equal-width sub-bands. Each sub-band is ~689 Hz wide (at 44.1 kHz). Fast to compute; however equal-width bands do not match the ear's critical bands well.</li>
+                    <li><strong>MDCT per sub-band</strong> — each of the 32 sub-bands is further transformed by a Modified Discrete Cosine Transform (MDCT), producing 18 spectral lines per sub-band (long block) = 576 spectral coefficients total. This is the "hybrid" in the hybrid filterbank.</li>
+                    <li><strong>Psychoacoustic model</strong> — a parallel FFT analysis (1024 or 2048 points) computes the masking threshold in each of the 576 coefficient bins. The threshold determines the <em>signal-to-mask ratio</em> (SMR): how much quantization noise is tolerable per bin.</li>
+                    <li><strong>Bit allocation</strong> — an outer iteration loop adjusts scale factors (logarithmic gain per scalefactor band) and a rate-control loop allocates Huffman codebooks to coefficient ranges, targeting the available bit budget while keeping quantization noise below the masking threshold.</li>
+                    <li><strong>Huffman coding</strong> — quantized coefficients are entropy-coded using 32 Huffman tables. High-magnitude coefficients use one table; small ones use another; long runs of zeros are coded as a "big values" + "rzero" pair to exploit sparsity.</li>
+                </ol>
+
+                <div class="note-box">
+                    <div class="box-title">Critical Bands and Bark Scale</div>
+                    <p>The human cochlea resolves frequencies within "critical bands" (Bark bands). Below ~500 Hz, each critical band is ~100 Hz wide; above 500 Hz, bandwidth scales roughly linearly with frequency (~20% of center frequency). MP3 uses 21 scalefactor bands that approximate these critical bands. Masking is computed per critical band: a strong signal in one band can mask weaker signals in the same band (within-band masking) or in adjacent bands (spread masking).</p>
+                </div>
+
+                <p>The <strong>masking threshold</strong> for a band is computed as:</p>
+                $$T_{\text{mask}}(b) = \max\!\left(T_{\text{ATH}}(b),\; \max_j \bigl[X_j - \text{SMR}(b,j)\bigr]\right)$$
+                <p>where $X_j$ is the level of masker $j$, $\text{SMR}(b,j)$ is the spreading function (how much masker $j$ raises the threshold in band $b$), and $T_{\text{ATH}}$ is the absolute threshold of hearing. Quantization noise in band $b$ must stay below $T_{\text{mask}}(b)$.</p>
+
+                <!-- SVG 5: Sub-band decomposition diagram -->
+                <svg viewBox="0 0 820 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;margin:2rem auto;display:block;">
+                    <rect width="820" height="240" fill="none"/>
+                    <text x="410" y="18" text-anchor="middle" font-size="13" fill="#71717A">Sub-band Decomposition: 32 Equal Sub-bands (MP3 Polyphase Filterbank)</text>
+                    <!-- Freq axis -->
+                    <line x1="60" y1="200" x2="780" y2="200" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <text x="60" y="215" text-anchor="middle" font-size="9" fill="#71717A">0</text>
+                    <text x="780" y="215" text-anchor="middle" font-size="9" fill="#71717A">22050 Hz</text>
+                    <text x="420" y="215" text-anchor="middle" font-size="9" fill="#71717A">11025 Hz</text>
+                    <!-- Sub-bands (32 equal bands, colored alternately) -->
+                    <!-- 32 bands across 720px = 22.5px each -->
+                    <!-- Draw first few explicitly then imply rest -->
+                    <rect x="60" y="60" width="22" height="140" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="82" y="70" width="22" height="130" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="104" y="55" width="22" height="145" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="126" y="75" width="22" height="125" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="148" y="65" width="22" height="135" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="170" y="80" width="22" height="120" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="192" y="90" width="22" height="110" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="214" y="100" width="22" height="100" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="236" y="95" width="22" height="105" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="258" y="110" width="22" height="90" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="280" y="120" width="22" height="80" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="302" y="130" width="22" height="70" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="324" y="125" width="22" height="75" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="346" y="135" width="22" height="65" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="368" y="140" width="22" height="60" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="390" y="148" width="22" height="52" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="412" y="145" width="22" height="55" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="434" y="152" width="22" height="48" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="456" y="155" width="22" height="45" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="478" y="158" width="22" height="42" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="500" y="160" width="22" height="40" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="522" y="162" width="22" height="38" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="544" y="163" width="22" height="37" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="566" y="165" width="22" height="35" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="588" y="166" width="22" height="34" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="610" y="167" width="22" height="33" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="632" y="168" width="22" height="32" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="654" y="169" width="22" height="31" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="676" y="170" width="22" height="30" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="698" y="171" width="22" height="29" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <rect x="720" y="172" width="22" height="28" rx="2" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1"/>
+                    <rect x="742" y="173" width="22" height="27" rx="2" fill="rgba(16,185,129,0.20)" stroke="#10B981" stroke-width="1"/>
+                    <!-- Labels -->
+                    <text x="71" y="52" text-anchor="middle" font-size="8" fill="#3B82F6">1</text>
+                    <text x="93" y="62" text-anchor="middle" font-size="8" fill="#10B981">2</text>
+                    <text x="115" y="47" text-anchor="middle" font-size="8" fill="#3B82F6">3</text>
+                    <text x="410" y="46" text-anchor="middle" font-size="10" fill="#71717A">Band width = 22050/32 &asymp; 689 Hz each &nbsp;|&nbsp; Each band further split by 18-point MDCT = 576 coefficients total</text>
+                </svg>
+
+                <h2 id="aac">AAC &amp; Modern Codecs</h2>
+
+                <p>Advanced Audio Coding (AAC, 1997) was designed to surpass MP3 at equal or lower bit rates. Key architectural improvements:</p>
+
+                <ul>
+                    <li><strong>Pure MDCT filterbank</strong> — eliminates the hybrid polyphase/MDCT structure. Uses either a long (1024-point) or short (128-point &times; 8) MDCT window per frame, selected by the window switching tool based on signal transients.</li>
+                    <li><strong>Temporal Noise Shaping (TNS)</strong> — applies prediction in the frequency domain to shape quantization noise temporally, preventing pre-echo artifacts on transients.</li>
+                    <li><strong>Perceptual Noise Substitution (PNS)</strong> — noise-like spectral regions are replaced with a random noise generator (stored as a single energy value), saving bits.</li>
+                    <li><strong>Better psychoacoustic model</strong> — more accurate masking computation with inter-channel masking for stereo and improved spreading function.</li>
+                    <li><strong>HE-AAC v1</strong> — adds Spectral Band Replication (SBR): encode only low-frequency content, then reconstruct the high-frequency bands from the low ones using a transposition algorithm. Transparent quality near 64 kbps (stereo).</li>
+                    <li><strong>HE-AAC v2</strong> — adds Parametric Stereo (PS): encode mono + stereo parameters (inter-channel level, phase, coherence). Usable down to ~24 kbps.</li>
+                </ul>
+
+                <div class="key-concept">
+                    <div class="box-title">Why AAC Surpasses MP3</div>
+                    <p>MP3's polyphase filterbank has poor frequency resolution in the low bands, causing inter-band interference and limiting masking model accuracy. AAC's pure MDCT with 1024 coefficients gives finer spectral resolution, better matching the psychoacoustic model. AAC at 128 kbps sounds comparable to MP3 at 160&ndash;192 kbps. At 256 kbps, AAC is generally considered transparent for music.</p>
+                </div>
+
+                <!-- SVG 3: Bit rate vs quality comparison chart -->
+                <svg viewBox="0 0 820 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;margin:2rem auto;display:block;">
+                    <rect width="820" height="280" fill="none"/>
+                    <text x="410" y="18" text-anchor="middle" font-size="13" fill="#71717A">Bit Rate vs. Perceived Quality: Codec Comparison (MUSHRA scores, approximate)</text>
+                    <!-- Axes -->
+                    <line x1="80" y1="230" x2="760" y2="230" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <line x1="80" y1="30" x2="80" y2="230" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <!-- X axis: bit rate 32 to 320 kbps -->
+                    <text x="80" y="245" text-anchor="middle" font-size="9" fill="#71717A">32</text>
+                    <text x="185" y="245" text-anchor="middle" font-size="9" fill="#71717A">64</text>
+                    <text x="290" y="245" text-anchor="middle" font-size="9" fill="#71717A">96</text>
+                    <text x="395" y="245" text-anchor="middle" font-size="9" fill="#71717A">128</text>
+                    <text x="500" y="245" text-anchor="middle" font-size="9" fill="#71717A">160</text>
+                    <text x="605" y="245" text-anchor="middle" font-size="9" fill="#71717A">192</text>
+                    <text x="710" y="245" text-anchor="middle" font-size="9" fill="#71717A">256 kbps</text>
+                    <!-- Y axis: quality 0-100 -->
+                    <text x="72" y="230" text-anchor="end" font-size="9" fill="#71717A">0</text>
+                    <text x="72" y="190" text-anchor="end" font-size="9" fill="#71717A">20</text>
+                    <text x="72" y="150" text-anchor="end" font-size="9" fill="#71717A">40</text>
+                    <text x="72" y="110" text-anchor="end" font-size="9" fill="#71717A">60</text>
+                    <text x="72" y="70" text-anchor="end" font-size="9" fill="#71717A">80</text>
+                    <text x="72" y="34" text-anchor="end" font-size="9" fill="#71717A">100</text>
+                    <!-- Grid -->
+                    <line x1="80" y1="190" x2="760" y2="190" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <line x1="80" y1="150" x2="760" y2="150" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <line x1="80" y1="110" x2="760" y2="110" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <line x1="80" y1="70" x2="760" y2="70" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <line x1="80" y1="34" x2="760" y2="34" stroke="#E4E4E7" stroke-width="0.5" stroke-dasharray="3"/>
+                    <!-- Transparency threshold line -->
+                    <line x1="80" y1="54" x2="760" y2="54" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="6,3"/>
+                    <text x="762" y="52" font-size="9" fill="#F59E0B">Transparent</text>
+                    <!-- MP3 curve: quality scale 0-100, y = 230 - (q/100)*196 -->
+                    <!-- 32kbps=25, 64=50, 96=65, 128=72, 160=78, 192=82, 256=87 -->
+                    <polyline points="80,181 185,132 290,103 395,89 500,77 605,69 710,59" stroke="#DC2626" stroke-width="2.5" fill="none"/>
+                    <circle cx="80" cy="181" r="3" fill="#DC2626"/>
+                    <circle cx="185" cy="132" r="3" fill="#DC2626"/>
+                    <circle cx="290" cy="103" r="3" fill="#DC2626"/>
+                    <circle cx="395" cy="89" r="3" fill="#DC2626"/>
+                    <circle cx="500" cy="77" r="3" fill="#DC2626"/>
+                    <circle cx="605" cy="69" r="3" fill="#DC2626"/>
+                    <circle cx="710" cy="59" r="3" fill="#DC2626"/>
+                    <!-- AAC curve: 32=38,64=62,96=74,128=81,160=86,192=90,256=94 -->
+                    <polyline points="80,156 185,109 290,85 395,72 500,62 605,54 710,46" stroke="#3B82F6" stroke-width="2.5" fill="none"/>
+                    <circle cx="80" cy="156" r="3" fill="#3B82F6"/>
+                    <circle cx="185" cy="109" r="3" fill="#3B82F6"/>
+                    <circle cx="290" cy="85" r="3" fill="#3B82F6"/>
+                    <circle cx="395" cy="72" r="3" fill="#3B82F6"/>
+                    <circle cx="500" cy="62" r="3" fill="#3B82F6"/>
+                    <circle cx="605" cy="54" r="3" fill="#3B82F6"/>
+                    <circle cx="710" cy="46" r="3" fill="#3B82F6"/>
+                    <!-- Opus curve: 32=55,64=74,96=83,128=89,160=93,192=95,256=97 -->
+                    <polyline points="80,122 185,85 290,67 395,56 500,48 605,43 710,40" stroke="#10B981" stroke-width="2.5" fill="none"/>
+                    <circle cx="80" cy="122" r="3" fill="#10B981"/>
+                    <circle cx="185" cy="85" r="3" fill="#10B981"/>
+                    <circle cx="290" cy="67" r="3" fill="#10B981"/>
+                    <circle cx="395" cy="56" r="3" fill="#10B981"/>
+                    <circle cx="500" cy="48" r="3" fill="#10B981"/>
+                    <circle cx="605" cy="43" r="3" fill="#10B981"/>
+                    <circle cx="710" cy="40" r="3" fill="#10B981"/>
+                    <!-- Vorbis curve: 32=45,64=68,96=79,128=85,160=89,192=92,256=95 -->
+                    <polyline points="80,142 185,97 290,76 395,64 500,56 605,51 710,43" stroke="#8B5CF6" stroke-width="2" fill="none" stroke-dasharray="6,3"/>
+                    <circle cx="80" cy="142" r="3" fill="#8B5CF6"/>
+                    <circle cx="710" cy="43" r="3" fill="#8B5CF6"/>
+                    <!-- Legend -->
+                    <line x1="100" y1="262" x2="130" y2="262" stroke="#DC2626" stroke-width="2.5"/>
+                    <circle cx="115" cy="262" r="3" fill="#DC2626"/>
+                    <text x="135" y="266" font-size="10" fill="#71717A">MP3</text>
+                    <line x1="200" y1="262" x2="230" y2="262" stroke="#3B82F6" stroke-width="2.5"/>
+                    <circle cx="215" cy="262" r="3" fill="#3B82F6"/>
+                    <text x="235" y="266" font-size="10" fill="#71717A">AAC</text>
+                    <line x1="300" y1="262" x2="330" y2="262" stroke="#10B981" stroke-width="2.5"/>
+                    <circle cx="315" cy="262" r="3" fill="#10B981"/>
+                    <text x="335" y="266" font-size="10" fill="#71717A">Opus</text>
+                    <line x1="400" y1="262" x2="430" y2="262" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="5,3"/>
+                    <circle cx="415" cy="262" r="3" fill="#8B5CF6"/>
+                    <text x="435" y="266" font-size="10" fill="#71717A">Vorbis</text>
+                    <text x="410" y="255" text-anchor="middle" font-size="9" fill="#71717A">(Scores are approximate averages from published MUSHRA studies)</text>
+                </svg>
+
+                <h2 id="opus">Opus Codec</h2>
+
+                <p>Opus (RFC 6716, 2012) is the modern universal codec standardized by the IETF, designed to cover everything from narrowband speech to full-bandwidth music in real time. It achieves this through a unique <strong>hybrid architecture</strong>:</p>
+
+                <ul>
+                    <li><strong>SILK</strong> — a speech codec originally developed by Skype, based on CELP (Code-Excited Linear Prediction). Uses LPC analysis, pitch prediction, and codebook-driven residual quantization. Optimized for speech signals at low bit rates (6&ndash;40 kbps).</li>
+                    <li><strong>CELT</strong> — Constrained Energy Lapped Transform, a high-quality music codec using MDCT with perceptual vector quantization of spectral coefficients. Excellent for music and general audio (32&ndash;510 kbps).</li>
+                    <li><strong>Hybrid mode</strong> — for the range 12&ndash;20 kHz (frequencies above speech but below music cutoff), SILK handles low frequencies and CELT handles high frequencies simultaneously. Seamless transitions between modes depending on content analysis.</li>
+                </ul>
+
+                <div class="key-concept">
+                    <div class="box-title">Why Opus is the Modern Standard</div>
+                    <p>Single codec for all use cases: VOIP (8&ndash;16 kbps), podcasts (32&ndash;64 kbps), music streaming (128&ndash;256 kbps), archival (510 kbps). Royalty-free open standard (unlike MP3/AAC). Ultra-low latency (2.5&ndash;60 ms frame sizes). Outperforms MP3, Vorbis, and AAC at all bit rates in blind listening tests. WebRTC and most modern streaming platforms have adopted Opus as the preferred audio codec.</p>
+                </div>
+
+                <p>Opus frame sizes range from 2.5 ms to 60 ms. Smaller frames reduce latency but increase overhead; larger frames improve coding efficiency. The encoder automatically selects the best frame size and mode for the signal and target bit rate:</p>
+
+                $$\text{Bit rate range: } 6\text{ kbps} \leq R \leq 510\text{ kbps (mono)},\quad 12\text{ kbps} \leq R \leq 510\text{ kbps (stereo)}$$
+
+                <h2 id="mdct">MDCT and Windowed Frames</h2>
+
+                <p>The Modified Discrete Cosine Transform is the core spectral analysis tool in AAC, Opus/CELT, Vorbis, and AC-3. The MDCT of a length-$2N$ windowed block is:</p>
+
+                $$X[k] = \sum_{n=0}^{2N-1} w[n]\, x[n]\cos\!\left[\frac{\pi}{N}\left(n + \frac{1}{2} + \frac{N}{2}\right)\left(k + \frac{1}{2}\right)\right], \quad k = 0, 1, \ldots, N-1$$
+
+                <p>The MDCT produces $N$ coefficients from $2N$ samples, with 50% overlap between adjacent frames. The corresponding inverse (IMDCT) with overlap-add reconstruction achieves perfect reconstruction — no information is lost in the transform itself (only in the quantization step).</p>
+
+                <!-- SVG 4: MDCT window showing overlapping frames -->
+                <svg viewBox="0 0 820 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;margin:2rem auto;display:block;">
+                    <rect width="820" height="240" fill="none"/>
+                    <text x="410" y="18" text-anchor="middle" font-size="13" fill="#71717A">MDCT Overlapping Frames with Sine Window</text>
+                    <!-- Time axis -->
+                    <line x1="40" y1="180" x2="780" y2="180" stroke="#D4D4D8" stroke-width="1.5"/>
+                    <text x="790" y="184" font-size="10" fill="#71717A">t</text>
+                    <!-- Frame 1: x=40 to x=440 (width 400), window peaks at 240 -->
+                    <path d="M40,180 Q140,180 240,60 Q340,180 440,180" stroke="#DC2626" stroke-width="2.5" fill="rgba(220,38,38,0.08)"/>
+                    <!-- Frame 2: x=240 to x=640 (50% overlap with frame 1) -->
+                    <path d="M240,180 Q340,180 440,60 Q540,180 640,180" stroke="#3B82F6" stroke-width="2.5" fill="rgba(59,130,246,0.08)"/>
+                    <!-- Frame 3: x=440 to x=780 -->
+                    <path d="M440,180 Q540,180 640,60 Q740,180 780,180" stroke="#10B981" stroke-width="2.5" fill="rgba(16,185,129,0.08)"/>
+                    <!-- Frame labels -->
+                    <text x="240" y="50" text-anchor="middle" font-size="11" fill="#DC2626" font-weight="600">Frame n</text>
+                    <text x="440" y="50" text-anchor="middle" font-size="11" fill="#3B82F6" font-weight="600">Frame n+1</text>
+                    <text x="640" y="50" text-anchor="middle" font-size="11" fill="#10B981" font-weight="600">Frame n+2</text>
+                    <!-- 50% overlap annotation -->
+                    <line x1="240" y1="100" x2="440" y2="100" stroke="#71717A" stroke-width="1" stroke-dasharray="4"/>
+                    <text x="340" y="95" text-anchor="middle" font-size="9" fill="#71717A">50% overlap</text>
+                    <line x1="440" y1="110" x2="640" y2="110" stroke="#71717A" stroke-width="1" stroke-dasharray="4"/>
+                    <text x="540" y="105" text-anchor="middle" font-size="9" fill="#71717A">50% overlap</text>
+                    <!-- N and 2N labels -->
+                    <line x1="40" y1="185" x2="40" y2="200" stroke="#A1A1AA" stroke-width="1"/>
+                    <line x1="440" y1="185" x2="440" y2="200" stroke="#A1A1AA" stroke-width="1"/>
+                    <line x1="640" y1="185" x2="640" y2="200" stroke="#A1A1AA" stroke-width="1"/>
+                    <line x1="780" y1="185" x2="780" y2="200" stroke="#A1A1AA" stroke-width="1"/>
+                    <line x1="240" y1="185" x2="240" y2="200" stroke="#DC2626" stroke-width="1" stroke-dasharray="3"/>
+                    <!-- Window = sine(pi*(n+0.5)/(2N)) label -->
+                    <text x="410" y="215" text-anchor="middle" font-size="10" fill="#71717A">Window: $w[n] = \sin\!\bigl(\pi(n+\tfrac{1}{2})/(2N)\bigr)$ — satisfies TDAC (time-domain aliasing cancellation)</text>
+                    <text x="410" y="230" text-anchor="middle" font-size="10" fill="#71717A">Each frame: 2N input samples → N MDCT coefficients. Overlap-add = perfect reconstruction</text>
+                </svg>
+
+                <div class="note-box">
+                    <div class="box-title">Time-Domain Aliasing Cancellation (TDAC)</div>
+                    <p>The MDCT's 50% overlap means that adjacent frames share half their samples. The aliasing introduced by taking a length-$N$ transform from $2N$ samples <em>exactly cancels</em> between adjacent frames upon overlap-add reconstruction. This is the mathematical miracle that makes MDCT efficient: you get $N$ unique spectral coefficients from $2N$ samples (50% redundancy removed) while still achieving perfect reconstruction. The sine window is the standard choice because it satisfies the TDAC constraint: $w[n]^2 + w[n+N]^2 = 1$.</p>
+                </div>
+
+                <h2 id="quality">Quality Metrics</h2>
+
+                <p>Evaluating lossy codec quality requires measuring how well the decoded audio matches the original as perceived by a human listener.</p>
+
+                <h3>Objective Metrics</h3>
+                <ul>
+                    <li><strong>PEAQ</strong> (Perceptual Evaluation of Audio Quality, ITU-R BS.1387) — models the auditory system (outer/middle ear filtering, hair cell compression, masking) to predict a MUSHRA score. Two versions: Basic (fast) and Advanced (more accurate).</li>
+                    <li><strong>PESQ</strong> (Perceptual Evaluation of Speech Quality, ITU-T P.862) — designed for telephone speech (narrowband and wideband). Used in VoIP testing.</li>
+                    <li><strong>POLQA</strong> (Perceptual Objective Listening Quality Analysis, ITU-T P.863) — succeeds PESQ, extends to super-wideband (14 kHz) and handles modern codec artifacts better.</li>
+                    <li><strong>ViSQOL</strong> (Virtual Speech Quality Objective Listener) — more recent, neural-network-influenced approach showing better correlation with listening tests for music.</li>
+                </ul>
+
+                <h3>Subjective Testing</h3>
+                <ul>
+                    <li><strong>MUSHRA</strong> (Multiple Stimuli with Hidden Reference and Anchor, ITU-R BS.1534) — listeners rate multiple stimuli (including hidden reference and anchors) on a 0&ndash;100 scale simultaneously. More efficient than pairwise comparison. The standard for codec evaluation.</li>
+                    <li><strong>ABX testing</strong> — double-blind test: listener hears A (reference), B (compressed), and X (randomly A or B). Must identify whether X is A or B. If a listener cannot score better than 50% over many trials, the codec is perceptually <strong>transparent</strong> at that bit rate for that material.</li>
+                    <li><strong>Transparency threshold</strong> — the minimum bit rate at which trained listeners cannot distinguish the codec output from the original in a double-blind test. Approximately: MP3 ~192&ndash;256 kbps, AAC ~128&ndash;192 kbps, Opus ~96&ndash;128 kbps (music).</li>
+                </ul>
+
+                <div class="warning-box">
+                    <div class="box-title">Codec Artifacts</div>
+                    <p>Below the transparency threshold, lossy codecs produce characteristic artifacts: <strong>pre-echo</strong> (noise before a transient, from quantizing in long MDCT blocks), <strong>ringing</strong> (tonal artifacts from Gibbs phenomenon in long blocks), <strong>pumping/breathing</strong> (dynamic noise-floor modulation from bit allocation), <strong>birdie artifacts</strong> (tonal noise components from coarse quantization), and <strong>muffled high frequencies</strong> (aggressive high-band cutoff). Pre-echo is often cited as the most distinctive MP3 artifact.</p>
+                </div>
+
+            </article>
+
+            <!-- ==================== EXERCISES ==================== -->
+            <article class="article-content" id="exercises" style="display:none;">
+
+                <h2>Exercises: Audio Compression &amp; Codecs</h2>
+
+                <h3 style="color:#10B981;margin-top:2rem;">Easy (1&ndash;10)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">1</span><span class="exercise-title">CD Bit Rate</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Calculate the uncompressed bit rate for CD audio (44.1 kHz, 16-bit, stereo). Express in kbps.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$44100 \times 16 \times 2 = 1{,}411{,}200$ bits/s $= \mathbf{1411.2}$ <strong>kbps</strong>.</p><p>This is the reference "1411 kbps" figure often cited for uncompressed CD quality.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">2</span><span class="exercise-title">Compression Ratio</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>An MP3 file at 128 kbps stores a song that was originally CD quality (1411 kbps). What is the compression ratio?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Compression ratio $= 1411.2 / 128 \approx \mathbf{11.0}$. The MP3 file is approximately 11 times smaller in terms of data rate.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">3</span><span class="exercise-title">File Size: MP3</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>How large (in MB) is a 4-minute song encoded as MP3 at 192 kbps?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$192{,}000 \text{ bits/s} \times 240 \text{ s} = 46{,}080{,}000$ bits $= 5{,}760{,}000$ bytes $\approx \mathbf{5.5}$ <strong>MB</strong>.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">4</span><span class="exercise-title">Storage Savings</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A music collection of 500 songs, each 4 minutes, is stored uncompressed (CD quality) and again as 256 kbps AAC. What is the storage saved in GB?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Uncompressed: $1{,}411{,}200 \times 240 \times 500 / 8 = 21{,}168{,}000{,}000$ bytes $\approx 19.7$ GB.</p><p>AAC 256 kbps: $256{,}000 \times 240 \times 500 / 8 = 3{,}840{,}000{,}000$ bytes $\approx 3.6$ GB.</p><p>Savings $\approx 19.7 - 3.6 = \mathbf{16.1}$ <strong>GB</strong>.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">5</span><span class="exercise-title">Bandwidth for Streaming</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>How many simultaneous Opus 64 kbps streams can fit in a 100 Mbps network link?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$100{,}000 \text{ kbps} / 64 \text{ kbps} = \mathbf{1562}$ simultaneous streams.</p><p>Compare: uncompressed CD (1411 kbps) would only allow 70 streams.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">6</span><span class="exercise-title">FLAC Compression Ratio</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A FLAC file is 22 MB. The original WAV was 40 MB. What percentage of the original size is the FLAC? Is this a typical result?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$22 / 40 = 0.55 = \mathbf{55\%}$ of original. Yes — typical FLAC compression is 50&ndash;65%, so this is within the expected range.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">7</span><span class="exercise-title">MP3 Sub-bands</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>MP3's polyphase filterbank creates 32 equal-width sub-bands for a 44.1 kHz signal. What is the bandwidth of each sub-band?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Nyquist frequency = $44100/2 = 22050$ Hz. Sub-band bandwidth = $22050 / 32 \approx \mathbf{689}$ <strong>Hz</strong>.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">8</span><span class="exercise-title">MDCT Output Size</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>An AAC encoder uses a 1024-point MDCT applied to a 2048-sample window. How many spectral coefficients does each MDCT frame produce?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The MDCT takes $2N$ samples and produces $N$ coefficients. With $2N = 2048$, $N = 1024$. Each frame produces $\mathbf{1024}$ spectral coefficients.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">9</span><span class="exercise-title">Opus Bit Rate Range</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>Opus supports bit rates from 6 kbps to 510 kbps. What is the ratio between the maximum and minimum bit rate?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$510 / 6 = \mathbf{85}$. Opus covers an 85:1 range of bit rates with a single codec — one reason it replaced many specialized codecs.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">10</span><span class="exercise-title">Streaming Data per Month</span><span class="difficulty-badge easy">Easy</span></div><div class="exercise-body"><p>A user streams music for 3 hours per day at 320 kbps (high quality MP3). How many GB of data do they consume per month (30 days)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$320{,}000 \text{ bits/s} \times 3600 \times 3 \times 30 / 8 = 320{,}000 \times 324{,}000 / 8 = 12{,}960{,}000{,}000$ bytes $\approx \mathbf{12.1}$ <strong>GB</strong>.</p></div></div></div>
+
+                <h3 style="color:#F59E0B;margin-top:2rem;">Medium (11&ndash;20)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">11</span><span class="exercise-title">Masking Threshold and SNR</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>In a given critical band, the masking threshold is &minus;40 dBFS. The quantization noise in that band is &minus;50 dBFS. Is the quantization noise audible? What if the noise were &minus;35 dBFS?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The quantization noise at &minus;50 dBFS is <strong>below</strong> the masking threshold of &minus;40 dBFS, so it is <strong>inaudible</strong>.</p><p>At &minus;35 dBFS, the noise is <strong>above</strong> the masking threshold (&minus;35 &gt; &minus;40), so it would be audible as distortion. The encoder should allocate more bits to this band.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">12</span><span class="exercise-title">MDCT Frame Duration</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>An AAC encoder uses a 1024-point MDCT at 44.1 kHz. (a) How long is each frame in milliseconds? (b) How many frames per second? (c) With 50% overlap, how many new samples does each frame advance?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) The MDCT processes 2048 samples but advances by 1024 (50% overlap). Frame hop = $1024 / 44100 \approx \mathbf{23.2}$ <strong>ms</strong>.</p><p>(b) $44100 / 1024 \approx \mathbf{43.1}$ frames/second.</p><p>(c) Each frame advances by $N = \mathbf{1024}$ new samples (50% of the 2048-sample window).</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">13</span><span class="exercise-title">MP3 Spectral Resolution</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>MP3 uses a 32-band polyphase filterbank with 18 MDCT coefficients per band at 44.1 kHz. (a) How many total spectral coefficients are there? (b) What is the frequency resolution per coefficient?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) $32 \times 18 = \mathbf{576}$ spectral coefficients per frame.</p><p>(b) Frequency resolution = $22050 / 576 \approx \mathbf{38.3}$ Hz per coefficient (uniform in MP3's hybrid filterbank).</p><p>Compare: AAC's 1024-point MDCT gives $22050/1024 \approx 21.5$ Hz — roughly twice the spectral resolution, which benefits the psychoacoustic model.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">14</span><span class="exercise-title">LPC Residual Variance</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>A FLAC encoder uses a 12th-order LPC predictor. The original signal variance is $\sigma_x^2 = 0.25$. After prediction, the residual variance is $\sigma_e^2 = 0.008$. What is the prediction gain in dB? How does this affect compression?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Prediction gain $= 10\log_{10}(\sigma_x^2 / \sigma_e^2) = 10\log_{10}(0.25/0.008) = 10\log_{10}(31.25) \approx \mathbf{14.9}$ <strong>dB</strong>.</p><p>The residual has much lower variance — more values near zero. Rice coding assigns shorter codes to near-zero values, so the entropy (average code length) drops. A 15 dB prediction gain typically reduces file size by 30&ndash;40% compared to coding the raw samples directly.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">15</span><span class="exercise-title">Codec Comparison at Equal Bit Rate</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>At 128 kbps, roughly what MUSHRA score would you expect for (a) MP3, (b) AAC, (c) Opus, based on published listening test data? Which codec is closest to the transparency threshold (~85)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Based on published MUSHRA studies at 128 kbps stereo music:</p><p>(a) <strong>MP3</strong>: ~68&ndash;75 ("Good" but clearly compressed, audible artifacts on some material)</p><p>(b) <strong>AAC</strong>: ~80&ndash;85 (approaching transparency, very good)</p><p>(c) <strong>Opus</strong>: ~87&ndash;92 (at or above transparency threshold)</p><p><strong>Opus</strong> at 128 kbps is closest to transparency. AAC reaches this level at ~160&ndash;192 kbps; MP3 requires ~256&ndash;320 kbps.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">16</span><span class="exercise-title">Bark Scale Bandwidth</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>The critical bandwidth in Bark scale is approximately $\Delta f \approx 25 + 75(1 + 1.4(f/\text{kHz})^2)^{0.69}$ Hz. Compute the critical bandwidth at (a) 500 Hz, (b) 4000 Hz, (c) 10000 Hz. Compare with MP3's 689 Hz sub-bands.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) At 500 Hz: $\Delta f \approx 25 + 75(1 + 1.4 \times 0.25)^{0.69} = 25 + 75(1.35)^{0.69} \approx 25 + 75 \times 1.22 \approx \mathbf{117}$ <strong>Hz</strong>.</p><p>(b) At 4000 Hz: $\Delta f \approx 25 + 75(1 + 1.4 \times 16)^{0.69} = 25 + 75(23.4)^{0.69} \approx 25 + 75 \times 9.2 \approx \mathbf{715}$ <strong>Hz</strong>.</p><p>(c) At 10000 Hz: $\Delta f \approx 25 + 75(1 + 1.4 \times 100)^{0.69} \approx 25 + 75 \times 27.7 \approx \mathbf{2100}$ <strong>Hz</strong>.</p><p>MP3's 689 Hz sub-bands are too wide at low frequencies (poorly matching the narrow 100&ndash;200 Hz critical bands there) and too narrow at high frequencies, leading to suboptimal masking model accuracy — one of MP3's fundamental weaknesses.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">17</span><span class="exercise-title">Spectral Band Replication</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>HE-AAC uses Spectral Band Replication (SBR) to extend bandwidth. If the encoder transmits only frequencies up to 9 kHz (the "core" signal), and SBR reconstructs frequencies up to 18 kHz, what fraction of the bandwidth is reconstructed rather than explicitly coded?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Core band: 0&ndash;9 kHz. Reconstructed: 9&ndash;18 kHz. Total output: 0&ndash;18 kHz.</p><p>Fraction reconstructed $= (18 - 9) / 18 = 9/18 = \mathbf{50\%}$.</p><p>Half of the output bandwidth is synthesized from spectral envelope parameters rather than explicitly encoded coefficients. The SBR decoder transposes and shapes the low-frequency content to fill the high-frequency region, guided by about 1&ndash;3 kbps of side information. This is why HE-AAC can sound acceptable at 32&ndash;64 kbps where core AAC would be muffled.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">18</span><span class="exercise-title">Pre-echo and Window Switching</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>Explain why pre-echo occurs in perceptual codecs and how short MDCT windows mitigate it. What is the frequency-resolution trade-off?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Pre-echo</strong>: In a long MDCT block (e.g., 1024 samples = 23 ms), quantization noise is spread evenly across the entire block duration in the time domain. If a sudden transient occurs at the end of the block, the noise smears backward in time, becoming audible just before the transient — a "pre-ringing" artifact.</p><p><strong>Short windows</strong>: Switching to 8 &times; 128-sample short blocks (2.9 ms each) localizes the noise within a short time segment. The quantization error cannot spread more than 2.9 ms, so pre-echo is contained. AAC and MP3 both implement window switching triggered by transient detection.</p><p><strong>Trade-off</strong>: Short blocks give only 64 MDCT coefficients (vs. 1024), so frequency resolution drops from ~21 Hz to ~170 Hz per bin. The psychoacoustic model is less accurate with lower frequency resolution, potentially requiring more bits to stay below the masking threshold. Transient processing is fundamentally a time-frequency resolution trade-off.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">19</span><span class="exercise-title">Bits Per Sample After Compression</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>An Opus encoder operates at 96 kbps (stereo, 48 kHz). How many bits per sample does it use on average per channel?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Total bit rate: 96,000 bits/s. Per channel: 48,000 bits/s (stereo). Samples per second per channel: 48,000.</p><p>Bits per sample $= 48{,}000 / 48{,}000 = \mathbf{1.0}$ <strong>bit per sample</strong>.</p><p>Compare: CD audio uses 16 bits/sample. Opus achieves perceptual transparency at 96 kbps using only ~1 bit/sample on average — a 16:1 reduction in bits per sample.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">20</span><span class="exercise-title">PEAQ Score Interpretation</span><span class="difficulty-badge medium">Medium</span></div><div class="exercise-body"><p>PEAQ produces an Objective Difference Grade (ODG) ranging from 0 (imperceptible difference) to &minus;4 (very annoying). Match these ODG values to the correct description: ODG = &minus;0.3, &minus;1.1, &minus;2.5, &minus;3.8.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The PEAQ ODG scale (ITU-R BS.1387):</p><p><strong>ODG = &minus;0.3</strong>: Imperceptible to slightly perceptible (e.g., AAC 256 kbps on most material — transparent or nearly so)</p><p><strong>ODG = &minus;1.1</strong>: Slightly annoying (e.g., MP3 128 kbps on challenging material — difference audible to trained listeners)</p><p><strong>ODG = &minus;2.5</strong>: Annoying (e.g., MP3 64 kbps — clearly audible compression artifacts, but content intelligible)</p><p><strong>ODG = &minus;3.8</strong>: Very annoying (e.g., MP3 32 kbps — heavy artifacts, harshness, frequency smearing, clearly degraded)</p></div></div></div>
+
+                <h3 style="color:#DC2626;margin-top:2rem;">Hard (21&ndash;30)</h3>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">21</span><span class="exercise-title">Design a Simple Perceptual Coder</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Outline the complete design of a simple perceptual audio coder operating at a fixed 128 kbps. Specify: window type, FFT size, psychoacoustic model steps, bit allocation algorithm, and entropy coding. Justify each design choice.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>1. Analysis:</strong> 44.1 kHz stereo input. Process 1024-sample (23.2 ms) frames with 50% overlap. Apply a sine window and compute 1024-point MDCT, yielding 1024 spectral coefficients per frame per channel.</p><p><strong>2. Psychoacoustic model:</strong> (a) Compute a 2048-point FFT of the windowed frame to get spectral power in Hz-spaced bins. (b) Apply outer-middle ear weighting. (c) Map to 25 Bark-scale bands. (d) Compute simultaneous masking: for each tonality-weighted masker, apply the spreading function (rising slope &minus;27 dB/Bark, falling slope &minus;(27 + 0.37 max(SPL&minus;40,0)) dB/Bark). (e) Combine maskers and the absolute threshold of hearing. (f) Compute the signal-to-mask ratio (SMR = signal level &minus; masking threshold) per band.</p><p><strong>3. Bit budget:</strong> At 128 kbps, 23.2 ms frames have $128000 \times 0.0232 = 2970$ bits per frame for both channels, minus ~200 bits side information (scale factors, headers) = ~2770 bits for spectral data.</p><p><strong>4. Bit allocation:</strong> Iterative algorithm: (a) Compute noise-to-mask ratio (NMR) for each band assuming minimum quantization (1 bit). (b) Greedily assign additional bits to the band with the worst (highest) NMR until the bit budget is exhausted. (c) If NMR &lt; 0 dB in all bands (noise below threshold everywhere), the codec is perceptually lossless for this frame.</p><p><strong>5. Quantization:</strong> Quantize each band's MDCT coefficients using $b_k$ bits (from step 4). Normalize by the band's peak value (the scale factor, encoded with 6 bits) so the quantizer spans the dynamic range efficiently.</p><p><strong>6. Entropy coding:</strong> Huffman-code the quantized coefficients. Use a small set of pre-trained codebooks for different coefficient magnitudes. Long runs of zeros coded as run-length pairs.</p><p><strong>Justification:</strong> The 1024-point MDCT gives ~21.5 Hz frequency resolution matching the psychoacoustic model better than MP3's hybrid filterbank. The iterative bit allocation is a simplified version of the water-filling algorithm. At 128 kbps this design would achieve approximately AAC quality.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">22</span><span class="exercise-title">Entropy Coding Analysis</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>After psychoacoustic bit allocation, a set of MDCT coefficients has been quantized to the following integer values (for one scalefactor band): {0, 0, 1, 0, &minus;1, 0, 0, 2, 0, 0, 0, 0, 1, 0, &minus;1, 0}. (a) What is the empirical entropy of this symbol distribution? (b) What is the average code length if you use an ideal Huffman code? (c) How does run-length encoding help here?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) Empirical symbol frequencies: 0 appears 11/16 times, +1 appears 2/16, &minus;1 appears 2/16, +2 appears 1/16.</p><p>$$H = -\frac{11}{16}\log_2\frac{11}{16} - \frac{2}{16}\log_2\frac{2}{16} - \frac{2}{16}\log_2\frac{2}{16} - \frac{1}{16}\log_2\frac{1}{16}$$</p><p>$$= -0.6875 \times (-0.541) - 0.125 \times (-3.0) - 0.125 \times (-3.0) - 0.0625 \times (-4.0)$$</p><p>$$= 0.372 + 0.375 + 0.375 + 0.25 \approx \mathbf{1.372} \text{ bits/symbol}$$</p><p>(b) Ideal Huffman: 0 → "0" (1 bit), ±1 → "10"/"110" (2&ndash;3 bits), 2 → "111" (3 bits). Approximate average code length $\approx 1.4$ bits/symbol, close to entropy.</p><p>(c) 11 of 16 symbols are zero. Run-length encoding: instead of coding 16 symbols, code runs: "(3 zeros)(1)(2 zeros)(&minus;1)(4 zeros)(2)(4 zeros)(1)(1 zero)(&minus;1)(1 zero)". Much fewer tokens, each run encoded as (length, value). This is exactly the approach MP3 uses with its "rzero" region, achieving substantial bit savings on sparse coefficient arrays.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">23</span><span class="exercise-title">Psychoacoustic Model Math</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>A tonality-determined masker at 1 kHz has level 70 dB SPL. Using the simplified spreading function: upper slope = &minus;25 dB/Bark, lower slope = &minus;(27 + 0.37 &times; max(SPL&minus;40, 0)) dB/Bark. Compute the masking threshold at (a) 2 kHz (approximately +3 Bark away), (b) 500 Hz (approximately &minus;2 Bark away).</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>Masker: 1 kHz, 70 dB SPL.</p><p>Lower slope coefficient: $27 + 0.37 \times \max(70 - 40, 0) = 27 + 0.37 \times 30 = 27 + 11.1 = 38.1$ dB/Bark.</p><p>(a) At 2 kHz (+3 Bark from masker, upward = upper slope):</p><p>$T_{\text{mask}} = 70 - 25 \times 3 = 70 - 75 = \mathbf{-5}$ <strong>dB SPL</strong>. (Effectively, the ATH dominates here.)</p><p>(b) At 500 Hz (&minus;2 Bark from masker, downward = lower slope):</p><p>$T_{\text{mask}} = 70 - 38.1 \times 2 = 70 - 76.2 = \mathbf{-6.2}$ <strong>dB SPL</strong>.</p><p>Note the masking is asymmetric: at the same Bark distance, the lower-frequency side is masked slightly less (threshold &minus;6.2 dB) than the upper side (&minus;5 dB), but the lower slope is steeper overall. In practice, a signal at 500 Hz at, say, 10 dB SPL would be above the masking threshold and therefore audible alongside the 1 kHz masker.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">24</span><span class="exercise-title">TDAC Perfect Reconstruction</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Prove that the MDCT with sine window and 50% overlap satisfies perfect reconstruction (TDAC). That is, show that when IMDCT outputs are overlap-added, the original signal is recovered exactly (ignoring quantization).</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>The MDCT of frame $m$ uses samples $x[n]$ for $n \in [mN, mN + 2N - 1]$ (overlap with adjacent frames). The sine window is $w[n] = \sin(\pi(n+\frac{1}{2})/(2N))$.</p><p>The IMDCT of frame $m$ produces a length-$2N$ sequence $\hat{x}_m[n]$. In the overlap-add step, the contribution from frame $m$ to output sample $n$ comes from two frames: frame $m$ (where $n$ falls in the second half of the window) and frame $m+1$ (where $n$ falls in the first half).</p><p>The TDAC condition requires that the aliasing terms cancel. Specifically, the MDCT+IMDCT pipeline introduces a time-domain alias: $\hat{x}_m[n] = w[n]x[n + mN] - w[2N-1-n]x[mN + 2N - 1 - n]$ (approximate).</p><p>For overlap-add reconstruction at sample $n$ in the $m$-th overlap region:</p><p>$$y[n] = \hat{x}_{m,\text{second half}}[n-N] + \hat{x}_{m+1,\text{first half}}[n]$$</p><p>The aliasing term from frame $m$ at position $n$ is $-w[2N-1-k]x[\ldots]$ and from frame $m+1$ it is $+w[k]x[\ldots]$ for the corresponding mirrored index. These cancel if $w[k]^2 + w[2N-1-k]^2 = 1$.</p><p>For the sine window: $w[k]^2 + w[2N-1-k]^2 = \sin^2\!\bigl(\pi(k+\tfrac{1}{2})/(2N)\bigr) + \sin^2\!\bigl(\pi(2N-\tfrac{1}{2}-k)/(2N)\bigr)$. Since $\sin^2\theta + \cos^2\theta = 1$ and the second term equals $\cos^2(\pi(k+\tfrac{1}{2})/(2N))$, the sum is exactly 1. QED — the aliasing cancels perfectly, giving $y[n] = x[n]$.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">25</span><span class="exercise-title">LPC Levinson-Durbin Complexity</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The Levinson-Durbin algorithm solves the LPC Yule-Walker equations in $O(p^2)$ operations where $p$ is the LPC order. FLAC uses up to order 32. For a 44.1 kHz signal with frame size 4096 samples: (a) How many frames per second? (b) How many operations per second for LPC analysis at order 32? (c) Is this practical on modern hardware (assume $10^9$ operations/second)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) Frames per second $= 44100 / 4096 \approx \mathbf{10.8}$ frames/sec (FLAC uses non-overlapping frames).</p><p>(b) Per frame: compute autocorrelation ($O(p \times N) = 32 \times 4096 \approx 131{,}000$ ops) + Levinson-Durbin ($O(p^2) = 32^2 = 1024$ ops). Dominant term: $\sim 131{,}000$ ops/frame.</p><p>Per second: $10.8 \times 131{,}000 \approx \mathbf{1.4 \times 10^6}$ operations/second.</p><p>(c) $1.4 \times 10^6 / 10^9 = 0.0014\%$ of CPU capacity. Extremely practical. FLAC encoding is computationally trivial on modern hardware. Even the most complex lossless codec consumes far less CPU than lossy codecs with their psychoacoustic models.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">26</span><span class="exercise-title">Joint Stereo Coding</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Mid-side (M/S) stereo coding converts L/R channels to M = (L+R)/2, S = (L&minus;R)/2. (a) If L and R are highly correlated ($r = 0.95$), show that the variance of S is much smaller than L or R. (b) How does this save bits? (c) When is M/S stereo counterproductive?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) Assume $\sigma_L^2 = \sigma_R^2 = \sigma^2$ and correlation $r = 0.95$, so $\text{Cov}(L,R) = r\sigma^2$.</p><p>$\text{Var}(S) = \text{Var}((L-R)/2) = \frac{1}{4}(\sigma_L^2 + \sigma_R^2 - 2\text{Cov}(L,R)) = \frac{1}{4}(2\sigma^2 - 2 \times 0.95\sigma^2) = \frac{0.1\sigma^2}{4} = 0.025\sigma^2$.</p><p>$\sigma_S = 0.158\sigma$. Compare: $\sigma_L = \sigma_R = \sigma$. The S channel has <strong>6.3&times; smaller standard deviation</strong> — 16 dB lower variance.</p><p>(b) LPC or quantization of S requires many fewer bits (lower variance → shorter entropy codes, or fewer bits per coefficient). In music with a centered image (mono-compatible mix), M carries most energy; S is a small difference. Encoding S cheaply saves 20&ndash;40% of the stereo bit budget.</p><p>(c) M/S is counterproductive for true stereo signals with low inter-channel correlation (e.g., binaural recordings, hard-panned instruments). When $r \approx 0$, $\text{Var}(S) \approx \text{Var}(L)$ — no gain. When $r &lt; 0$ (anti-correlated), Var(S) &gt; Var(L), meaning M/S costs more bits! Good encoders compute both L/R and M/S costs per scalefactor band and select the more efficient representation.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">27</span><span class="exercise-title">Information-Theoretic Compression Limit</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>The rate-distortion function $R(D)$ for a Gaussian source with variance $\sigma^2$ is $R(D) = \frac{1}{2}\log_2(\sigma^2/D)$ bits/sample for $D \leq \sigma^2$. If the auditory masking threshold imposes a maximum distortion of $D_{\text{mask}}$ (the level at which noise becomes audible), what is the minimum perceptually transparent bit rate for a single Gaussian audio band with $\sigma^2 = 1$ and $D_{\text{mask}} = 10^{-4}$ (i.e., &minus;40 dBFS noise floor)?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>$R(D_{\text{mask}}) = \frac{1}{2}\log_2(\sigma^2/D_{\text{mask}}) = \frac{1}{2}\log_2(1/10^{-4}) = \frac{1}{2}\log_2(10^4)$.</p><p>$= \frac{1}{2} \times 4\log_2(10) = 2 \times 3.322 \approx \mathbf{6.64}$ <strong>bits/sample</strong>.</p><p>Interpretation: to keep quantization noise below &minus;40 dBFS in this band, you need at least 6.64 bits/sample. This is the Shannon lower bound — no codec can do better. Real codecs need more bits due to non-Gaussian signal distributions, implementation overhead, and the need for side information (scale factors, window parameters, etc.). This calculation justifies why perceptually transparent audio requires roughly 6&ndash;8 bits per spectral coefficient on average, much less than the 16 bits/sample of linear PCM.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">28</span><span class="exercise-title">Opus SILK Speech Model</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Opus/SILK uses CELP (Code-Excited Linear Prediction) for speech. The model is: $s[n] = \sum_{k=1}^p a_k s[n-k] + G \cdot c[n-T]$ where $s$ is speech, $a_k$ are LPC coefficients, $G$ is gain, $c$ is an excitation codebook vector, and $T$ is the pitch period. Explain each component's role and why this model is efficient for speech at 8&ndash;24 kbps.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>LPC part</strong> $\sum a_k s[n-k]$: Models the vocal tract resonances (formants). The all-pole filter $1/A(z)$ shapes the flat excitation into speech-like spectral peaks. Encoding: transmit $p$ LPC coefficients (typically 10&ndash;16) per frame, requiring only ~40&ndash;60 bits. These $p$ numbers compactly summarize the time-varying spectral envelope of speech.</p><p><strong>Pitch prediction</strong> $G \cdot c[n-T]$: Speech has strong pitch periodicity. The term $c[n-T]$ says "the residual looks like a delayed version of itself by pitch period $T$ samples." $T$ is the fundamental period (e.g., 80&ndash;320 samples for 80&ndash;320 Hz pitch). Transmitting $T$ and $G$ (pitch lag and gain) exploits this long-term correlation, dramatically reducing the residual energy.</p><p><strong>Codebook excitation</strong> $c[n]$: After LPC and pitch prediction, the remaining residual is approximated by selecting the best vector from a pre-trained codebook (the "code-excited" part). Only the codebook index needs to be transmitted, not the residual samples themselves.</p><p><strong>Efficiency</strong>: A 20 ms frame at 16 kHz = 320 samples = ~320 &times; 16 = 5120 bits (raw PCM). CELP transmits: LPC (60 bits) + pitch (20 bits) + gain (8 bits) + codebook index (~40 bits) = ~130 bits/frame = 6.5 kbps. The model exploits two key redundancies of speech — vocal tract shape (LPC) and pitch periodicity — achieving 40:1 compression while maintaining intelligibility.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">29</span><span class="exercise-title">Temporal Noise Shaping</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>Temporal Noise Shaping (TNS) in AAC applies an FIR prediction filter in the frequency domain to shape quantization noise temporally. (a) If we predict each MDCT coefficient $X[k]$ from the previous $m$ coefficients $X[k-1], \ldots, X[k-m]$, what does this prediction in the frequency domain correspond to in the time domain? (b) How does this prevent pre-echo on attack transients?</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p>(a) <strong>Frequency-time duality</strong>: The MDCT maps time to frequency. A prediction filter applied in the frequency domain (across $k$ indices) corresponds to a <em>shaping of the time-domain envelope</em> via the modulation theorem. Specifically, applying a causal filter along the frequency axis concentrates spectral energy toward one temporal direction within the analysis frame. If the FIR predictor in the frequency domain has frequency response $P(e^{j\omega})$, the time-domain effect is a convolution with the inverse MDCT of $P$ — a temporal shaping window.</p><p>(b) <strong>Pre-echo prevention</strong>: For a frame containing an attack transient at time $t_{\text{attack}}$ near the end of the frame, quantization noise without TNS is spread uniformly across the 23 ms frame — causing pre-echo before $t_{\text{attack}}$. With TNS, the predictor is estimated to match the MDCT spectrum's temporal structure. Encoding the prediction residual (rather than raw coefficients) causes quantization noise, when decoded via the inverse predictor, to be <em>concentrated near the attack</em> (post-masking region) rather than spread backward in time. The masker's temporal post-masking (~50&ndash;200 ms) then hides this noise, while the pre-echo (temporal pre-masking, ~2&ndash;5 ms) is eliminated. TNS is most effective at high frequencies where temporal smearing is perceptually critical.</p></div></div></div>
+
+                <div class="exercise-item"><div class="exercise-header"><span class="exercise-number">30</span><span class="exercise-title">Codec Transcoding Loss</span><span class="difficulty-badge hard">Hard</span></div><div class="exercise-body"><p>A user transcodes a 128 kbps MP3 to 192 kbps AAC, expecting improved quality. Explain rigorously why this is incorrect and may produce worse quality than keeping the 128 kbps MP3. Quantify the double-compression artifact mathematically.</p><button class="solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Why transcoding degrades quality</strong>: The 128 kbps MP3 already contains quantization artifacts $e_1[n]$ — noise added to make the psychoacoustic noise model happy. When re-encoded to AAC, the encoder now operates on $x_1[n] = x[n] + e_1[n]$ (original + MP3 artifacts).</p><p><strong>Mathematical analysis</strong>: Denote the original as $x$, MP3 artifacts as $e_1$, and AAC re-encoding artifacts as $e_2$ (applied to the MP3 signal). The final output is:</p><p>$$y[n] = x_1[n] + e_2[n] = x[n] + e_1[n] + e_2[n]$$</p><p>The noise is <em>additive</em>: $\|y - x\|^2 = \|e_1 + e_2\|^2 \geq \max(\|e_1\|^2, \|e_2\|^2)$.</p><p><strong>Spectral masking problem</strong>: MP3's quantization noise $e_1$ is spectrally shaped — it has peaks at frequencies where the psychoacoustic model allowed noise. The AAC encoder's psychoacoustic model now sees the original signal <em>plus</em> this structured noise. The noise may fall outside what the AAC masking model predicts, or it may push total noise above the masking threshold in some bands, causing AAC to allocate more bits to suppress the MP3 noise rather than the signal itself.</p><p><strong>Empirical result</strong>: Transcoding 128 kbps MP3 → 192 kbps AAC typically tests at ODG &asymp; &minus;1.5 to &minus;2.0, whereas 192 kbps AAC of the original tests at ODG &asymp; &minus;0.2. The correct workflow for archiving is always: store original PCM (or lossless) and encode directly to the target format. Never transcode between lossy formats.</p></div></div></div>
+
+            </article>
+        </main>
+    </div>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>
