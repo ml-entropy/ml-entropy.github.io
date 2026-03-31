@@ -95,10 +95,10 @@
             <article class="article-content" id="theory">
 <h1>The Forward Diffusion Process</h1>
                 <p>
-                    The forward process is the controlled destruction half of a diffusion model. Its job is not to generate anything; its job is to define a corruption path that is simple enough to analyze exactly, yet gradual enough that a neural network can learn to reverse it one tiny step at a time.
+                    The forward process is the controlled destruction half of a diffusion model. Its job is not to generate anything; its job is to define a corruption path that is simple enough to analyze exactly, yet gradual enough that a neural network can learn to reverse it one tiny step at a time. Without this carefully designed degradation, there would be no tractable learning target for the reverse model — the network would face the impossible task of mapping unstructured noise to realistic data in a single shot. By decomposing that impossible leap into a long sequence of tiny, well-understood Gaussian perturbations, the forward process converts the generation problem into a curriculum of increasingly easy denoising tasks. Everything in this chapter — the noise schedule, the reparameterization trick, the signal-to-noise ratio — exists to make that curriculum precise and computationally efficient.
                 </p>
                 <p>
-                    This asymmetry is the central trick of diffusion. We deliberately choose a forward chain that is mathematically boring — linear Gaussian updates with a known schedule — so that all of the model capacity can be spent on the interesting part: reconstructing structure from partial destruction.
+                    This asymmetry is the central trick of diffusion. We deliberately choose a forward chain that is mathematically boring — linear Gaussian updates with a known schedule — so that all of the model capacity can be spent on the interesting part: reconstructing structure from partial destruction. If the forward process were itself learned or complicated, we would need to jointly optimize two interacting systems, dramatically increasing training instability and computational cost. By fixing the corruption to be a simple additive-Gaussian Markov chain, every quantity we need for training — the noised sample, the target noise, the loss weighting — can be computed in closed form. This is not a minor convenience; it is the architectural decision that makes diffusion models practical at scale.
                 </p>
                 <div class="svg-container">
                     <svg viewBox="0 0 840 280" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
@@ -133,13 +133,13 @@
 </div>
                 <h3 id="intuition">1.1 Intuition</h3>
                 <p>
-                    Imagine a photograph. Copy it, adding a tiny bit of static. Copy the copy, adding more static. Repeat 1000 times. The final copy is pure noise — no trace of the original image remains.
+                    Imagine a photograph. Copy it, adding a tiny bit of static. Copy the copy, adding more static. Repeat 1000 times. The final copy is pure noise — no trace of the original image remains. Crucially, each individual copy-and-corrupt step changes the image only slightly — if you place two consecutive copies side by side, you can barely tell them apart. This near-imperceptibility is what makes the process reversible in principle: because each step is small, the statistical relationship between consecutive states is simple enough for a neural network to learn. If you instead dumped all the noise in at once, the mapping from noisy image back to clean image would be hopelessly ambiguous, since infinitely many clean images could produce the same noisy observation.
                 </p>
                 <p>
-                    Now imagine you could learn to <strong>reverse each tiny step</strong>. Given a slightly noisy image, remove just a bit of the noise. If you chain 1000 such denoising steps together, starting from pure noise, you reconstruct a realistic image.
+                    Now imagine you could learn to <strong>reverse each tiny step</strong>. Given a slightly noisy image, remove just a bit of the noise. If you chain 1000 such denoising steps together, starting from pure noise, you reconstruct a realistic image. The beauty of this scheme is that the neural network never has to solve the full generation problem at once — it only needs to be a competent <em>local denoiser</em> at each noise level. The global generative capability emerges from the composition of many small, individually tractable corrections. This is analogous to how numerical ODE solvers build complex trajectories from tiny Euler steps: no single step is impressive, but the accumulation is powerful.
                 </p>
                 <p>
-                    <strong>Key insight:</strong> Destroying information (adding noise) is trivial. Learning to reverse each <strong>small</strong> step of destruction is tractable. Chaining many small reversals creates from nothing.
+                    <strong>Key insight:</strong> Destroying information (adding noise) is trivial. Learning to reverse each <strong>small</strong> step of destruction is tractable. Chaining many small reversals creates from nothing. This insight has a deep information-theoretic flavor: the forward process is a sequence of noisy channels, each destroying a controlled fraction of mutual information with the original data. The reverse process then acts as a sequence of decoders, each recovering a small amount of that lost information. The total number of steps $T$ and the noise schedule $\{\beta_t\}$ together determine how finely the "information budget" is divided — and getting that division right is one of the most important practical design decisions in diffusion modeling.
                 </p>
                 <h3 id="why-this-works">1.2 Why This Works</h3>
                 <ol>
@@ -148,9 +148,18 @@
                     <li>3. <strong>Denoising is a well-studied problem</strong>: Neural networks are excellent denoisers</li>
                     <li>4. <strong>The loss is simple</strong>: Just predict the noise that was added (MSE loss)</li>
                 </ol>
+                <p>
+                    Point 2 deserves special emphasis because it is the theoretical linchpin. When the noise increment $\beta_t$ is small, the reverse conditional $q(x_{t-1}|x_t, x_0)$ is well-approximated by a Gaussian whose mean and variance can be written in closed form. This approximation degrades if $\beta_t$ is too large — the reverse step becomes multimodal and a single Gaussian prediction is no longer adequate. The entire architecture of DDPM relies on keeping each step small enough that this Gaussian approximation holds, which is why practical systems use $T=1000$ or more steps rather than, say, $T=10$.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">Why does T = 1000 work?</div>
+                    <p>
+                        With $T = 1000$ steps and typical schedules ($\beta_{\min} = 10^{-4}$, $\beta_{\max} = 0.02$), each individual noise increment is small enough that the reverse conditional $q(x_{t-1}|x_t)$ is well-approximated by a Gaussian. This is not a casual design choice — it is a mathematical requirement. The KL divergence between the true reverse step and its Gaussian approximation scales roughly as $O(\beta_t^2)$; over $T$ steps these errors accumulate, so each $\beta_t$ must be small enough that the total accumulated error remains tolerable. Fewer steps (say $T = 50$) would require larger $\beta_t$ values, making individual reverse transitions multimodal and breaking the Gaussian assumption that the neural network relies on. More recent methods like DDIM and consistency models find clever ways to take larger steps, but the original DDPM framework fundamentally needs many small increments.
+                    </p>
+                </div>
                 <h3 id="the-markov-chain">2.1 The Markov Chain</h3>
                 <p>
-                    Starting from data $x_0 \sim q(x_0)$, add noise gradually over $T$ steps:
+                    Starting from data $x_0 \sim q(x_0)$, add noise gradually over $T$ steps. The forward process defines a Markov chain — each state depends only on the immediately preceding state and the schedule parameter $\beta_t$, never on the full history. This Markov property is what makes the chain analytically tractable: we only need to track one-step transitions, and the joint distribution over the entire trajectory factorizes into a product of simple Gaussian conditionals. The factorization also means that the reverse process can be learned one step at a time, without the network needing to reason about the global trajectory structure.
                 </p>
                 <div class="math-block">
                     $$q(x_t | x_{t-1}) = \mathcal{N}(x_t; \sqrt{1-\beta_t} \, x_{t-1}, \beta_t I)$$
@@ -163,11 +172,11 @@
                     <li><strong>Add noise</strong> with variance $\beta_t$ (add a bit of Gaussian noise)</li>
                 </ul>
                 <p>
-                    The $\beta_t \in (0, 1)$ are the <strong>noise schedule</strong> — they control how fast information is destroyed.
+                    The $\beta_t \in (0, 1)$ are the <strong>noise schedule</strong> — they control how fast information is destroyed. Choosing $\beta_t$ too small wastes computational steps on nearly imperceptible changes; choosing $\beta_t$ too large violates the Gaussian approximation that the reverse model relies on. In practice, the schedule is the single most important hyperparameter of the forward process: it determines the curriculum of denoising difficulty that the network trains on, and a poor schedule can leave large portions of the timestep range either trivially easy or hopelessly noisy, wasting model capacity in both cases.
                 </p>
                 <h3 id="jumping-to-any-timestep">2.2 Jumping to Any Timestep</h3>
                 <p>
-                    A crucial property: we can sample $x_t$ directly from $x_0$ without simulating the chain!
+                    A crucial property: we can sample $x_t$ directly from $x_0$ without simulating the chain! This is the <em>reparameterization trick</em> for the forward process, and it is what makes training computationally feasible. Without it, generating a training example at timestep $t=800$ would require running 800 sequential Gaussian sampling steps — an absurd cost when you need millions of training examples at random timesteps. The closed-form "jump" formula below collapses those 800 steps into a single affine transformation plus one draw from a standard Gaussian, making the cost independent of $t$. This is possible because the composition of Gaussian linear maps is itself Gaussian, a property we prove formally in the next section.
                 </p>
                 <p>
                     Define:
@@ -210,44 +219,86 @@
                 </div>
                 <h3 id="proof-of-the-direct-sampling-formula">2.3 Proof of the Direct Sampling Formula</h3>
                 <p>
-                    By induction. Base case: $t=1$, $q(x_1|x_0) = \mathcal{N}(\sqrt{\alpha_1} x_0, (1-\alpha_1)I) = \mathcal{N}(\sqrt{\bar{\alpha}_1} x_0, (1-\bar{\alpha}_1)I)$. ✓
+                    The direct sampling formula $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1 - \bar{\alpha}_t}\,\epsilon$ is one of the most important results in diffusion theory. It tells us that the cumulative effect of $t$ sequential Gaussian perturbations is itself a single Gaussian perturbation whose coefficients depend only on the cumulative product $\bar{\alpha}_t$. We prove this by induction on $t$, using the fact that a linear combination of independent Gaussians is again Gaussian with variance equal to the sum of the individual variances. This additivity of Gaussian variances is the algebraic engine that makes the entire derivation work — without it, the chain of compositions would not simplify to a single closed-form expression.
                 </p>
-                <p>
-                    Inductive step: assume $x_{t-1} = \sqrt{\bar{\alpha}_{t-1}} x_0 + \sqrt{1-\bar{\alpha}_{t-1}} \epsilon_1$ where $\epsilon_1 \sim \mathcal{N}(0,I)$.
-                </p>
-                <p>
-                    Then $x_t = \sqrt{\alpha_t} x_{t-1} + \sqrt{1-\alpha_t} \epsilon_2$ where $\epsilon_2 \sim \mathcal{N}(0,I)$, $\epsilon_2 \perp \epsilon_1$.
-                </p>
-                <div class="math-block">
-                    $$x_t = \sqrt{\alpha_t}(\sqrt{\bar{\alpha}_{t-1}} x_0 + \sqrt{1-\bar{\alpha}_{t-1}} \epsilon_1) + \sqrt{1-\alpha_t} \epsilon_2$$
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Direct Sampling Formula — Proof by Induction</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Base case ($t = 1$).</strong> From the single-step transition $q(x_1 | x_0) = \mathcal{N}(\sqrt{\alpha_1}\,x_0,\;(1 - \alpha_1)I)$ and the definition $\bar{\alpha}_1 = \alpha_1$, we can write $x_1 = \sqrt{\bar{\alpha}_1}\,x_0 + \sqrt{1 - \bar{\alpha}_1}\,\epsilon$ with $\epsilon \sim \mathcal{N}(0, I)$. The formula holds trivially for one step.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Inductive hypothesis.</strong> Assume the formula holds at step $t-1$: $x_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\,x_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\,\epsilon_1$ where $\epsilon_1 \sim \mathcal{N}(0, I)$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>One more step.</strong> Apply the forward transition: $x_t = \sqrt{\alpha_t}\,x_{t-1} + \sqrt{1 - \alpha_t}\,\epsilon_2$ where $\epsilon_2 \sim \mathcal{N}(0, I)$ is independent of $\epsilon_1$. Substituting the inductive hypothesis:
+                            $$x_t = \sqrt{\alpha_t}\bigl(\sqrt{\bar{\alpha}_{t-1}}\,x_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\,\epsilon_1\bigr) + \sqrt{1 - \alpha_t}\,\epsilon_2 = \sqrt{\alpha_t \bar{\alpha}_{t-1}}\,x_0 + \sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})}\,\epsilon_1 + \sqrt{1 - \alpha_t}\,\epsilon_2$$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Gaussian addition rule.</strong> Since $\epsilon_1$ and $\epsilon_2$ are independent standard Gaussians, $a\epsilon_1 + b\epsilon_2 \sim \mathcal{N}(0, (a^2 + b^2)I)$. The combined noise variance is:
+                            $$\alpha_t(1 - \bar{\alpha}_{t-1}) + (1 - \alpha_t) = \alpha_t - \alpha_t\bar{\alpha}_{t-1} + 1 - \alpha_t = 1 - \alpha_t\bar{\alpha}_{t-1} = 1 - \bar{\alpha}_t$$
+                            This telescoping is the key algebraic miracle — all intermediate $\alpha$ values collapse into the single cumulative product $\bar{\alpha}_t$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            <strong>Conclusion.</strong> Combining the results, $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1 - \bar{\alpha}_t}\,\epsilon$ where $\epsilon \sim \mathcal{N}(0, I)$. Equivalently, $q(x_t | x_0) = \mathcal{N}(x_t;\;\sqrt{\bar{\alpha}_t}\,x_0,\;(1 - \bar{\alpha}_t)I)$. $\blacksquare$
+                        </div>
+                    </div>
                 </div>
-                <div class="math-block">
-                    $$= \sqrt{\alpha_t \bar{\alpha}_{t-1}} x_0 + \sqrt{\alpha_t(1-\bar{\alpha}_{t-1})} \epsilon_1 + \sqrt{1-\alpha_t} \epsilon_2$$
-                </div>
-                <p>
-                    Since $\epsilon_1, \epsilon_2$ are independent Gaussians, their weighted sum is Gaussian with variance:
-                </p>
-                <div class="math-block">
-                    $$\alpha_t(1-\bar{\alpha}_{t-1}) + (1-\alpha_t) = \alpha_t - \alpha_t\bar{\alpha}_{t-1} + 1 - \alpha_t = 1 - \bar{\alpha}_t$$
-                </div>
-                <p>
-                    So $x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1-\bar{\alpha}_t} \epsilon$ where $\epsilon \sim \mathcal{N}(0,I)$. $\blacksquare$
-                </p>
                 <h3 id="linear-schedule">3.1 Linear Schedule</h3>
                 <div class="math-block">
                     $$\beta_t = \beta_{\min} + \frac{t-1}{T-1}(\beta_{\max} - \beta_{\min})$$
                 </div>
                 <p>
-                    Typical values: $\beta_{\min} = 10^{-4}$, $\beta_{\max} = 0.02$, $T = 1000$.
+                    Typical values: $\beta_{\min} = 10^{-4}$, $\beta_{\max} = 0.02$, $T = 1000$. These choices come from the original DDPM paper (Ho et al., 2020) and were found empirically to balance training stability against the need for the chain to reach near-pure noise by $t = T$. The small $\beta_{\min}$ ensures that the earliest steps barely perturb the data, keeping the reverse task trivially easy at low noise levels. The modest $\beta_{\max} = 0.02$ keeps even the largest individual step small enough that the Gaussian reverse approximation holds. One important consequence of linearity is that $\bar{\alpha}_t$ decays roughly exponentially in the early timesteps (since $\log(1 - \beta_t) \approx -\beta_t$ for small $\beta_t$) but collapses more abruptly in the middle, leaving many late timesteps where the sample is already indistinguishable from pure noise. This "wasted tail" is the main practical drawback of the linear schedule.
                 </p>
                 <h3 id="cosine-schedule">3.2 Cosine Schedule</h3>
                 <div class="math-block">
                     $$\bar{\alpha}_t = \frac{f(t)}{f(0)}, \quad f(t) = \cos\left(\frac{t/T + s}{1+s} \cdot \frac{\pi}{2}\right)^2$$
                 </div>
                 <p>
-                    where $s = 0.008$ is a small offset.
+                    where $s = 0.008$ is a small offset that prevents the schedule from starting with $\bar{\alpha}_0$ exactly at the boundary of the cosine, which would cause $\beta_1$ to be numerically zero and waste the first few timesteps. The squaring of the cosine ensures that $\bar{\alpha}_t$ starts near 1 and ends near 0 with a smooth, sigmoid-like transition in between. Compared to the linear schedule, the cosine shape dedicates more of the timestep budget to the middle range of noise levels — precisely where the denoising task is neither trivially easy nor hopelessly difficult. In practice, $\beta_t$ values derived from this cosine $\bar{\alpha}_t$ are clipped to a maximum (typically 0.999) to prevent numerical instability at the very end of the chain.
                 </p>
                 <h3 id="comparison">3.3 Comparison</h3>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Cosine Schedule — Derivation from Design Requirements</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Design goal.</strong> We want $\bar{\alpha}_t$ to decrease smoothly from $\approx 1$ to $\approx 0$ as $t$ goes from $0$ to $T$, with the rate of decrease roughly constant in the middle of the trajectory. This avoids the linear schedule's problem of wasting early and late timesteps. Mathematically, we seek a function $\bar{\alpha}(t)$ whose derivative $\frac{d\bar{\alpha}}{dt}$ is gentle near $t = 0$ and $t = T$ but steady in between — a sigmoid-like shape.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Choosing the cosine form.</strong> A natural candidate is the squared cosine: define $f(t) = \cos^2\!\left(\frac{t/T + s}{1 + s}\cdot\frac{\pi}{2}\right)$ where $s$ is a small offset. Then set $\bar{\alpha}_t = f(t)/f(0)$. At $t = 0$ we get $\bar{\alpha}_0 = 1$ (since $f(0)/f(0) = 1$). As $t \to T$, the cosine argument approaches $\pi/2$, so $f(T) \to 0$ and $\bar{\alpha}_T \to 0$. The offset $s = 0.008$ prevents $f(0)$ from being exactly $\cos^2(0) = 1$, which provides a small numerical buffer ensuring $\beta_1 > 0$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Recovering $\beta_t$.</strong> Given the $\bar{\alpha}_t$ curve, we recover the per-step noise via $\beta_t = 1 - \bar{\alpha}_t / \bar{\alpha}_{t-1}$. Because $\bar{\alpha}_t$ changes slowly near both endpoints (cosine is flat near $0$ and $\pi/2$), the resulting $\beta_t$ values are small at the beginning and end of the chain, concentrating the "work" of noise injection in the middle timesteps. This is exactly the opposite of the linear schedule, where $\beta_t$ increases linearly but $\bar{\alpha}_t$ collapses too fast in the middle.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>SNR behavior.</strong> The resulting $\log\text{SNR}(t) = \log\frac{\bar{\alpha}_t}{1 - \bar{\alpha}_t}$ decreases approximately linearly over the middle 80% of the timestep range. A linearly decreasing log-SNR means the network encounters a uniform spread of denoising difficulties during training — each unit of "time" destroys roughly the same number of bits of information about $x_0$. This uniform information destruction rate is why the cosine schedule consistently outperforms the linear one in practice.
+                        </div>
+                    </div>
+                </div>
                 <div class="note-box">
                     <div class="box-title">Linear versus cosine schedules at a glance</div>
                     <p>
@@ -258,15 +309,21 @@
                     </p>
                 </div>
                 <p>
-                    The cosine schedule was introduced to fix the problem that the linear schedule destroys information too quickly in the middle timesteps, leaving both early and late steps underutilized.
+                    The cosine schedule was introduced by Nichol and Dhariwal (2021) to fix the problem that the linear schedule destroys information too quickly in the middle timesteps, leaving both early and late steps underutilized. Their key observation was that one should design the schedule by specifying the <em>cumulative</em> quantity $\bar{\alpha}_t$ directly (as a smooth, monotonically decreasing curve) rather than specifying $\beta_t$ and hoping the cumulative product behaves well. This "design $\bar{\alpha}_t$ first, derive $\beta_t$ second" philosophy has since become standard practice and has led to further schedule innovations such as the log-linear and sigmoid schedules used in more recent diffusion frameworks.
                 </p>
                 <h2 id="variance-preserving-vs-variance-exploding">Variance-preserving versus variance-exploding paths</h2>
                 <p>
-                    Most image diffusion systems use a variance-preserving path. In that family, the state is gently shrunk while new Gaussian noise is added so that the overall scale of the latent stays comparable across time, which makes optimization and network design much easier.
+                    Most image diffusion systems use a variance-preserving (VP) path. In that family, the state is gently shrunk while new Gaussian noise is added so that the overall scale of the latent stays comparable across time, which makes optimization and network design much easier. Concretely, the VP update $x_t = \sqrt{1 - \beta_t}\,x_{t-1} + \sqrt{\beta_t}\,\epsilon$ is carefully calibrated so that if $x_{t-1}$ has unit variance, then $x_t$ also has unit variance. This scale stability means the neural network always operates on inputs of predictable magnitude, avoiding the need for adaptive normalization or rescaling layers that would otherwise be required to handle inputs whose variance drifts across the diffusion trajectory. The VP formulation also yields the clean decomposition $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1 - \bar{\alpha}_t}\,\epsilon$, where the signal and noise coefficients are immediately interpretable as energy fractions that sum to one.
                 </p>
                 <p>
-                    A variance-exploding path makes a different trade-off: instead of pulling the sample toward the origin, it lets the corruption variance grow aggressively. That viewpoint is powerful in score-based modeling, but for many neural image generators the variance-preserving path offers cleaner numerics, a more intuitive signal-to-noise interpretation, and a direct bridge to DDPM notation.
+                    A variance-exploding (VE) path makes a different trade-off: instead of pulling the sample toward the origin, it lets the corruption variance grow aggressively. That viewpoint is powerful in score-based modeling (Song &amp; Ermon, 2019), where the score function $\nabla_{x_t} \log q(x_t)$ is estimated at a geometric sequence of noise levels, but for many neural image generators the variance-preserving path offers cleaner numerics, a more intuitive signal-to-noise interpretation, and a direct bridge to DDPM notation. In a VE process, the state at time $t$ has variance that grows without bound, so the network must handle an enormous dynamic range. The signal-to-noise ratio is still well-defined but requires tracking the growing noise scale separately. For these reasons, the VP formulation is the default in most practical systems (DDPM, Improved DDPM, latent diffusion), and we use it throughout this tutorial series.
                 </p>
+                <div class="note-box">
+                    <div class="box-title">Common misconception: adding noise is NOT the same as blurring</div>
+                    <p>
+                        It is tempting to think of the forward process as "blurring" the image, but this analogy is misleading in an important way. Gaussian blurring is a <em>low-pass filter</em> — it removes high-frequency detail (edges, textures) while preserving low-frequency structure (overall color, shape). Additive Gaussian noise, by contrast, corrupts <strong>all frequencies uniformly</strong>. Every pixel receives an independent random perturbation regardless of whether it belongs to a smooth region or a sharp edge. The forward diffusion process is much closer to an additive white Gaussian noise (AWGN) channel from information theory than to any kind of blur kernel. This distinction matters because it means the reverse process must reconstruct information at <em>every</em> spatial scale, not just fill in missing high-frequency detail — a fundamentally harder and more general task than deblurring.
+                    </p>
+                </div>
                 <div class="svg-container">
                     <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
                         <text x="400" y="20" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Linear and cosine schedules change alpha-bar differently</text>
@@ -343,18 +400,74 @@
                 </div>
                 <h2 id="information-theoretic-view">Information-theoretic view</h2>
                 <p>
-                    Every forward step is a noisy channel from $x_{t-1}$ to $x_t$. The data processing inequality therefore tells us that information about $x_0$ cannot increase as we move forward in time; the corruption chain is literally an information-losing pipeline.
+                    Every forward step is a noisy channel from $x_{t-1}$ to $x_t$. The data processing inequality therefore tells us that information about $x_0$ cannot increase as we move forward in time; the corruption chain is literally an information-losing pipeline. More precisely, the Markov structure $x_0 \to x_1 \to \cdots \to x_t$ means that any processing of $x_t$ can extract at most as much information about $x_0$ as $x_{t-1}$ already contained. Each Gaussian perturbation irreversibly erases some mutual information, and no clever post-processing of the corrupted state can recover it. This is not a limitation of the model — it is a fundamental law of information theory, and it is what makes the forward direction "easy" and the reverse direction "hard."
                 </p>
                 <p>
-                    This makes diffusion models especially satisfying from the perspective of entropy. The forward process adds uncertainty in a controlled way, and the reverse network learns how much uncertainty must be removed at each noise level to recover a plausible clean sample.
+                    This makes diffusion models especially satisfying from the perspective of entropy. The forward process adds uncertainty in a controlled way, and the reverse network learns how much uncertainty must be removed at each noise level to recover a plausible clean sample. The connection goes deeper than analogy: for Gaussian data corrupted by an additive Gaussian channel, the mutual information $I(x_0; x_t)$ can be computed in closed form as a function of the SNR. This means the noise schedule directly controls the rate of information destruction, turning schedule design into an information-theoretic optimization problem. A good schedule distributes the information loss uniformly across timesteps, ensuring the reverse model faces a balanced curriculum rather than a few catastrophic jumps.
                 </p>
                 <div class="math-block">
                     $$I(x_0; x_t) \text{ decreases with } t \text{ because } x_0 \rightarrow x_1 \rightarrow \cdots \rightarrow x_t \text{ is a Markov chain.}$$
                 </div>
+                <div class="math-derivation">
+                    <div class="math-derivation-title">SNR and Information Loss</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Define the signal-to-noise ratio.</strong> From the direct sampling formula $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1 - \bar{\alpha}_t}\,\epsilon$, the signal component has power $\bar{\alpha}_t \|x_0\|^2$ and the noise component has power $(1 - \bar{\alpha}_t)\|\epsilon\|^2$. Per-coordinate, the signal variance is $\bar{\alpha}_t$ and the noise variance is $1 - \bar{\alpha}_t$ (assuming unit-variance data). The signal-to-noise ratio is therefore:
+                            $$\text{SNR}(t) = \frac{\bar{\alpha}_t}{1 - \bar{\alpha}_t}$$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Mutual information for Gaussian channels.</strong> When $x_0 \sim \mathcal{N}(0, I)$ (a simplifying but informative assumption), the forward process is an additive white Gaussian noise (AWGN) channel. The classical result from information theory gives the per-dimension mutual information:
+                            $$I_{\text{dim}}(x_0; x_t) = \frac{1}{2}\log(1 + \text{SNR}(t)) = \frac{1}{2}\log\frac{1}{1 - \bar{\alpha}_t}$$
+                            For a $d$-dimensional signal, the total mutual information is $I(x_0; x_t) = \frac{d}{2}\log\frac{1}{1 - \bar{\alpha}_t}$ nats.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Constant information destruction rate.</strong> If $\log\text{SNR}(t)$ decreases linearly with $t$, then $\text{SNR}(t) = \text{SNR}(0)\cdot e^{-ct}$ for some constant $c$. The change in mutual information per step is then approximately constant: $\Delta I \approx \frac{d}{2}\cdot\frac{c\,\Delta t}{1 + \text{SNR}(t)}$, which is nearly uniform when the SNR is moderate. This means a linear log-SNR schedule destroys information at a roughly constant rate — each timestep removes the same number of bits, providing the reverse model with an evenly-spaced curriculum of denoising difficulty.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Connection to the data processing inequality.</strong> The DPI guarantees $I(x_0; x_t) \leq I(x_0; x_{t-1})$ for any Markov chain. Our explicit formula shows that equality never holds (each step strictly reduces SNR), confirming that every forward step irreversibly destroys information. The amount destroyed per step depends on the schedule — a well-designed schedule makes this destruction uniform, while a poor schedule front-loads or back-loads it.
+                        </div>
+                    </div>
+                </div>
+                <h3 id="worked-example-schedule-comparison">Worked example: schedule comparison at $t = 500$</h3>
+                <p>
+                    Let us compare the linear and cosine schedules at the halfway point of a $T = 1000$ chain. For the <strong>linear schedule</strong> with $\beta_{\min} = 10^{-4}$ and $\beta_{\max} = 0.02$, the noise parameter at step $t$ is $\beta_t = 10^{-4} + \frac{t-1}{999}(0.02 - 10^{-4})$. We need $\bar{\alpha}_{500} = \prod_{s=1}^{500}(1 - \beta_s)$. Taking logarithms and using the fact that $\sum_{s=1}^{500}\beta_s \approx \frac{500}{2}(\beta_1 + \beta_{500}) = 250 \times (10^{-4} + 0.01) \approx 2.525$, we get $\log\bar{\alpha}_{500} \approx -2.525$, so $\bar{\alpha}_{500} \approx e^{-2.525} \approx 0.080$. The SNR is $\text{SNR}(500) \approx 0.080/0.920 \approx 0.087$, or about $-10.6$ dB. This means that at the halfway mark, the linear schedule has already destroyed over 92% of the signal power.
+                </p>
+                <p>
+                    For the <strong>cosine schedule</strong>, $\bar{\alpha}_{500} = f(500)/f(0)$ where $f(t) = \cos^2\!\left(\frac{t/1000 + 0.008}{1.008}\cdot\frac{\pi}{2}\right)$. Computing: the argument at $t = 500$ is $\frac{0.508}{1.008}\cdot\frac{\pi}{2} \approx 0.791$ radians, so $f(500) \approx \cos^2(0.791) \approx 0.490$. At $t = 0$ the argument is $\frac{0.008}{1.008}\cdot\frac{\pi}{2} \approx 0.01247$, so $f(0) \approx \cos^2(0.01247) \approx 0.9997$. Thus $\bar{\alpha}_{500} \approx 0.490$, and $\text{SNR}(500) \approx 0.490/0.510 \approx 0.96$, or about $-0.17$ dB. The cosine schedule still retains about 49% of the signal power at the halfway point — a dramatic difference from the linear schedule's 8%.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        At $t = 500$, the linear schedule has already nearly completed the corruption process — steps 500 through 1000 are mostly wasted because the sample is already near-isotropic noise. The cosine schedule, by contrast, has used only half its information-destruction budget by the halfway point, leaving meaningful denoising work for the entire second half of the trajectory. This is why cosine-scheduled models tend to produce better samples: the neural network receives useful gradient signal from a much wider range of timesteps during training.
+                    </p>
+                </div>
+                <h3 id="worked-example-bits-destroyed">Worked example: how many bits does each step destroy?</h3>
+                <p>
+                    Using the mutual information formula for Gaussian data, $I(x_0; x_t) = \frac{d}{2}\log\frac{1}{1 - \bar{\alpha}_t}$ (in nats), we can track the information content across the trajectory. Let us use the cosine schedule with $d = 3 \times 64 \times 64 = 12{,}288$ dimensions (a small 64×64 RGB image) and convert to bits by dividing by $\ln 2$.
+                </p>
+                <p>
+                    At $t = 0$: $\bar{\alpha}_0 \approx 1$, so $I \approx \frac{d}{2\ln 2}\log\frac{1}{\delta}$ for small $\delta = 1 - \bar{\alpha}_0$ — essentially all information is preserved. At $t = 100$: $\bar{\alpha}_{100} \approx 0.965$ (cosine), so $I_{100} \approx \frac{12288}{2\ln 2}\ln\frac{1}{0.035} \approx 29{,}700$ bits. At $t = 200$: $\bar{\alpha}_{200} \approx 0.880$, giving $I_{200} \approx \frac{12288}{2\ln 2}\ln\frac{1}{0.12} \approx 18{,}800$ bits. The drop from $t = 100$ to $t = 200$ is roughly $10{,}900$ bits. Continuing: at $t = 300$, $\bar{\alpha}_{300} \approx 0.756$, $I_{300} \approx 12{,}500$ bits (loss of $\approx 6{,}300$ bits in that century). At $t = 500$, $\bar{\alpha}_{500} \approx 0.490$, $I_{500} \approx 5{,}980$ bits. At $t = 800$, $\bar{\alpha}_{800} \approx 0.088$, $I_{800} \approx 816$ bits.
+                </p>
+                <div class="note-box">
+                    <div class="box-title">What does this mean?</div>
+                    <p>
+                        Under the cosine schedule, the first 100 steps destroy relatively few bits (the schedule is gentle early on), while the middle centuries ($t = 100$ to $t = 500$) each destroy a comparable amount of information. This confirms the design goal: the cosine schedule distributes information loss more evenly across the trajectory than the linear schedule would. For the reverse model, this means each denoising step faces a similarly-sized reconstruction challenge, rather than having a few catastrophically hard steps and many trivially easy ones. The actual number of bits will differ for real image data (which is not Gaussian), but the relative pattern across timesteps remains instructive.
+                    </p>
+                </div>
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
     <h2>The Forward Diffusion Process</h2>
     <p>
-        The forward process is a deliberately simple corruption channel. It converts data into noise in a schedule-controlled way so the reverse model only has to learn many tiny denoising problems instead of one impossible global inversion.
+        The forward process is a deliberately simple corruption channel. It converts data into noise in a schedule-controlled way so the reverse model only has to learn many tiny denoising problems instead of one impossible global inversion. The key mathematical insight is that compositions of Gaussian linear maps remain Gaussian, allowing us to jump to any timestep $t$ in closed form via $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1 - \bar{\alpha}_t}\,\epsilon$. The choice of noise schedule — linear, cosine, or otherwise — determines how the signal-to-noise ratio decays over time, and therefore the curriculum of denoising difficulty that the reverse network trains on. A well-designed schedule distributes information destruction uniformly, ensuring every timestep contributes meaningful learning signal during training.
     </p>
 </div>
                 <div class="tutorial-nav">

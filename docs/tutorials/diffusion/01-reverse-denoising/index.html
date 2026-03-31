@@ -95,10 +95,10 @@
             <article class="article-content" id="theory">
 <h1>Reverse Process &amp; DDPM</h1>
                 <p>
-                    Once the forward chain is fixed, the entire learning problem becomes: given a noisy state $x_t$, predict how to move one step toward a less noisy state $x_{t-1}$. The reverse process is where the generative power lives, because it converts a simple reference distribution into realistic structure.
+                    Once the forward chain is fixed, the entire learning problem becomes: given a noisy state $x_t$, predict how to move one step toward a less noisy state $x_{t-1}$. The reverse process is where the generative power lives, because it converts a simple reference distribution into realistic structure. From an information-theoretic perspective, the forward process systematically destroys mutual information between the sample and the data distribution, and the reverse process must reconstruct that information step by step. This is why diffusion models can be viewed as learned iterative decoders: each reverse step recovers a small amount of the information that was erased. The entire framework rests on the idea that recovering a little bit of structure at a time is far easier than generating a complex sample in a single pass.
                 </p>
                 <p>
-                    The subtle point is that the exact reverse conditional $q(x_{t-1}\mid x_t)$ is not available in closed form for arbitrary data. Diffusion models win by noticing that if training also conditions on the original clean sample $x_0$, then the needed posterior becomes Gaussian and can be matched with a neural network.
+                    The subtle point is that the exact reverse conditional $q(x_{t-1}\mid x_t)$ is not available in closed form for arbitrary data. Diffusion models win by noticing that if training also conditions on the original clean sample $x_0$, then the needed posterior becomes Gaussian and can be matched with a neural network. Without this conditioning trick, we would need to marginalize over the unknown data distribution $q(x_0)$ at every step — an intractable integral for any realistic dataset. By exploiting the Markov structure of the forward chain and the known Gaussian transitions, the posterior $q(x_{t-1}\mid x_t, x_0)$ factors into a product of Gaussians that can be computed analytically. This is the central mathematical insight that makes DDPM training practical: the hard generative problem reduces to supervised regression against a tractable target.
                 </p>
                 <div class="svg-container">
                     <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
@@ -144,76 +144,295 @@
                 </div>
                 <h3 id="reversing-the-chain">4.1 Reversing the Chain</h3>
                 <p>
-                    We want to sample from $q(x_{t-1} | x_t)$ — given a noisy image, recover a slightly less noisy one.
+                    We want to sample from $q(x_{t-1} | x_t)$ — given a noisy image, recover a slightly less noisy one. This is the fundamental operation that, when chained together from $t = T$ down to $t = 0$, transforms pure Gaussian noise into a sample from the data distribution. You can think of each reverse step as answering the question: "Given what I see at this noise level, what is the most plausible slightly-cleaner version?" The challenge is that answering this question exactly requires knowing the data distribution $q(x_0)$, which is precisely what we are trying to model in the first place.
                 </p>
                 <p>
-                    This posterior is intractable (requires knowing the data distribution), so we learn it:
+                    This posterior is intractable (requires knowing the data distribution), so we learn it with a parametric approximation:
                 </p>
                 <div class="math-block">
                     $$p_\theta(x_{t-1} | x_t) = \mathcal{N}(x_{t-1}; \mu_\theta(x_t, t), \sigma_t^2 I)$$
                 </div>
                 <p>
-                    <strong>Why is this Gaussian?</strong> For small $\beta_t$, the reverse transition $q(x_{t-1} | x_t)$ is approximately Gaussian. This was proven by Feller (1949) and is the theoretical foundation of diffusion models.
+                    The neural network $\mu_\theta$ takes the noisy state and the timestep as input and outputs a predicted mean for the reverse Gaussian. The variance $\sigma_t^2$ is typically fixed to a schedule-dependent value (either $\beta_t$ or $\tilde{\beta}_t$), though it can also be learned. Notice the elegant division of labor: the network handles the hard part (predicting the direction toward clean data), while the Gaussian structure handles the easy part (maintaining proper stochasticity). This factored design is what makes training stable — the network never needs to output a full covariance matrix, just a mean vector.
                 </p>
+                <p>
+                    <strong>Why is this Gaussian?</strong> For small $\beta_t$, the reverse transition $q(x_{t-1} | x_t)$ is approximately Gaussian. This was proven by Feller (1949) and is the theoretical foundation of diffusion models. The intuition is that when the forward step adds only a tiny amount of noise, the reverse step "undoes" a tiny perturbation, and any smooth distribution looks locally Gaussian at small scales. More precisely, the reverse-time SDE shows that as the step size $\Delta t \to 0$, the conditional $q(x_{t-\Delta t} \mid x_t)$ converges to a Gaussian whose mean involves the score function $\nabla_{x_t} \log q(x_t)$. This is not merely an approximation for convenience — it is a mathematical consequence of the diffusion limit.
+                </p>
+<div class="note-box">
+    <div class="box-title">Common misconception: the reverse process is NOT running the forward process backwards</div>
+    <p>
+        A frequent source of confusion is thinking that the reverse process somehow "undoes" the forward noise additions mechanically, like playing a video in reverse. This is completely wrong. The forward process is a fixed, non-learned corruption: it simply adds Gaussian noise according to a schedule. The reverse process, by contrast, is an entirely learned generative model with its own neural network parameters $\theta$. It must <em>infer</em> what the less-noisy version looks like using only the current noisy state and the timestep — it has no memory of what noise was actually added during the forward pass. During generation, there is no forward process at all: we start from pure noise $x_T \sim \mathcal{N}(0, I)$ and apply the learned reverse transitions. The forward process exists only to create training pairs $(x_t, \epsilon)$ during training.
+    </p>
+</div>
+<div class="note-box">
+    <div class="box-title">Why Gaussians? The Feller theorem</div>
+    <p>
+        William Feller proved in 1949 that when individual noise steps in a Markov chain are sufficiently small, the time-reversed process has approximately Gaussian conditionals — regardless of how complex the data distribution is. This means the Gaussian assumption for $p_\theta(x_{t-1} \mid x_t)$ is not a restrictive modeling choice but a mathematical consequence of using many small diffusion steps. In the continuous-time limit ($T \to \infty$, $\beta_t \to 0$), the reverse conditionals become <em>exactly</em> Gaussian. For finite $T$ (say $T = 1000$), the approximation error is negligible. This is why diffusion models use hundreds or thousands of steps: more steps means each individual step is smaller, making the Gaussian approximation tighter and the learning problem easier. It is a beautiful instance where mathematical rigor directly informs practical design.
+    </p>
+</div>
                 <h3 id="the-tractable-posterior">4.2 The Tractable Posterior</h3>
                 <p>
-                    When we condition on $x_0$ (which we have during training), the posterior <strong>is</strong> tractable:
+                    When we condition on $x_0$ (which we have during training), the posterior <strong>is</strong> tractable. This is the key insight that transforms an impossible inference problem into straightforward Gaussian algebra. During training, we know both $x_0$ (the clean data) and $x_t$ (the noisy version), so we can compute the exact distribution of $x_{t-1}$ given these two endpoints. Geometrically, $x_{t-1}$ must lie "between" $x_0$ and $x_t$ in a noise-weighted sense, and the posterior tells us exactly where — with a precise mean and variance.
                 </p>
                 <div class="math-block">
                     $$q(x_{t-1} | x_t, x_0) = \mathcal{N}(x_{t-1}; \tilde{\mu}_t(x_t, x_0), \tilde{\beta}_t I)$$
                 </div>
                 <p>
-                    where:
+                    where the posterior mean is a weighted combination of the clean signal and the noisy observation:
                 </p>
                 <div class="math-block">
                     $$\tilde{\mu}_t = \frac{\sqrt{\bar{\alpha}_{t-1}} \beta_t}{1 - \bar{\alpha}_t} x_0 + \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} x_t$$
                 </div>
+                <p>
+                    The coefficients have a natural interpretation: the weight on $x_0$ is proportional to $\sqrt{\bar{\alpha}_{t-1}}$ (how much signal remains at step $t-1$) times $\beta_t$ (how much noise was just added), while the weight on $x_t$ involves $\sqrt{\alpha_t}$ (the per-step signal retention). When $t$ is large and most information has been destroyed, the posterior leans more heavily on $x_0$; when $t$ is small and the observation is already quite clean, it relies more on $x_t$.
+                </p>
                 <div class="math-block">
                     $$\tilde{\beta}_t = \frac{(1-\bar{\alpha}_{t-1})}{(1-\bar{\alpha}_t)} \beta_t$$
                 </div>
+                <p>
+                    Notice that the posterior variance $\tilde{\beta}_t$ does not depend on the data at all — it is purely a function of the noise schedule. This means we can precompute it once and reuse it for every training example. The variance is always smaller than $\beta_t$, reflecting the fact that conditioning on $x_0$ removes uncertainty. At $t = 1$, where $\bar{\alpha}_0 = 1$, the variance is zero because the posterior collapses to a point — we know exactly what $x_0$ is.
+                </p>
+<div class="math-derivation">
+    <div class="math-derivation-title">Derivation: Why the Tractable Posterior is Gaussian</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            <strong>Apply Bayes' rule.</strong> We want $q(x_{t-1} \mid x_t, x_0)$. By Bayes' theorem:
+            $$q(x_{t-1} \mid x_t, x_0) = \frac{q(x_t \mid x_{t-1}, x_0) \, q(x_{t-1} \mid x_0)}{q(x_t \mid x_0)}$$
+            The Markov property gives $q(x_t \mid x_{t-1}, x_0) = q(x_t \mid x_{t-1})$ since the forward process only depends on the previous step. All three distributions in this fraction are Gaussian, so their ratio is also Gaussian.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            <strong>Write out the Gaussian densities.</strong> We have:
+            $$q(x_t \mid x_{t-1}) = \mathcal{N}(x_t; \sqrt{\alpha_t}\, x_{t-1},\; \beta_t I)$$
+            $$q(x_{t-1} \mid x_0) = \mathcal{N}(x_{t-1}; \sqrt{\bar{\alpha}_{t-1}}\, x_0,\; (1 - \bar{\alpha}_{t-1}) I)$$
+            Taking the product of these two Gaussian densities (as functions of $x_{t-1}$) and dropping terms that don't depend on $x_{t-1}$, we get an exponent that is quadratic in $x_{t-1}$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            <strong>Collect the quadratic form.</strong> The combined exponent is:
+            $$-\frac{1}{2}\left[\frac{(x_t - \sqrt{\alpha_t}\, x_{t-1})^2}{\beta_t} + \frac{(x_{t-1} - \sqrt{\bar{\alpha}_{t-1}}\, x_0)^2}{1 - \bar{\alpha}_{t-1}}\right]$$
+            Expanding and grouping terms in $x_{t-1}$, $x_{t-1}^2$, and constants, this becomes $-\frac{1}{2\tilde{\beta}_t}(x_{t-1} - \tilde{\mu}_t)^2 + C$, where $C$ absorbs everything independent of $x_{t-1}$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            <strong>Complete the square to identify variance.</strong> The coefficient of $x_{t-1}^2$ is $-\frac{1}{2}\left(\frac{\alpha_t}{\beta_t} + \frac{1}{1 - \bar{\alpha}_{t-1}}\right)$. Inverting this gives the posterior variance:
+            $$\tilde{\beta}_t = \left(\frac{\alpha_t}{\beta_t} + \frac{1}{1 - \bar{\alpha}_{t-1}}\right)^{-1} = \frac{(1 - \bar{\alpha}_{t-1})\beta_t}{1 - \bar{\alpha}_t}$$
+            where we used $1 - \bar{\alpha}_t = 1 - \alpha_t \bar{\alpha}_{t-1} = \beta_t + \alpha_t(1 - \bar{\alpha}_{t-1})$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">5</div>
+        <div class="math-step-content">
+            <strong>Read off the posterior mean.</strong> The linear term in $x_{t-1}$ gives $\tilde{\mu}_t = \tilde{\beta}_t \left(\frac{\sqrt{\alpha_t}}{\beta_t} x_t + \frac{\sqrt{\bar{\alpha}_{t-1}}}{1 - \bar{\alpha}_{t-1}} x_0\right)$. Substituting $\tilde{\beta}_t$ and simplifying:
+            $$\tilde{\mu}_t = \frac{\sqrt{\bar{\alpha}_{t-1}}\,\beta_t}{1 - \bar{\alpha}_t} x_0 + \frac{\sqrt{\alpha_t}(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} x_t$$
+            This confirms the result is a Gaussian $\mathcal{N}(\tilde{\mu}_t, \tilde{\beta}_t I)$ with closed-form mean and variance.
+        </div>
+    </div>
+</div>
+<h3 id="worked-example-posterior-mean">Worked example: Posterior Mean Computation</h3>
+<p>
+    Let's make the posterior formula concrete with actual numbers. Suppose we are at timestep $t$ where $\bar{\alpha}_t = 0.5$ and $\bar{\alpha}_{t-1} = 0.6$, so $\alpha_t = \bar{\alpha}_t / \bar{\alpha}_{t-1} = 0.5/0.6 \approx 0.8333$ and $\beta_t = 1 - \alpha_t \approx 0.1667$. We have a 2D example with $x_0 = [1.0,\; 0.8]$ and the noisy observation $x_t = [0.3,\; -0.2]$. Let's compute the posterior mean $\tilde{\mu}_t$ and variance $\tilde{\beta}_t$ step by step.
+</p>
+<p>
+    <strong>Step 1: Compute the posterior variance.</strong> $\tilde{\beta}_t = \frac{(1 - \bar{\alpha}_{t-1})\beta_t}{1 - \bar{\alpha}_t} = \frac{(1 - 0.6)(0.1667)}{1 - 0.5} = \frac{0.4 \times 0.1667}{0.5} = \frac{0.0667}{0.5} = 0.1333$.
+</p>
+<p>
+    <strong>Step 2: Compute the coefficient on $x_0$.</strong> $c_1 = \frac{\sqrt{\bar{\alpha}_{t-1}} \cdot \beta_t}{1 - \bar{\alpha}_t} = \frac{\sqrt{0.6} \times 0.1667}{0.5} = \frac{0.7746 \times 0.1667}{0.5} = \frac{0.1291}{0.5} = 0.2582$.
+</p>
+<p>
+    <strong>Step 3: Compute the coefficient on $x_t$.</strong> $c_2 = \frac{\sqrt{\alpha_t}(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} = \frac{\sqrt{0.8333} \times 0.4}{0.5} = \frac{0.9129 \times 0.4}{0.5} = \frac{0.3651}{0.5} = 0.7303$.
+</p>
+<p>
+    <strong>Step 4: Compute the posterior mean.</strong> $\tilde{\mu}_t = c_1 \cdot x_0 + c_2 \cdot x_t = 0.2582 \times [1.0, 0.8] + 0.7303 \times [0.3, -0.2]$
+    $= [0.2582, 0.2066] + [0.2191, -0.1461] = [0.4773,\; 0.0605]$.
+</p>
+<p>
+    <strong>Sanity check:</strong> The coefficients satisfy $c_1 + c_2 \approx 0.2582 + 0.7303 = 0.9885$, which is close to but not exactly 1 — this is correct because the posterior mean is not a simple convex combination (the square roots break strict convexity). The result $[0.477, 0.061]$ lies between $x_0 = [1.0, 0.8]$ and $x_t = [0.3, -0.2]$ but much closer to $x_t$, reflecting that at $\bar{\alpha}_t = 0.5$ (moderate noise), the observation still carries significant information.
+</p>
+<div class="note-box">
+    <div class="box-title">What does this mean?</div>
+    <p>
+        The posterior mean is a precision-weighted average of two signals: the clean data $x_0$ and the noisy observation $x_t$. At high noise levels ($\bar{\alpha}_t$ near 0), $c_1$ dominates and the posterior leans toward $x_0$; at low noise levels ($\bar{\alpha}_t$ near 1), $c_2$ dominates and the posterior trusts the observation. The posterior variance $\tilde{\beta}_t = 0.133$ is smaller than $\beta_t = 0.167$, confirming that knowing $x_0$ reduces our uncertainty about $x_{t-1}$. During training, the neural network learns to produce means close to $\tilde{\mu}_t$ without having access to $x_0$ — it must infer the clean signal from the noisy input alone.
+    </p>
+</div>
                 <h3 id="variational-lower-bound-elbo">5.1 Variational Lower Bound (ELBO)</h3>
                 <p>
-                    The negative log-likelihood can be bounded:
+                    The negative log-likelihood can be bounded using the variational principle. We cannot compute $\log p_\theta(x_0)$ directly because it requires marginalizing over all possible latent trajectories $x_{1:T}$, which is an astronomically high-dimensional integral. Instead, we introduce the known forward process $q(x_{1:T} \mid x_0)$ as a variational distribution and apply Jensen's inequality to obtain a tractable upper bound on the negative log-likelihood. This is the same strategy used in variational autoencoders, but here the "encoder" is the fixed forward diffusion rather than a learned network.
                 </p>
                 <div class="math-block">
                     $$-\log p_\theta(x_0) \leq \mathbb{E}_q\left[-\log \frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}\right] = L_{VLB}$$
                 </div>
                 <p>
-                    This decomposes into:
+                    This decomposes into a sum of terms, each with a clear interpretation. The decomposition exploits the Markov structure of both the forward and reverse chains, which allows the high-dimensional KL divergence to factorize into a sum of low-dimensional KL divergences — one per timestep. This factorization is what makes the bound computationally useful: instead of one impossible integral, we get $T$ easy Gaussian KL computations.
                 </p>
                 <div class="math-block">
                     $$L_{VLB} = \underbrace{D_{KL}(q(x_T|x_0) \| p(x_T))}_{L_T \text{ (prior loss)}} + \sum_{t=2}^T \underbrace{D_{KL}(q(x_{t-1}|x_t,x_0) \| p_\theta(x_{t-1}|x_t))}_{L_{t-1}} + \underbrace{(-\log p_\theta(x_0|x_1))}_{L_0}$$
                 </div>
                 <ul>
-                    <li>$L_T$: compares the final noised distribution to the prior (no learnable parameters)</li>
-                    <li>$L_{t-1}$: KL between the true posterior and the learned reverse step (this is what we train)</li>
-                    <li>$L_0$: reconstruction term</li>
+                    <li>$L_T$: compares the final noised distribution to the prior (no learnable parameters). This term is typically very small because the forward process is designed so that $q(x_T \mid x_0) \approx \mathcal{N}(0, I)$, matching the prior exactly in the limit of large $T$.</li>
+                    <li>$L_{t-1}$: KL between the true posterior and the learned reverse step (this is what we train). Since both distributions are Gaussian, this KL has a closed-form expression that reduces to a weighted squared error between means.</li>
+                    <li>$L_0$: reconstruction term, measuring how well the final denoising step recovers the original data. In practice, this is often modeled as a discretized Gaussian or a simple MSE in pixel space.</li>
                 </ul>
+<div class="math-derivation">
+    <div class="math-derivation-title">Derivation: ELBO Decomposition from First Principles</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            <strong>Introduce the variational distribution.</strong> Start from the marginal likelihood and multiply by 1:
+            $$-\log p_\theta(x_0) = -\log \int p_\theta(x_{0:T})\, dx_{1:T} = -\log \int \frac{p_\theta(x_{0:T})}{q(x_{1:T} \mid x_0)} q(x_{1:T} \mid x_0)\, dx_{1:T}$$
+            This is valid for any distribution $q(x_{1:T} \mid x_0)$ with the same support.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            <strong>Apply Jensen's inequality.</strong> Since $-\log$ is convex, Jensen gives:
+            $$-\log p_\theta(x_0) \leq -\mathbb{E}_{q(x_{1:T} \mid x_0)}\left[\log \frac{p_\theta(x_{0:T})}{q(x_{1:T} \mid x_0)}\right] = L_{VLB}$$
+            The gap between the left and right sides is exactly $D_{KL}(q(x_{1:T} \mid x_0) \| p_\theta(x_{1:T} \mid x_0))$, which is non-negative. Minimizing the bound therefore pushes the learned reverse process toward the true posterior.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            <strong>Factor using Markov structure.</strong> The reverse model factorizes as $p_\theta(x_{0:T}) = p(x_T) \prod_{t=1}^T p_\theta(x_{t-1} \mid x_t)$, and the forward process as $q(x_{1:T} \mid x_0) = \prod_{t=1}^T q(x_t \mid x_{t-1})$. Substituting:
+            $$L_{VLB} = \mathbb{E}_q\left[-\log p(x_T) - \sum_{t=1}^T \log \frac{p_\theta(x_{t-1} \mid x_t)}{q(x_t \mid x_{t-1})}\right]$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            <strong>Rewrite forward conditionals using Bayes.</strong> For $t \geq 2$, use $q(x_t \mid x_{t-1}) = \frac{q(x_{t-1} \mid x_t, x_0)\, q(x_t \mid x_0)}{q(x_{t-1} \mid x_0)}$ to re-express the ratio. This telescopes the $q(x_t \mid x_0)/q(x_{t-1} \mid x_0)$ terms across the sum, leaving:
+            $$L_{VLB} = \mathbb{E}_q\left[-\log \frac{p(x_T)}{q(x_T \mid x_0)} - \sum_{t=2}^T \log \frac{p_\theta(x_{t-1} \mid x_t)}{q(x_{t-1} \mid x_t, x_0)} - \log p_\theta(x_0 \mid x_1)\right]$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">5</div>
+        <div class="math-step-content">
+            <strong>Recognize the KL divergences.</strong> Each ratio inside a $-\log$ expectation is a KL divergence:
+            $$L_{VLB} = \underbrace{D_{KL}(q(x_T \mid x_0) \| p(x_T))}_{L_T} + \sum_{t=2}^T \underbrace{D_{KL}(q(x_{t-1} \mid x_t, x_0) \| p_\theta(x_{t-1} \mid x_t))}_{L_{t-1}} + \underbrace{(-\log p_\theta(x_0 \mid x_1))}_{L_0}$$
+            Every $L_{t-1}$ term involves a KL between two Gaussians (the tractable posterior and the learned reverse), which has an analytic formula. This is the final ELBO decomposition.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">6</div>
+        <div class="math-step-content">
+            <strong>Compute each KL analytically.</strong> Since both $q(x_{t-1} \mid x_t, x_0)$ and $p_\theta(x_{t-1} \mid x_t)$ are Gaussian with the same (or similar) variance, the KL reduces to:
+            $$L_{t-1} = \frac{1}{2\tilde{\beta}_t} \|\tilde{\mu}_t(x_t, x_0) - \mu_\theta(x_t, t)\|^2 + C$$
+            where $C$ is a constant independent of $\theta$. Training thus reduces to matching the learned mean to the true posterior mean at every timestep.
+        </div>
+    </div>
+</div>
+<div class="note-box">
+    <div class="box-title">Connection to VAEs</div>
+    <p>
+        The ELBO structure for diffusion models is identical to a variational autoencoder (VAE) with $T$ layers of latent variables. The forward process $q(x_{1:T} \mid x_0)$ plays the role of the encoder, and the reverse process $p_\theta(x_{0:T})$ plays the role of the decoder. The key difference is that in a diffusion model, the "encoder" is fixed (not learned), which eliminates the posterior collapse problems that plague VAEs. Each $L_{t-1}$ term is analogous to a KL penalty on one latent layer, and $L_0$ is the reconstruction loss. This perspective explains why diffusion models achieve better likelihoods than standard VAEs: having $T \approx 1000$ latent layers with known encoders gives the decoder far more flexibility to model complex distributions, while the fixed encoder ensures the latent space is always well-structured.
+    </p>
+</div>
+<h3 id="worked-example-elbo-magnitudes">Worked example: ELBO Term Magnitudes</h3>
+<p>
+    Let's examine how the ELBO terms $L_{t-1}$ vary across timesteps to build intuition about where training effort is concentrated. Consider a linear schedule with $T = 1000$, $\beta_1 = 0.0001$, $\beta_T = 0.02$. At early timesteps (small $t$), $\bar{\alpha}_t \approx 1$ and the data is barely corrupted; at late timesteps (large $t$), $\bar{\alpha}_t \approx 0$ and the data is mostly noise.
+</p>
+<p>
+    <strong>Near $t = 2$:</strong> We have $\bar{\alpha}_1 \approx 0.9999$, $\bar{\alpha}_2 \approx 0.9998$, $\beta_2 \approx 0.0001$. The posterior variance is $\tilde{\beta}_2 = \frac{(1 - 0.9999)(0.0001)}{1 - 0.9998} = \frac{0.0001 \times 0.0001}{0.0002} = 0.00005$. The KL weight is $\frac{1}{2\tilde{\beta}_2} \approx 10{,}000$, but the mean error $\|\tilde{\mu}_2 - \mu_\theta\|^2$ is minuscule because denoising an almost-clean image is trivial. The product $L_1 \approx 10{,}000 \times 10^{-8} \approx 10^{-4}$ — essentially zero.
+</p>
+<p>
+    <strong>Near $t = 500$:</strong> Here $\bar{\alpha}_{500} \approx 0.04$, $\bar{\alpha}_{499} \approx 0.05$, and $\beta_{500} \approx 0.01$. The posterior variance is $\tilde{\beta}_{500} \approx \frac{0.95 \times 0.01}{0.96} \approx 0.0099$. The KL weight is $\frac{1}{2 \times 0.0099} \approx 50.5$, and the mean error is moderate because the network must make a meaningful prediction at this noise level. A typical $L_{499} \approx 50.5 \times 0.01 \approx 0.5$.
+</p>
+<p>
+    <strong>Near $t = 999$:</strong> Now $\bar{\alpha}_{999} \approx 0.0001$, $\bar{\alpha}_{998} \approx 0.0003$, $\beta_{999} \approx 0.02$. The posterior variance is $\tilde{\beta}_{999} \approx \frac{0.9997 \times 0.02}{0.9999} \approx 0.02$. The KL weight is $\frac{1}{2 \times 0.02} = 25$, but now the mean prediction error is large because the network is working from nearly pure noise. A typical $L_{998} \approx 25 \times 0.05 \approx 1.25$.
+</p>
+<div class="note-box">
+    <div class="box-title">What does this mean?</div>
+    <p>
+        The ELBO terms are far from uniform: early terms (small $t$) are negligible because denoising a nearly-clean image is trivial, while late terms (large $t$) dominate because predicting structure from near-pure noise is genuinely hard. This non-uniformity is precisely why the "simple" loss of Ho et al. works so well — by dropping the $\frac{1}{2\tilde{\beta}_t}$ weighting, it effectively up-weights the easy early steps and down-weights the hard late steps, which turns out to improve <em>sample quality</em> even though it loosens the <em>likelihood bound</em>. The network allocates more capacity to the perceptually important mid-range timesteps rather than obsessing over the near-noise regime.
+    </p>
+</div>
                 <h3 id="simplified-training-objective">5.2 Simplified Training Objective</h3>
                 <p>
-                    Ho et al. (2020) showed that a <strong>simplified loss</strong> works even better:
+                    Ho et al. (2020) showed that a <strong>simplified loss</strong> works even better than optimizing the full ELBO. The key observation is that instead of training the network to predict the posterior mean $\tilde{\mu}_t$ directly (which involves schedule-dependent coefficients), we can reparameterize so the network predicts the noise $\epsilon$ that was added to create $x_t$ from $x_0$. This reparameterization is mathematically equivalent but empirically superior: the noise target $\epsilon \sim \mathcal{N}(0, I)$ has a consistent scale across all timesteps, unlike $\tilde{\mu}_t$ which varies dramatically with the noise level.
                 </p>
                 <div class="math-block">
                     $$L_{simple} = \mathbb{E}_{t, x_0, \epsilon}\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
                 </div>
                 <p>
-                    where $x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1-\bar{\alpha}_t} \epsilon$.
+                    where $x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1-\bar{\alpha}_t} \epsilon$. The expectation is over uniformly sampled timesteps $t \sim \text{Uniform}\{1, \ldots, T\}$, training data $x_0 \sim q(x_0)$, and fresh noise $\epsilon \sim \mathcal{N}(0, I)$. Each of these three random choices is independent, which makes the loss an unbiased single-sample Monte Carlo estimate that is trivial to implement.
                 </p>
                 <p>
-                    <strong>This is just denoising!</strong> Given a noisy input $x_t$, predict the noise $\epsilon$ that was added.
+                    <strong>This is just denoising!</strong> Given a noisy input $x_t$, predict the noise $\epsilon$ that was added. The entire complexity of variational inference, ELBO decompositions, and KL divergences boils down to this one stunningly simple objective. The reason this works is not a coincidence — it is a precise mathematical consequence of the Gaussian structure, as we derive below. What Ho et al. discovered empirically is that dropping the timestep-dependent weighting factor $\frac{1}{2\tilde{\beta}_t}$ from the full ELBO actually improves sample quality, even though it makes the likelihood bound looser.
                 </p>
                 <h3 id="why-the-simple-loss-works">5.3 Why the Simple Loss Works</h3>
                 <p>
-                    The KL divergence between two Gaussians with the same variance reduces to an MSE between their means:
+                    The KL divergence between two Gaussians with the same variance reduces to an MSE between their means. This is the critical algebraic fact that connects the abstract ELBO to a concrete regression loss. When $q(x_{t-1} \mid x_t, x_0) = \mathcal{N}(\tilde{\mu}_t, \tilde{\beta}_t I)$ and $p_\theta(x_{t-1} \mid x_t) = \mathcal{N}(\mu_\theta, \tilde{\beta}_t I)$ share the same variance, all the log-determinant and trace terms in the KL formula cancel, leaving only the Mahalanobis distance between means.
                 </p>
                 <div class="math-block">
                     $$D_{KL}(q(x_{t-1}|x_t,x_0) \| p_\theta(x_{t-1}|x_t)) = \frac{1}{2\sigma_t^2} \|\tilde{\mu}_t - \mu_\theta\|^2$$
                 </div>
                 <p>
-                    Since $\tilde{\mu}_t$ depends on $x_0$, and $x_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}(x_t - \sqrt{1-\bar{\alpha}_t}\epsilon)$, predicting $\epsilon$ is equivalent to predicting $\mu_\theta$.
+                    Since $\tilde{\mu}_t$ depends on $x_0$, and $x_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}(x_t - \sqrt{1-\bar{\alpha}_t}\epsilon)$, predicting $\epsilon$ is equivalent to predicting $\mu_\theta$. When we substitute this reparameterization, the mean-squared error between $\tilde{\mu}_t$ and $\mu_\theta$ becomes proportional to $\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ with a timestep-dependent coefficient. The "simple" loss simply drops that coefficient, treating all timesteps equally. This changes the relative emphasis across the trajectory — effectively spending more optimization effort on intermediate timesteps where the denoiser makes the most visually impactful decisions.
                 </p>
+<div class="math-derivation">
+    <div class="math-derivation-title">Derivation: Simple Loss Equivalence</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            <strong>Reparameterize the posterior mean.</strong> Using $x_0 = \frac{1}{\sqrt{\bar{\alpha}_t}}(x_t - \sqrt{1 - \bar{\alpha}_t}\,\epsilon)$, substitute into the posterior mean formula:
+            $$\tilde{\mu}_t = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}}\,\epsilon\right)$$
+            This expresses the true posterior mean purely in terms of $x_t$ and the noise $\epsilon$ (eliminating $x_0$). This is the form the network must match.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            <strong>Parameterize the learned mean similarly.</strong> Define the network's mean prediction as:
+            $$\mu_\theta(x_t, t) = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}}\,\epsilon_\theta(x_t, t)\right)$$
+            Now the network's task reduces to predicting $\epsilon_\theta \approx \epsilon$, and the difference $\tilde{\mu}_t - \mu_\theta$ becomes a function of $\epsilon - \epsilon_\theta$ only.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            <strong>Substitute into the KL formula.</strong> The difference in means is:
+            $$\tilde{\mu}_t - \mu_\theta = \frac{\beta_t}{\sqrt{\alpha_t}\sqrt{1 - \bar{\alpha}_t}}(\epsilon_\theta - \epsilon)$$
+            Plugging into $L_{t-1} = \frac{1}{2\tilde{\beta}_t}\|\tilde{\mu}_t - \mu_\theta\|^2$ gives:
+            $$L_{t-1} = \frac{\beta_t^2}{2\tilde{\beta}_t \alpha_t (1 - \bar{\alpha}_t)} \|\epsilon - \epsilon_\theta(x_t, t)\|^2$$
+            The prefactor $w_t = \frac{\beta_t^2}{2\tilde{\beta}_t \alpha_t (1 - \bar{\alpha}_t)}$ depends only on the schedule, not on data or parameters.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            <strong>Drop the weighting to get the simple loss.</strong> The full ELBO loss is $\sum_t w_t \|\epsilon - \epsilon_\theta\|^2$. Ho et al. found that setting $w_t = 1$ for all $t$ (i.e., ignoring the schedule-dependent weight) yields the simple loss $L_{simple} = \mathbb{E}_{t,\epsilon}\|\epsilon - \epsilon_\theta(x_t, t)\|^2$, which produces better samples despite being a looser bound. The intuition is that the original $w_t$ over-weights nearly-clean timesteps (where denoising is trivial) and under-weights noisy timesteps (where the model must learn coarse structure).
+        </div>
+    </div>
+</div>
+<h3 id="worked-example-simple-loss">Worked example: Why Simple Loss Works — Numerical Comparison</h3>
+<p>
+    Let's compare the weighted (ELBO) and unweighted (simple) losses for three representative timesteps using a linear schedule with $T = 1000$, $\beta_1 = 0.0001$, $\beta_T = 0.02$. Suppose the noise prediction error $\|\epsilon - \epsilon_\theta\|^2 = 0.5$ is constant across all timesteps (for illustration).
+</p>
+<p>
+    <strong>At $t = 10$ (nearly clean):</strong> $\alpha_{10} \approx 0.999$, $\bar{\alpha}_{10} \approx 0.990$, $\beta_{10} \approx 0.001$, $\tilde{\beta}_{10} \approx 0.001$. The ELBO weight is $w_{10} = \frac{(0.001)^2}{2 \times 0.001 \times 0.999 \times 0.010} \approx 0.050$. So $L_9^{ELBO} = 0.050 \times 0.5 = 0.025$, while $L_9^{simple} = 1 \times 0.5 = 0.5$. The simple loss gives this timestep <strong>20× more gradient</strong>.
+</p>
+<p>
+    <strong>At $t = 500$ (mid-range):</strong> $\alpha_{500} \approx 0.990$, $\bar{\alpha}_{500} \approx 0.04$, $\beta_{500} \approx 0.010$, $\tilde{\beta}_{500} \approx 0.010$. The ELBO weight is $w_{500} = \frac{(0.010)^2}{2 \times 0.010 \times 0.990 \times 0.96} \approx 0.0053$. So $L_{499}^{ELBO} = 0.0053 \times 0.5 = 0.0026$, while $L_{499}^{simple} = 0.5$. The simple loss gives this timestep <strong>~190× more gradient</strong>.
+</p>
+<p>
+    <strong>At $t = 990$ (very noisy):</strong> $\alpha_{990} \approx 0.980$, $\bar{\alpha}_{990} \approx 0.0002$, $\beta_{990} \approx 0.020$, $\tilde{\beta}_{990} \approx 0.020$. The ELBO weight is $w_{990} = \frac{(0.020)^2}{2 \times 0.020 \times 0.980 \times 0.9998} \approx 0.0102$. So $L_{989}^{ELBO} = 0.0102 \times 0.5 = 0.0051$, while $L_{989}^{simple} = 0.5$.
+</p>
+<div class="note-box">
+    <div class="box-title">What does this mean?</div>
+    <p>
+        The ELBO weights $w_t$ vary by orders of magnitude and are generally very small, meaning the full ELBO loss is dominated by a handful of timesteps and gives negligible gradients to the rest. The simple loss treats all timesteps equally, which dramatically increases the effective training signal at mid-range and high-noise timesteps. Since perceptual quality depends heavily on getting the mid-range denoising right (this is where semantic structure is determined), the simple loss produces visually better samples despite being a mathematically looser bound on the likelihood. This is a case where "worse in theory, better in practice" has a clear explanation: the ELBO optimizes for density estimation, while the simple loss implicitly optimizes for denoising quality across the full trajectory.
+    </p>
+</div>
                 <p>
-                    The model can equivalently predict different quantities:
+                    The model can equivalently predict different quantities. These are not different models but different ways of parameterizing the same underlying object — the reverse posterior mean $\mu_\theta(x_t, t)$. Each parameterization has distinct optimization properties, numerical stability characteristics, and connections to other frameworks. Understanding all three is essential for reading the modern diffusion literature, where papers freely switch between them.
                 </p>
                 <h3 id="predict-noise-epsilon-prediction-ddpm">6.1 Predict Noise ($\epsilon$-prediction, DDPM)</h3>
                 <div class="math-block">
@@ -222,12 +441,18 @@
                 <p>
                     Mean: $\mu_\theta(x_t, t) = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(x_t, t)\right)$
                 </p>
+                <p>
+                    This is the original DDPM parameterization and remains the most widely used. The noise target $\epsilon \sim \mathcal{N}(0, I)$ has unit variance regardless of the timestep, which provides a naturally well-scaled regression target. However, $\epsilon$-prediction can be numerically unstable near $t = 0$ (where there is almost no noise to predict) and near $t = T$ (where the signal-to-noise ratio is so low that recovering $x_0$ from the predicted noise involves dividing by a tiny $\sqrt{\bar{\alpha}_t}$).
+                </p>
                 <h3 id="predict-clean-data-x-0-prediction">6.2 Predict Clean Data ($x_0$-prediction)</h3>
                 <div class="math-block">
                     $$\hat{x}_0 = f_\theta(x_t, t) \approx x_0$$
                 </div>
                 <p>
                     Mean: $\mu_\theta = \frac{\sqrt{\bar{\alpha}_{t-1}}\beta_t}{1-\bar{\alpha}_t} f_\theta + \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t} x_t$
+                </p>
+                <p>
+                    Here the network directly estimates what the clean data looks like. This is intuitive and makes the reconstruction objective transparent: at each step, the model answers "what do I think the clean image is?" The $x_0$-prediction form is particularly useful for tasks like image editing and inpainting, where we want to inspect the model's current best guess of the final output. However, the scale and difficulty of the target varies enormously with $t$ — predicting $x_0$ from near-pure noise is much harder than from a lightly noisy input — which can make optimization less stable without careful loss weighting.
                 </p>
                 <h3 id="predict-score-s-prediction">6.3 Predict Score ($s$-prediction)</h3>
                 <div class="math-block">
@@ -239,9 +464,12 @@
                 <p>
                     So: $s_\theta = -\frac{\epsilon_\theta}{\sqrt{1-\bar{\alpha}_t}}$
                 </p>
+                <p>
+                    The score function $\nabla_{x_t} \log q(x_t)$ points in the direction of increasing data probability — it tells you which way to move $x_t$ to make it more likely under the noisy data distribution. This parameterization is the bridge between discrete-time DDPM and continuous-time score-based models (Song &amp; Ermon, 2019). The score perspective also connects diffusion models to Langevin dynamics, where sampling proceeds by following the score with added noise. The rescaling by $1/\sqrt{1-\bar{\alpha}_t}$ means the score target blows up as $t \to 0$ (where noise vanishes), which mirrors the numerical instability of $\epsilon$-prediction at $t = T$.
+                </p>
                 <h3 id="equivalence">6.4 Equivalence</h3>
                 <p>
-                    All three parameterizations are related by simple algebra:
+                    All three parameterizations are related by simple algebra. Given any one prediction, you can compute the other two using only the schedule coefficients $\bar{\alpha}_t$ and the current noisy state $x_t$. This means the choice of parameterization does not affect the expressive power of the model family — an optimal network in one parameterization can always be converted to an optimal network in another. The practical differences come down to optimization dynamics (gradient magnitudes and stability), numerical conditioning at boundary timesteps, and conceptual convenience for different applications.
                 </p>
                 <div class="math-block">
                     $$\epsilon = -\sqrt{1-\bar{\alpha}_t} \cdot s = \frac{x_t - \sqrt{\bar{\alpha}_t} \hat{x}_0}{\sqrt{1-\bar{\alpha}_t}}$$
@@ -263,10 +491,10 @@
                 </div>
                 <h2 id="ddpm-training-algorithm">DDPM training algorithm in plain language</h2>
                 <p>
-                    Each training update chooses a random clean sample, a random timestep, and a fresh Gaussian noise draw. Instead of asking the model to reconstruct the entire image in one shot, we ask for a much narrower task: explain the specific noise that turned $x_0$ into $x_t$.
+                    Each training update chooses a random clean sample, a random timestep, and a fresh Gaussian noise draw. Instead of asking the model to reconstruct the entire image in one shot, we ask for a much narrower task: explain the specific noise that turned $x_0$ into $x_t$. This decomposition is what makes diffusion models so much easier to train than GANs or flow-based models: the per-step regression target is always a standard Gaussian, and the loss landscape is smooth and well-behaved. There are no adversarial dynamics, no invertibility constraints, and no need for specialized architectures — just a U-Net trained with MSE loss.
                 </p>
                 <p>
-                    That random-timestep design is surprisingly important. It means one network learns the entire denoising family at once, from nearly-clean states to almost-pure-noise states, and the timestep embedding tells the network which denoising regime it should operate in.
+                    That random-timestep design is surprisingly important. It means one network learns the entire denoising family at once, from nearly-clean states to almost-pure-noise states, and the timestep embedding tells the network which denoising regime it should operate in. Without the timestep input, the network would have no way to distinguish between "remove a tiny amount of noise from a nearly clean image" and "hallucinate plausible structure from nearly pure noise" — two fundamentally different tasks that require different internal computations. The uniform sampling over $t$ ensures that the network sees all noise levels equally often, providing an unbiased Monte Carlo estimate of the full trajectory loss.
                 </p>
                 <div class="math-derivation">
                     <div class="math-derivation-title">A compact view of DDPM training</div>
@@ -304,15 +532,24 @@
                 </div>
                 <h2 id="what-the-network-learns">What the network actually learns</h2>
                 <p>
-                    At a geometric level, the network learns how a noisy sample should move if we want to land closer to the data manifold. When the input is very noisy, that motion is broad and semantic; when the input is already fairly clean, the motion becomes local and detail-oriented.
+                    At a geometric level, the network learns how a noisy sample should move if we want to land closer to the data manifold. When the input is very noisy, that motion is broad and semantic — the network must decide whether this blob of noise should become a face, a landscape, or a cat. When the input is already fairly clean, the motion becomes local and detail-oriented — adding fine textures, sharpening edges, and resolving ambiguities at the pixel level. This coarse-to-fine hierarchy is not imposed by the architecture; it emerges naturally from the noise schedule because the signal-to-noise ratio determines what information is available at each step.
                 </p>
                 <p>
-                    This is why the three parameterizations are equivalent but not identical in flavor. Predicting $\epsilon$ makes optimization simple, predicting $x_0$ makes reconstruction intuition transparent, and predicting the score makes the connection to continuous-time stochastic dynamics almost unavoidable.
+                    This is why the three parameterizations are equivalent but not identical in flavor. Predicting $\epsilon$ makes optimization simple because the target is always unit-variance noise, predicting $x_0$ makes reconstruction intuition transparent because you can visualize the model's current best guess at any step, and predicting the score makes the connection to continuous-time stochastic dynamics almost unavoidable because the score function is the natural object in the Fokker-Planck and Langevin equations. In practice, the choice of parameterization interacts with the loss weighting and the noise schedule to determine the effective training signal, which is why different applications (image generation, audio synthesis, 3D modeling) sometimes prefer different parameterizations.
                 </p>
-<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-    <h2>Reverse Process & DDPM</h2>
+<div class="note-box">
+    <div class="box-title">Numerical stability near boundary timesteps</div>
     <p>
-        DDPM turns generative modeling into local denoising. The key move is to approximate a Gaussian reverse conditional whose training target is tractable when the clean sample is known.
+        Special care is needed at the boundaries of the diffusion process. Near $t = 0$, the noise level is negligible ($\bar{\alpha}_t \approx 1$), so the $\epsilon$-prediction target is essentially trying to extract a tiny residual from an almost-clean image — small numerical errors get amplified when dividing by $\sqrt{1 - \bar{\alpha}_t} \approx 0$. Near $t = T$, the signal-to-noise ratio is near zero ($\bar{\alpha}_t \approx 0$), so $x_0$-prediction involves dividing by $\sqrt{\bar{\alpha}_t} \approx 0$, amplifying errors in the other direction. Modern implementations handle this by clipping predicted values, using the $v$-prediction parameterization ($v = \sqrt{\bar{\alpha}_t}\,\epsilon - \sqrt{1-\bar{\alpha}_t}\,x_0$) which stays well-conditioned at both extremes, or simply avoiding the extreme endpoints of the schedule. Understanding these boundary issues is essential for debugging diffusion model training when you see NaN losses or degraded sample quality.
+    </p>
+</div>
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Reverse Process & DDPM — Key Takeaways</h2>
+    <p>
+        DDPM turns generative modeling into local denoising. The key move is to approximate a Gaussian reverse conditional whose training target is tractable when the clean sample is known. The ELBO decomposes into per-timestep KL terms that can each be computed analytically thanks to the Gaussian structure, and the entire variational objective reduces to a simple noise-prediction MSE loss after a clever reparameterization.
+    </p>
+    <p>
+        The three parameterizations — $\epsilon$-prediction, $x_0$-prediction, and score prediction — are algebraically equivalent but differ in optimization dynamics and numerical stability. The "simple" loss of Ho et al. drops the ELBO's timestep-dependent weighting, which loosens the likelihood bound but improves sample quality by redistributing training signal across the full noise trajectory. Understanding <em>why</em> these choices work (Feller's theorem for the Gaussian assumption, Jensen's inequality for the ELBO, completing the square for the posterior) is essential for extending diffusion models to new domains and diagnosing failure modes in practice.
     </p>
 </div>
                 <div class="tutorial-nav">
