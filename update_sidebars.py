@@ -132,20 +132,27 @@ def generate_sidebar(category, current_folder):
     '''
     
     # Add cross links
-    if category != 'tts':
-        html += '                    <a href="../../tts/index.html" class="sidebar-link">Text-to-Speech</a>\n'
-    if category != 'cs':
-        html += '                    <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>\n'
-    if category != 'ml':
+    if category == 'decipherment':
+        html += '                    <a href="../../writing-systems/index.html" class="sidebar-link">Writing Systems</a>\n'
+        html += '                    <a href="../../linguistics/index.html" class="sidebar-link">Linguistics</a>\n'
         html += '                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>\n'
-    if category != 'diffusion':
-        html += '                    <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>\n'
-    if category != 'linear-algebra':
-        html += '                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>\n'
-    if category != 'calculus':
-        html += '                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>\n'
-    if category != 'physics':
-        html += '                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>\n'
+        html += '                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>\n'
+        html += '                    <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>\n'
+    else:
+        if category != 'tts':
+            html += '                    <a href="../../tts/index.html" class="sidebar-link">Text-to-Speech</a>\n'
+        if category != 'cs':
+            html += '                    <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>\n'
+        if category != 'ml':
+            html += '                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>\n'
+        if category != 'diffusion':
+            html += '                    <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>\n'
+        if category != 'linear-algebra':
+            html += '                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>\n'
+        if category != 'calculus':
+            html += '                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>\n'
+        if category != 'physics':
+            html += '                    <a href="../../physics/index.html" class="sidebar-link">Physics</a>\n'
         
     html += '''                </nav>
             </div>
