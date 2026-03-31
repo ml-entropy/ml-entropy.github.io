@@ -67,6 +67,7 @@
     <div class="tutorial-wrapper">
         <!-- Sidebar Navigation -->
         <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">Decipherment</h3>
@@ -649,6 +650,152 @@ analyze_tablet_structure(tablet_lines)</code></pre>
   <text x="615" y="150" text-anchor="middle" font-size="8" fill="#6b7280">filled into Kober's grid</text>
   <text x="615" y="168" text-anchor="middle" font-size="8" fill="#166534" font-weight="bold">→ GREEK revealed!</text>
 </svg>
+
+
+
+<h2 id="ventris-method">Ventris's Grid Method: A Systematic Attack</h2>
+
+<p>Michael Ventris's approach to Linear B was distinguished by its systematic rigor. Rather than guessing at individual sign values (as many amateur decipherers attempted), Ventris built a comprehensive framework — the famous <strong>syllabic grid</strong> — that encoded all the structural relationships between signs before assigning any specific phonetic values. This approach, which he developed in his "Work Notes" distributed to colleagues between 1951–1952, is a masterclass in constrained optimization: reduce the degrees of freedom first, then solve the remaining system.</p>
+
+<p>The grid was organized with consonants on one axis and vowels on the other. Ventris didn't know which consonant or vowel each row/column represented — he only knew that signs in the same row shared a consonant, and signs in the same column shared a vowel. This knowledge came from Kober's triplet analysis and from his own systematic comparison of sign alternations in different grammatical contexts.</p>
+
+<p>The key constraints Ventris used to fill in the grid included: (1) <strong>Alternation patterns</strong>: words that appeared in both a "base" form and an inflected form, where only the final syllable changed, revealed which signs shared consonants. (2) <strong>Frequency analysis</strong>: the most common signs were likely to represent the most common CV syllables in the target language. (3) <strong>Word-initial and word-final statistics</strong>: in most languages, certain syllables are much more common at the beginning or end of words than in the middle. (4) <strong>The Kober triplets</strong>: three-form paradigms that revealed consistent ending patterns, directly identifying "same consonant, different vowel" relationships.</p>
+
+<div class="math-derivation">
+    <div class="math-derivation-title">Constraint Propagation in the Syllabic Grid</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            With ~87 syllabic signs and a CV structure (~15 consonants × ~5 vowels = 75 slots), the unconstrained mapping space is $\frac{87!}{(87-75)!} \approx 10^{140}$. This is astronomically large — brute force is impossible even with modern computers.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            Each "same consonant" constraint (placing two signs in the same row) eliminates a factor of ~15 from the search space ($\log_2 15 \approx 3.9$ bits of constraint). Ventris identified approximately 50 such constraints from Kober's triplets and his own analysis, providing $\approx 195$ bits of constraint.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            Each "same vowel" constraint (placing two signs in the same column) provides another $\log_2 5 \approx 2.3$ bits. With approximately 30 such constraints, this adds $\approx 69$ bits. Total structural constraints: ~264 bits.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            The mapping requires $\approx 75 \times \log_2 87 \approx 480$ bits to specify completely. The 264 bits of structural constraint reduce the effective search space from $10^{140}$ to roughly $2^{480-264} = 2^{216} \approx 10^{65}$ — still enormous, but the grid structure means these constraints propagate: once a few anchor values are established, the rest cascade. When Ventris identified the place names "ko-no-so" (Knossos) and "a-mi-ni-so" (Amnisos), the shared signs propagated through the grid, fixing dozens of values simultaneously.
+        </div>
+    </div>
+</div>
+
+<div class="code-block">
+    <div class="code-block-header">Syllabic Grid Constraint Solver (Python)</div>
+    <pre><code>import random
+
+class SyllabicGrid:
+    """
+    Simplified model of Ventris's syllabic grid.
+    Demonstrates how constraints propagate to reduce
+    the search space.
+    """
+    def __init__(self, consonants, vowels, signs):
+        self.C = consonants  # e.g., ['k','t','p','n','m','r','s','d','j','w']
+        self.V = vowels      # e.g., ['a','e','i','o','u']
+        self.signs = signs   # sign IDs
+        self.grid = {}       # (c_idx, v_idx) -> sign
+        self.constraints = []
+    
+    def add_same_consonant(self, sign_a, sign_b):
+        """Signs A and B share a consonant (same row)."""
+        self.constraints.append(('same_c', sign_a, sign_b))
+    
+    def add_same_vowel(self, sign_a, sign_b):
+        """Signs A and B share a vowel (same column)."""
+        self.constraints.append(('same_v', sign_a, sign_b))
+    
+    def solve_with_anchors(self, anchors):
+        """
+        Given anchor values {sign: (consonant, vowel)},
+        propagate through constraints to fill grid.
+        """
+        known = dict(anchors)
+        changed = True
+        iterations = 0
+        
+        while changed:
+            changed = False
+            iterations += 1
+            for ctype, sa, sb in self.constraints:
+                if sa in known and sb not in known:
+                    c_a, v_a = known[sa]
+                    if ctype == 'same_c':
+                        # sb has same consonant, unknown vowel
+                        known[sb] = (c_a, '?')
+                        changed = True
+                    elif ctype == 'same_v':
+                        known[sb] = ('?', v_a)
+                        changed = True
+                elif sb in known and sa not in known:
+                    c_b, v_b = known[sb]
+                    if ctype == 'same_c':
+                        known[sa] = (c_b, '?')
+                        changed = True
+                    elif ctype == 'same_v':
+                        known[sa] = ('?', v_b)
+                        changed = True
+                # If both known, refine partial values
+                elif sa in known and sb in known:
+                    c_a, v_a = known[sa]
+                    c_b, v_b = known[sb]
+                    if ctype == 'same_c' and c_a != '?' and c_b == '?':
+                        known[sb] = (c_a, v_b)
+                        changed = True
+                    if ctype == 'same_v' and v_a != '?' and v_b == '?':
+                        known[sb] = (c_b, v_a)
+                        changed = True
+        
+        print(f"Propagation: {iterations} iterations")
+        print(f"Known signs: {len(known)} / {len(self.signs)}")
+        fully_known = sum(1 for c, v in known.values() 
+                          if c != '?' and v != '?')
+        print(f"Fully resolved: {fully_known}")
+        return known
+
+# Demo: small grid
+grid = SyllabicGrid(
+    ['k','t','n','r','s'], ['a','e','i','o','u'],
+    [f'S{i}' for i in range(25)]
+)
+
+# Add constraints (discovered from triplets)
+grid.add_same_consonant('S0', 'S1')  # S0 and S1 share consonant
+grid.add_same_consonant('S0', 'S2')
+grid.add_same_vowel('S0', 'S5')     # S0 and S5 share vowel
+grid.add_same_vowel('S1', 'S6')
+grid.add_same_consonant('S5', 'S6')
+
+# Anchor: identify S0 = 'ko' (from place name KO-NO-SO)
+result = grid.solve_with_anchors({'S0': ('k', 'o')})
+for sign, (c, v) in sorted(result.items()):
+    print(f"  {sign} = {c}{v}")</code></pre>
+</div>
+
+<div class="note-box">
+    <div class="box-title">The verification moment: "ko-no-so" = Knossos</div>
+    <p>On June 1, 1952, Ventris tested his tentative grid by applying it to actual tablet texts. When he substituted his phonetic values into a frequently occurring sign group from Knossos tablets, the result read <em>ko-no-so</em> — obviously "Knossos," the very site where the tablets were found. A second common group read <em>a-mi-ni-so</em> — Amnisos, the harbor town of Knossos mentioned in Homer's <em>Odyssey</em>. A third read <em>tu-li-so</em> — Tylissos, another Cretan town known from Greek sources. Three independent place names, all correctly spelled, all from the same grid. The probability of this occurring by chance is vanishingly small: with ~75 possible syllable values per sign position, three correct multi-sign readings gives a probability of roughly $(1/75)^{10} \approx 10^{-19}$. Ventris knew immediately that the script wrote Greek — and the grid was correct.</p>
+</div>
+
+<h2 id="mycenaean-vocabulary">What Linear B Revealed: Mycenaean Greek</h2>
+
+<p>The decipherment of Linear B revealed that the language of Mycenaean Greece was an early form of Greek — pushing the documented history of the Greek language back by roughly 700 years (from ~800 BCE to ~1450 BCE). The tablets documented a dialect that was recognizably ancestral to Classical Greek but with archaic features: different vowel qualities, preserved labiovelals (sounds like *kʷ that later split into p, t, or k in different environments), and grammatical forms that had disappeared by the time of Homer.</p>
+
+<p>Some of the most illuminating discoveries included: <strong>Religious vocabulary</strong> — the tablets mention gods already familiar from Classical Greek religion (Zeus, Hera, Poseidon, Hermes, Athena, Artemis, Dionysus) but in archaic name forms, proving these deities were worshipped over a millennium before the Classical period. <strong>Social structure</strong> — a complex hierarchy of kings (<em>wanax</em>), military leaders (<em>lawagetas</em>), and local governors (<em>basileus</em> — which later became the standard Greek word for "king," suggesting a democratic demotion of the title). <strong>Economic data</strong> — detailed records of agricultural production, textile manufacturing, metal distribution, and military equipment that reveal a palace-centered redistributive economy far more bureaucratic than the heroic warrior society of Homeric legend.</p>
+
+<div class="note-box">
+    <div class="box-title">Linear B's limitations as a script for Greek</div>
+    <p>Linear B was not designed for Greek — it was adapted from Linear A (which wrote an unknown, non-Greek language) with minimal modification. As a result, it was a poor fit for Greek phonology. The script cannot distinguish voiced, voiceless, and aspirated consonants (pa, ba, and pha are all written the same way); it cannot write consonant clusters (the word <em>stathmos</em> "stable" becomes <em>ta-to-mo</em>); and word-final consonants are omitted (making many words ambiguous). These limitations meant that the same spelling could represent multiple different Greek words — a source of ongoing scholarly debate about specific readings. The script's unsuitability for Greek is itself evidence that it was borrowed from a non-Greek tradition: a script designed from scratch for Greek would never have these deficiencies.</p>
+</div>
 
 
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px; border-left: 4px solid #2563eb;">

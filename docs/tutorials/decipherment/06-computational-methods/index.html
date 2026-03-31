@@ -67,6 +67,7 @@
     <div class="tutorial-wrapper">
         <!-- Sidebar Navigation -->
         <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">Decipherment</h3>
@@ -656,6 +657,159 @@ print(f"Original:   {plain}")</code></pre>
   <text x="590" y="165" text-anchor="middle" font-size="7" fill="#6b7280">Best for: sign classification, damage repair</text>
   <text x="360" y="195" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">No single method solves all scripts — human insight + computation is the strongest approach</text>
 </svg>
+
+
+
+<h2 id="neural-ocr">Neural OCR for Damaged Inscriptions</h2>
+
+<p>One of the most immediately practical applications of machine learning to ancient scripts is <strong>optical character recognition (OCR) for damaged texts</strong>. Ancient inscriptions are rarely in pristine condition: stone monuments are weathered, clay tablets are broken, papyri are fragmentary, and painted texts are faded. Human experts spend enormous time and effort identifying individual signs on damaged surfaces — a process that requires years of training and intimate familiarity with the script's visual conventions.</p>
+
+<p>Deep learning models — particularly convolutional neural networks (CNNs) and vision transformers — can be trained to recognize signs even in degraded conditions. The key advantage of neural OCR is its ability to learn from damaged examples: by training on thousands of instances of each sign at varying levels of damage, the model builds an internal representation of each sign's essential features that is robust to noise, breakage, and weathering. This is analogous to how humans learn to read: we see letters in many fonts, sizes, and handwriting styles, and our visual system extracts the invariant features.</p>
+
+<div class="code-block">
+    <div class="code-block-header">Sign Recognition with Damage Simulation (Python)</div>
+    <pre><code>import random, math
+
+def simulate_damaged_sign(sign_features, damage_level):
+    """
+    Simulate damage to a sign's feature vector.
+    
+    sign_features: list of floats (feature values)
+    damage_level: 0.0 (pristine) to 1.0 (destroyed)
+    """
+    damaged = []
+    for f in sign_features:
+        if random.random() < damage_level:
+            # Feature is damaged: add noise or zero it
+            if random.random() < 0.5:
+                damaged.append(f + random.gauss(0, 0.5))
+            else:
+                damaged.append(0.0)  # feature destroyed
+        else:
+            damaged.append(f + random.gauss(0, 0.05))
+    return damaged
+
+def cosine_similarity(a, b):
+    dot = sum(x*y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x*x for x in a))
+    norm_b = math.sqrt(sum(x*x for x in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0
+    return dot / (norm_a * norm_b)
+
+def recognize_damaged_sign(damaged, reference_signs):
+    """
+    Identify a damaged sign by comparing to reference
+    examples using cosine similarity.
+    """
+    scores = []
+    for name, ref in reference_signs.items():
+        sim = cosine_similarity(damaged, ref)
+        scores.append((sim, name))
+    
+    scores.sort(reverse=True)
+    return scores[:3]  # top 3 candidates
+
+# Demo: cuneiform sign recognition
+random.seed(42)
+n_features = 20
+
+# Create reference signs (idealized feature vectors)
+references = {}
+for i in range(10):
+    name = f"SIGN_{i:03d}"
+    references[name] = [random.gauss(i * 0.3, 0.2) 
+                        for _ in range(n_features)]
+
+# Simulate recognition at different damage levels
+target = "SIGN_005"
+print(f"Target sign: {target}\n")
+print(f"{'Damage':>8}  {'Top-1':>12}  {'Conf':>6}  {'Correct':>8}")
+print("-" * 42)
+
+for damage in [0.0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]:
+    damaged = simulate_damaged_sign(
+        references[target], damage)
+    top3 = recognize_damaged_sign(damaged, references)
+    correct = "✓" if top3[0][1] == target else "✗"
+    print(f"  {damage:>5.0%}    {top3[0][1]:>12}  "
+          f"{top3[0][0]:>5.2f}  {correct:>6}")
+
+# Shows graceful degradation: recognition holds up to
+# ~50% damage, then degrades — matching human performance</code></pre>
+</div>
+
+<div class="note-box">
+    <div class="box-title">3D scanning and virtual unwrapping</div>
+    <p>Advanced imaging technologies are revealing texts that were previously inaccessible. <strong>Reflectance Transformation Imaging (RTI)</strong> uses multiple light angles to enhance surface details on worn stone inscriptions, often making signs visible that are invisible under normal lighting. <strong>3D scanning with structured light</strong> captures the full geometry of clay tablets, allowing scholars to examine them from any angle and under any virtual lighting condition. Most dramatically, <strong>virtual unwrapping</strong> algorithms can read scrolls and folded documents without physically opening them — a technique that has been applied to carbonized scrolls from Herculaneum (destroyed by Vesuvius in 79 CE) and to sealed clay envelopes from Mesopotamia that were never meant to be opened. These technologies don't decipher scripts, but they reveal texts that would otherwise be lost — expanding the corpus available for analysis.</p>
+</div>
+
+<h2 id="full-pipeline">Case Study: A Full Computational Decipherment Pipeline</h2>
+
+<p>To tie together the computational methods discussed in this chapter, let us walk through a complete decipherment pipeline — the sequence of computational steps that would be applied to a newly discovered inscription in an undeciphered script. This pipeline represents the current state of the art in computational epigraphy.</p>
+
+<p><strong>Stage 1: Digitization and sign segmentation.</strong> The inscription is photographed under multiple lighting conditions, 3D-scanned if possible, and processed through a neural segmentation model that identifies individual signs and their boundaries. Output: a sequence of sign images.</p>
+
+<p><strong>Stage 2: Sign classification.</strong> Each sign image is classified against a trained sign catalogue using a CNN or vision transformer. For known scripts, this achieves ~95% accuracy; for newly discovered scripts, the model clusters similar sign images into types and assigns provisional type IDs. Output: a sequence of sign type IDs.</p>
+
+<p><strong>Stage 3: Structural analysis.</strong> Statistical analysis of the sign sequence: frequency distribution, positional preferences, bigram/trigram patterns, and conditional entropy. This stage identifies: (a) whether the system is likely linguistic; (b) approximate script type (alphabetic, syllabic, logosyllabic); (c) probable word boundaries; (d) candidate determinatives (signs with specific positional patterns). Output: a structural profile.</p>
+
+<p><strong>Stage 4: Language hypothesis testing.</strong> For each candidate target language, an MCMC decipherment algorithm searches for the optimal sign-to-phoneme mapping, scored by a language model. Multiple candidates are tested in parallel. The language producing the highest-scoring decipherment is selected. Output: a ranked list of (language, mapping, score) triples.</p>
+
+<p><strong>Stage 5: Human validation.</strong> The top-scoring decipherment is reviewed by human experts who check: (a) do the decoded words make sense in the proposed language? (b) does the content match the archaeological context? (c) are there internal consistency checks (repeated formulas reading consistently, names matching known historical figures)? Output: validated or rejected decipherment.</p>
+
+<svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:720px;display:block;margin:2rem auto;" aria-label="Full computational decipherment pipeline">
+  <text x="360" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">Computational Decipherment Pipeline</text>
+  <!-- Stage boxes -->
+  <rect x="20" y="35" width="120" height="55" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="80" y="52" text-anchor="middle" font-size="8" font-weight="bold" fill="#1e40af">Stage 1</text>
+  <text x="80" y="64" text-anchor="middle" font-size="7" fill="#2563eb">Digitization</text>
+  <text x="80" y="74" text-anchor="middle" font-size="7" fill="#2563eb">&amp; Segmentation</text>
+  <text x="80" y="84" text-anchor="middle" font-size="6" fill="#6b7280">RTI, 3D scan, OCR</text>
+  <text x="150" y="62" font-size="14" fill="#6b7280">→</text>
+  <rect x="160" y="35" width="120" height="55" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="220" y="52" text-anchor="middle" font-size="8" font-weight="bold" fill="#92400e">Stage 2</text>
+  <text x="220" y="64" text-anchor="middle" font-size="7" fill="#d97706">Sign</text>
+  <text x="220" y="74" text-anchor="middle" font-size="7" fill="#d97706">Classification</text>
+  <text x="220" y="84" text-anchor="middle" font-size="6" fill="#6b7280">CNN/ViT model</text>
+  <text x="290" y="62" font-size="14" fill="#6b7280">→</text>
+  <rect x="300" y="35" width="120" height="55" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="360" y="52" text-anchor="middle" font-size="8" font-weight="bold" fill="#166534">Stage 3</text>
+  <text x="360" y="64" text-anchor="middle" font-size="7" fill="#16a34a">Structural</text>
+  <text x="360" y="74" text-anchor="middle" font-size="7" fill="#16a34a">Analysis</text>
+  <text x="360" y="84" text-anchor="middle" font-size="6" fill="#6b7280">Stats, entropy, type</text>
+  <text x="430" y="62" font-size="14" fill="#6b7280">→</text>
+  <rect x="440" y="35" width="120" height="55" rx="6" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="500" y="52" text-anchor="middle" font-size="8" font-weight="bold" fill="#5b21b6">Stage 4</text>
+  <text x="500" y="64" text-anchor="middle" font-size="7" fill="#7c3aed">MCMC</text>
+  <text x="500" y="74" text-anchor="middle" font-size="7" fill="#7c3aed">Decipherment</text>
+  <text x="500" y="84" text-anchor="middle" font-size="6" fill="#6b7280">Language model search</text>
+  <text x="570" y="62" font-size="14" fill="#6b7280">→</text>
+  <rect x="580" y="35" width="120" height="55" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="640" y="52" text-anchor="middle" font-size="8" font-weight="bold" fill="#991b1b">Stage 5</text>
+  <text x="640" y="64" text-anchor="middle" font-size="7" fill="#dc2626">Human</text>
+  <text x="640" y="74" text-anchor="middle" font-size="7" fill="#dc2626">Validation</text>
+  <text x="640" y="84" text-anchor="middle" font-size="6" fill="#6b7280">Expert review</text>
+  <!-- Output labels -->
+  <text x="80" y="105" text-anchor="middle" font-size="7" fill="#1e40af">→ Sign images</text>
+  <text x="220" y="105" text-anchor="middle" font-size="7" fill="#92400e">→ Type IDs</text>
+  <text x="360" y="105" text-anchor="middle" font-size="7" fill="#16a34a">→ Profile</text>
+  <text x="500" y="105" text-anchor="middle" font-size="7" fill="#5b21b6">→ Mapping</text>
+  <text x="640" y="105" text-anchor="middle" font-size="7" fill="#991b1b">→ Translation</text>
+  <!-- Summary box -->
+  <rect x="60" y="120" width="600" height="100" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1"/>
+  <text x="360" y="140" text-anchor="middle" font-size="10" font-weight="bold" fill="#1f2937">Where Each Stage Works Best — and Where It Fails</text>
+  <text x="360" y="158" text-anchor="middle" font-size="8" fill="#475569">Stages 1–2: Mature technology, works on ANY script (known or unknown)</text>
+  <text x="360" y="172" text-anchor="middle" font-size="8" fill="#475569">Stage 3: Works well — identifies script type without knowing language</text>
+  <text x="360" y="186" text-anchor="middle" font-size="8" fill="#475569">Stage 4: ONLY works when candidate language exists and is correct</text>
+  <text x="360" y="200" text-anchor="middle" font-size="8" fill="#dc2626" font-weight="bold">Stage 5: IRREPLACEABLE — no machine can validate historical/linguistic coherence</text>
+  <text x="360" y="240" text-anchor="middle" font-size="9" fill="#6b7280" font-style="italic">The pipeline accelerates human experts; it does not replace them</text>
+</svg>
+
+<div class="note-box">
+    <div class="box-title">The future: foundation models for ancient scripts</div>
+    <p>The latest frontier in computational epigraphy is the development of <strong>foundation models</strong> — large neural networks pre-trained on multiple ancient scripts simultaneously, then fine-tuned for specific tasks. The vision: a single model that has "seen" Egyptian hieroglyphs, cuneiform, Maya glyphs, Linear B, and other known scripts, building an internal representation of <em>what writing looks like</em> at an abstract level. Such a model could then be applied to undeciphered scripts, classifying signs by function (phonogram vs. logogram vs. determinative), identifying structural patterns, and even suggesting candidate phonetic values based on similarities to known systems. Early experiments (such as Google DeepMind's work on damaged Akkadian tablets) show promise, but we are still far from a general-purpose "decipherment AI." The fundamental limitation remains: these models can recognize patterns in data, but the creative leaps that characterized Champollion, Ventris, and Knorozov — reframing the problem itself — remain uniquely human.</p>
+</div>
 
 
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px; border-left: 4px solid #7c3aed;">

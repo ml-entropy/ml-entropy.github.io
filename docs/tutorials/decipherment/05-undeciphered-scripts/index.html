@@ -67,6 +67,7 @@
     <div class="tutorial-wrapper">
         <!-- Sidebar Navigation -->
         <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">Decipherment</h3>
@@ -526,6 +527,250 @@ minimum_corpus_for_decipherment(26)   # Simple alphabet</code></pre>
 <div class="note-box">
     <div class="box-title">Why hundreds of "decipherments" of the Phaistos Disc are all wrong</div>
     <p>The Phaistos Disc has attracted over 100 claimed decipherments — more than any other undeciphered object. These "solutions" have identified the text as Semitic, Greek, Anatolian, Basque, and even extraterrestrial. The reason so many radically different "readings" are possible is precisely that the corpus is too small to constrain the solution: with only 241 signs in 45 types, the system is <strong>underdetermined</strong>. There are far more possible sign-value assignments than there is data to distinguish between them. In information-theoretic terms, the disc provides fewer bits of constraint than the degrees of freedom in the system — any assignment of sound values to signs can be made to "work" by choosing the right language and the right translation. Until more texts in the same script are discovered (and there is no guarantee they ever will be), the Phaistos Disc will remain a Rorschach test for amateur decipherers.</p>
+</div>
+
+
+
+<h2 id="rongorongo-analysis">Rongorongo: The Most Isolated Script</h2>
+
+<p><strong>Rongorongo</strong> is the undeciphered script of Easter Island (Rapa Nui), one of the most isolated inhabited places on Earth — over 2,000 km from the nearest populated land. The script is known from only 26 surviving wooden artifacts (tablets, a staff, and two reimiro ornaments), containing a total of approximately 14,000 sign tokens drawn from an inventory of roughly 120 basic signs (with many allographic variants, the total catalogue reaches ~600). The script is unique in using <strong>reverse boustrophedon</strong>: alternate lines are written upside down, so the reader must rotate the tablet 180° at the end of each line.</p>
+
+<p>Rongorongo presents a uniquely difficult decipherment challenge because of its extreme isolation — both geographic and informational. The script was first noticed by European missionaries in the 1860s, but by that time, the devastating Peruvian slave raids of 1862 had killed or deported most of the island's literate population. When the missionary Eugène Eyraud asked about the tablets, he was told that "there was no one left who knew how to read them." The last potential readers had been killed or enslaved, taking their knowledge to the grave. This is the most complete case of <strong>total knowledge loss</strong> in the history of writing — not only is the script unread, but the entire tradition of reading it was destroyed within a single generation.</p>
+
+<p>The information-theoretic prognosis for Rongorongo is grim. With ~14,000 sign tokens across 26 objects, the corpus is small but not impossibly so (compare Linear B's ~6,000 tokens across ~5,000 tablets before decipherment). The real problems are: (1) <strong>no bilingual text</strong> exists; (2) the <strong>language</strong> is uncertain — it may be an archaic form of Rapanui (a Polynesian language still spoken), but Polynesian languages have changed significantly over centuries; (3) the <strong>function</strong> of the texts is unknown — they may be genealogies, chants, astronomical records, or something else entirely; (4) <strong>no related script</strong> exists anywhere in the Pacific to provide comparative data.</p>
+
+<div class="math-derivation">
+    <div class="math-derivation-title">Rongorongo: Quantifying the Information Deficit</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            The sign inventory of ~120 basic signs requires $\log_2 120 \approx 6.9$ bits per sign assignment. With 120 signs mapping to an unknown number of phonemes (Rapanui has ~10 consonants × 5 vowels = 50 CV syllables), the mapping space is $120! / (120 - 50)! \approx 10^{100}$ possible assignments — far too large for brute force.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            The corpus provides constraint: 14,000 tokens give us sign frequency data, bigram statistics, and positional patterns. Under optimal conditions, this could provide $\approx 14{,}000 \times 6.9 \approx 97{,}000$ bits of raw data. But much of this is redundant (repeated signs, predictable sequences).
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            The <strong>effective information</strong> in the corpus (after removing redundancy) is estimated at ~30,000–40,000 bits. The mapping requires ~500 bits to specify (120 signs × ~4 bits per assignment). In principle, the corpus <em>should</em> contain enough information to constrain the mapping — the problem is that without a known language, we have no target to optimize against.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            <strong>The fundamental barrier:</strong> Decipherment requires both a sign mapping AND a language model. For Rongorongo, neither is known. Even if we had a perfect sign mapping, the decoded text would be in an archaic Polynesian language that might be unrecognizable to modern Rapanui speakers. The script is trapped behind a <em>double barrier</em>: unknown mapping × unknown language, with neither side providing leverage against the other.
+        </div>
+    </div>
+</div>
+
+<div class="code-block">
+    <div class="code-block-header">Rongorongo Sign Distribution Analysis (Python)</div>
+    <pre><code>import math
+from collections import Counter
+
+def rongorongo_corpus_analysis():
+    """
+    Analyze the statistical properties of the Rongorongo
+    corpus and assess decipherment feasibility.
+    """
+    # Approximate distribution (based on published sign counts)
+    # Top signs are much more frequent (Zipfian distribution)
+    n_tokens = 14000
+    n_types = 120
+    n_objects = 26
+    
+    # Simulate Zipfian distribution
+    freqs = [int(n_tokens / (k * 4.5)) for k in range(1, n_types + 1)]
+    actual_total = sum(freqs)
+    freqs = [int(f * n_tokens / actual_total) for f in freqs]
+    
+    # Analysis
+    hapax = sum(1 for f in freqs if f <= 1)  # signs appearing once
+    rare = sum(1 for f in freqs if f <= 5)    # very rare signs
+    
+    # Entropy
+    total = sum(freqs)
+    H = -sum((f/total) * math.log2(f/total) for f in freqs if f > 0)
+    H_max = math.log2(n_types)
+    
+    print(f"Rongorongo Corpus Statistics")
+    print(f"{'='*45}")
+    print(f"  Tokens: {n_tokens:,}")
+    print(f"  Types (basic signs): {n_types}")
+    print(f"  Objects: {n_objects}")
+    print(f"  Tokens/object: {n_tokens/n_objects:.0f}")
+    print(f"  Hapax legomena (≤1 occurrence): {hapax}")
+    print(f"  Rare signs (≤5 occurrences): {rare}")
+    print(f"  Entropy: {H:.2f} bits (max: {H_max:.2f})")
+    print(f"  Redundancy: {1 - H/H_max:.1%}")
+    print()
+    
+    # Comparison with successfully deciphered scripts
+    scripts = [
+        ("Linear B (deciphered)", 6000, 87, True),
+        ("Rongorongo", 14000, 120, False),
+        ("Phaistos Disc", 241, 45, False),
+        ("Indus Script", 4200, 400, False),
+    ]
+    
+    print(f"{'Script':<25} {'Tokens':>7} {'Types':>6} "
+          f"{'Tok/Type':>9} {'Status':>12}")
+    print("-" * 65)
+    for name, tok, typ, solved in scripts:
+        ratio = tok / typ
+        status = "✓ Solved" if solved else "✗ Unsolved"
+        print(f"  {name:<23} {tok:>7} {typ:>6} "
+              f"{ratio:>8.1f} {status:>12}")
+    
+    print(f"\nKey insight: tokens/type ratio alone doesn't predict")
+    print(f"success — Linear B had only 69 tokens/type but was")
+    print(f"solved because the LANGUAGE (Greek) was known.")
+
+rongorongo_corpus_analysis()</code></pre>
+</div>
+
+<div class="note-box">
+    <div class="box-title">The "lunar calendar" hypothesis</div>
+    <p>One of the more intriguing proposals for Rongorongo is that some tablets record a <strong>lunar calendar</strong>. The evidence: (a) certain sign sequences on Tablet C (<em>Mamari</em>) contain a series of crescent-shaped signs that could represent moon phases, (b) the number of sign groups in some sequences is close to 29–30 (the length of a lunar month), and (c) some signs resemble astronomical symbols found in other Polynesian traditions. If confirmed, this would provide a powerful crib: the sequence of moon phases is known, and matching it to sign sequences could anchor phonetic values. However, the evidence remains circumstantial, and many scholars are skeptical. The hypothesis illustrates a general principle: <em>any</em> connection to a known external reference — calendar, genealogy, astronomical event — could break the decipherment open, because it provides the one thing the corpus lacks: content that can be independently verified.</p>
+</div>
+
+<h2 id="indus-deep">The Indus Script: Debate Over Linguistic Status</h2>
+
+<p>The most contentious question in undeciphered script studies is whether the <strong>Indus script</strong> (also called Harappan script) is a writing system at all. Used by the Indus Valley Civilization (~2600–1900 BCE) across the vast urban centers of Harappa, Mohenjo-daro, and hundreds of other sites, the script appears on approximately 4,200 objects — primarily small seal stamps, but also on pottery, copper tablets, and ivory rods. The corpus contains roughly 17,000 sign tokens drawn from an inventory of ~400 distinct signs.</p>
+
+<p>The "writing vs. not-writing" debate centers on a striking statistical observation: <strong>Indus texts are extremely short</strong>. The average inscription is only 4–5 signs long; the longest known text contains just 26 signs (on a three-sided prism). No Indus text approaches the length of even the shortest literary or administrative texts from contemporary Mesopotamia or Egypt. This extreme brevity has led some scholars — most prominently Steve Farmer, Richard Sproat, and Michael Witzel — to argue that the Indus signs are not linguistic writing but rather <strong>non-linguistic symbol systems</strong>: heraldic emblems, clan markers, religious symbols, or property marks that convey identity and status without encoding speech.</p>
+
+<p>The opposing camp — led by Asko Parpola, Iravatham Mahadevan, and others — argues that the signs show statistical regularities consistent with language: positional preferences (some signs appear only at the beginning or end of inscriptions), Zipfian frequency distributions, and conditional entropy values similar to known linguistic scripts. They note that the short text lengths may reflect the functional context (seals typically bear brief labels, like a name or title) rather than a limitation of the system itself.</p>
+
+<div class="code-block">
+    <div class="code-block-header">Indus Script: Linguistic vs. Non-Linguistic Test (Python)</div>
+    <pre><code>import math, random
+
+def conditional_entropy_test(sequences, n_symbols):
+    """
+    Calculate the conditional entropy H(X_n | X_{n-1}) of a 
+    sequence of symbols. Linguistic scripts typically show
+    H(X|prev) significantly lower than H(X) — the next symbol
+    is partially predictable from the previous one.
+    
+    Non-linguistic systems (random marks, heraldic symbols) show
+    H(X|prev) ≈ H(X) — no sequential dependency.
+    """
+    from collections import Counter
+    
+    # Unigram entropy
+    all_symbols = [s for seq in sequences for s in seq]
+    total = len(all_symbols)
+    freq = Counter(all_symbols)
+    H_unigram = -sum((c/total) * math.log2(c/total) 
+                      for c in freq.values())
+    
+    # Bigram conditional entropy
+    bigrams = Counter()
+    prev_counts = Counter()
+    for seq in sequences:
+        for i in range(len(seq) - 1):
+            bigrams[(seq[i], seq[i+1])] += 1
+            prev_counts[seq[i]] += 1
+    
+    H_cond = 0
+    for (a, b), count in bigrams.items():
+        p_ab = count / (total - len(sequences))
+        p_b_given_a = count / prev_counts[a]
+        H_cond -= p_ab * math.log2(p_b_given_a)
+    
+    ratio = H_cond / H_unigram if H_unigram > 0 else 1.0
+    
+    return H_unigram, H_cond, ratio
+
+# Compare known scripts vs random
+def generate_linguistic(n_seqs, avg_len, n_symbols):
+    """Simulate linguistic text with bigram dependencies."""
+    seqs = []
+    for _ in range(n_seqs):
+        seq = [random.randint(0, n_symbols-1)]
+        for _ in range(random.randint(2, avg_len)):
+            # Next symbol depends on previous (linguistic pattern)
+            if random.random() < 0.4:
+                seq.append((seq[-1] + random.randint(1,3)) % n_symbols)
+            else:
+                seq.append(random.randint(0, n_symbols-1))
+        seqs.append(seq)
+    return seqs
+
+def generate_random(n_seqs, avg_len, n_symbols):
+    """Simulate non-linguistic random marks."""
+    return [[random.randint(0, n_symbols-1) 
+             for _ in range(random.randint(2, avg_len))]
+            for _ in range(n_seqs)]
+
+random.seed(42)
+print(f"{'System':<25} {'H(X)':>6} {'H(X|prev)':>10} {'Ratio':>7}")
+print("-" * 52)
+
+for name, gen_func, n_sym in [
+    ("Simulated linguistic", generate_linguistic, 50),
+    ("Random symbols", generate_random, 50),
+    ("Indus-like (short)", generate_linguistic, 400),
+]:
+    seqs = gen_func(1000, 5, n_sym)
+    h1, hc, r = conditional_entropy_test(seqs, n_sym)
+    verdict = "LINGUISTIC" if r < 0.85 else "AMBIGUOUS" if r < 0.95 else "NON-LINGUISTIC"
+    print(f"  {name:<23} {h1:>5.2f} {hc:>9.2f} {r:>6.2f}  {verdict}")
+
+print("\nLinguistic scripts: ratio typically 0.5–0.8")
+print("Non-linguistic:     ratio typically 0.9–1.0")
+print("Indus script:       ratio ≈ 0.83 (borderline!)")</code></pre>
+</div>
+
+<svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:720px;display:block;margin:2rem auto;" aria-label="Spectrum of undeciphered scripts by feasibility">
+  <text x="360" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">Decipherment Feasibility Spectrum</text>
+  <defs>
+    <linearGradient id="feasGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#dc2626"/>
+      <stop offset="50%" style="stop-color:#d97706"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+  </defs>
+  <rect x="60" y="40" width="600" height="24" rx="12" fill="url(#feasGrad)" opacity="0.3"/>
+  <rect x="60" y="40" width="600" height="24" rx="12" fill="none" stroke="#6b7280" stroke-width="1"/>
+  <text x="60" y="78" font-size="8" fill="#dc2626" font-weight="bold">IMPOSSIBLE</text>
+  <text x="660" y="78" text-anchor="end" font-size="8" fill="#16a34a" font-weight="bold">FEASIBLE</text>
+  <text x="360" y="78" text-anchor="middle" font-size="8" fill="#d97706" font-weight="bold">DIFFICULT</text>
+  <!-- Scripts placed on spectrum -->
+  <circle cx="110" cy="52" r="8" fill="#dc2626" stroke="white" stroke-width="2"/>
+  <text x="110" y="100" text-anchor="middle" font-size="8" fill="#991b1b" font-weight="bold">Phaistos Disc</text>
+  <text x="110" y="112" text-anchor="middle" font-size="7" fill="#6b7280">241 tokens, no bilingual</text>
+  <text x="110" y="122" text-anchor="middle" font-size="7" fill="#6b7280">unknown language</text>
+  <circle cx="220" cy="52" r="8" fill="#dc2626" stroke="white" stroke-width="2"/>
+  <text x="220" y="100" text-anchor="middle" font-size="8" fill="#991b1b" font-weight="bold">Rongorongo</text>
+  <text x="220" y="112" text-anchor="middle" font-size="7" fill="#6b7280">14K tokens, no bilingual</text>
+  <text x="220" y="122" text-anchor="middle" font-size="7" fill="#6b7280">uncertain language</text>
+  <circle cx="340" cy="52" r="8" fill="#d97706" stroke="white" stroke-width="2"/>
+  <text x="340" y="100" text-anchor="middle" font-size="8" fill="#92400e" font-weight="bold">Indus Script</text>
+  <text x="340" y="112" text-anchor="middle" font-size="7" fill="#6b7280">17K tokens, very short texts</text>
+  <text x="340" y="122" text-anchor="middle" font-size="7" fill="#6b7280">may not be linguistic</text>
+  <circle cx="450" cy="52" r="8" fill="#d97706" stroke="white" stroke-width="2"/>
+  <text x="450" y="100" text-anchor="middle" font-size="8" fill="#92400e" font-weight="bold">Linear A</text>
+  <text x="450" y="112" text-anchor="middle" font-size="7" fill="#6b7280">7K tokens, known signs (via B)</text>
+  <text x="450" y="122" text-anchor="middle" font-size="7" fill="#6b7280">unknown language</text>
+  <circle cx="560" cy="52" r="8" fill="#16a34a" stroke="white" stroke-width="2"/>
+  <text x="560" y="100" text-anchor="middle" font-size="8" fill="#166534" font-weight="bold">Proto-Elamite</text>
+  <text x="560" y="112" text-anchor="middle" font-size="7" fill="#6b7280">1600 tablets, numbers decoded</text>
+  <text x="560" y="122" text-anchor="middle" font-size="7" fill="#6b7280">possible Elamite relation</text>
+  <rect x="60" y="140" width="600" height="60" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1"/>
+  <text x="360" y="158" text-anchor="middle" font-size="9" fill="#475569" font-weight="bold">What determines position on this spectrum?</text>
+  <text x="360" y="175" text-anchor="middle" font-size="8" fill="#475569">Corpus size × Known language × Bilingual text × Sign inventory complexity</text>
+  <text x="360" y="190" text-anchor="middle" font-size="8" fill="#475569">Each factor multiplicatively contributes; missing ANY factor dramatically reduces feasibility</text>
+</svg>
+
+<div class="note-box">
+    <div class="box-title">What would change the game: discovery scenarios</div>
+    <p>For each undeciphered script, there exists a hypothetical discovery that would transform the decipherment prospect overnight. For the <strong>Indus script</strong>: a bilingual seal with a name in both Indus signs and a known script (Mesopotamian cuneiform seals mentioning "Meluhha" — the Akkadian name for the Indus civilization — are tantalizingly close but don't include Indus text). For <strong>Linear A</strong>: identification of the Minoan language through genetic or loanword studies connecting it to a known language family. For <strong>Rongorongo</strong>: discovery of a longer text (perhaps on a degraded tablet not yet recognized in museum collections) or a Rapanui oral tradition that preserves the content of specific tablets. For <strong>Proto-Elamite</strong>: a bilingual tablet from the Elamite-Mesopotamian border region where both scripts were used. In every case, the missing piece is <em>external constraint</em> — information that comes from outside the script's own corpus.</p>
 </div>
 
 
