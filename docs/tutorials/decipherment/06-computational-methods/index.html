@@ -66,6 +66,7 @@
     </header>
     <div class="tutorial-wrapper">
         <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">Decipherment</h3>
@@ -508,6 +509,155 @@ def evaluate_decipherment(proposed_text, reference_bigrams, reference_words):
     <p><strong>Unsupervised machine translation (UMT)</strong> is the task of translating between two languages using only monolingual corpora — no parallel (bilingual) text. UMT systems learn by: (1) building separate representations of each language's structure, (2) aligning these representations in a shared space using distributional similarity (words that appear in similar contexts in different languages tend to be translations), and (3) training a translator that converts between representations. For decipherment, UMT is the ideal framework: the "source language" is the undeciphered script and the "target language" is a known related language. The alignment step is where decipherment happens — finding the mapping between unknown signs and known language elements.</p>
 </div>
 
+
+<h2 id="mcmc-methods">MCMC Methods for Script Decipherment</h2>
+
+<p><strong>Markov Chain Monte Carlo (MCMC)</strong> methods have emerged as one of the most powerful computational approaches to script decipherment. The basic idea is elegant: treat the unknown sign-to-sound mapping as a probability distribution, and use MCMC sampling to explore the space of possible mappings, guided by a language model that scores each proposed mapping by how well it produces valid text in a known or hypothesized language.</p>
+
+<p>The approach works as follows. Define the <strong>state space</strong> as all possible mappings from the undeciphered script's signs to phonemes (or syllables) of a candidate language. At each step, propose a small change to the current mapping (e.g., swap the values assigned to two signs). Score the resulting decipherment using a character-level language model (typically a bigram or trigram model trained on known texts in the candidate language). If the new mapping produces more "language-like" output, accept it; otherwise, accept it with a probability proportional to its relative score (the Metropolis-Hastings criterion). Over many iterations, the chain converges toward mappings that produce valid text.</p>
+
+<div class="code-block">
+    <div class="code-block-header">MCMC Decipherment Framework (Python)</div>
+    <pre><code>import math, random
+from collections import Counter
+
+def build_bigram_model(training_text):
+    """Build a character bigram language model."""
+    bigrams = Counter()
+    unigrams = Counter()
+    for i in range(len(training_text) - 1):
+        bigrams[training_text[i:i+2]] += 1
+        unigrams[training_text[i]] += 1
+    
+    # Log-probabilities with Laplace smoothing
+    vocab = set(training_text)
+    V = len(vocab)
+    log_probs = {}
+    for a in vocab:
+        for b in vocab:
+            count = bigrams.get(a + b, 0)
+            total = unigrams.get(a, 0)
+            log_probs[(a, b)] = math.log(
+                (count + 1) / (total + V))
+    
+    return log_probs, vocab
+
+def score_decipherment(cipher_text, mapping, lm):
+    """Score a proposed decipherment using language model."""
+    log_probs, vocab = lm
+    deciphered = ''.join(mapping.get(c, c) for c in cipher_text)
+    
+    score = 0
+    for i in range(len(deciphered) - 1):
+        pair = (deciphered[i], deciphered[i+1])
+        score += log_probs.get(pair, -15)  # heavy penalty
+    
+    return score
+
+def mcmc_decipher(cipher_text, lm, n_iterations=10000):
+    """
+    Use Metropolis-Hastings MCMC to find the best
+    sign-to-letter mapping.
+    """
+    log_probs, vocab = lm
+    cipher_chars = list(set(cipher_text))
+    plain_chars = list(vocab)
+    
+    # Random initial mapping
+    mapping = dict(zip(cipher_chars,
+                       random.sample(plain_chars,
+                                     min(len(cipher_chars),
+                                         len(plain_chars)))))
+    
+    best_score = score_decipherment(cipher_text, mapping, lm)
+    best_mapping = mapping.copy()
+    
+    accepted = 0
+    for i in range(n_iterations):
+        # Propose: swap two random mappings
+        new_mapping = mapping.copy()
+        a, b = random.sample(cipher_chars, 2)
+        new_mapping[a], new_mapping[b] = (
+            new_mapping.get(b, b), new_mapping.get(a, a))
+        
+        new_score = score_decipherment(
+            cipher_text, new_mapping, lm)
+        
+        # Metropolis-Hastings acceptance
+        delta = new_score - best_score
+        if delta > 0 or random.random() < math.exp(delta):
+            mapping = new_mapping
+            accepted += 1
+            if new_score > best_score:
+                best_score = new_score
+                best_mapping = new_mapping.copy()
+    
+    print(f"MCMC: {n_iterations} iterations, "
+          f"{accepted} accepted ({100*accepted/n_iterations:.1f}%)")
+    return best_mapping, best_score
+
+# Demo with a simple substitution cipher
+training = "the quick brown fox jumps over the lazy dog " * 100
+lm = build_bigram_model(training)
+
+plain = "the fox jumps"
+cipher_map = dict(zip("abcdefghijklmnopqrstuvwxyz ",
+                       "zyxwvutsrqponmlkjihgfedcba "))
+cipher = ''.join(cipher_map.get(c, c) for c in plain)
+
+result, score = mcmc_decipher(cipher, lm, 5000)
+deciphered = ''.join(result.get(c, c) for c in cipher)
+print(f"Cipher:     {cipher}")
+print(f"Deciphered: {deciphered}")
+print(f"Original:   {plain}")</code></pre>
+</div>
+
+<div class="note-box">
+    <div class="box-title">The Ugaritic algorithm: Snyder et al. (2010)</div>
+    <p>The landmark paper by Snyder, Barzilay, and Knight (2010) demonstrated that MCMC-based methods could automatically decipher the <strong>Ugaritic</strong> script — an ancient alphabetic cuneiform used at the site of Ugarit (Syria, ~1400–1200 BCE). Their algorithm used a bigram language model of Hebrew (a related Semitic language) as the target and searched for the best mapping from Ugaritic signs to Hebrew letters. The system correctly identified 29 of 30 Ugaritic letters with no human intervention — a remarkable achievement. The key insight was that related languages share statistical patterns (bigram frequencies, word length distributions) that constrain the mapping even without a bilingual text. This approach has since been extended to other scripts and represents a genuine paradigm shift: the first time a machine has independently deciphered an ancient writing system.</p>
+</div>
+
+<h2 id="transfer-learning">Transfer Learning for Ancient Scripts</h2>
+
+<p>Recent advances in deep learning have opened new possibilities for computational decipherment through <strong>transfer learning</strong> — the idea that a model trained on one script or language can transfer its knowledge to help with an unfamiliar script. This is particularly promising for undeciphered scripts where direct training data is nonexistent.</p>
+
+<p>The key insight is that writing systems, despite their surface diversity, share deep structural properties: they encode language, and language has universal statistical regularities (Zipf's law, predictable entropy rates, morphological patterns). A neural network trained to recognize these patterns in known scripts can potentially identify them in unknown scripts — serving as a "universal writing system detector" that can classify signs by function (phonogram vs. logogram vs. determinative) and identify structural relationships (which signs are likely to share phonetic features) without knowing the specific phonetic values.</p>
+
+<div class="note-box">
+    <div class="box-title">AI limitations in decipherment</div>
+    <p>Despite the excitement around computational methods, it is important to recognize their limitations. Current AI approaches work best on <strong>substitution-like</strong> problems: scripts where each sign maps to a fixed phonetic value in a known language. They struggle with <strong>logosyllabic</strong> systems (where signs can be logograms, syllabograms, or determinatives depending on context), with <strong>unknown languages</strong> (where no language model can be constructed), and with <strong>small corpora</strong> (where statistical patterns are unreliable). The Indus script, for example, defeats current computational methods because it is short, the language is unknown, and the script may be logosyllabic. The fundamental limitation is that AI can optimize within a defined search space but cannot make the <em>creative leaps</em> that characterized breakthroughs by Champollion, Ventris, and Knorozov — redefining the problem itself rather than searching within the existing framework.</p>
+</div>
+
+<svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:720px;display:block;margin:2rem auto;" aria-label="Computational approaches to decipherment">
+  <text x="360" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">Computational Decipherment: Methods and Their Sweet Spots</text>
+  <rect x="30" y="38" width="200" height="135" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="130" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#1e40af">Frequency Analysis</text>
+  <text x="130" y="76" text-anchor="middle" font-size="8" fill="#2563eb">Classical statistical method</text>
+  <text x="130" y="95" text-anchor="middle" font-size="8" fill="#2563eb">✓ Simple substitution ciphers</text>
+  <text x="130" y="108" text-anchor="middle" font-size="8" fill="#2563eb">✓ Alphabetic scripts</text>
+  <text x="130" y="121" text-anchor="middle" font-size="8" fill="#dc2626">✗ Polyvalent/logographic</text>
+  <text x="130" y="134" text-anchor="middle" font-size="8" fill="#dc2626">✗ Small corpora</text>
+  <text x="130" y="165" text-anchor="middle" font-size="7" fill="#6b7280">Best for: Linear B, Ugaritic</text>
+  <rect x="260" y="38" width="200" height="135" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="360" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">MCMC / Bayesian</text>
+  <text x="360" y="76" text-anchor="middle" font-size="8" fill="#d97706">Probabilistic search</text>
+  <text x="360" y="95" text-anchor="middle" font-size="8" fill="#d97706">✓ With related language model</text>
+  <text x="360" y="108" text-anchor="middle" font-size="8" fill="#d97706">✓ Handles noise/damage</text>
+  <text x="360" y="121" text-anchor="middle" font-size="8" fill="#dc2626">✗ Unknown language</text>
+  <text x="360" y="134" text-anchor="middle" font-size="8" fill="#dc2626">✗ Large sign inventories</text>
+  <text x="360" y="165" text-anchor="middle" font-size="7" fill="#6b7280">Best for: Ugaritic, related-lang scripts</text>
+  <rect x="490" y="38" width="200" height="135" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="590" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#166534">Deep Learning</text>
+  <text x="590" y="76" text-anchor="middle" font-size="8" fill="#16a34a">Neural pattern recognition</text>
+  <text x="590" y="95" text-anchor="middle" font-size="8" fill="#16a34a">✓ Sign identification (OCR)</text>
+  <text x="590" y="108" text-anchor="middle" font-size="8" fill="#16a34a">✓ Structural analysis</text>
+  <text x="590" y="121" text-anchor="middle" font-size="8" fill="#dc2626">✗ True decipherment (alone)</text>
+  <text x="590" y="134" text-anchor="middle" font-size="8" fill="#dc2626">✗ Creative reframing</text>
+  <text x="590" y="165" text-anchor="middle" font-size="7" fill="#6b7280">Best for: sign classification, damage repair</text>
+  <text x="360" y="195" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">No single method solves all scripts — human insight + computation is the strongest approach</text>
+</svg>
+
+
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px; border-left: 4px solid #7c3aed;">
     <h2 style="margin-top: 0;">Key Takeaways: Computational Decipherment</h2>
     <p><strong>Decipherment is fundamentally a search problem:</strong> find the sign-to-sound mapping that maximizes linguistic plausibility under a language model. All algorithms — from Al-Kindi's frequency analysis to neural approaches — share this structure.</p>
@@ -553,6 +703,9 @@ def evaluate_decipherment(proposed_text, reference_bigrams, reference_words):
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F7E1;</span><span class="exercise-title">15. Genetic algorithms for decipherment</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Describe a genetic algorithm for decipherment: population, fitness, mutation, crossover.</p><p>Population: 100+ candidate sign-to-phoneme mappings. Fitness: Perplexity under language model (lower=better). Mutation: Swap two phoneme assignments randomly. Crossover: Combine top-10 mappings by taking phoneme assignments from each parent. Evolve for 1000 generations. Avoids local optima via population diversity.</p></div></div>
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F7E1;</span><span class="exercise-title">16. Proto-Elamite computational pipeline</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Design a computational pipeline for Proto-Elamite: corpus preprocessing, numerical anchors, language model, search.</p><p>Pipeline: (1) Preprocess: Segment tablets via OCR/ML, extract glyph sequences. (2) Anchors: Mark known numerals (fixed values). (3) Language model: Train on reconstructed Elamite+related languages. (4) Semantic context: Identify inventory words (sheep, barley) via predictable collocations. (5) Search: EM or simulated annealing, optimizing linguistic plausibility × numeric consistency. (6) Validate: Cross-check against historical records, related scripts.</p></div></div>
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F7E1;</span><span class="exercise-title">17. Citizen science + computation</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Explain how citizen science and computational methods complement each other in decipherment (e.g., Proto-Elamite projects).</p><p>Citizen science: Humans segment tablets, classify glyphs, identify rare sequences (pattern recognition at scale). Computation: Algorithms learn from human classifications, predict glyph values, identify high-confidence correspondences. Feedback loop: Humans validate computational predictions, refine model. Neither alone suffices; together they scale human insight.</p></div></div>
+                <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F7E1;</span><span class="exercise-title">18. MCMC convergence diagnostics</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> In MCMC decipherment, how do you determine whether the Markov chain has converged to the correct mapping? Describe at least two diagnostic methods.</p><p>(1) <strong>Multiple independent chains:</strong> Run 5+ chains from random initial mappings and check whether they converge to the same solution. If all chains agree, convergence is likely; disagreement indicates insufficient exploration. (2) <strong>Log-likelihood trace plot:</strong> Plot the language model score over iterations. Convergence shows a plateau — the score stabilizes. If still increasing, the chain hasn't converged. (3) <strong>Gelman-Rubin statistic (R̂):</strong> Compare within-chain and between-chain variance. R̂ ≈ 1.0 indicates convergence. (4) <strong>Effective sample size:</strong> Measure autocorrelation; low effective samples mean the chain is exploring slowly. For decipherment, the strongest signal is agreement between independent chains — if 5 random starts produce the same mapping, confidence is very high.</p></div></div>
+                <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F7E1;</span><span class="exercise-title">19. Evaluating candidate languages</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> When using computational methods on an undeciphered script, you must choose a candidate target language. How can you systematically evaluate which candidate language produces the best decipherment? What metrics would you use?</p><p>(1) <strong>Perplexity:</strong> For each candidate language, train a language model and run the decipherment algorithm. The language that produces the lowest perplexity (highest probability) text is the best candidate. (2) <strong>Word boundary alignment:</strong> Check whether decoded text produces valid words at boundaries already identified in the script. Higher word-hit rate = better language match. (3) <strong>Morphological consistency:</strong> If the script shows inflectional patterns, check whether decoded endings match the candidate language's morphology. (4) <strong>Geographic/temporal plausibility:</strong> Weight candidates by archaeological context — a Bronze Age Cretan script is more likely to encode an Aegean language than a Central Asian one. Combined scoring: weighted sum of perplexity, word hits, and morphological fit, filtered by historical plausibility.</p></div></div>
+                <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F7E1;</span><span class="exercise-title">20. Transfer learning feasibility</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> A neural network trained to classify sign functions (logogram vs. syllabogram vs. determinative) on Egyptian hieroglyphs is applied to an undeciphered script. Under what conditions would this transfer learning approach work? When would it fail?</p><p><strong>Works when:</strong> (1) Both scripts share structural properties (mixed logosyllabic system with determinatives). (2) The network learned <em>general</em> features like frequency distributions, positional patterns, and co-occurrence constraints rather than script-specific visual features. (3) Sufficient undeciphered corpus for the network to detect statistical patterns. <strong>Fails when:</strong> (1) The undeciphered script has fundamentally different structure (purely alphabetic, or purely logographic). (2) The corpus is too small for reliable statistics. (3) The network overfit to Egyptian-specific features (visual glyph shapes rather than distributional patterns). (4) The undeciphered script may not be linguistic at all (e.g., Indus hypothesis). Best approach: train on multiple known scripts (Egyptian + Maya + Cuneiform) to learn truly universal writing system features.</p></div></div>
                 <h3>&#x1F534; Hard</h3>
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F534;</span><span class="exercise-title">21. Complete Bayesian formulation</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Formulate Bayesian decipherment: Prior P(f) (phonetic plausibility), Likelihood P(C|f) (linguistic fit), and Posterior. Describe sampling or optimization.</p><p>Prior: P(f) ∝ \prod phonetic_plausibility(sign_i → phoneme_i). Likelihood: P(C|f) = Language_model(decode(corpus, f)). Posterior: ∝ Prior × Likelihood. Optimization: MAP (maximum a posteriori) via hill climbing, EM, or MCMC sampling. EM: E-step estimates expected alignments; M-step maximizes likelihood. MCMC: Sample from posterior distribution directly.</p></div></div>
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F534;</span><span class="exercise-title">22. Local optima problem</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Hill climbing can get stuck at local optima. Propose three methods to escape: simulated annealing, genetic algorithms, and multi-start. Which is best for decipherment and why?</p><p>(1) Simulated annealing: Accept worse solutions with decreasing probability as T→0. (2) Genetic algorithms: Maintain population, breed good solutions, mutation explores. (3) Multi-start: Run hill climbing from 100 random initializations, return best. For decipherment: Multi-start + simulated annealing best—multi-start is fast; simulated annealing fine-tunes. Genetic algorithms also strong but slower. Optimal: Hybrid (multi-start → simulated annealing on best).</p></div></div>
