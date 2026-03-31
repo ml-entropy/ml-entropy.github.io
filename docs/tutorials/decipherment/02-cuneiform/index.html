@@ -115,6 +115,8 @@
 
 <p><strong>Phase 3: Systematic syllabary (2500–1500 BCE).</strong> As Akkadian-speaking peoples adopted the Sumerian system, they inherited both the logograms and the phonetic readings, while adding their own. The result was a massive, redundant system where a single sign could have multiple logographic meanings AND multiple phonetic readings — <em>polyvalence</em> at its most extreme.</p>
 
+<p><strong>Phase 4: Simplification for Persian (520 BCE).</strong> When Darius the Great commissioned his monumental inscription at Behistun, he ordered the creation of a simplified cuneiform specifically for Old Persian — only ~36 signs, essentially a syllabary with a few logograms. This deliberate simplification was the entry point that made the entire cuneiform family decipherable.</p>
+
 <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:2rem auto;" aria-label="Evolution of cuneiform from pictograph to wedge">
   <text x="350" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">Cuneiform Evolution: Picture → Abstract Wedges</text>
   <rect x="20" y="35" width="140" height="100" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
@@ -147,6 +149,11 @@
   <text x="350" y="160" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">Sign count: ~1000 → ~600 → ~600 (Akkadian) → ~36 (Old Persian simplification)</text>
   <text x="350" y="178" text-anchor="middle" font-size="10" fill="#6b7280">Complexity ↑ through Akkadian adoption, then ↓ through Old Persian reform</text>
 </svg>
+
+<div class="note-box">
+    <div class="box-title">Why cuneiform was adopted by unrelated languages</div>
+    <p>Cuneiform was invented for Sumerian — a language isolate with no known relatives. Yet it was adopted by Akkadian (Semitic), Elamite (isolate), Hittite (Indo-European), Hurrian (isolate), and others. Each adoption layer added new readings to existing signs while preserving old ones. This is like imagining that Chinese characters were adopted by English, Japanese, Arabic, and Swahili speakers simultaneously — each adding their own pronunciations to the same symbols. The result was staggering polyvalence: a single sign might have Sumerian, Akkadian, Elamite, and Hittite readings simultaneously. Understanding this historical layering was essential to decipherment.</p>
+</div>
 
 <h2 id="polyvalence">Polyvalence: The Central Challenge</h2>
 
@@ -190,6 +197,60 @@
     </div>
 </div>
 
+<h3 id="worked-example-polyvalence">Worked Example: Resolving a Polyvalent Sign</h3>
+
+<p>Let us walk through a concrete example of how a reader (or decipherer) resolves polyvalence. Consider the sign <strong>KA</strong>, which can be read as:</p>
+
+<div class="note-box">
+    <div class="box-title">Worked Example: The sign KA in three contexts</div>
+    <p><strong>Context 1:</strong> The sign appears after a person's name and before a verb of speaking. Reading: <em>ka</em> = "mouth" (Sumerian logogram). The semantic context (speech action) selects the "mouth/speech" reading.</p>
+    <p><strong>Context 2:</strong> The sign appears between two other syllabic signs in the middle of an Akkadian word: <em>na-KA-ru</em>. Reading: <em>ka</em> = the syllable /ka/ (phonetic). The surrounding syllabic signs indicate we are in phonetic mode.</p>
+    <p><strong>Context 3:</strong> The sign appears before a geographic name. Reading: determinative for "gate/entrance" (Sumerian <em>ká</em> = gate). The position before a place name selects the geographic classifier reading.</p>
+    <p>Three completely different functions — logogram, phonogram, determinative — from the same visual sign, disambiguated entirely by context. A fluent reader processes this automatically, just as an English reader automatically disambiguates "lead" (the metal) from "lead" (to guide) based on context.</p>
+</div>
+
+<div class="code-block">
+    <div class="code-block-header">Modeling Polyvalence Resolution (Python)</div>
+    <pre><code>import math
+
+def resolve_polyvalence(sign, context, reading_table, bigram_model):
+    """
+    Given a polyvalent cuneiform sign and its context,
+    return the most probable reading.
+    
+    sign: the cuneiform sign ID
+    context: tuple of (prev_sign_reading, next_sign_reading)
+    reading_table: dict mapping sign -> list of possible readings
+    bigram_model: P(reading | prev_reading) from training corpus
+    """
+    possible_readings = reading_table[sign]
+    prev_reading, next_reading = context
+    
+    best_reading = None
+    best_score = float('-inf')
+    
+    for reading in possible_readings:
+        # Score = log P(reading | prev) + log P(next | reading)
+        score = (math.log2(bigram_model.get((prev_reading, reading), 1e-10))
+               + math.log2(bigram_model.get((reading, next_reading), 1e-10)))
+        if score > best_score:
+            best_score = score
+            best_reading = reading
+    
+    # Calculate confidence: how much better is best vs second-best?
+    scores = sorted([
+        math.log2(bigram_model.get((prev_reading, r), 1e-10))
+        + math.log2(bigram_model.get((r, next_reading), 1e-10))
+        for r in possible_readings
+    ], reverse=True)
+    
+    margin = scores[0] - scores[1] if len(scores) > 1 else float('inf')
+    return best_reading, margin
+
+# Example: sign with 4 readings, strong contextual constraint
+# margin > 3 bits → very high confidence in the chosen reading</code></pre>
+</div>
+
 <div class="note-box">
     <div class="box-title">Polyvalence is not a bug — it is compression</div>
     <p>From a communication standpoint, polyvalence seems like terrible design. Why not have one sign per reading? But consider the alternative: an unambiguous system would need ~600 signs × ~4 readings = ~2400 distinct signs. By reusing signs across readings and relying on context for disambiguation, cuneiform achieves a 4:1 <em>compression ratio</em> on its sign inventory. The cost is transferred to the reader (who must use context), but skilled readers process context automatically — just as English readers resolve "read" (present vs. past tense) without conscious effort. Polyvalence is a rational design tradeoff in a system where <em>creating</em> new signs (carving into clay) is expensive but <em>using</em> context is cheap.</p>
@@ -231,9 +292,54 @@
   <text x="350" y="235" text-anchor="middle" font-size="9" fill="#6b7280" font-style="italic">Only this king pair fits: A=Xerxes, B=Darius, C=Hystaspes (not a king)</text>
 </svg>
 
+<h3 id="grotefend-algorithm">Formalizing Grotefend's Method</h3>
+
+<p>Grotefend's reasoning can be expressed as a constraint satisfaction algorithm. The key insight is that <strong>known historical structure</strong> provides powerful constraints even without a bilingual text:</p>
+
+<div class="code-block">
+    <div class="code-block-header">Grotefend's Royal Formula Deduction (Pseudocode)</div>
+    <pre><code># Input: Two inscriptions with placeholder patterns
+# inscription_1: [A], title, title, son of [B], title
+# inscription_2: [B], title, title, son of [C], (no title)
+
+# Known: list of Achaemenid kings and their fathers
+kings = {
+    "Cyrus":     {"father": "Cambyses_I",  "was_king": True},
+    "Cambyses":  {"father": "Cyrus",       "was_king": True},
+    "Darius":    {"father": "Hystaspes",   "was_king": True},
+    "Xerxes":    {"father": "Darius",      "was_king": True},
+    "Artaxerxes":{"father": "Xerxes",      "was_king": True},
+}
+non_kings = {"Hystaspes", "Cambyses_I", "Arsames"}
+
+# Constraints from inscriptions:
+# 1. B is father of A          (from inscription 1)
+# 2. B was a king               (has royal title in insc. 1)
+# 3. C is father of B          (from inscription 2)
+# 4. C was NOT a king           (no royal title in insc. 2)
+
+# Search for matching (A, B, C) triple:
+for name_A, info_A in kings.items():
+    B = info_A["father"]
+    if B not in kings:
+        continue  # Constraint 2: B must be a king
+    C = kings[B]["father"]
+    if C in kings:
+        continue  # Constraint 4: C must NOT be a king
+    print(f"Solution: A={name_A}, B={B}, C={C}")
+
+# Output: A=Xerxes, B=Darius, C=Hystaspes ✓
+# This is the ONLY triple satisfying all four constraints!</code></pre>
+</div>
+
 <div class="note-box">
     <div class="box-title">Why Grotefend succeeded with so little data</div>
     <p>Grotefend had no bilingual text, no knowledge of Old Persian, and only two short inscriptions. Yet he correctly identified about a third of the Old Persian signs. His secret was <em>structural knowledge</em>: he knew the <strong>formula</strong> these inscriptions must follow (from Greek historians like Herodotus) and the <strong>genealogy</strong> of Achaemenid kings. This background knowledge served the same role as the Greek text on the Rosetta Stone — it provided external constraints that anchored the mapping. In information-theoretic terms, Grotefend's historical knowledge was a <em>prior</em> that collapsed an enormous search space to a manageable set of candidates.</p>
+</div>
+
+<div class="note-box">
+    <div class="box-title">The uniqueness of Grotefend's solution</div>
+    <p>Notice that the constraint-satisfaction search yields exactly <strong>one</strong> solution. This is not coincidence — it reflects the information content of the constraints. The four constraints (A-is-son-of-B, B-is-king, B-is-son-of-C, C-is-not-king) together eliminate all but one combination from the ~20 possible triples. In information-theoretic terms: 4 binary constraints provide up to 4 bits of information, and $\log_2 20 \approx 4.3$ bits are needed to uniquely select one triple from 20. The constraints are almost perfectly matched to the problem size — an elegant coincidence that made Grotefend's deduction possible.</p>
 </div>
 
 <h2 id="rawlinson">Rawlinson and Behistun: The Cuneiform Rosetta Stone</h2>
@@ -268,7 +374,6 @@
   <text x="495" y="155" text-anchor="middle" font-size="9" fill="#9d174d">logograms + syllables</text>
   <path d="M320,85 L340,85 L340,140 L370,140" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#arrowCun)"/>
   <text x="342" y="116" font-size="8" fill="#16a34a" font-weight="bold" transform="rotate(90 342 116)">names</text>
-  <path d="M320,145 L350,145 L350,200 L370,200" fill="none" stroke="#16a34a" stroke-width="0"/>
   <rect x="80" y="180" width="540" height="35" rx="4" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
   <text x="350" y="200" text-anchor="middle" font-size="10" fill="#166534" font-weight="bold">Decipherment cascade: Persian (known) → Elamite (partly inferred) → Babylonian (target)</text>
   <text x="350" y="245" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">Proper names (kings, places) served as the bridge between scripts</text>
@@ -308,11 +413,68 @@
     </div>
 </div>
 
+<h3 id="worked-cascade">Worked Example: Tracing a Name Through Three Scripts</h3>
+
+<div class="note-box">
+    <div class="box-title">Worked Example: "Babylon" across three scripts</div>
+    <p><strong>Step 1 — Old Persian:</strong> The name <em>Bābiru</em> (Babylon) appears in the Persian column as signs: 𐎲𐎠𐎲𐎡𐎽𐎢 = <em>ba-a-bi-i-ru-u</em>. Each sign is a known CV syllable — straightforward to read since the Old Persian system is nearly alphabetic.</p>
+    <p><strong>Step 2 — Elamite:</strong> At the corresponding position in the Elamite column, we find a 4-sign sequence. Knowing it must spell "Babylon," we assign: sign₁ = <em>ba</em>, sign₂ = <em>bi</em>, sign₃ = <em>ir</em>, sign₄ = <em>ra</em> (Elamite rendering: <em>Ba-bi-ir-ra</em>). These 4 Elamite signs are now identified.</p>
+    <p><strong>Step 3 — Babylonian:</strong> At the same position in the Babylonian column, we find 3 signs. We recognize two logograms: 𒆍𒀭𒊏 = KÁ.DINGIR.RA = "Gate of God" — the Babylonian name for Babylon (<em>Bāb-ilim</em>). This reveals that Babylonian uses logograms here, not phonetic spelling — a crucial insight about the system's mixed nature.</p>
+    <p>From one place name, we learn: 4 Elamite phonetic values, 3 Babylonian sign readings, and the fact that Babylonian uses logographic spelling for this word. Multiply this by 38 names and the information cascades rapidly.</p>
+</div>
+
 <h2 id="constraint-propagation">Constraint Propagation: Cuneiform as CSP</h2>
 
 <p>The decipherment of Babylonian cuneiform can be modeled as a <strong>constraint satisfaction problem</strong> (CSP). Each sign is a variable that must be assigned one or more readings. The constraints come from: (1) phonetic values established through proper names, (2) contextual compatibility with known content, (3) Semitic language rules (roots, morphological patterns), and (4) frequency distributions expected from natural language.</p>
 
 <p>Modern CSP solvers use techniques like <em>arc consistency</em> and <em>backtracking search</em>. Remarkably, 19th-century Assyriologists used essentially the same methods intuitively: they would tentatively assign a reading, propagate its implications through connected texts, check for contradictions, and backtrack if necessary. Edward Hincks, Jules Oppert, and William Henry Fox Talbot all developed overlapping pieces of the solution, often reaching the same readings independently — the ultimate cross-validation.</p>
+
+<div class="code-block">
+    <div class="code-block-header">Cuneiform Decipherment as Constraint Propagation (Python)</div>
+    <pre><code>from collections import defaultdict
+
+class CuneiformCSP:
+    """Model cuneiform decipherment as a constraint satisfaction problem."""
+    
+    def __init__(self, signs, possible_readings):
+        self.signs = signs                    # list of sign IDs
+        self.domains = dict(possible_readings) # sign -> set of readings
+        self.constraints = []                  # list of constraint functions
+    
+    def add_name_constraint(self, sign_sequence, known_name_syllables):
+        """Add constraint from a known proper name."""
+        for sign, syllable in zip(sign_sequence, known_name_syllables):
+            if sign in self.domains:
+                # Restrict domain to readings compatible with this syllable
+                self.domains[sign] &= {syllable}
+    
+    def add_language_constraint(self, sign, position, semitic_rule):
+        """Add constraint from Semitic morphological rules."""
+        self.domains[sign] = {r for r in self.domains[sign]
+                              if semitic_rule(r, position)}
+    
+    def propagate(self):
+        """Arc consistency: propagate determined values."""
+        changed = True
+        while changed:
+            changed = False
+            for sign in self.signs:
+                if len(self.domains[sign]) == 1:
+                    # This sign is determined — propagate
+                    determined_reading = next(iter(self.domains[sign]))
+                    for other_sign in self.signs:
+                        if other_sign != sign:
+                            before = len(self.domains[other_sign])
+                            # Remove conflicting readings
+                            self.domains[other_sign] -= {determined_reading}
+                            if len(self.domains[other_sign]) < before:
+                                changed = True
+        
+        # Report progress
+        determined = sum(1 for d in self.domains.values() if len(d) == 1)
+        print(f"After propagation: {determined}/{len(self.signs)} signs determined")
+        return determined</code></pre>
+</div>
 
 <div class="note-box">
     <div class="box-title">The 1857 "blind test" — decipherment verified</div>
@@ -359,6 +521,41 @@
   <text x="350" y="190" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">Each root generates a predictable family — learn one word, predict many</text>
 </svg>
 
+<div class="code-block">
+    <div class="code-block-header">Semitic Root Prediction (Python)</div>
+    <pre><code>def predict_word_family(root, known_patterns):
+    """
+    Given a Semitic triliteral root and known morphological patterns,
+    predict all members of the word family.
+    
+    root: tuple of 3 consonants, e.g. ('sh', 'r', 'r')
+    known_patterns: dict of pattern_name -> vowel_template
+    """
+    c1, c2, c3 = root
+    predictions = {}
+    
+    patterns = {
+        'active_noun':    f"{c1}a{c2}{c2}u",        # sharru "king"
+        'feminine':       f"{c1}a{c2}{c2}atu",       # sharratu "queen"
+        'plural':         f"{c1}a{c2}{c2}āni",       # sharrani "kings"
+        'abstract_noun':  f"{c1}a{c2}{c2}ūtum",      # sharrutum "kingship"
+        'verbal_adj':     f"{c1}a{c2}{c2}um",         # sharrum "ruling"
+        'stative':        f"{c1}a{c2}{c2}āku",        # sharraku "I am king"
+    }
+    
+    for name, form in patterns.items():
+        predictions[name] = form
+        print(f"  {name:15s}: {form}")
+    
+    return predictions
+
+# Example usage:
+print("Root Š-R-R (rule/king):")
+predict_word_family(('š', 'r', 'r'), {})
+# Output: 6 predicted forms from a single root identification
+# Each confirmed prediction provides ~13 bits of validation</code></pre>
+</div>
+
 <h2 id="legacy-cuneiform">Legacy and Scope</h2>
 
 <p>The decipherment of cuneiform unlocked the entire recorded history of Mesopotamia — the world's first urban civilization. Hundreds of thousands of clay tablets, preserving everything from epic literature (Gilgamesh) to legal codes (Hammurabi) to astronomical observations and mathematical texts, became readable. The decipherment revealed that writing itself was a Mesopotamian invention, and that many concepts once thought to originate in Greece or Rome — codified law, place-value arithmetic, systematic astronomy — were Mesopotamian innovations transmitted westward.</p>
@@ -370,13 +567,19 @@
     <p>An irony of archaeology: the Mesopotamian writing medium (clay) is nearly indestructible when baked — and many tablets were accidentally fired when the buildings housing them burned. Egyptian papyri, by contrast, decay readily in damp conditions. The result is that we have vastly more cuneiform texts (~500,000 tablets) than Egyptian ones. Cuneiform's ugly, unglamorous medium turned out to be a superb archival technology — accidentally implementing what information theorists call a <em>durable channel</em>.</p>
 </div>
 
+<div class="note-box">
+    <div class="box-title">How many cuneiform tablets remain unread?</div>
+    <p>Of the estimated 500,000 cuneiform tablets in museums worldwide, only about 10% have been fully published and translated. The remainder sit in museum storerooms, often still encased in excavation dirt. This is not a decipherment problem — the script is fully understood — but a <em>labor</em> problem. Reading a cuneiform tablet requires years of specialist training, and the pool of trained Assyriologists is small (perhaps 500 worldwide). Recent AI-assisted reading tools are beginning to accelerate this process, potentially unlocking the other 90% within a generation.</p>
+</div>
+
 <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px; border-left: 4px solid #d97706;">
     <h2 style="margin-top: 0;">Key Takeaways: Cuneiform Decipherment</h2>
     <p><strong>Cuneiform's central challenge</strong> was polyvalence — each sign having multiple phonetic and logographic readings. Context resolves ~85% of the ambiguity, making polyvalence a form of compression rather than chaos.</p>
-    <p><strong>Grotefend's method</strong> showed that structural knowledge (royal formulae, king genealogies) can bootstrap decipherment even without bilinguals. Historical knowledge serves as an information-theoretic prior.</p>
-    <p><strong>The Behistun trilingual</strong> provided the decisive cascade: Old Persian (easy, ~36 signs) → Elamite (~130 signs) → Babylonian (~600 signs). Proper names bridged the scripts.</p>
+    <p><strong>Grotefend's method</strong> showed that structural knowledge (royal formulae, king genealogies) can bootstrap decipherment even without bilinguals. His constraint-satisfaction approach yields a unique solution from just two short inscriptions.</p>
+    <p><strong>The Behistun trilingual</strong> provided the decisive cascade: Old Persian (easy, ~36 signs) → Elamite (~130 signs) → Babylonian (~600 signs). Proper names bridged the scripts, providing ~1,064 bits of cross-script phonetic information.</p>
     <p><strong>Semitic morphology</strong> reduced the effective search space by ~7× — learning one word from a root family predicted 10–20 related forms.</p>
-    <p><strong>The 1857 blind test</strong> — four independent scholars producing matching translations — provided definitive statistical validation of the decipherment.</p>
+    <p><strong>The 1857 blind test</strong> — four independent scholars producing matching translations — provided definitive statistical validation with probability of chance agreement $p \ll 10^{-50}$.</p>
+    <p><strong>Modern legacy:</strong> ~500,000 cuneiform tablets exist but only ~10% are translated — AI-assisted tools may unlock the remainder within a generation.</p>
 </div>
 
             </article>
@@ -387,6 +590,9 @@
                 </div>
             </article>
             <article class="article-content" id="exercises" style="display:none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding with 30 problems across three difficulty levels.</p>
+
                 <h2>Exercises</h2>
                 <p>Test your understanding with 30 problems across three difficulty levels.</p>
 
@@ -427,6 +633,7 @@
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F534;</span><span class="exercise-title">29. Why Akkadian is hard</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Akkadian cuneiform (~600 signs, high polyvalence) is harder than Old Persian (~40 signs, mostly phonetic). Explain the challenge and propose a computational approach to decode Akkadian given partial knowledge.</p><p>Challenge: (1) Large sign inventory (more parameters to estimate). (2) High polyvalence (each sign has 3+ meanings, ambiguous without context). (3) Historical accumulation (Sumerian-derived signs, not transparent). (4) Complex morphology (prefixes, infixes, suffixes with allomorphic variation). Computational approach: (1) Start with known/partially known portions (names, numbers). (2) Use Akkadian language model (n-grams from attested Akkadian texts). (3) For each unknown sign: enumerate candidate meanings. (4) EM: co-optimize meaning assignments + language model to maximize corpus likelihood. (5) Iteratively refine—as more signs are identified, context reduces ambiguity of remaining signs. (6) Use phonetic complements as hints. This hierarchical approach targets the largest sources of ambiguity first.</p></div></div>
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F534;</span><span class="exercise-title">30. Cuneiform decipherment principles</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Summarize key principles that enabled cuneiform decipherment and explain how they could apply to other undeciphered scripts.</p><p>Principles: (1) Logical deduction + linguistic knowledge (Grotefend's method). (2) Massive data collection (Rawlinson's heroism). (3) Trilingual redundancy for validation. (4) Known language anchors (royal titles, religious terms). (5) Phonetic complements as guides. (6) Polyvalence resolved via context + grammar. Applicability: (1) Proto-Elamite—use numerical system as anchor (like Akkadian numbers). (2) Undeciphered scripts—if multilingual artifact exists, exploit redundancy. (3) Linear A—use known language cognates (like Persian cognates for Old Persian). (4) Unknown scripts—seek context (determinatives, phonetic markers, repeated patterns) to narrow ambiguity. Cuneiform's success demonstrates that systematic reasoning + sufficient data + linguistic knowledge = decipherment possible. These principles are broadly applicable.</p></div></div>
 
+            
             
             </article>
             <div class="tutorial-nav">

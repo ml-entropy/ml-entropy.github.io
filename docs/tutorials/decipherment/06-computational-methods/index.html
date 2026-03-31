@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Computational Decipherment | Deciphering Ancient Scripts</title>
-    <meta name="description" content="Machine learning and NLP approaches to ancient script decipherment, from Bayesian models to neural networks.">
+    <title>Computational Methods in Decipherment | Deciphering Ancient Scripts</title>
+    <meta name="description" content="How algorithms, NLP, and AI are being applied to decipher ancient writing systems.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -94,212 +94,428 @@
         <main class="tutorial-main">
             <article class="article-content" id="theory">
 
-<h1>Computational Decipherment</h1>
+<h1>Computational Methods in Decipherment</h1>
 
-<p>For two centuries, decipherment was a purely human endeavor — dependent on individual brilliance, scholarly collaboration, and serendipitous discoveries. But in the 21st century, a new approach has emerged: <strong>computational decipherment</strong>, which brings the tools of natural language processing (NLP), machine learning, and optimization theory to bear on ancient scripts. The results have been striking: algorithms have independently rediscovered known decipherments, proposed corrections to accepted readings, and made progress on previously intractable problems.</p>
+<p>The decipherment stories we have explored so far — Egyptian, cuneiform, Linear B, Maya — were triumphs of human intellect. But as computational power has grown exponentially, a natural question arises: can machines decipher ancient scripts? The answer, emerging from the last two decades of research, is a qualified <strong>yes</strong> — with important caveats about what "decipherment" means in a computational context and what role human insight still plays.</p>
 
-<p>This chapter surveys the computational revolution in decipherment, from early frequency-based approaches through Bayesian probabilistic models to modern neural network methods. We will formalize decipherment as an optimization problem, examine the landmark 2010 Ugaritic algorithm that demonstrated machine decipherment was feasible, and assess the prospects and limitations of AI-driven approaches to the undeciphered scripts discussed in Chapter 5.</p>
+<p>This chapter surveys the computational approaches to decipherment, from classical frequency analysis through modern neural methods. We will implement key algorithms, analyze their information-theoretic properties, and examine landmark results — particularly the automated decipherment of Ugaritic and the computational re-decipherment of Linear B. We will also explore how large language models and unsupervised translation techniques may enable progress on still-undeciphered scripts.</p>
+
+<p>The central insight connecting all these methods is that <strong>decipherment is fundamentally a search problem</strong>: find the mapping from unknown signs to known language elements that maximizes some objective function (linguistic plausibility, pattern match, translation quality). The algorithms differ in how they define the search space, the objective function, and the search strategy — but they all operate within this framework.</p>
 
 <div class="definition-box">
     <div class="box-title">Computational decipherment</div>
-    <p><strong>Computational decipherment</strong> treats the mapping from unknown signs to known language elements as a <strong>hidden variable</strong> in a probabilistic model. Given an observed corpus in an unknown script and a language model of the suspected target language, the algorithm searches for the mapping that maximizes the probability of the observed data. This is formally equivalent to <strong>decryption</strong> in cryptography — finding the key that transforms ciphertext into plausible plaintext — and the same mathematical tools (frequency analysis, expectation-maximization, Bayesian inference) apply.</p>
+    <p><strong>Computational decipherment</strong> is the use of algorithms to automatically or semi-automatically determine the mapping between an undeciphered script and a known (or hypothesized) language. The input is a corpus of undeciphered text plus, optionally, a model of the target language. The output is a proposed sign-to-sound (or sign-to-meaning) mapping. Success is measured by the accuracy of the mapping compared to known decipherments, or by the linguistic plausibility of the resulting text. The field sits at the intersection of computational linguistics, cryptography, and machine learning.</p>
 </div>
 
-<h2 id="formal-framework">Decipherment as Optimization</h2>
+<h2 id="frequency-analysis">Frequency Analysis: The Foundation</h2>
 
-<p>Let us formalize the computational decipherment problem. We observe a corpus $\mathbf{c} = (c_1, c_2, \ldots, c_T)$ of sign tokens in an unknown script. We hypothesize that this corpus is an encoded version of text in a known language, with a language model $P_{\text{lang}}$. The decipherment is a mapping $f: \mathcal{S} \to \mathcal{L}$ from the unknown sign inventory $\mathcal{S}$ to elements of the known language $\mathcal{L}$ (sounds, syllables, or words).</p>
+<p>The oldest computational approach to decipherment is <strong>frequency analysis</strong> — the observation that different characters in a writing system appear at different rates, and these rates reflect the underlying language's phonetic or morphological structure. In a simple substitution cipher, the most frequent ciphertext letter likely maps to the most frequent plaintext letter (typically 'e' in English). The same principle applies, with modifications, to ancient scripts.</p>
 
-<p>The goal is to find the mapping $f^*$ that maximizes the probability of the decoded text under the language model:</p>
+<p>Frequency analysis was first described by the Arab polymath Al-Kindi in the 9th century CE — making it one of the oldest algorithms in all of computer science. Al-Kindi's insight was that language has <em>statistical invariants</em>: no matter what cipher is used, the frequency distribution of the underlying language shines through.</p>
 
-<div class="math-block">
-$$f^* = \arg\max_f P_{\text{lang}}(f(c_1), f(c_2), \ldots, f(c_T))$$
+<div class="code-block">
+    <div class="code-block-header">Frequency Analysis for Script Identification (Python)</div>
+    <pre><code>import math
+from collections import Counter
+
+def frequency_analysis(corpus):
+    """
+    Compute sign frequencies and entropy for an unknown corpus.
+    The frequency distribution alone reveals the script type.
+    """
+    sign_counts = Counter(corpus)
+    total = sum(sign_counts.values())
+    n_signs = len(sign_counts)
+    
+    # Compute probabilities and entropy
+    entropy = 0
+    for sign, count in sign_counts.most_common():
+        p = count / total
+        entropy -= p * math.log2(p)
+    
+    # Frequency ratio: top sign / average frequency
+    top_freq = sign_counts.most_common(1)[0][1] / total
+    avg_freq = 1 / n_signs
+    dominance_ratio = top_freq / avg_freq
+    
+    print(f"Distinct signs: {n_signs}")
+    print(f"Total tokens: {total}")
+    print(f"Entropy: {entropy:.2f} bits/sign")
+    print(f"Max entropy (uniform): {math.log2(n_signs):.2f} bits/sign")
+    print(f"Redundancy: {1 - entropy/math.log2(n_signs):.1%}")
+    print(f"Most common sign: {sign_counts.most_common(1)[0]} ({top_freq:.1%})")
+    print(f"Dominance ratio: {dominance_ratio:.1f}x")
+    
+    # Script type diagnostic
+    if n_signs < 40:
+        script_type = "Alphabet"
+    elif n_signs < 100:
+        script_type = "Syllabary"
+    elif n_signs < 500:
+        script_type = "Logosyllabic"
+    else:
+        script_type = "Logographic"
+    
+    print(f"\nLikely script type: {script_type}")
+    return sign_counts, entropy
+
+# Example: apply to a test corpus
+# English letter frequencies would show: ~26 signs, H ≈ 4.1 bits
+# Linear B would show: ~87 signs, H ≈ 5.5 bits
+# Chinese would show: ~3000 signs, H ≈ 9.5 bits</code></pre>
 </div>
-
-<p>This is a <strong>maximum likelihood</strong> formulation. In practice, we often use a Bayesian approach that incorporates priors on the mapping:</p>
-
-<div class="math-block">
-$$f^* = \arg\max_f P(f | \mathbf{c}) = \arg\max_f P_{\text{lang}}(f(\mathbf{c})) \cdot P_{\text{prior}}(f)$$
-</div>
-
-<div class="math-derivation">
-    <div class="math-derivation-title">Bayesian Formulation of Decipherment</div>
-    <div class="math-step">
-        <div class="math-step-number">1</div>
-        <div class="math-step-content">
-            <strong>Observed data:</strong> A corpus $\mathbf{c}$ of $T$ sign tokens drawn from an inventory of $N$ unknown signs. Each sign $c_i \in \{s_1, s_2, \ldots, s_N\}$.
-        </div>
-    </div>
-    <div class="math-step">
-        <div class="math-step-number">2</div>
-        <div class="math-step-content">
-            <strong>Hidden variable:</strong> A mapping $f: \{s_1, \ldots, s_N\} \to \{l_1, \ldots, l_M\}$ where $l_j$ are elements of the target language. For a substitution cipher, $f$ is a bijection. For a syllabary-to-alphabet mapping, $f$ may be many-to-many.
-        </div>
-    </div>
-    <div class="math-step">
-        <div class="math-step-number">3</div>
-        <div class="math-step-content">
-            <strong>Language model:</strong> $P_{\text{lang}}(l_1, l_2, \ldots, l_T) = \prod_{i=1}^{T} P(l_i | l_{i-n+1}, \ldots, l_{i-1})$ — an $n$-gram model over the target language, trained on a large known corpus. Higher $n$ means more contextual constraint.
-        </div>
-    </div>
-    <div class="math-step">
-        <div class="math-step-number">4</div>
-        <div class="math-step-content">
-            <strong>Posterior:</strong> By Bayes' theorem, $P(f|\mathbf{c}) \propto P(\mathbf{c}|f) \cdot P(f)$. Since $P(\mathbf{c}|f) = P_{\text{lang}}(f(\mathbf{c}))$ (the decoded text must be probable under the language model), we get: $f^* = \arg\max_f \left[\sum_{i=1}^{T} \log P(f(c_i) | f(c_{i-n+1}), \ldots, f(c_{i-1})) + \log P(f)\right]$.
-        </div>
-    </div>
-    <div class="math-step">
-        <div class="math-step-number">5</div>
-        <div class="math-step-content">
-            The search space is enormous: for a bijective mapping of $N$ signs, there are $N!$ possible mappings. For $N = 30$: $30! \approx 2.7 \times 10^{32}$ — far too large for brute-force search. This is why decipherment requires intelligent search algorithms (EM, MCMC, beam search).
-        </div>
-    </div>
-</div>
-
-<h2 id="ugaritic">The Ugaritic Breakthrough (Snyder et al., 2010)</h2>
-
-<p>The landmark paper that demonstrated computational decipherment was feasible was <strong>"A Statistical Model for Lost Language Decipherment"</strong> by Snyder, Barzilay, and Knight (2010). They chose <strong>Ugaritic</strong> as their test case — a cuneiform alphabetic script from ancient Syria (c. 1300 BCE) with ~30 signs, already deciphered by humans in the 1930s. By testing against the known decipherment, they could rigorously evaluate their algorithm's accuracy.</p>
-
-<p>The approach was elegant: they modeled Ugaritic as a substitution cipher of Hebrew (a closely related Semitic language). Their algorithm searched for the character mapping that, when applied to the Ugaritic corpus, produced the most plausible Hebrew text according to a Hebrew language model. The key insight was that Semitic <strong>cognate relationships</strong> (systematic sound correspondences between related languages) could be captured by the substitution model.</p>
-
-<svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:2rem auto;" aria-label="Computational decipherment pipeline — corpus, language model, optimization">
-  <text x="350" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">Computational Decipherment Pipeline</text>
-  <rect x="30" y="45" width="140" height="70" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
-  <text x="100" y="70" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">Unknown Corpus</text>
-  <text x="100" y="87" text-anchor="middle" font-size="9" fill="#92400e">Ugaritic tablets</text>
-  <text x="100" y="102" text-anchor="middle" font-size="8" fill="#78350f">~30 signs, ~2000 words</text>
-  <path d="M170,80 L210,80" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowComp)"/>
-  <defs><marker id="arrowComp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/></marker></defs>
-  <rect x="210" y="35" width="160" height="90" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
-  <text x="290" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#1e40af">Optimization</text>
-  <text x="290" y="75" text-anchor="middle" font-size="9" fill="#2563eb">f* = argmax P(f|c)</text>
-  <text x="290" y="92" text-anchor="middle" font-size="8" fill="#1e40af">EM / MCMC / Beam</text>
-  <text x="290" y="108" text-anchor="middle" font-size="8" fill="#1e40af">Search over N! mappings</text>
-  <path d="M370,80 L410,80" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowComp)"/>
-  <rect x="410" y="45" width="140" height="70" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
-  <text x="480" y="70" text-anchor="middle" font-size="10" font-weight="bold" fill="#166534">Decoded Text</text>
-  <text x="480" y="87" text-anchor="middle" font-size="9" fill="#166534">Hebrew cognates</text>
-  <text x="480" y="102" text-anchor="middle" font-size="8" fill="#14532d">Validated against known</text>
-  <rect x="210" y="145" width="160" height="55" rx="8" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.5"/>
-  <text x="290" y="165" text-anchor="middle" font-size="10" font-weight="bold" fill="#5b21b6">Language Model</text>
-  <text x="290" y="182" text-anchor="middle" font-size="9" fill="#7c3aed">Hebrew n-gram model</text>
-  <text x="290" y="195" text-anchor="middle" font-size="8" fill="#5b21b6">Trained on Hebrew Bible</text>
-  <line x1="290" y1="145" x2="290" y2="125" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrowComp)"/>
-  <text x="350" y="215" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">Result: 29 of 30 Ugaritic signs correctly mapped to Hebrew equivalents</text>
-</svg>
 
 <div class="note-box">
-    <div class="box-title">Why Ugaritic was the ideal test case</div>
-    <p>Ugaritic was perfect for computational decipherment because: (1) it is alphabetic with only ~30 signs — a manageable search space; (2) the target language (Hebrew) is closely related, making the substitution-cipher model appropriate; (3) the human decipherment provides ground truth for evaluation. The algorithm achieved <strong>29 of 30</strong> correct sign mappings — a 96.7% accuracy that matched or exceeded many historical decipherments. The one error was a sign with very few occurrences (insufficient data for statistical distinction). This demonstrated that machines could, in principle, replicate the analytical work of human decipherers.</p>
+    <div class="box-title">Al-Kindi's frequency attack (9th century CE)</div>
+    <p>Al-Kindi's <em>Manuscript on Deciphering Cryptographic Messages</em> (c. 850 CE) described the first known frequency analysis algorithm: count character frequencies in the ciphertext, sort by frequency, and map to the known frequency ranking of the target language's letters. This works perfectly against simple substitution ciphers, where every instance of a letter is replaced by the same cipher character. Al-Kindi's method is essentially maximum likelihood estimation — find the permutation that maximizes $P(\text{ciphertext} | \text{mapping}, \text{language model})$. Remarkably, this is exactly the same objective function used by modern computational decipherment algorithms — just with more sophisticated language models.</p>
 </div>
 
 <h2 id="em-algorithm">The EM Algorithm for Decipherment</h2>
 
-<p>The core computational technique in many decipherment systems is the <strong>Expectation-Maximization (EM) algorithm</strong>. EM is a general method for finding maximum-likelihood estimates when data has hidden variables — exactly the situation in decipherment, where the mapping $f$ is hidden.</p>
+<p>Modern computational decipherment relies heavily on the <strong>Expectation-Maximization (EM) algorithm</strong> — a general-purpose method for finding maximum-likelihood parameter estimates when some variables are hidden. In the decipherment context, the "hidden variables" are the correct readings of the signs, and the "parameters" are the sign-to-sound mapping.</p>
+
+<p>The EM algorithm alternates between two steps:</p>
+<ol>
+<li><strong>E-step (Expectation):</strong> Given the current mapping estimate, compute the probability of each possible reading for each sign occurrence in the corpus.</li>
+<li><strong>M-step (Maximization):</strong> Given these probabilistic readings, update the mapping to maximize the likelihood of the corpus under a language model.</li>
+</ol>
 
 <div class="math-derivation">
     <div class="math-derivation-title">EM Algorithm for Substitution Cipher Decipherment</div>
     <div class="math-step">
         <div class="math-step-number">1</div>
         <div class="math-step-content">
-            <strong>Initialize:</strong> Start with a random mapping $f^{(0)}$ or a frequency-based initialization (map the most common unknown sign to the most common target-language letter).
+            Let $c = c_1 c_2 \cdots c_N$ be the ciphertext (unknown signs) and $\sigma$ be the substitution mapping: $\sigma(c_i) = p_i$ (plaintext). We want to find $\sigma^* = \arg\max_\sigma P(c | \sigma, \text{LM})$, where LM is a language model of the target language.
         </div>
     </div>
     <div class="math-step">
         <div class="math-step-number">2</div>
         <div class="math-step-content">
-            <strong>E-step:</strong> Given current mapping $f^{(t)}$, compute the expected counts of each sign-to-language alignment: $E[n_{s \to l}] = \sum_{\text{positions } i: c_i = s} P(f(s) = l | \mathbf{c}, f^{(t)})$. This "soft-assigns" each sign to multiple possible decodings, weighted by likelihood.
+            <strong>E-step:</strong> For each sign $c_i$ and each possible reading $r$, compute: $q_i(r) = P(\sigma(c_i) = r | c, \sigma^{\text{old}}, \text{LM})$. This uses the current mapping estimate and the language model to weight possible readings.
         </div>
     </div>
     <div class="math-step">
         <div class="math-step-number">3</div>
         <div class="math-step-content">
-            <strong>M-step:</strong> Update the mapping to maximize expected log-likelihood: $f^{(t+1)}(s) = \arg\max_l E[n_{s \to l}] \cdot P_{\text{lang}}(l | \text{context})$. This selects, for each sign, the language element that best explains the data under the current model.
+            <strong>M-step:</strong> Update the mapping: $\sigma^{\text{new}}(s) = \arg\max_r \sum_{i: c_i = s} q_i(r)$. Each sign is mapped to the reading that best explains all its occurrences, weighted by the E-step probabilities.
         </div>
     </div>
     <div class="math-step">
         <div class="math-step-number">4</div>
         <div class="math-step-content">
-            <strong>Iterate:</strong> Repeat E-step and M-step until convergence (mapping stabilizes). EM is guaranteed to increase the likelihood at each iteration, but may converge to a local maximum — multiple random restarts help.
+            <strong>Convergence:</strong> EM guarantees that the likelihood $P(c | \sigma, \text{LM})$ increases (or stays the same) with each iteration. After convergence, $\sigma^*$ is a (locally) optimal decipherment. Multiple random restarts help avoid local optima.
+        </div>
+    </div>
+</div>
+
+<div class="code-block">
+    <div class="code-block-header">EM Decipherment of a Substitution Cipher (Python)</div>
+    <pre><code>import math
+from collections import Counter, defaultdict
+import random
+
+class EMDecipherer:
+    """
+    EM algorithm for deciphering a simple substitution cipher,
+    using character bigram frequencies as a language model.
+    """
+    
+    def __init__(self, cipher_text, language_bigrams):
+        self.cipher = cipher_text
+        self.bigrams = language_bigrams  # P(char2 | char1)
+        self.cipher_chars = sorted(set(cipher_text))
+        self.plain_chars = sorted(language_bigrams.keys())
+        
+        # Initialize with random mapping
+        self.mapping = {}
+        shuffled = list(self.plain_chars)
+        random.shuffle(shuffled)
+        for c, p in zip(self.cipher_chars, shuffled):
+            self.mapping[c] = p
+    
+    def score(self):
+        """Log-likelihood of current decipherment under bigram LM."""
+        text = self.apply_mapping()
+        ll = 0
+        for i in range(len(text) - 1):
+            bigram = (text[i], text[i+1])
+            ll += math.log2(self.bigrams.get(bigram, 1e-10))
+        return ll
+    
+    def apply_mapping(self):
+        """Apply current mapping to produce candidate plaintext."""
+        return ''.join(self.mapping.get(c, c) for c in self.cipher)
+    
+    def em_step(self):
+        """One iteration of EM: try swaps, keep improvements."""
+        improved = False
+        for i, c1 in enumerate(self.cipher_chars):
+            for c2 in self.cipher_chars[i+1:]:
+                # Try swapping the mappings
+                old_score = self.score()
+                self.mapping[c1], self.mapping[c2] = \
+                    self.mapping[c2], self.mapping[c1]
+                new_score = self.score()
+                
+                if new_score > old_score:
+                    improved = True  # keep swap
+                else:
+                    # Revert swap
+                    self.mapping[c1], self.mapping[c2] = \
+                        self.mapping[c2], self.mapping[c1]
+        
+        return improved
+    
+    def decipher(self, max_iters=100):
+        """Run EM until convergence."""
+        for i in range(max_iters):
+            if not self.em_step():
+                print(f"Converged after {i+1} iterations")
+                break
+        return self.apply_mapping()
+
+# Usage:
+# decipher = EMDecipherer(cipher_text, english_bigrams)
+# plaintext = decipher.decipher()
+# Typically achieves >90% accuracy on ciphers of 500+ characters</code></pre>
+</div>
+
+<div class="note-box">
+    <div class="box-title">Why EM works for decipherment</div>
+    <p>The EM algorithm succeeds at decipherment because natural languages have highly <em>non-uniform</em> statistical structure. In English, "th" is a much more common bigram than "qx". Any incorrect mapping will produce implausible bigram sequences, lowering the likelihood score. The algorithm exploits this by searching for the mapping that produces the most "natural-looking" text according to the language model. With a good bigram or trigram model and a ciphertext of 500+ characters, EM can typically achieve >90% character accuracy on simple substitution ciphers — and the same principle scales to ancient scripts.</p>
+</div>
+
+<h2 id="ugaritic">Landmark: Automated Decipherment of Ugaritic</h2>
+
+<p>The most impressive demonstration of computational decipherment was achieved by Regina Barzilay and colleagues at MIT in 2010. They applied a Bayesian decipherment algorithm to <strong>Ugaritic</strong> — a Semitic language written in a simplified cuneiform alphabet (~30 signs), used at the ancient city of Ugarit (modern Ras Shamra, Syria) around 1300 BCE.</p>
+
+<p>Ugaritic was first deciphered by humans in 1930–32. The MIT team's goal was to see whether a computer could rediscover the correct decipherment <em>automatically</em>, given only the Ugaritic corpus and a model of Hebrew (a related Semitic language). Their algorithm achieved <strong>29 out of 30 correct sign mappings</strong> — an extraordinary result.</p>
+
+<svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:2rem auto;" aria-label="Ugaritic automated decipherment pipeline">
+  <text x="350" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">MIT Ugaritic Decipherment Pipeline (Barzilay et al., 2010)</text>
+  <rect x="20" y="40" width="130" height="70" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="85" y="62" text-anchor="middle" font-size="9" font-weight="bold" fill="#1e40af">Input 1:</text>
+  <text x="85" y="78" text-anchor="middle" font-size="9" fill="#2563eb">Ugaritic corpus</text>
+  <text x="85" y="92" text-anchor="middle" font-size="8" fill="#6b7280">(~30 signs, raw text)</text>
+  <rect x="170" y="40" width="130" height="70" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="235" y="62" text-anchor="middle" font-size="9" font-weight="bold" fill="#166534">Input 2:</text>
+  <text x="235" y="78" text-anchor="middle" font-size="9" fill="#16a34a">Hebrew LM</text>
+  <text x="235" y="92" text-anchor="middle" font-size="8" fill="#6b7280">(bigram/morphology)</text>
+  <path d="M150,75 L170,75" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrComp)"/>
+  <defs><marker id="arrComp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/></marker></defs>
+  <path d="M150,95 L350,135" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrComp)"/>
+  <path d="M300,95 L350,135" fill="none" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrComp)"/>
+  <rect x="320" y="120" width="160" height="70" rx="8" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="400" y="140" text-anchor="middle" font-size="9" font-weight="bold" fill="#5b21b6">Bayesian EM</text>
+  <text x="400" y="158" text-anchor="middle" font-size="9" fill="#7c3aed">Search for mapping σ</text>
+  <text x="400" y="174" text-anchor="middle" font-size="9" fill="#7c3aed">max P(σ | corpus, LM)</text>
+  <path d="M480,155 L530,155" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrComp)"/>
+  <rect x="530" y="120" width="150" height="70" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="605" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#92400e">Output:</text>
+  <text x="605" y="160" text-anchor="middle" font-size="9" fill="#d97706">Sign mapping</text>
+  <text x="605" y="176" text-anchor="middle" font-size="10" fill="#16a34a" font-weight="bold">29/30 correct!</text>
+  <text x="350" y="210" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">Key insight: Hebrew morphological structure provides strong constraints on the Ugaritic sign mapping</text>
+</svg>
+
+<div class="note-box">
+    <div class="box-title">Why Hebrew works as a bridge for Ugaritic</div>
+    <p>Ugaritic and Hebrew are both Northwest Semitic languages, separated by only a few centuries of divergence. They share the same triliteral root system, similar morphological patterns, and much core vocabulary. Crucially, the <em>structural</em> similarities (consonant patterns, word shapes) are more important than exact vocabulary matches. The algorithm exploits these structural parallels: it doesn't need to know that Ugaritic <em>mlk</em> means "king" — it only needs to know that the pattern C₁C₂C₃ (where C₁ is a sonorant, C₂ a liquid, C₃ a velar) occurs frequently in both languages. This structural matching is robust to vocabulary divergence, which is why the approach works even for languages separated by centuries.</p>
+</div>
+
+<h2 id="neural-approaches">Neural Approaches: Deep Learning for Decipherment</h2>
+
+<p>The latest wave of computational decipherment uses deep learning — particularly sequence-to-sequence models and transformer architectures. These approaches treat decipherment as an <strong>unsupervised translation</strong> problem: given text in an unknown language, find a mapping to a known language without parallel (bilingual) data.</p>
+
+<p>The key technique is <strong>adversarial training</strong>: train a "translator" network to convert unknown-script text into known-language text, while simultaneously training a "discriminator" network to distinguish real known-language text from translated text. The translator learns to produce outputs that the discriminator cannot distinguish from real text — which means the translations must be linguistically plausible.</p>
+
+<div class="code-block">
+    <div class="code-block-header">Neural Decipherment: Sequence Model (Pseudocode)</div>
+    <pre><code># Neural decipherment via adversarial unsupervised translation
+# Based on Lample et al. (2018) / Luo et al. (2019)
+
+class NeuralDecipherer:
+    def __init__(self):
+        self.encoder = TransformerEncoder(n_layers=4, d_model=256)
+        self.decoder = TransformerDecoder(n_layers=4, d_model=256)
+        self.discriminator = MLP(d_model=256, n_layers=3)
+    
+    def train(self, unknown_corpus, known_language_corpus, epochs=100):
+        for epoch in range(epochs):
+            # Step 1: Denoising autoencoder on known language
+            # Teach the model what "good" text looks like
+            noisy_known = add_noise(known_language_corpus)
+            reconstructed = self.decoder(self.encoder(noisy_known))
+            loss_ae = reconstruction_loss(reconstructed, known_language_corpus)
+            
+            # Step 2: Cross-lingual translation
+            # Translate unknown → known, then back → unknown
+            translated = self.decoder(self.encoder(unknown_corpus))
+            back_translated = self.decoder(self.encoder(translated))
+            loss_bt = reconstruction_loss(back_translated, unknown_corpus)
+            
+            # Step 3: Adversarial training
+            # Discriminator tries to distinguish real vs translated
+            real_score = self.discriminator(self.encoder(known_language_corpus))
+            fake_score = self.discriminator(self.encoder(translated))
+            loss_adv = adversarial_loss(real_score, fake_score)
+            
+            # Combined loss
+            total_loss = loss_ae + loss_bt + loss_adv
+            total_loss.backward()
+            optimizer.step()
+        
+        # After training: the encoder maps both languages to a
+        # shared representation space, enabling direct translation
+    
+    def decipher(self, text):
+        """Translate undeciphered text to known language."""
+        return self.decoder(self.encoder(text))</code></pre>
+</div>
+
+<div class="note-box">
+    <div class="box-title">The cognate assumption and its limits</div>
+    <p>Most computational decipherment algorithms assume that the unknown and known languages are <em>related</em> — sharing vocabulary, morphology, or at least typological features. This is the "cognate assumption": if Ugaritic and Hebrew both have the root <em>mlk</em> for "king," the algorithm can use this shared pattern as an anchor. But for truly isolated languages (like Sumerian or the Indus Valley language, if it is a language isolate), no related language exists. In this case, computational methods must rely on <em>universal</em> linguistic properties — word-length distributions, Zipf's law, syntactic patterns — which are much weaker constraints. This is the fundamental limit of computational decipherment: <strong>algorithms need a prior, and the quality of the decipherment depends on the quality of the prior.</strong></p>
+</div>
+
+<div class="math-derivation">
+    <div class="math-derivation-title">Bayesian Framework for Computational Decipherment</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            The decipherment problem in Bayesian terms: find the mapping $\sigma^*$ that maximizes the posterior probability: $\sigma^* = \arg\max_\sigma P(\sigma | \text{corpus}) = \arg\max_\sigma P(\text{corpus} | \sigma) \cdot P(\sigma)$.
         </div>
     </div>
     <div class="math-step">
-        <div class="math-step-number">5</div>
+        <div class="math-step-number">2</div>
         <div class="math-step-content">
-            <strong>Convergence:</strong> Typically 20–100 iterations suffice. Each iteration is $O(T \times N \times M)$ where $T$ = corpus size, $N$ = source signs, $M$ = target elements. For Ugaritic: $O(2000 \times 30 \times 22) \approx 10^6$ — trivial for modern computers.
+            The <strong>likelihood</strong> $P(\text{corpus} | \sigma)$ is computed using the language model: apply mapping $\sigma$ to convert the corpus to the target language, then evaluate its probability under the LM. Higher probability → more natural-sounding text → better mapping.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            The <strong>prior</strong> $P(\sigma)$ encodes expectations about the mapping. For simple substitution: $P(\sigma) \propto 1$ (uniform over permutations). For logosyllabic scripts: the prior can encode expectations about sign-type distributions (e.g., most signs should be common CV syllables, with fewer rare logograms).
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            The search space for $\sigma$ is typically astronomical ($n!$ for $n$ signs), but EM, MCMC (Markov Chain Monte Carlo), or gradient-based methods can find good solutions efficiently. The key insight: <strong>most of the search space can be pruned</strong> because linguistically implausible mappings have extremely low likelihood — the language model acts as a powerful filter.
         </div>
     </div>
 </div>
 
-<h2 id="neural-approaches">Neural and Deep Learning Approaches</h2>
+<h2 id="future">The Future: LLMs and Multimodal Decipherment</h2>
 
-<p>More recently, researchers have applied neural network methods to decipherment. The key advantage of neural approaches is their ability to learn <strong>dense representations</strong> of signs and words that capture semantic and phonological relationships, rather than relying on discrete mapping tables.</p>
-
-<p><strong>Neural language models</strong> (particularly transformer-based models like BERT and GPT) provide far richer language priors than n-gram models. A neural language model can evaluate the plausibility of a decoded text based on deep semantic and syntactic understanding, not just surface-level character frequencies. This enables decipherment of more complex systems where simple substitution models are inadequate.</p>
-
-<p><strong>Embedding-based approaches</strong> represent each unknown sign as a vector in a high-dimensional space, and learn a <em>transformation</em> between the unknown-sign embedding space and the target-language embedding space. This is analogous to bilingual word embedding alignment — a technique originally developed for machine translation between languages with no parallel data.</p>
+<p>Large language models (LLMs) like GPT-4 and Claude represent a new frontier for decipherment. These models have internalized the statistical patterns of dozens of languages, potentially giving them an implicit "prior" over linguistic structure that is far richer than any hand-crafted language model. Several research groups are exploring whether LLMs can assist with undeciphered scripts:</p>
 
 <div class="note-box">
-    <div class="box-title">Luo et al. (2019): Neural decipherment of Linear B</div>
-    <p>In 2019, researchers at MIT applied neural methods to Linear B, treating it as a test case (since the human decipherment provides ground truth). Their system used neural language models of ancient Greek combined with learned phonological transformations to map Linear B syllabic signs to Greek phonemes. The system achieved 67.3% accuracy on sign identification — impressive for a fully automated approach, though below the 100% achieved by Ventris through human reasoning. The gap illustrates that for complex scripts, human insight (especially structural hypotheses like the grid method) remains crucial.</p>
+    <div class="box-title">Can LLMs decipher scripts?</div>
+    <p>Current LLMs cannot directly decipher unknown scripts — they have not been trained on undeciphered corpora, and decipherment requires systematic search that is not well-suited to autoregressive text generation. However, LLMs excel at two supporting tasks: (1) <strong>hypothesis generation</strong> — suggesting plausible language identifications, morphological patterns, or sign groupings based on partial evidence; and (2) <strong>evaluation</strong> — assessing whether a proposed decipherment produces linguistically plausible text. The most promising approach combines LLM-based evaluation with traditional search algorithms: use EM or MCMC for the search, with an LLM as the language model that scores candidate decipherments.</p>
 </div>
 
-<svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:2rem auto;" aria-label="Evolution of computational approaches to decipherment">
-  <text x="350" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">Evolution of Computational Decipherment Methods</text>
-  <rect x="30" y="40" width="150" height="80" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
-  <text x="105" y="60" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">Frequency-Based</text>
-  <text x="105" y="78" text-anchor="middle" font-size="8" fill="#92400e">1990s–2000s</text>
-  <text x="105" y="95" text-anchor="middle" font-size="8" fill="#78350f">Simple substitution</text>
-  <text x="105" y="110" text-anchor="middle" font-size="8" fill="#78350f">Letter freq. matching</text>
-  <path d="M180,80 L210,80" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowComp)"/>
-  <rect x="210" y="40" width="150" height="80" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="285" y="60" text-anchor="middle" font-size="10" font-weight="bold" fill="#1e40af">Bayesian / EM</text>
-  <text x="285" y="78" text-anchor="middle" font-size="8" fill="#1e40af">2010–2015</text>
-  <text x="285" y="95" text-anchor="middle" font-size="8" fill="#1e3a5f">Probabilistic models</text>
-  <text x="285" y="110" text-anchor="middle" font-size="8" fill="#1e3a5f">N-gram lang. models</text>
-  <path d="M360,80 L390,80" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowComp)"/>
-  <rect x="390" y="40" width="150" height="80" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
-  <text x="465" y="60" text-anchor="middle" font-size="10" font-weight="bold" fill="#166534">Neural / Deep</text>
-  <text x="465" y="78" text-anchor="middle" font-size="8" fill="#166534">2019–present</text>
-  <text x="465" y="95" text-anchor="middle" font-size="8" fill="#14532d">Embeddings, transformers</text>
-  <text x="465" y="110" text-anchor="middle" font-size="8" fill="#14532d">Dense representations</text>
-  <path d="M540,80 L570,80" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrowComp)"/>
-  <rect x="570" y="40" width="110" height="80" rx="8" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="4"/>
-  <text x="625" y="60" text-anchor="middle" font-size="10" font-weight="bold" fill="#5b21b6">Future?</text>
-  <text x="625" y="78" text-anchor="middle" font-size="8" fill="#5b21b6">Multimodal AI</text>
-  <text x="625" y="95" text-anchor="middle" font-size="8" fill="#5b21b6">Image + text + context</text>
-  <text x="625" y="110" text-anchor="middle" font-size="8" fill="#5b21b6">Archaeological AI</text>
-  <text x="350" y="150" text-anchor="middle" font-size="10" fill="#6b7280" font-style="italic">Accuracy on Ugaritic: ~80% → 96.7% → 99%+ (with cognate constraints)</text>
-  <text x="350" y="170" text-anchor="middle" font-size="10" fill="#6b7280">Accuracy on Linear B: N/A → ~40% → 67.3%</text>
-  <text x="350" y="190" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="bold">Complexity of script inversely correlates with automated accuracy</text>
+<div class="note-box">
+    <div class="box-title">Multimodal approaches: reading the pictures</div>
+    <p>Many undeciphered scripts appear alongside images — the Maya codex illustrations, Indus seal images, Rongorongo tablet carvings. Modern multimodal AI can analyze both text and images simultaneously. For the Indus script, computer vision could identify the animals and objects depicted on seals, providing semantic constraints on the accompanying text (e.g., a seal showing a bull likely contains the word for "bull"). This <em>multimodal decipherment</em> approach mirrors how Knorozov used codex illustrations to verify his Maya readings — but at computational scale.</p>
+</div>
+
+<div class="code-block">
+    <div class="code-block-header">Evaluating Decipherment Quality (Python)</div>
+    <pre><code>import math
+
+def evaluate_decipherment(proposed_text, reference_bigrams, reference_words):
+    """
+    Evaluate a proposed decipherment by measuring how well
+    the output matches known language statistics.
+    
+    Returns a quality score between 0 (random) and 1 (perfect).
+    """
+    # Metric 1: Bigram perplexity
+    log_prob = 0
+    n_bigrams = 0
+    for i in range(len(proposed_text) - 1):
+        bigram = (proposed_text[i], proposed_text[i+1])
+        p = reference_bigrams.get(bigram, 1e-8)
+        log_prob += math.log2(p)
+        n_bigrams += 1
+    
+    perplexity = 2 ** (-log_prob / max(n_bigrams, 1))
+    
+    # Metric 2: Word recognition rate
+    words = proposed_text.split()
+    recognized = sum(1 for w in words if w.lower() in reference_words)
+    word_rate = recognized / max(len(words), 1)
+    
+    # Metric 3: Character entropy (should match target language)
+    from collections import Counter
+    char_counts = Counter(proposed_text)
+    total = sum(char_counts.values())
+    entropy = -sum((c/total) * math.log2(c/total) 
+                    for c in char_counts.values())
+    
+    # Combined score
+    score = 0.5 * word_rate + 0.3 * (1 / perplexity) + 0.2 * (entropy / 5.0)
+    
+    print(f"Perplexity: {perplexity:.1f}")
+    print(f"Word recognition: {word_rate:.1%}")
+    print(f"Character entropy: {entropy:.2f} bits")
+    print(f"Overall quality: {score:.3f}")
+    
+    return score
+
+# A good decipherment: perplexity < 50, word recognition > 80%
+# A random mapping: perplexity > 1000, word recognition < 5%</code></pre>
+</div>
+
+<svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:2rem auto;" aria-label="Evolution of computational decipherment methods">
+  <text x="350" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#1f2937">Evolution of Computational Decipherment</text>
+  <line x1="50" y1="80" x2="650" y2="80" stroke="#9ca3af" stroke-width="2"/>
+  <circle cx="100" cy="80" r="6" fill="#d97706"/>
+  <text x="100" y="65" text-anchor="middle" font-size="8" fill="#d97706" font-weight="bold">850 CE</text>
+  <text x="100" y="100" text-anchor="middle" font-size="7" fill="#4b5563">Al-Kindi:</text>
+  <text x="100" y="110" text-anchor="middle" font-size="7" fill="#4b5563">frequency analysis</text>
+  <circle cx="230" cy="80" r="6" fill="#2563eb"/>
+  <text x="230" y="65" text-anchor="middle" font-size="8" fill="#2563eb" font-weight="bold">1990s</text>
+  <text x="230" y="100" text-anchor="middle" font-size="7" fill="#4b5563">Statistical NLP:</text>
+  <text x="230" y="110" text-anchor="middle" font-size="7" fill="#4b5563">n-gram models</text>
+  <circle cx="360" cy="80" r="6" fill="#16a34a"/>
+  <text x="360" y="65" text-anchor="middle" font-size="8" fill="#16a34a" font-weight="bold">2010</text>
+  <text x="360" y="100" text-anchor="middle" font-size="7" fill="#4b5563">Bayesian EM:</text>
+  <text x="360" y="110" text-anchor="middle" font-size="7" fill="#4b5563">Ugaritic (29/30)</text>
+  <circle cx="480" cy="80" r="6" fill="#7c3aed"/>
+  <text x="480" y="65" text-anchor="middle" font-size="8" fill="#7c3aed" font-weight="bold">2019</text>
+  <text x="480" y="100" text-anchor="middle" font-size="7" fill="#4b5563">Neural/adversarial:</text>
+  <text x="480" y="110" text-anchor="middle" font-size="7" fill="#4b5563">Linear B re-deciphered</text>
+  <circle cx="600" cy="80" r="6" fill="#dc2626"/>
+  <text x="600" y="65" text-anchor="middle" font-size="8" fill="#dc2626" font-weight="bold">2024+</text>
+  <text x="600" y="100" text-anchor="middle" font-size="7" fill="#4b5563">LLM-assisted:</text>
+  <text x="600" y="110" text-anchor="middle" font-size="7" fill="#4b5563">multimodal methods</text>
+  <text x="350" y="135" text-anchor="middle" font-size="9" fill="#6b7280" font-style="italic">Each generation uses richer language models, enabling harder decipherments</text>
+  <rect x="70" y="148" width="280" height="18" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="210" y="161" text-anchor="middle" font-size="7" fill="#92400e">Character-level models → word-level models</text>
+  <rect x="350" y="148" width="280" height="18" rx="4" fill="#faf5ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="490" y="161" text-anchor="middle" font-size="7" fill="#5b21b6">Morphological models → contextual embeddings</text>
+  <text x="350" y="190" text-anchor="middle" font-size="10" fill="#6b7280">The better the language model, the less data needed for decipherment</text>
 </svg>
 
-<h2 id="limitations">Limitations: What Machines Can't (Yet) Do</h2>
-
-<p>Despite impressive progress, computational decipherment faces fundamental limitations that mirror the challenges identified in Chapter 5:</p>
-
-<p><strong>1. Language model dependency.</strong> All computational approaches require a language model of the target language. If the target language is unknown (Indus, Minoan), no language model can be trained, and the optimization has no objective function. Machines cannot discover an unknown language — they can only find the best mapping <em>to a known one</em>.</p>
-
-<p><strong>2. Structural hypothesis.</strong> Current algorithms assume a specific mapping type (substitution cipher, syllable-to-phoneme, etc.). They cannot independently discover the script's encoding architecture. A human still needs to determine whether a script is alphabetic, syllabic, or logographic before the algorithm can be applied.</p>
-
-<p><strong>3. Small corpus problem.</strong> Statistical methods require sufficient data. For scripts with tiny corpora (Rongorongo: ~14,000 glyphs; Indus: ~18,000 sign tokens), the statistical signal may be too weak for reliable inference.</p>
-
 <div class="note-box">
-    <div class="box-title">Machines as partners, not replacements</div>
-    <p>The most promising approach combines human insight with computational power. Humans contribute structural hypotheses, language identification, and archaeological context — the high-level reasoning that machines struggle with. Machines contribute exhaustive search, statistical analysis, and unbiased pattern detection — the tedious computation that humans struggle with. This hybrid approach is likely how the remaining undeciphered scripts will eventually yield, if they yield at all.</p>
+    <div class="box-title">The human-machine partnership</div>
+    <p>The future of decipherment is not "AI replaces humans" but "AI amplifies humans." Computational methods excel at searching vast combinatorial spaces and detecting statistical patterns too subtle for human perception. But humans excel at hypothesis formation (what language might this be?), contextual reasoning (this seal was found in a temple, so the text likely relates to religion), and cross-disciplinary synthesis (combining archaeological, linguistic, and cultural evidence). The most productive approach is collaborative: AI proposes candidate readings, human experts evaluate and refine them, and the cycle iterates. This is already happening with cuneiform tablet reading, where AI systems pre-process tablet images and suggest sign identifications that human Assyriologists then verify.</p>
 </div>
 
 <div class="definition-box">
-    <div class="box-title">The fundamental limit of computational decipherment</div>
-    <p>A computational decipherment algorithm can find the <strong>optimal mapping</strong> from unknown signs to known language elements, given a language model and a structural hypothesis. But it cannot: (1) determine which language the script encodes, (2) discover the script's encoding architecture, or (3) compensate for insufficient data. These three prerequisites — language, structure, and data — must be provided by human scholars (or by future AI systems with genuine archaeological reasoning ability).</p>
+    <div class="box-title">Unsupervised machine translation</div>
+    <p><strong>Unsupervised machine translation (UMT)</strong> is the task of translating between two languages using only monolingual corpora — no parallel (bilingual) text. UMT systems learn by: (1) building separate representations of each language's structure, (2) aligning these representations in a shared space using distributional similarity (words that appear in similar contexts in different languages tend to be translations), and (3) training a translator that converts between representations. For decipherment, UMT is the ideal framework: the "source language" is the undeciphered script and the "target language" is a known related language. The alignment step is where decipherment happens — finding the mapping between unknown signs and known language elements.</p>
 </div>
 
-<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px; border-left: 4px solid #16a34a;">
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: var(--bg-secondary, #f8f9fa); border-radius: 8px; border-left: 4px solid #7c3aed;">
     <h2 style="margin-top: 0;">Key Takeaways: Computational Decipherment</h2>
-    <p><strong>Decipherment as optimization:</strong> Finding the sign mapping $f^*$ that maximizes $P_{\text{lang}}(f(\mathbf{c}))$ — the probability of the decoded text under a target language model.</p>
-    <p><strong>The EM algorithm</strong> iteratively refines the mapping through expectation (soft-assign signs to language elements) and maximization (select best assignments). Typically converges in 20–100 iterations.</p>
-    <p><strong>The Ugaritic breakthrough</strong> (2010): 29/30 signs correctly mapped by treating Ugaritic as a substitution cipher of Hebrew — demonstrating machine decipherment is feasible for simple scripts.</p>
-    <p><strong>Neural approaches</strong> achieve 67% accuracy on Linear B using dense embeddings and transformer language models — impressive but below human performance on complex scripts.</p>
-    <p><strong>Fundamental limits:</strong> Machines require a known target language and a correct structural hypothesis. They cannot discover unknown languages or determine script architectures — these remain human contributions.</p>
+    <p><strong>Decipherment is fundamentally a search problem:</strong> find the sign-to-sound mapping that maximizes linguistic plausibility under a language model. All algorithms — from Al-Kindi's frequency analysis to neural approaches — share this structure.</p>
+    <p><strong>The EM algorithm</strong> provides a principled framework: alternate between estimating readings (E-step) and updating the mapping (M-step). With a good language model and sufficient corpus, EM achieves >90% accuracy on substitution ciphers.</p>
+    <p><strong>Landmark result:</strong> Barzilay et al. (2010) automatically deciphered Ugaritic using Hebrew as a bridge language, achieving 29/30 correct sign mappings — demonstrating that computational methods can match human-level decipherment.</p>
+    <p><strong>Neural approaches</strong> treat decipherment as unsupervised translation: adversarial training learns a mapping between unknown and known scripts without any bilingual data.</p>
+    <p><strong>The cognate assumption</strong> is both the key enabler and fundamental limit: algorithms need a related language as prior. For true language isolates, only universal linguistic properties are available — much weaker constraints.</p>
+    <p><strong>LLMs and multimodal AI</strong> offer new possibilities: richer priors from massive training data, image-text analysis for illustrated scripts, and human-AI collaborative workflows.</p>
 </div>
 
             </article>
@@ -310,6 +526,9 @@ $$f^* = \arg\max_f P(f | \mathbf{c}) = \arg\max_f P_{\text{lang}}(f(\mathbf{c}))
                 </div>
             </article>
             <article class="article-content" id="exercises" style="display:none;">
+                <h2>Exercises</h2>
+                <p>Test your understanding with 30 problems across three difficulty levels.</p>
+
                 <h2>Exercises</h2>
                 <p>Test your understanding with 30 problems across three difficulty levels.</p>
 
@@ -346,6 +565,7 @@ $$f^* = \arg\max_f P(f | \mathbf{c}) = \arg\max_f P_{\text{lang}}(f(\mathbf{c}))
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F534;</span><span class="exercise-title">29. Why algorithms cannot cure information deficit</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Prove or argue: No algorithm, regardless of sophistication, can decipher Indus if the language is unknown. Is there a mathematical formalism for this impossibility?</p><p>Proof sketch: Decipherment requires maximizing P(f|corpus). By Bayes: P(f|corpus) ∝ P(corpus|f) × P(f). Without known language, P(corpus|f) cannot be computed (no language model). Multiple mappings f have equal likelihood (symmetric problem). Information-theoretic formalism: Mutual information I(Script; Language) = 0 if language unknown. Any algorithm attempting decipherment without external language information faces exponential degeneracy. No search algorithm can eliminate symmetry that isn't broken by data. Conclusion: Information deficit is insurmountable—no algorithm bridges it.</p></div></div>
                 <div class="exercise-item"><div class="exercise-header" onclick="this.parentElement.classList.toggle('open')"><span class="exercise-difficulty">&#x1F534;</span><span class="exercise-title">30. Future: AI + ancient scripts</span><span class="exercise-toggle">+</span></div><div class="exercise-solution"><p><strong>Q:</strong> Speculate: What role will large language models (LLMs), multimodal AI, and citizen science play in deciphering undeciphered scripts in the next 10 years?</p><p><strong>LLMs:</strong> (1) Generate cognate candidates from multilingual training. (2) Rank hypotheses via linguistic plausibility. (3) Synthesize domain knowledge (linguistics, history, archaeology). <strong>Multimodal AI:</strong> (1) Vision models recognize glyph variants across tablets/inscriptions. (2) Link visual features to linguistic structure. <strong>Citizen Science:</strong> (1) Humans segment, annotate; AI learns from labels. (2) Feedback loop: AI predictions → human validation → refined model. <strong>Success scenario:</strong> Proto-Elamite decipherment via hybrid approach (cognate discovery + administrative context + ML-guided search). Unlikely: Indus (language unknown), Rongorongo (corpus too small). Most likely: Computational breakthrough on Proto-Elamite within 5 years; Linear A remains blocked by language barrier.</p></div></div>
 
+            
             
             </article>
             <div class="tutorial-nav">
