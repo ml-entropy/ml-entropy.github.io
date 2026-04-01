@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inference | ML Fundamentals</title>
+    <meta name="description" content="What inference is, what it targets, and the shared structure behind statistical reasoning.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>Inference</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>01. Inference</h1>
+                <p>What inference is, what it targets, and the shared structure behind statistical reasoning.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-20-inference">Tutorial 20: Inference</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p>Inference is the act of moving from <strong>observations</strong> to <strong>unknown quantities</strong>.</p>
+<p>You observe data: $$x_1, x_2, \dots, x_n$$</p>
+<p>You care about something hidden:</p>
+<ul>
+<li>a parameter $\theta$</li>
+<li>a latent variable $z$</li>
+<li>a prediction $y$</li>
+<li>a causal effect $\tau$</li>
+</ul>
+<p>Inference asks:</p>
+<ul>
+<li>What values are plausible?</li>
+<li>How uncertain are we?</li>
+<li>What should we predict next?</li>
+<li>What assumptions make the answer trustworthy?</li>
+</ul>
+<h2 id="intuition">Intuition</h2>
+<p>Learning gives you a model. Inference is what you do <strong>with</strong> the model and the data you have.</p>
+<p>There are three recurring ingredients:</p>
+<p>You assume how data could have been produced.</p>
+<p>Parameters, hidden states, future outcomes, treatment effects.</p>
+<p>Some method for turning observed evidence into a judgment about those unknowns.</p>
+<ol>
+<li><strong>A data-generating story</strong></li>
+<li><strong>Unknowns</strong></li>
+<li><strong>An update rule</strong></li>
+</ol>
+<p>In that sense, inference is the bridge between probability theory and decision making.</p>
+<h2 id="a-minimal-formal-template">A Minimal Formal Template</h2>
+<p>Most inference problems can be written as: $$\text{unknowns} \to \text{produce data} \to \text{observe data} \to \text{reason backward}$$</p>
+<p>For example: $$\theta \to x \sim p(x \mid \theta) \to \text{observe } x \to \text{infer } \theta$$</p>
+<p>This is the common backbone behind:</p>
+<ul>
+<li>parameter estimation</li>
+<li>confidence intervals</li>
+<li>posterior distributions</li>
+<li>latent-variable inference</li>
+<li>causal effect estimation</li>
+</ul>
+<h2 id="two-grand-styles-of-inference">Two Grand Styles of Inference</h2>
+<h3 id="frequentist">Frequentist</h3>
+<p>Treat $\theta$ as fixed but unknown.</p>
+<ul>
+<li>Data is random</li>
+<li>Estimators are random because they depend on data</li>
+<li>Uncertainty is about repeated sampling</li>
+</ul>
+<h3 id="bayesian">Bayesian</h3>
+<p>Treat $\theta$ as uncertain and represent that uncertainty with a distribution.</p>
+<ul>
+<li>Prior: $p(\theta)$</li>
+<li>Likelihood: $p(x \mid \theta)$</li>
+<li>Posterior: $p(\theta \mid x)$</li>
+</ul>
+<h2 id="inference-vs-prediction-vs-decision">Inference vs Prediction vs Decision</h2>
+<p>These are related but distinct.</p>
+<ul>
+<li><strong>Inference</strong> asks what is true or plausible.</li>
+<li><strong>Prediction</strong> asks what will happen next.</li>
+<li><strong>Decision</strong> asks what action minimizes loss.</li>
+</ul>
+<p>You can predict well without understanding causes. You can estimate a parameter without having a good decision rule. Good statistical practice keeps these tasks separate.</p>
+<h2 id="the-core-workflow">The Core Workflow</h2>
+<h3 id="1-specify-assumptions">1. Specify assumptions</h3>
+<p>Examples:</p>
+<ul>
+<li>observations are independent</li>
+<li>noise is Gaussian</li>
+<li>treatment assignment is ignorable</li>
+<li>latent variables are low-dimensional</li>
+</ul>
+<h3 id="2-write-the-target-quantity">2. Write the target quantity</h3>
+<p>Examples:</p>
+<ul>
+<li>$E[X]$</li>
+<li>$\theta$</li>
+<li>$p(z \mid x)$</li>
+<li>$E[Y(1) - Y(0)]$</li>
+</ul>
+<h3 id="3-choose-an-inferential-method">3. Choose an inferential method</h3>
+<p>Examples:</p>
+<ul>
+<li>maximum likelihood</li>
+<li>confidence intervals</li>
+<li>Bayes rule</li>
+<li>MCMC</li>
+<li>variational inference</li>
+<li>inverse propensity weighting</li>
+</ul>
+<h3 id="4-diagnose-failure-modes">4. Diagnose failure modes</h3>
+<p>Examples:</p>
+<ul>
+<li>model misspecification</li>
+<li>weak identifiability</li>
+<li>biased sampling</li>
+<li>poor mixing</li>
+<li>unmeasured confounding</li>
+</ul>
+<h2 id="important-distinctions">Important Distinctions</h2>
+<h3 id="estimand-vs-estimator">Estimand vs Estimator</h3>
+<ul>
+<li><strong>Estimand</strong>: the true quantity you want, such as population mean $\mu$</li>
+<li><strong>Estimator</strong>: the procedure you compute from data, such as sample mean $\bar{x}$</li>
+</ul>
+<h3 id="identifiability-vs-computability">Identifiability vs Computability</h3>
+<p>A quantity may be well-defined but impossible to recover from observed data alone.</p>
+<ul>
+<li><strong>Identifiable</strong> means the data distribution determines the target</li>
+<li><strong>Computable</strong> means you can actually approximate or calculate it efficiently</li>
+</ul>
+<p>Variational inference often helps with computability. Causal assumptions often help with identifiability.</p>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg" width="760" height="240" role="img" aria-label="Inference overview diagram">
+  <rect x="20" y="70" width="150" height="90" rx="14" fill="#e8f1ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="95" y="108" text-anchor="middle" font-size="20" font-weight="600">Unknowns</text>
+  <text x="95" y="132" text-anchor="middle" font-size="14">theta, z, tau</text>
+
+  <rect x="220" y="70" width="150" height="90" rx="14" fill="#ecfeef" stroke="#16a34a" stroke-width="2"/>
+  <text x="295" y="108" text-anchor="middle" font-size="20" font-weight="600">Model</text>
+  <text x="295" y="132" text-anchor="middle" font-size="14">p(data | unknowns)</text>
+
+  <rect x="420" y="70" width="150" height="90" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="495" y="108" text-anchor="middle" font-size="20" font-weight="600">Observed Data</text>
+  <text x="495" y="132" text-anchor="middle" font-size="14">x1, x2, ..., xn</text>
+
+  <rect x="620" y="70" width="120" height="90" rx="14" fill="#faf5ff" stroke="#9333ea" stroke-width="2"/>
+  <text x="680" y="108" text-anchor="middle" font-size="20" font-weight="600">Answer</text>
+  <text x="680" y="132" text-anchor="middle" font-size="14">estimate or distribution</text>
+
+  <path d="M170 115 L220 115" stroke="#374151" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M370 115 L420 115" stroke="#374151" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M620 150 C590 190, 470 215, 310 205 C210 198, 130 178, 110 160" fill="none" stroke="#7c3aed" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+
+  <text x="345" y="34" text-anchor="middle" font-size="18" font-weight="600">Forward generation</text>
+  <text x="350" y="228" text-anchor="middle" font-size="18" font-weight="600" fill="#7c3aed">Backward reasoning = inference</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#374151"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<h2 id="why-inference-gets-hard">Why Inference Gets Hard</h2>
+<p>Inference becomes difficult when:</p>
+<ul>
+<li>the posterior is high-dimensional</li>
+<li>the likelihood is intractable</li>
+<li>data is biased or missing</li>
+<li>multiple explanations fit equally well</li>
+<li>causal counterfactuals are unobserved by definition</li>
+</ul>
+<p>That is why modern inference includes both statistical ideas and computational ideas.</p>
+<h2 id="a-mental-checklist">A Mental Checklist</h2>
+<p>Whenever you read an inferential claim, ask:</p>
+<ol>
+<li>What is the target quantity?</li>
+<li>What assumptions connect data to target?</li>
+<li>Is the quantity identifiable?</li>
+<li>How is uncertainty quantified?</li>
+<li>What breaks if the assumptions are wrong?</li>
+</ol>
+<h2 id="where-the-next-tutorials-fit">Where the Next Tutorials Fit</h2>
+<ul>
+<li>Frequentist inference: repeated-sampling guarantees</li>
+<li>Bayesian inference: belief updating with priors</li>
+<li>ELBO and variational inference: optimization-based approximate inference</li>
+<li>MCMC: simulation-based approximate inference</li>
+<li>Amortized inference: learning an inference procedure once and reusing it</li>
+<li>Causal inference: inference about interventions, not just associations</li>
+</ul>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-20-inference-exercises">Tutorial 20: Inference Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>Define inference in one or two sentences.</li>
+<li>Give one example of an unknown quantity that inference might target.</li>
+<li>Explain the difference between observed data and latent variables.</li>
+<li>State one difference between inference and prediction.</li>
+<li>What is an estimand?</li>
+<li>What is an estimator?</li>
+<li>Write a simple likelihood model $p(x \mid \theta)$ for coin flips.</li>
+<li>Give one example of an assumption commonly used in inference.</li>
+<li>Why does uncertainty matter in inferential conclusions?</li>
+<li>Explain the phrase &quot;reasoning backward from data.&quot;</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Distinguish clearly between parameter inference and latent-variable inference.</li>
+<li>Explain the difference between identifiability and computability with an example.</li>
+<li>Describe a simple generative story for heights measured with Gaussian noise.</li>
+<li>Give an example where prediction can be good even if causal inference is poor.</li>
+<li>Explain why two different models might fit the same data equally well.</li>
+<li>Compare the inferential targets in regression, clustering, and causal estimation.</li>
+<li>Describe what repeated sampling means in classical statistics.</li>
+<li>Explain how model misspecification can bias inference even with a large sample.</li>
+<li>Give a real-world example where hidden confounding breaks naive inference.</li>
+<li>Suppose a parameter is identifiable but expensive to compute. What kind of methods might help?</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Formulate a general inferential pipeline for a latent-variable model from assumptions to diagnostics.</li>
+<li>Construct an example where a quantity is computable but not identifiable.</li>
+<li>Construct an example where a quantity is identifiable in theory but practically weakly identified.</li>
+<li>Explain why uncertainty over parameters and uncertainty over future observations are not the same object.</li>
+<li>Derive the likelihood for independent Gaussian observations with mean $\mu$ and known variance $\sigma^2$.</li>
+<li>Argue carefully why inference necessarily depends on assumptions that cannot be read directly from data alone.</li>
+<li>Discuss how selection bias can distort both frequentist and Bayesian inference.</li>
+<li>Explain the difference between structural assumptions and computational approximations.</li>
+<li>Give a precise example where a wrong independence assumption changes the inferred uncertainty but not the point estimate.</li>
+<li>Write a short essay on the statement: &quot;All inference is conditional on a model, explicit or implicit.&quot;</li>
+</ol>
+            </article>
+            <nav class="series-nav"><div></div><a href="../02-frequentist-inference/index.html" class="series-nav-card series-nav-next"><span class="series-nav-label">Next</span><strong>Frequentist Inference</strong></a></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#intuition" class="toc-link toc-level-2">Intuition</a><a href="#a-minimal-formal-template" class="toc-link toc-level-2">A Minimal Formal Template</a><a href="#two-grand-styles-of-inference" class="toc-link toc-level-2">Two Grand Styles of Inference</a><a href="#frequentist" class="toc-link toc-level-3">Frequentist</a><a href="#bayesian" class="toc-link toc-level-3">Bayesian</a><a href="#inference-vs-prediction-vs-decision" class="toc-link toc-level-2">Inference vs Prediction vs Decision</a><a href="#the-core-workflow" class="toc-link toc-level-2">The Core Workflow</a><a href="#1-specify-assumptions" class="toc-link toc-level-3">1. Specify assumptions</a><a href="#2-write-the-target-quantity" class="toc-link toc-level-3">2. Write the target quantity</a><a href="#3-choose-an-inferential-method" class="toc-link toc-level-3">3. Choose an inferential method</a><a href="#4-diagnose-failure-modes" class="toc-link toc-level-3">4. Diagnose failure modes</a><a href="#important-distinctions" class="toc-link toc-level-2">Important Distinctions</a><a href="#estimand-vs-estimator" class="toc-link toc-level-3">Estimand vs Estimator</a><a href="#identifiability-vs-computability" class="toc-link toc-level-3">Identifiability vs Computability</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#why-inference-gets-hard" class="toc-link toc-level-2">Why Inference Gets Hard</a><a href="#a-mental-checklist" class="toc-link toc-level-2">A Mental Checklist</a><a href="#where-the-next-tutorials-fit" class="toc-link toc-level-2">Where the Next Tutorials Fit</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bayesian Inference | ML Fundamentals</title>
+    <meta name="description" content="Priors, likelihoods, posteriors, conjugacy, MAP, and posterior prediction.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>Bayesian Inference</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>03. Bayesian Inference</h1>
+                <p>Priors, likelihoods, posteriors, conjugacy, MAP, and posterior prediction.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-22-bayesian-inference">Tutorial 22: Bayesian Inference</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p>Bayesian inference updates uncertainty about unknowns using Bayes&#x27; rule: $$p(\theta \mid x) = \frac{p(x \mid \theta) p(\theta)}{p(x)}$$</p>
+<p>The posterior combines:</p>
+<ul>
+<li><strong>prior</strong> knowledge or assumptions</li>
+<li><strong>likelihood</strong> from the data model</li>
+<li><strong>evidence</strong> as the normalizing constant</li>
+</ul>
+<p>The result is a full distribution over plausible parameter values.</p>
+<h2 id="intuition">Intuition</h2>
+<p>Bayesian inference is disciplined belief revision.</p>
+<p>You begin with a range of plausible values. Data reweights those values:</p>
+<ul>
+<li>values that explain the data well gain mass</li>
+<li>values that explain the data poorly lose mass</li>
+</ul>
+<p>The posterior is not a point estimate. It is a map of uncertainty.</p>
+<h2 id="the-three-core-ingredients">The Three Core Ingredients</h2>
+<h3 id="prior">Prior</h3>
+<p>$$p(\theta)$$</p>
+<p>This encodes what values looked plausible before seeing current data.</p>
+<p>Priors can be:</p>
+<ul>
+<li>informative</li>
+<li>weakly informative</li>
+<li>noninformative or reference-style</li>
+<li>hierarchical</li>
+</ul>
+<h3 id="likelihood">Likelihood</h3>
+<p>$$p(x \mid \theta)$$</p>
+<p>This describes how parameters produce observations.</p>
+<h3 id="posterior">Posterior</h3>
+<p>$$p(\theta \mid x) \propto p(x \mid \theta) p(\theta)$$</p>
+<p>The posterior is what we actually want for inference.</p>
+<h2 id="conjugate-example-beta-binomial">Conjugate Example: Beta-Binomial</h2>
+<p>Suppose: $$x \mid p \sim \text{Binomial}(n, p)$$ and prior: $$p \sim \text{Beta}(\alpha, \beta)$$</p>
+<p>Then the posterior is: $$p \mid x \sim \text{Beta}(\alpha + x, \beta + n - x)$$</p>
+<h3 id="why-this-matters">Why this matters</h3>
+<ul>
+<li>easy algebra</li>
+<li>easy interpretation as pseudo-counts</li>
+<li>clear sequential updating</li>
+</ul>
+<h2 id="posterior-predictive-distribution">Posterior Predictive Distribution</h2>
+<p>Bayesian inference naturally supports prediction: $$p(x_{new} \mid x) = \int p(x_{new} \mid \theta) p(\theta \mid x) \, d\theta$$</p>
+<p>This integrates over parameter uncertainty instead of pretending one estimate is exact.</p>
+<h2 id="map-vs-full-bayes">MAP vs Full Bayes</h2>
+<h3 id="map">MAP</h3>
+<p>Maximum a posteriori estimation chooses: $$\theta_{MAP} = \arg\max_\theta p(\theta \mid x)$$</p>
+<p>Equivalent to: $$\arg\max_\theta \log p(x \mid \theta) + \log p(\theta)$$</p>
+<p>MAP gives one point. Full Bayes keeps the full posterior.</p>
+<h3 id="important-difference">Important difference</h3>
+<p>MAP is not the same as Bayesian inference in its fullest sense. It is a summary, not the whole answer.</p>
+<h2 id="credible-intervals">Credible Intervals</h2>
+<p>A 95% credible interval means:</p>
+<p>&gt; Under the model and prior, the posterior assigns 95% probability to the parameter lying in that interval.</p>
+<p>This is a probability statement about the parameter itself, conditional on the model.</p>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg" width="780" height="280" role="img" aria-label="Bayesian inference diagram">
+  <text x="140" y="34" text-anchor="middle" font-size="22" font-weight="600">Prior</text>
+  <text x="390" y="34" text-anchor="middle" font-size="22" font-weight="600">Likelihood effect</text>
+  <text x="640" y="34" text-anchor="middle" font-size="22" font-weight="600">Posterior</text>
+
+  <line x1="40" y1="210" x2="240" y2="210" stroke="#374151" stroke-width="2"/>
+  <line x1="290" y1="210" x2="490" y2="210" stroke="#374151" stroke-width="2"/>
+  <line x1="540" y1="210" x2="740" y2="210" stroke="#374151" stroke-width="2"/>
+
+  <path d="M55 208 Q90 180 115 120 Q140 70 170 120 Q195 180 225 208" fill="rgba(59,130,246,0.18)" stroke="#2563eb" stroke-width="3"/>
+  <text x="140" y="238" text-anchor="middle" font-size="14">broad prior belief</text>
+
+  <path d="M305 208 Q350 195 380 110 Q395 68 410 110 Q440 195 475 208" fill="rgba(249,115,22,0.18)" stroke="#ea580c" stroke-width="3"/>
+  <text x="390" y="238" text-anchor="middle" font-size="14">data favors this region</text>
+
+  <path d="M555 208 Q590 190 615 105 Q640 52 670 100 Q700 170 725 208" fill="rgba(22,163,74,0.18)" stroke="#16a34a" stroke-width="3"/>
+  <text x="640" y="238" text-anchor="middle" font-size="14">updated posterior</text>
+
+  <path d="M240 135 L290 135" stroke="#7c3aed" stroke-width="3" marker-end="url(#arrowBayes)"/>
+  <path d="M490 135 L540 135" stroke="#7c3aed" stroke-width="3" marker-end="url(#arrowBayes)"/>
+  <text x="390" y="120" text-anchor="middle" font-size="16" fill="#7c3aed">multiply and normalize</text>
+
+  <defs>
+    <marker id="arrowBayes" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<h2 id="strengths">Strengths</h2>
+<ul>
+<li>direct uncertainty quantification</li>
+<li>natural incorporation of prior knowledge</li>
+<li>coherent sequential updating</li>
+<li>natural predictive distributions</li>
+<li>good fit for hierarchical modeling</li>
+</ul>
+<h2 id="common-objections-and-replies">Common Objections and Replies</h2>
+<h3 id="priors-are-subjective">&quot;Priors are subjective&quot;</h3>
+<p>Yes, but modeling choices are always assumptions. Bayesian methods make some assumptions explicit instead of hiding them.</p>
+<h3 id="bayesian-methods-are-computationally-hard">&quot;Bayesian methods are computationally hard&quot;</h3>
+<p>Often true. That is why MCMC, variational inference, and amortized inference matter.</p>
+<h3 id="with-enough-data-priors-do-not-matter">&quot;With enough data priors do not matter&quot;</h3>
+<p>Sometimes approximately true, but not always:</p>
+<ul>
+<li>weak-data settings</li>
+<li>hierarchical models</li>
+<li>non-identifiable models</li>
+<li>tail probabilities</li>
+</ul>
+<h2 id="failure-modes">Failure Modes</h2>
+<ul>
+<li>badly chosen priors</li>
+<li>overconfident likelihood assumptions</li>
+<li>posterior sensitivity hidden from the reader</li>
+<li>computational approximation mistaken for exact inference</li>
+</ul>
+<h2 id="a-good-bayesian-habit">A Good Bayesian Habit</h2>
+<p>Always ask:</p>
+<ol>
+<li>What prior was used?</li>
+<li>How sensitive are the results to that prior?</li>
+<li>How was the posterior approximated?</li>
+<li>Were posterior predictive checks performed?</li>
+</ol>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-22-bayesian-inference-exercises">Tutorial 22: Bayesian Inference Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>Write Bayes&#x27; rule for parameter inference.</li>
+<li>Define prior, likelihood, posterior, and evidence.</li>
+<li>What does the symbol $\propto$ mean in Bayesian derivations?</li>
+<li>What is a posterior predictive distribution?</li>
+<li>What is a credible interval?</li>
+<li>Explain the difference between MAP estimation and full Bayesian inference.</li>
+<li>If the prior is Beta and the likelihood is Binomial, what is the posterior family?</li>
+<li>What information does a prior represent?</li>
+<li>Why can Bayesian inference be updated sequentially?</li>
+<li>Give one setting where prior information is especially useful.</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Derive the posterior for a Beta-Binomial model.</li>
+<li>Interpret the Beta prior parameters as pseudo-counts.</li>
+<li>Explain why the evidence term can be hard to compute in high dimensions.</li>
+<li>Compare credible intervals and confidence intervals in plain language.</li>
+<li>Show how L2 regularization corresponds to a Gaussian prior in MAP estimation.</li>
+<li>Explain why the posterior predictive distribution is usually wider than plugging in a point estimate.</li>
+<li>Describe a case where the prior strongly influences the posterior.</li>
+<li>Explain what posterior sensitivity analysis is and why it matters.</li>
+<li>Compare Bayesian updating with frequentist re-estimation after each data batch.</li>
+<li>Give a small numerical example of prior-to-posterior updating for coin flips.</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Derive the posterior predictive distribution for the Beta-Binomial model.</li>
+<li>Show how MAP estimation emerges from posterior optimization.</li>
+<li>Explain carefully why a posterior distribution can still be misleading under model misspecification.</li>
+<li>Construct an example where two reasonable priors lead to materially different conclusions.</li>
+<li>Discuss the role of exchangeability in Bayesian modeling.</li>
+<li>Derive the Gaussian-Gaussian conjugate posterior for an unknown mean with known variance.</li>
+<li>Explain how hierarchical priors allow partial pooling across groups.</li>
+<li>Write a short essay comparing Bayesian coherence with frequentist operating guarantees.</li>
+<li>Describe why improper priors can create technical difficulties for model comparison.</li>
+<li>Explain why exact Bayesian inference is often impossible in modern latent-variable models.</li>
+</ol>
+            </article>
+            <nav class="series-nav"><a href="../02-frequentist-inference/index.html" class="series-nav-card"><span class="series-nav-label">Previous</span><strong>Frequentist Inference</strong></a><a href="../04-elbo/index.html" class="series-nav-card series-nav-next"><span class="series-nav-label">Next</span><strong>ELBO</strong></a></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#intuition" class="toc-link toc-level-2">Intuition</a><a href="#the-three-core-ingredients" class="toc-link toc-level-2">The Three Core Ingredients</a><a href="#prior" class="toc-link toc-level-3">Prior</a><a href="#likelihood" class="toc-link toc-level-3">Likelihood</a><a href="#posterior" class="toc-link toc-level-3">Posterior</a><a href="#conjugate-example-beta-binomial" class="toc-link toc-level-2">Conjugate Example: Beta-Binomial</a><a href="#why-this-matters" class="toc-link toc-level-3">Why this matters</a><a href="#posterior-predictive-distribution" class="toc-link toc-level-2">Posterior Predictive Distribution</a><a href="#map-vs-full-bayes" class="toc-link toc-level-2">MAP vs Full Bayes</a><a href="#map" class="toc-link toc-level-3">MAP</a><a href="#important-difference" class="toc-link toc-level-3">Important difference</a><a href="#credible-intervals" class="toc-link toc-level-2">Credible Intervals</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#strengths" class="toc-link toc-level-2">Strengths</a><a href="#common-objections-and-replies" class="toc-link toc-level-2">Common Objections and Replies</a><a href="#priors-are-subjective" class="toc-link toc-level-3">&quot;Priors are subjective&quot;</a><a href="#bayesian-methods-are-computationally-hard" class="toc-link toc-level-3">&quot;Bayesian methods are computationally hard&quot;</a><a href="#with-enough-data-priors-do-not-matter" class="toc-link toc-level-3">&quot;With enough data priors do not matter&quot;</a><a href="#failure-modes" class="toc-link toc-level-2">Failure Modes</a><a href="#a-good-bayesian-habit" class="toc-link toc-level-2">A Good Bayesian Habit</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

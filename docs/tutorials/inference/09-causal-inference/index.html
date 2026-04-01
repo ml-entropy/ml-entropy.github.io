@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Causal Inference | ML Fundamentals</title>
+    <meta name="description" content="Interventions, potential outcomes, confounding, DAGs, and identification.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>Causal Inference</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>09. Causal Inference</h1>
+                <p>Interventions, potential outcomes, confounding, DAGs, and identification.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-28-causal-inference">Tutorial 28: Causal Inference</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p>Causal inference asks questions about <strong>interventions</strong>, not just associations.</p>
+<p>Association asks: $$P(Y \mid X=x)$$</p>
+<p>Causation asks: $$P(Y \mid do(X=x))$$</p>
+<p>Those are different objects.</p>
+<p>If umbrellas are associated with rain, opening an umbrella does not cause rain. Causal inference exists because observation alone does not tell us what would happen under intervention.</p>
+<h2 id="potential-outcomes-view">Potential Outcomes View</h2>
+<p>For each unit, imagine:</p>
+<ul>
+<li>$Y(1)$: outcome under treatment</li>
+<li>$Y(0)$: outcome under control</li>
+</ul>
+<p>The individual treatment effect is: $$Y(1) - Y(0)$$</p>
+<p>But we never observe both for the same unit.</p>
+<p>This is the <strong>fundamental problem of causal inference</strong>.</p>
+<h2 id="average-treatment-effect">Average Treatment Effect</h2>
+<p>A central estimand is: $$ATE = E[Y(1) - Y(0)]$$</p>
+<p>The challenge is not defining it. The challenge is identifying it from observed data.</p>
+<h2 id="confounding">Confounding</h2>
+<p>A variable $Z$ is a confounder if it affects both treatment assignment and outcome.</p>
+<p>If you ignore confounders, simple comparisons like: $$E[Y \mid T=1] - E[Y \mid T=0]$$</p>
+<p>may reflect both treatment effect and selection bias.</p>
+<h2 id="randomized-experiments">Randomized Experiments</h2>
+<p>Randomization breaks the link between treatment assignment and potential outcomes.</p>
+<p>That is why randomized controlled trials are so powerful: $$T \perp (Y(1), Y(0))$$</p>
+<p>Then the difference in observed group means identifies the ATE.</p>
+<h2 id="observational-causal-inference">Observational Causal Inference</h2>
+<p>Without randomization, you need assumptions such as:</p>
+<ul>
+<li><strong>ignorability</strong>: $(Y(1),Y(0)) \perp T \mid X$</li>
+<li><strong>positivity</strong>: every covariate profile has some chance of both treatment and control</li>
+<li><strong>consistency</strong>: observed outcome equals the relevant potential outcome under received treatment</li>
+</ul>
+<p>Methods include:</p>
+<ul>
+<li>regression adjustment</li>
+<li>matching</li>
+<li>inverse propensity weighting</li>
+<li>doubly robust estimation</li>
+</ul>
+<h2 id="dag-view">DAG View</h2>
+<p>Directed acyclic graphs help represent causal structure.</p>
+<p>Example: $$X \leftarrow Z \rightarrow Y$$</p>
+<p>Here $Z$ opens a backdoor path between $X$ and $Y$. Conditioning on $Z$ can block that confounding path.</p>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" width="860" height="300" role="img" aria-label="Causal inference diagram">
+  <text x="220" y="38" text-anchor="middle" font-size="22" font-weight="600">Association</text>
+  <rect x="45" y="60" width="350" height="190" rx="16" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <circle cx="130" cy="120" r="34" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+  <circle cx="310" cy="120" r="34" fill="#fee2e2" stroke="#dc2626" stroke-width="2.5"/>
+  <text x="130" y="126" text-anchor="middle" font-size="20" font-weight="600">X</text>
+  <text x="310" y="126" text-anchor="middle" font-size="20" font-weight="600">Y</text>
+  <line x1="164" y1="120" x2="276" y2="120" stroke="#7c3aed" stroke-width="3" marker-end="url(#arrowCausal)"/>
+  <text x="220" y="105" text-anchor="middle" font-size="15" fill="#7c3aed">observed dependence</text>
+  <text x="220" y="210" text-anchor="middle" font-size="14">correlation alone is ambiguous</text>
+
+  <text x="645" y="38" text-anchor="middle" font-size="22" font-weight="600">Causal structure</text>
+  <rect x="465" y="60" width="350" height="190" rx="16" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <circle cx="645" cy="95" r="32" fill="#fde68a" stroke="#b45309" stroke-width="2.5"/>
+  <circle cx="545" cy="180" r="32" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+  <circle cx="745" cy="180" r="32" fill="#fee2e2" stroke="#dc2626" stroke-width="2.5"/>
+  <text x="645" y="101" text-anchor="middle" font-size="20" font-weight="600">Z</text>
+  <text x="545" y="186" text-anchor="middle" font-size="20" font-weight="600">T</text>
+  <text x="745" y="186" text-anchor="middle" font-size="20" font-weight="600">Y</text>
+  <line x1="622" y1="118" x2="568" y2="157" stroke="#374151" stroke-width="3" marker-end="url(#arrowCausal)"/>
+  <line x1="668" y1="118" x2="722" y2="157" stroke="#374151" stroke-width="3" marker-end="url(#arrowCausal)"/>
+  <line x1="577" y1="180" x2="713" y2="180" stroke="#16a34a" stroke-width="3" marker-end="url(#arrowCausal)"/>
+  <text x="645" y="228" text-anchor="middle" font-size="14">adjust for Z to estimate effect of T on Y</text>
+
+  <defs>
+    <marker id="arrowCausal" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#374151"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<h2 id="why-causal-inference-is-hard">Why Causal Inference Is Hard</h2>
+<p>Because the key comparison is counterfactual.</p>
+<p>For one unit, you only observe one realized world, not both:</p>
+<ul>
+<li>treated and untreated</li>
+<li>intervened and not intervened</li>
+</ul>
+<p>So causal inference always needs assumptions, design, or both.</p>
+<h2 id="main-identification-strategies">Main Identification Strategies</h2>
+<ol>
+<li>Randomization</li>
+<li>Backdoor adjustment</li>
+<li>Instrumental variables</li>
+<li>Difference-in-differences</li>
+<li>Regression discontinuity</li>
+</ol>
+<p>Each identifies a causal effect under its own assumptions.</p>
+<h2 id="common-failure-modes">Common Failure Modes</h2>
+<ul>
+<li>hidden confounding</li>
+<li>post-treatment conditioning</li>
+<li>collider bias</li>
+<li>lack of overlap</li>
+<li>badly defined treatment or outcome</li>
+</ul>
+<h2 id="the-central-habit-of-causal-thinking">The Central Habit of Causal Thinking</h2>
+<p>Always ask:</p>
+<ol>
+<li>What intervention is being imagined?</li>
+<li>What counterfactual quantity is the target?</li>
+<li>What assumptions identify that quantity?</li>
+<li>What variables should and should not be controlled for?</li>
+</ol>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-28-causal-inference-exercises">Tutorial 28: Causal Inference Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>What is the difference between association and causation?</li>
+<li>What does the notation $do(X=x)$ mean informally?</li>
+<li>Define the potential outcomes $Y(1)$ and $Y(0)$.</li>
+<li>What is the average treatment effect?</li>
+<li>What is a confounder?</li>
+<li>Why are randomized experiments powerful for causal inference?</li>
+<li>What is ignorability?</li>
+<li>What is positivity?</li>
+<li>What is consistency in the potential outcomes framework?</li>
+<li>Give one example where correlation clearly does not imply causation.</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Explain the fundamental problem of causal inference.</li>
+<li>Show why the difference in observed means may be biased in the presence of confounding.</li>
+<li>Describe how conditioning on a confounder can help identify a treatment effect.</li>
+<li>Explain the backdoor idea using a simple DAG.</li>
+<li>Compare randomized experiments and observational studies for causal estimation.</li>
+<li>Describe inverse propensity weighting at a high level.</li>
+<li>Explain why lack of overlap makes causal estimation unstable.</li>
+<li>Give an example of a collider and explain why conditioning on it is dangerous.</li>
+<li>Explain the difference between predicting outcome and estimating treatment effect.</li>
+<li>Describe one real-world setting where a causal question is more important than a predictive one.</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Derive the backdoor adjustment formula and interpret each term.</li>
+<li>Show algebraically how confounding bias enters the naive treated-minus-control comparison.</li>
+<li>Explain why the ATE is not identifiable from observational data without assumptions.</li>
+<li>Compare the potential outcomes framework with DAG-based causal modeling.</li>
+<li>Discuss the assumptions behind inverse propensity weighting and doubly robust methods.</li>
+<li>Explain why post-treatment adjustment can block part of the causal effect or induce bias.</li>
+<li>Give a detailed example of Simpson&#x27;s paradox and interpret it causally.</li>
+<li>Compare ATE, ATT, and conditional average treatment effects.</li>
+<li>Discuss why causal transport across populations is difficult even after identifying an effect in one study.</li>
+<li>Write a short essay on the statement: &quot;Causal inference is design plus assumptions, not correlation plus confidence intervals.&quot;</li>
+</ol>
+            </article>
+            <nav class="series-nav"><a href="../08-amortized-variational-inference/index.html" class="series-nav-card"><span class="series-nav-label">Previous</span><strong>Amortized Variational Inference</strong></a><div></div></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#potential-outcomes-view" class="toc-link toc-level-2">Potential Outcomes View</a><a href="#average-treatment-effect" class="toc-link toc-level-2">Average Treatment Effect</a><a href="#confounding" class="toc-link toc-level-2">Confounding</a><a href="#randomized-experiments" class="toc-link toc-level-2">Randomized Experiments</a><a href="#observational-causal-inference" class="toc-link toc-level-2">Observational Causal Inference</a><a href="#dag-view" class="toc-link toc-level-2">DAG View</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#why-causal-inference-is-hard" class="toc-link toc-level-2">Why Causal Inference Is Hard</a><a href="#main-identification-strategies" class="toc-link toc-level-2">Main Identification Strategies</a><a href="#common-failure-modes" class="toc-link toc-level-2">Common Failure Modes</a><a href="#the-central-habit-of-causal-thinking" class="toc-link toc-level-2">The Central Habit of Causal Thinking</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

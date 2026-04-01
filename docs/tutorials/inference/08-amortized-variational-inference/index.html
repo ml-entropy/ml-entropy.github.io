@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amortized Variational Inference | ML Fundamentals</title>
+    <meta name="description" content="Encoder-decoder posterior approximation trained with the ELBO.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>Amortized Variational Inference</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>08. Amortized Variational Inference</h1>
+                <p>Encoder-decoder posterior approximation trained with the ELBO.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-27-amortized-variational-inference">Tutorial 27: Amortized Variational Inference</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p><strong>Amortized variational inference (AVI)</strong> combines:</p>
+<ul>
+<li>the optimization objective of variational inference</li>
+<li>the reusable encoder idea of amortized inference</li>
+</ul>
+<p>Instead of learning separate variational parameters $\lambda_n$ for each datapoint, AVI learns shared parameters $\phi$ so that: $$q_\phi(z \mid x)$$</p>
+<p>directly outputs an approximate posterior for each observation.</p>
+<p>This is the core inference mechanism behind VAEs.</p>
+<h2 id="intuition">Intuition</h2>
+<p>Variational inference asks: &quot;What tractable distribution best approximates the posterior for this datapoint?&quot;</p>
+<p>Amortized variational inference asks: &quot;Can I train a function that answers that question quickly for many datapoints?&quot;</p>
+<p>This makes AVI a learned, reusable posterior approximation engine.</p>
+<h2 id="objective">Objective</h2>
+<p>For a dataset $\{x_n\}_{n=1}^N$, optimize: $$\sum_{n=1}^N \mathcal{L}(\theta,\phi;x_n)$$</p>
+<p>where $$\mathcal{L}(\theta,\phi;x)=E_{q_\phi(z \mid x)}[\log p_\theta(x \mid z)] - D_{KL}(q_\phi(z \mid x)\|p(z))$$</p>
+<p>Here:</p>
+<ul>
+<li>$\theta$ are generative model parameters</li>
+<li>$\phi$ are inference-network parameters</li>
+</ul>
+<h2 id="encoder-decoder-view">Encoder-Decoder View</h2>
+<ul>
+<li><strong>Encoder</strong>: approximates posterior inference</li>
+<li><strong>Decoder</strong>: defines the generative model</li>
+</ul>
+<p>The encoder is not just a feature extractor. It is an approximation to Bayes&#x27; rule under the trained model.</p>
+<h2 id="reparameterization-trick">Reparameterization Trick</h2>
+<p>For continuous latents, AVI often relies on: $$z = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon, \quad \epsilon \sim \mathcal{N}(0,I)$$</p>
+<p>This lets gradients flow through stochastic latent samples.</p>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" width="860" height="300" role="img" aria-label="Amortized variational inference diagram">
+  <rect x="40" y="85" width="130" height="70" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+  <text x="105" y="126" text-anchor="middle" font-size="20" font-weight="600">x</text>
+
+  <rect x="230" y="65" width="160" height="110" rx="14" fill="#ecfeef" stroke="#16a34a" stroke-width="2.5"/>
+  <text x="310" y="112" text-anchor="middle" font-size="22" font-weight="600">Encoder</text>
+  <text x="310" y="138" text-anchor="middle" font-size="15">q_phi(z|x)</text>
+
+  <rect x="450" y="85" width="120" height="70" rx="12" fill="#faf5ff" stroke="#9333ea" stroke-width="2.5"/>
+  <text x="510" y="126" text-anchor="middle" font-size="20" font-weight="600">z</text>
+
+  <rect x="630" y="65" width="170" height="110" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="2.5"/>
+  <text x="715" y="112" text-anchor="middle" font-size="22" font-weight="600">Decoder</text>
+  <text x="715" y="138" text-anchor="middle" font-size="15">p_theta(x|z)</text>
+
+  <path d="M170 120 L230 120" stroke="#374151" stroke-width="3" marker-end="url(#arrowAvi)"/>
+  <path d="M390 120 L450 120" stroke="#374151" stroke-width="3" marker-end="url(#arrowAvi)"/>
+  <path d="M570 120 L630 120" stroke="#374151" stroke-width="3" marker-end="url(#arrowAvi)"/>
+
+  <path d="M715 175 C690 220, 565 250, 310 250 C170 250, 120 215, 105 155" fill="none" stroke="#7c3aed" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowAvi)"/>
+  <text x="455" y="285" text-anchor="middle" font-size="17" fill="#7c3aed">train encoder and decoder jointly via the ELBO</text>
+
+  <defs>
+    <marker id="arrowAvi" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#374151"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<h2 id="why-avi-changed-modern-generative-modeling">Why AVI Changed Modern Generative Modeling</h2>
+<p>Without amortization, variational inference for large neural latent-variable models would be painfully slow.</p>
+<p>AVI makes latent-variable learning practical by making inference itself differentiable and reusable.</p>
+<h2 id="avi-vs-plain-vi">AVI vs Plain VI</h2>
+<p>Plain VI:</p>
+<ul>
+<li>often uses local variational parameters per datapoint</li>
+<li>may need iterative optimization for each new example</li>
+</ul>
+<p>AVI:</p>
+<ul>
+<li>uses one inference network for all datapoints</li>
+<li>is much faster at test time</li>
+<li>introduces amortization error</li>
+</ul>
+<h2 id="avi-vs-generic-amortized-inference">AVI vs Generic Amortized Inference</h2>
+<p>Amortized inference is a broad concept. AVI is the specific case where the amortized inference network is trained through a variational objective such as the ELBO.</p>
+<h2 id="common-failure-modes">Common Failure Modes</h2>
+<ul>
+<li>posterior collapse</li>
+<li>amortization gap</li>
+<li>underpowered encoder</li>
+<li>weak latent usage when the decoder is too expressive</li>
+</ul>
+<h2 id="practical-remedies">Practical Remedies</h2>
+<ul>
+<li>KL annealing</li>
+<li>richer posterior families</li>
+<li>semi-amortized refinement</li>
+<li>architectural constraints that force latent usage</li>
+</ul>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-27-amortized-variational-inference-exercises">Tutorial 27: Amortized Variational Inference Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>Define amortized variational inference.</li>
+<li>What two ideas are combined in AVI?</li>
+<li>Write the standard ELBO used in amortized variational inference.</li>
+<li>What is the role of the encoder in AVI?</li>
+<li>What is the role of the decoder in AVI?</li>
+<li>Why is AVI central to VAEs?</li>
+<li>What is the reparameterization trick used for?</li>
+<li>What is one major benefit of AVI over per-datapoint VI?</li>
+<li>What is one major source of error introduced by AVI?</li>
+<li>Why can a powerful decoder cause problems in AVI?</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Compare amortized VI with classical variational inference using local variational parameters.</li>
+<li>Explain how AVI learns an approximate posterior map from data to latent distributions.</li>
+<li>Describe how the ELBO trains both the generative model and the inference model.</li>
+<li>Explain why reparameterization is useful for gradient-based AVI.</li>
+<li>Distinguish posterior collapse from the amortization gap.</li>
+<li>Explain why AVI is especially attractive in large datasets and online settings.</li>
+<li>Compare AVI with MCMC for test-time latent inference.</li>
+<li>Describe one reason a simple encoder may fail even if the decoder is strong.</li>
+<li>Explain how KL annealing can help AVI-based models.</li>
+<li>Describe the role of shared parameters in generalization across datapoints.</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Derive the dataset-level AVI objective as a sum of per-example ELBO terms.</li>
+<li>Explain why AVI can be interpreted as learning a fast approximation to Bayes&#x27; rule.</li>
+<li>Compare approximation gap, optimization gap, and amortization gap in a single framework.</li>
+<li>Discuss why expressive decoders can cause latent variables to be ignored.</li>
+<li>Explain how semi-amortized inference attempts to reduce encoder bias.</li>
+<li>Compare AVI with expectation-maximization in latent-variable models.</li>
+<li>Analyze how posterior family choice and encoder architecture jointly determine inference quality.</li>
+<li>Describe how AVI behaves under test-time distribution shift.</li>
+<li>Explain why fast amortized inference can still produce poorly calibrated uncertainty.</li>
+<li>Write a short essay on AVI as the computational engine behind modern deep probabilistic modeling.</li>
+</ol>
+            </article>
+            <nav class="series-nav"><a href="../07-variational-inference/index.html" class="series-nav-card"><span class="series-nav-label">Previous</span><strong>Variational Inference</strong></a><a href="../09-causal-inference/index.html" class="series-nav-card series-nav-next"><span class="series-nav-label">Next</span><strong>Causal Inference</strong></a></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#intuition" class="toc-link toc-level-2">Intuition</a><a href="#objective" class="toc-link toc-level-2">Objective</a><a href="#encoder-decoder-view" class="toc-link toc-level-2">Encoder-Decoder View</a><a href="#reparameterization-trick" class="toc-link toc-level-2">Reparameterization Trick</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#why-avi-changed-modern-generative-modeling" class="toc-link toc-level-2">Why AVI Changed Modern Generative Modeling</a><a href="#avi-vs-plain-vi" class="toc-link toc-level-2">AVI vs Plain VI</a><a href="#avi-vs-generic-amortized-inference" class="toc-link toc-level-2">AVI vs Generic Amortized Inference</a><a href="#common-failure-modes" class="toc-link toc-level-2">Common Failure Modes</a><a href="#practical-remedies" class="toc-link toc-level-2">Practical Remedies</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

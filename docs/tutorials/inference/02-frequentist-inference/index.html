@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frequentist Inference | ML Fundamentals</title>
+    <meta name="description" content="Sampling distributions, MLE, confidence intervals, and hypothesis tests from a repeated-sampling view.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>Frequentist Inference</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>02. Frequentist Inference</h1>
+                <p>Sampling distributions, MLE, confidence intervals, and hypothesis tests from a repeated-sampling view.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-21-frequentist-inference">Tutorial 21: Frequentist Inference</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p>Frequentist inference treats parameters as <strong>fixed but unknown</strong> and treats data as <strong>random</strong>.</p>
+<p>You do not assign probabilities to $\theta$ itself. Instead, you design procedures whose behavior is good over repeated samples.</p>
+<p>The central question is:</p>
+<p>&gt; If I repeated this experiment many times, how would my estimator or interval behave?</p>
+<h2 id="intuition">Intuition</h2>
+<p>A frequentist confidence interval is like a manufacturing guarantee on a procedure.</p>
+<ul>
+<li>You do not say there is a 95% probability that this particular fixed parameter lies in this interval.</li>
+<li>You say the interval construction rule covers the true parameter in 95% of repeated experiments.</li>
+</ul>
+<p>That distinction is subtle, but it is the backbone of frequentist thinking.</p>
+<h2 id="core-objects">Core Objects</h2>
+<h3 id="estimator">Estimator</h3>
+<p>An estimator is a function of the data: $$\hat{\theta} = T(X_1, \dots, X_n)$$</p>
+<p>Examples:</p>
+<ul>
+<li>sample mean</li>
+<li>sample variance</li>
+<li>least-squares estimator</li>
+<li>maximum likelihood estimator</li>
+</ul>
+<h3 id="sampling-distribution">Sampling Distribution</h3>
+<p>Because the data are random, the estimator has a distribution: $$\hat{\theta} \sim \text{sampling distribution}$$</p>
+<p>Frequentist uncertainty comes from this distribution.</p>
+<h2 id="properties-of-good-estimators">Properties of Good Estimators</h2>
+<h3 id="unbiasedness">Unbiasedness</h3>
+<p>$$E[\hat{\theta}] = \theta$$</p>
+<p>This means the estimator is correct on average over repeated samples.</p>
+<h3 id="consistency">Consistency</h3>
+<p>$$\hat{\theta}_n \xrightarrow{p} \theta$$</p>
+<p>As the sample size grows, the estimator gets close to the truth.</p>
+<h3 id="efficiency">Efficiency</h3>
+<p>Among unbiased estimators, lower variance is better.</p>
+<h3 id="asymptotic-normality">Asymptotic normality</h3>
+<p>Many estimators satisfy: $$\sqrt{n}(\hat{\theta} - \theta) \xrightarrow{d} \mathcal{N}(0, V)$$</p>
+<p>This is why normal-based confidence intervals appear everywhere.</p>
+<h2 id="maximum-likelihood-estimation">Maximum Likelihood Estimation</h2>
+<p>Given data $x_1, \dots, x_n$, define: $$L(\theta) = \prod_{i=1}^n p(x_i \mid \theta)$$</p>
+<p>The MLE is: $$\hat{\theta}_{MLE} = \arg\max_\theta L(\theta) = \arg\max_\theta \log L(\theta)$$</p>
+<h3 id="why-mle-matters">Why MLE matters</h3>
+<ul>
+<li>usually intuitive</li>
+<li>often asymptotically efficient</li>
+<li>invariant under reparameterization</li>
+<li>foundation for likelihood ratio tests and large-sample intervals</li>
+</ul>
+<h2 id="confidence-intervals">Confidence Intervals</h2>
+<p>A 95% confidence interval $C(X)$ satisfies: $$P_\theta(\theta \in C(X)) = 0.95$$</p>
+<p>The probability is over the random sample $X$, not over the fixed parameter.</p>
+<p>For a Gaussian mean with known variance: $$\bar{X} \pm 1.96 \frac{\sigma}{\sqrt{n}}$$</p>
+<h2 id="hypothesis-testing">Hypothesis Testing</h2>
+<p>You specify:</p>
+<ul>
+<li>null hypothesis $H_0$</li>
+<li>alternative $H_1$</li>
+<li>test statistic</li>
+<li>rejection region</li>
+</ul>
+<h3 id="p-value">p-value</h3>
+<p>The p-value is the probability, under $H_0$, of seeing a statistic at least as extreme as the one observed.</p>
+<p>It is <strong>not</strong>:</p>
+<ul>
+<li>the probability that $H_0$ is true</li>
+<li>the probability the result happened by chance</li>
+</ul>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg" width="760" height="260" role="img" aria-label="Frequentist inference diagram">
+  <line x1="70" y1="180" x2="690" y2="180" stroke="#374151" stroke-width="2"/>
+  <text x="380" y="214" text-anchor="middle" font-size="15">possible estimates from repeated samples</text>
+
+  <path d="M90 178 Q150 150 210 120 Q270 80 330 70 Q390 68 450 88 Q510 112 570 145 Q630 168 680 178" fill="none" stroke="#2563eb" stroke-width="4"/>
+
+  <line x1="390" y1="45" x2="390" y2="180" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 6"/>
+  <text x="390" y="34" text-anchor="middle" font-size="16" fill="#dc2626" font-weight="600">true theta</text>
+
+  <line x1="340" y1="100" x2="440" y2="100" stroke="#16a34a" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="390" cy="100" r="6" fill="#16a34a"/>
+  <text x="390" y="86" text-anchor="middle" font-size="15" fill="#166534">one confidence interval that covers</text>
+
+  <line x1="470" y1="130" x2="560" y2="130" stroke="#f59e0b" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="515" cy="130" r="6" fill="#f59e0b"/>
+  <text x="515" y="116" text-anchor="middle" font-size="15" fill="#92400e">another interval</text>
+
+  <line x1="580" y1="95" x2="650" y2="95" stroke="#7c3aed" stroke-width="8" stroke-linecap="round"/>
+  <text x="615" y="80" text-anchor="middle" font-size="15" fill="#6d28d9">some intervals miss</text>
+
+  <text x="160" y="36" font-size="20" font-weight="600">Repeated-sampling view</text>
+  <text x="160" y="58" font-size="14">The method is judged by long-run coverage, bias, and variance.</text>
+</svg>
+</div>
+<h2 id="strengths">Strengths</h2>
+<ul>
+<li>clear operating characteristics</li>
+<li>no need to specify priors</li>
+<li>strong asymptotic theory</li>
+<li>widely used in science and industry</li>
+</ul>
+<h2 id="common-misunderstandings">Common Misunderstandings</h2>
+<ol>
+<li>A confidence interval is not a posterior interval.</li>
+<li>A p-value is not the probability the null is true.</li>
+<li>Statistical significance is not practical significance.</li>
+<li>Large samples do not protect you from bad design or confounding.</li>
+</ol>
+<h2 id="failure-modes">Failure Modes</h2>
+<ul>
+<li>optional stopping without correction</li>
+<li>multiple testing</li>
+<li>model misspecification</li>
+<li>small-sample approximations used too casually</li>
+<li>interpreting confidence statements as posterior beliefs</li>
+</ul>
+<h2 id="when-frequentist-inference-is-a-good-fit">When Frequentist Inference Is a Good Fit</h2>
+<ul>
+<li>controlled experiments with repeated protocols</li>
+<li>large datasets with stable estimators</li>
+<li>settings where procedural guarantees matter</li>
+<li>regulatory contexts requiring long-run error control</li>
+</ul>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-21-frequentist-inference-exercises">Tutorial 21: Frequentist Inference Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>State the frequentist view of an unknown parameter.</li>
+<li>What is a sampling distribution?</li>
+<li>Define unbiasedness.</li>
+<li>Define consistency.</li>
+<li>Write the likelihood for $n$ independent Bernoulli observations with parameter $p$.</li>
+<li>What is the maximum likelihood estimate for a Bernoulli parameter?</li>
+<li>What does a 95% confidence interval mean in frequentist language?</li>
+<li>What is a p-value?</li>
+<li>Name one difference between a confidence interval and a Bayesian credible interval.</li>
+<li>Why is the log-likelihood often used instead of the likelihood?</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Derive the MLE of the mean for Gaussian data with known variance.</li>
+<li>Explain why unbiasedness alone does not guarantee a good estimator.</li>
+<li>Compare consistency and unbiasedness using a concrete example.</li>
+<li>Show that the sample mean is unbiased for the population mean.</li>
+<li>Explain how the central limit theorem supports approximate confidence intervals.</li>
+<li>Describe a situation where a small p-value is not scientifically important.</li>
+<li>Explain the difference between Type I and Type II errors.</li>
+<li>Describe how multiple testing inflates false positives.</li>
+<li>Explain why optional stopping can invalidate nominal p-values.</li>
+<li>Compare Wald intervals and exact intervals for a binomial proportion.</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Derive the asymptotic distribution of the MLE under standard regularity conditions.</li>
+<li>Show how the Fisher information determines the asymptotic variance of the MLE.</li>
+<li>Derive the score equation for logistic regression and interpret it.</li>
+<li>Construct an estimator that is unbiased but inconsistent.</li>
+<li>Give an example of a consistent estimator that is biased for every finite sample size.</li>
+<li>Explain why likelihood ratio tests are often preferred to ad hoc test statistics.</li>
+<li>Derive a confidence interval for a Gaussian mean with unknown variance using the $t$ distribution.</li>
+<li>Discuss how model misspecification affects nominal coverage probabilities.</li>
+<li>Write a short essay explaining why p-values are evidentially weaker than many practitioners assume.</li>
+<li>Compare the inferential logic of estimation, testing, and prediction in the frequentist framework.</li>
+</ol>
+            </article>
+            <nav class="series-nav"><a href="../01-inference/index.html" class="series-nav-card"><span class="series-nav-label">Previous</span><strong>Inference</strong></a><a href="../03-bayesian-inference/index.html" class="series-nav-card series-nav-next"><span class="series-nav-label">Next</span><strong>Bayesian Inference</strong></a></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#intuition" class="toc-link toc-level-2">Intuition</a><a href="#core-objects" class="toc-link toc-level-2">Core Objects</a><a href="#estimator" class="toc-link toc-level-3">Estimator</a><a href="#sampling-distribution" class="toc-link toc-level-3">Sampling Distribution</a><a href="#properties-of-good-estimators" class="toc-link toc-level-2">Properties of Good Estimators</a><a href="#unbiasedness" class="toc-link toc-level-3">Unbiasedness</a><a href="#consistency" class="toc-link toc-level-3">Consistency</a><a href="#efficiency" class="toc-link toc-level-3">Efficiency</a><a href="#asymptotic-normality" class="toc-link toc-level-3">Asymptotic normality</a><a href="#maximum-likelihood-estimation" class="toc-link toc-level-2">Maximum Likelihood Estimation</a><a href="#why-mle-matters" class="toc-link toc-level-3">Why MLE matters</a><a href="#confidence-intervals" class="toc-link toc-level-2">Confidence Intervals</a><a href="#hypothesis-testing" class="toc-link toc-level-2">Hypothesis Testing</a><a href="#p-value" class="toc-link toc-level-3">p-value</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#strengths" class="toc-link toc-level-2">Strengths</a><a href="#common-misunderstandings" class="toc-link toc-level-2">Common Misunderstandings</a><a href="#failure-modes" class="toc-link toc-level-2">Failure Modes</a><a href="#when-frequentist-inference-is-a-good-fit" class="toc-link toc-level-2">When Frequentist Inference Is a Good Fit</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

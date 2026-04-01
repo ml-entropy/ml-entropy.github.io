@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variational Inference | ML Fundamentals</title>
+    <meta name="description" content="Approximate Bayesian inference by optimization, with mean-field and black-box VI.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>Variational Inference</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>07. Variational Inference</h1>
+                <p>Approximate Bayesian inference by optimization, with mean-field and black-box VI.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-26-variational-inference">Tutorial 26: Variational Inference</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p><strong>Variational inference (VI)</strong> approximates an intractable posterior with a tractable distribution and turns inference into optimization.</p>
+<p>Instead of sampling from: $$p(z \mid x)$$</p>
+<p>we choose a family: $$q(z; \lambda) \in \mathcal{Q}$$</p>
+<p>and solve: $$\lambda^* = \arg\min_\lambda D_{KL}(q(z;\lambda) \| p(z \mid x))$$</p>
+<p>Since the posterior is usually known only up to a normalizing constant, this is implemented by maximizing the ELBO.</p>
+<h2 id="intuition">Intuition</h2>
+<p>Exact Bayesian inference is often an integration problem we cannot do.</p>
+<p>Variational inference says:</p>
+<ol>
+<li>pick a manageable family of distributions</li>
+<li>search inside that family for the best approximation</li>
+</ol>
+<p>This is like approximating a complicated curve by the best curve from a simpler class.</p>
+<h2 id="mean-field-variational-inference">Mean-Field Variational Inference</h2>
+<p>A common simplification is factorization: $$q(z) = \prod_{j=1}^d q_j(z_j)$$</p>
+<p>This assumption makes optimization much easier, but it can underestimate posterior dependence.</p>
+<h3 id="coordinate-update-idea">Coordinate update idea</h3>
+<p>In mean-field VI: $$\log q_j^*(z_j) = E_{-j}[\log p(x,z)] + \text{constant}$$</p>
+<p>This yields iterative coordinate updates for each factor.</p>
+<h2 id="reverse-kl-and-its-consequences">Reverse KL and Its Consequences</h2>
+<p>VI often minimizes: $$D_{KL}(q \| p)$$</p>
+<p>This is called reverse KL.</p>
+<p>Why it matters:</p>
+<ul>
+<li>strongly penalizes putting mass where $p$ is tiny</li>
+<li>less strongly penalizes missing some modes of $p$</li>
+</ul>
+<p>So VI can become <strong>mode-seeking</strong>.</p>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 820 280" xmlns="http://www.w3.org/2000/svg" width="820" height="280" role="img" aria-label="Variational inference diagram">
+  <rect x="40" y="55" width="330" height="185" rx="16" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <text x="205" y="85" text-anchor="middle" font-size="22" font-weight="600">True posterior p(z|x)</text>
+  <path d="M70 205 Q110 165 150 130 Q190 90 225 120 Q255 150 280 145 Q310 138 340 205" fill="rgba(59,130,246,0.18)" stroke="#2563eb" stroke-width="3"/>
+  <text x="205" y="225" text-anchor="middle" font-size="14">complex shape, often multimodal or correlated</text>
+
+  <rect x="450" y="55" width="330" height="185" rx="16" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <text x="615" y="85" text-anchor="middle" font-size="22" font-weight="600">Variational q(z)</text>
+  <ellipse cx="615" cy="155" rx="90" ry="45" fill="rgba(22,163,74,0.18)" stroke="#16a34a" stroke-width="3"/>
+  <text x="615" y="225" text-anchor="middle" font-size="14">simple family chosen for tractability</text>
+
+  <path d="M370 150 L450 150" stroke="#7c3aed" stroke-width="3" marker-end="url(#arrowVi)"/>
+  <text x="410" y="136" text-anchor="middle" font-size="15" fill="#7c3aed">optimize KL</text>
+
+  <defs>
+    <marker id="arrowVi" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<h2 id="why-vi-is-popular">Why VI Is Popular</h2>
+<ul>
+<li>much faster than MCMC in large systems</li>
+<li>fits naturally into gradient-based optimization</li>
+<li>easy to combine with deep learning</li>
+<li>often works well enough for large-scale latent-variable models</li>
+</ul>
+<h2 id="mean-field-tradeoff">Mean-Field Tradeoff</h2>
+<p>Factorization helps computation, but it often causes:</p>
+<ul>
+<li>underestimated posterior variance</li>
+<li>missing correlations</li>
+<li>overconfident conclusions</li>
+</ul>
+<p>These are not bugs in the optimizer. They are often consequences of the approximation family.</p>
+<h2 id="coordinate-ascent-vi">Coordinate-Ascent VI</h2>
+<p>When the model is conjugate, you can often derive exact updates for each variational factor.</p>
+<p>This gives a deterministic alternative to MCMC:</p>
+<ul>
+<li>update one factor</li>
+<li>update the next</li>
+<li>repeat until the ELBO stabilizes</li>
+</ul>
+<h2 id="black-box-vi">Black-Box VI</h2>
+<p>For modern models, exact updates are rare.</p>
+<p>Instead we use:</p>
+<ul>
+<li>Monte Carlo gradient estimates</li>
+<li>reparameterization gradients</li>
+<li>stochastic optimization</li>
+</ul>
+<p>This is how VI scales to deep latent-variable models.</p>
+<h2 id="vi-vs-mcmc">VI vs MCMC</h2>
+<p>VI:</p>
+<ul>
+<li>optimization-based</li>
+<li>faster</li>
+<li>deterministic once initialized</li>
+<li>biased by the variational family</li>
+</ul>
+<p>MCMC:</p>
+<ul>
+<li>sampling-based</li>
+<li>slower</li>
+<li>asymptotically exact</li>
+<li>often harder to scale</li>
+</ul>
+<h2 id="common-failure-modes">Common Failure Modes</h2>
+<ul>
+<li>mean-field factorization too crude</li>
+<li>local optima</li>
+<li>poor variance estimates</li>
+<li>ELBO improves while a task-relevant metric does not</li>
+</ul>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-26-variational-inference-exercises">Tutorial 26: Variational Inference Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>Define variational inference.</li>
+<li>What optimization problem does variational inference solve?</li>
+<li>Why is the ELBO used in variational inference?</li>
+<li>What is a variational family?</li>
+<li>What is mean-field factorization?</li>
+<li>What does reverse KL mean here?</li>
+<li>Give one reason VI is often faster than MCMC.</li>
+<li>What is coordinate-ascent variational inference?</li>
+<li>What is one downside of mean-field assumptions?</li>
+<li>What is black-box variational inference?</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Explain in words how VI turns integration into optimization.</li>
+<li>Describe the difference between approximation error and optimization error in VI.</li>
+<li>Explain why reverse KL can produce mode-seeking behavior.</li>
+<li>Compare mean-field VI and full-covariance approximations.</li>
+<li>Explain why VI often underestimates posterior variance.</li>
+<li>Describe when coordinate-ascent updates are available.</li>
+<li>Compare VI and MCMC in terms of speed, bias, and scalability.</li>
+<li>Explain how stochastic gradient methods enable large-scale VI.</li>
+<li>Give an example where VI is a practical choice despite approximation bias.</li>
+<li>Explain why the choice of variational family is as important as the optimizer.</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Derive the mean-field coordinate update formula up to an additive constant.</li>
+<li>Explain carefully why reverse KL and forward KL behave differently near missing modes.</li>
+<li>Show how VI can be derived either from KL minimization or ELBO maximization.</li>
+<li>Compare deterministic coordinate-ascent VI with stochastic black-box VI.</li>
+<li>Discuss how richer variational families trade off flexibility against computational cost.</li>
+<li>Explain why a poor ELBO landscape can create local-optimum issues in VI.</li>
+<li>Describe how reparameterization gradients reduce variance compared to score-function estimators.</li>
+<li>Analyze a case where VI gives good posterior means but poor uncertainty calibration.</li>
+<li>Compare VI for conjugate exponential-family models with VI for deep generative models.</li>
+<li>Write a short essay on variational inference as approximate Bayesian computation by optimization.</li>
+</ol>
+            </article>
+            <nav class="series-nav"><a href="../06-amortized-inference/index.html" class="series-nav-card"><span class="series-nav-label">Previous</span><strong>Amortized Inference</strong></a><a href="../08-amortized-variational-inference/index.html" class="series-nav-card series-nav-next"><span class="series-nav-label">Next</span><strong>Amortized Variational Inference</strong></a></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#intuition" class="toc-link toc-level-2">Intuition</a><a href="#mean-field-variational-inference" class="toc-link toc-level-2">Mean-Field Variational Inference</a><a href="#coordinate-update-idea" class="toc-link toc-level-3">Coordinate update idea</a><a href="#reverse-kl-and-its-consequences" class="toc-link toc-level-2">Reverse KL and Its Consequences</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#why-vi-is-popular" class="toc-link toc-level-2">Why VI Is Popular</a><a href="#mean-field-tradeoff" class="toc-link toc-level-2">Mean-Field Tradeoff</a><a href="#coordinate-ascent-vi" class="toc-link toc-level-2">Coordinate-Ascent VI</a><a href="#black-box-vi" class="toc-link toc-level-2">Black-Box VI</a><a href="#vi-vs-mcmc" class="toc-link toc-level-2">VI vs MCMC</a><a href="#common-failure-modes" class="toc-link toc-level-2">Common Failure Modes</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

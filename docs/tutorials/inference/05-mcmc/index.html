@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCMC | ML Fundamentals</title>
+    <meta name="description" content="Metropolis-Hastings, Gibbs sampling, mixing, burn-in, and Monte Carlo posterior estimation.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>MCMC</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>05. MCMC</h1>
+                <p>Metropolis-Hastings, Gibbs sampling, mixing, burn-in, and Monte Carlo posterior estimation.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-24-mcmc">Tutorial 24: MCMC</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p><strong>Markov Chain Monte Carlo (MCMC)</strong> is a family of algorithms for sampling from complicated probability distributions.</p>
+<p>If direct sampling from $p(\theta \mid x)$ is impossible, MCMC constructs a Markov chain whose stationary distribution is the target posterior.</p>
+<p>Then averages over the chain approximate posterior expectations: $$E_{p(\theta \mid x)}[f(\theta)] \approx \frac{1}{T}\sum_{t=1}^T f(\theta^{(t)})$$</p>
+<h2 id="intuition">Intuition</h2>
+<p>Imagine a landscape whose height is proportional to posterior density.</p>
+<ul>
+<li>high hills = plausible regions</li>
+<li>deep valleys = implausible regions</li>
+</ul>
+<p>MCMC sends a walker through that landscape. The walker spends more time in high-density regions, so the visited states eventually look like samples from the target.</p>
+<h2 id="markov-chain-idea">Markov Chain Idea</h2>
+<p>A Markov chain updates by: $$\theta^{(t+1)} \sim K(\cdot \mid \theta^{(t)})$$</p>
+<p>where the next state depends only on the current state.</p>
+<p>The design goal is: $$\pi(\theta) = p(\theta \mid x)$$</p>
+<p>should be the stationary distribution of the transition kernel $K$.</p>
+<h2 id="metropolis-hastings">Metropolis-Hastings</h2>
+<h3 id="proposal">Proposal</h3>
+<p>Given current state $\theta$, propose: $$\theta&#x27; \sim q(\theta&#x27; \mid \theta)$$</p>
+<h3 id="accept-reject-step">Accept-reject step</h3>
+<p>Accept with probability: $$\alpha(\theta,\theta&#x27;) = \min\left(1, \frac{\pi(\theta&#x27;) q(\theta \mid \theta&#x27;)}{\pi(\theta) q(\theta&#x27; \mid \theta)}\right)$$</p>
+<p>If accepted, move to $\theta&#x27;$. Otherwise stay put.</p>
+<h3 id="why-this-works">Why this works</h3>
+<p>The acceptance rule enforces detailed balance, which makes $\pi$ stationary.</p>
+<h2 id="gibbs-sampling">Gibbs Sampling</h2>
+<p>If conditional distributions are easy, sample coordinates one at a time: $$\theta_1 \sim p(\theta_1 \mid \theta_2,\dots,\theta_d,x)$$ $$\theta_2 \sim p(\theta_2 \mid \theta_1,\theta_3,\dots,\theta_d,x)$$</p>
+<p>Gibbs is often simpler than Metropolis when conditionals are known.</p>
+<h2 id="diagnostics">Diagnostics</h2>
+<p>MCMC is approximate in practice because you only run a finite chain.</p>
+<p>Key concepts:</p>
+<ul>
+<li><strong>burn-in</strong>: early transient iterations</li>
+<li><strong>mixing</strong>: how quickly the chain explores the target</li>
+<li><strong>autocorrelation</strong>: dependence between nearby draws</li>
+<li><strong>effective sample size</strong>: number of near-independent samples represented by the chain</li>
+</ul>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" width="800" height="300" role="img" aria-label="MCMC sampling diagram">
+  <rect x="35" y="45" width="330" height="210" rx="16" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <text x="200" y="75" text-anchor="middle" font-size="22" font-weight="600">Target density</text>
+  <path d="M60 220 Q110 215 145 160 Q175 95 220 120 Q255 150 285 110 Q315 70 340 220" fill="rgba(59,130,246,0.18)" stroke="#2563eb" stroke-width="3"/>
+  <circle cx="145" cy="160" r="6" fill="#dc2626"/>
+  <circle cx="220" cy="120" r="6" fill="#dc2626"/>
+  <circle cx="285" cy="110" r="6" fill="#dc2626"/>
+  <text x="200" y="245" text-anchor="middle" font-size="14">walker spends more time in high-density regions</text>
+
+  <rect x="435" y="45" width="330" height="210" rx="16" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <text x="600" y="75" text-anchor="middle" font-size="22" font-weight="600">Trace plot intuition</text>
+  <polyline points="460,190 485,145 510,170 535,105 560,115 585,95 610,155 635,120 660,130 685,85 710,98 735,125" fill="none" stroke="#16a34a" stroke-width="3"/>
+  <line x1="500" y1="90" x2="500" y2="230" stroke="#dc2626" stroke-width="2" stroke-dasharray="7 6"/>
+  <text x="493" y="248" text-anchor="middle" font-size="13" fill="#dc2626">burn-in</text>
+  <text x="625" y="245" text-anchor="middle" font-size="14">after burn-in, use the chain for estimates</text>
+
+  <path d="M365 150 L435 150" stroke="#7c3aed" stroke-width="3" marker-end="url(#arrowMcmc)"/>
+  <text x="400" y="137" text-anchor="middle" font-size="14" fill="#7c3aed">sample</text>
+
+  <defs>
+    <marker id="arrowMcmc" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<h2 id="strengths">Strengths</h2>
+<ul>
+<li>asymptotically exact for many targets</li>
+<li>flexible for complicated posteriors</li>
+<li>useful for full Bayesian uncertainty quantification</li>
+</ul>
+<h2 id="weaknesses">Weaknesses</h2>
+<ul>
+<li>can mix very slowly</li>
+<li>expensive in high dimensions</li>
+<li>diagnostics are necessary but imperfect</li>
+<li>correlated samples reduce efficiency</li>
+</ul>
+<h2 id="mcmc-vs-variational-inference">MCMC vs Variational Inference</h2>
+<p>MCMC:</p>
+<ul>
+<li>slower</li>
+<li>often more accurate asymptotically</li>
+<li>gives sample-based posterior approximations</li>
+</ul>
+<p>Variational inference:</p>
+<ul>
+<li>faster</li>
+<li>optimization-based</li>
+<li>often biased but scalable</li>
+</ul>
+<h2 id="common-failure-modes">Common Failure Modes</h2>
+<ul>
+<li>poor proposal scale</li>
+<li>multimodal posteriors with mode trapping</li>
+<li>false convergence from one short chain</li>
+<li>ignoring autocorrelation when estimating uncertainty</li>
+</ul>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-24-mcmc-exercises">Tutorial 24: MCMC Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>What does MCMC stand for?</li>
+<li>What is the goal of MCMC in Bayesian inference?</li>
+<li>What is a Markov chain?</li>
+<li>What is meant by the stationary distribution of a chain?</li>
+<li>Write the Metropolis-Hastings acceptance probability.</li>
+<li>What is burn-in?</li>
+<li>What is mixing?</li>
+<li>What is autocorrelation in an MCMC chain?</li>
+<li>What is effective sample size?</li>
+<li>Name one advantage of Gibbs sampling.</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Explain why MCMC can be used when direct sampling from the posterior is impossible.</li>
+<li>Describe in words how Metropolis-Hastings works.</li>
+<li>Explain why rejected proposals are still part of the Markov chain.</li>
+<li>Compare random-walk Metropolis and Gibbs sampling.</li>
+<li>Explain why high autocorrelation reduces Monte Carlo efficiency.</li>
+<li>Describe how proposal variance affects acceptance rate and exploration.</li>
+<li>Explain why multimodal targets are hard for local proposals.</li>
+<li>Describe two practical convergence diagnostics.</li>
+<li>Compare MCMC samples to i.i.d. samples.</li>
+<li>Explain why finite-chain MCMC output is only approximately distributed as the target.</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Derive the Metropolis-Hastings acceptance rule from detailed balance.</li>
+<li>Show that if the proposal is symmetric, the acceptance ratio simplifies.</li>
+<li>Explain why irreducibility and aperiodicity matter for convergence.</li>
+<li>Derive the Gibbs sampler for a two-variable joint distribution with tractable conditionals.</li>
+<li>Discuss the bias-variance tradeoff involved in discarding burn-in samples.</li>
+<li>Show how autocorrelation enters the variance of an MCMC estimator.</li>
+<li>Explain why thinning usually does not improve statistical efficiency per computation.</li>
+<li>Compare MCMC and importance sampling for high-dimensional posterior inference.</li>
+<li>Describe how Hamiltonian Monte Carlo improves on random-walk behavior conceptually.</li>
+<li>Write a short essay on why MCMC diagnostics can suggest but never prove convergence.</li>
+</ol>
+            </article>
+            <nav class="series-nav"><a href="../04-elbo/index.html" class="series-nav-card"><span class="series-nav-label">Previous</span><strong>ELBO</strong></a><a href="../06-amortized-inference/index.html" class="series-nav-card series-nav-next"><span class="series-nav-label">Next</span><strong>Amortized Inference</strong></a></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#intuition" class="toc-link toc-level-2">Intuition</a><a href="#markov-chain-idea" class="toc-link toc-level-2">Markov Chain Idea</a><a href="#metropolis-hastings" class="toc-link toc-level-2">Metropolis-Hastings</a><a href="#proposal" class="toc-link toc-level-3">Proposal</a><a href="#accept-reject-step" class="toc-link toc-level-3">Accept-reject step</a><a href="#why-this-works" class="toc-link toc-level-3">Why this works</a><a href="#gibbs-sampling" class="toc-link toc-level-2">Gibbs Sampling</a><a href="#diagnostics" class="toc-link toc-level-2">Diagnostics</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#strengths" class="toc-link toc-level-2">Strengths</a><a href="#weaknesses" class="toc-link toc-level-2">Weaknesses</a><a href="#mcmc-vs-variational-inference" class="toc-link toc-level-2">MCMC vs Variational Inference</a><a href="#common-failure-modes" class="toc-link toc-level-2">Common Failure Modes</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

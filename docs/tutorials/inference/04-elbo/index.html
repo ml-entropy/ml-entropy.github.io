@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELBO | ML Fundamentals</title>
+    <meta name="description" content="Why the evidence lower bound exists and how it powers approximate inference.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+    <style>
+        .series-layout { max-width: 1260px; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; }
+        .series-main { min-width: 0; }
+        .series-hero { background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(147,51,234,0.08)); border: 1px solid rgba(99,102,241,0.18); border-radius: 24px; padding: 1.5rem 1.5rem 1.25rem; margin-bottom: 1.5rem; }
+        .series-kicker { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.9rem; }
+        .series-hero h1 { margin: 0 0 0.6rem; }
+        .series-hero p { margin: 0; color: var(--color-text-secondary); font-size: 1.04rem; }
+        .article-card { background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 24px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .article-card + .article-card { margin-top: 1.5rem; }
+        .article-card h1 { margin-top: 0; }
+        .article-card h2 { margin-top: 2.25rem; scroll-margin-top: 100px; }
+        .article-card h3 { margin-top: 1.5rem; scroll-margin-top: 100px; }
+        .article-card p, .article-card li { line-height: 1.75; }
+        .article-card pre { overflow-x: auto; background: var(--color-surface-secondary, #f8fafc); padding: 1rem; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+        .article-card code { font-family: 'JetBrains Mono', monospace; }
+        .article-card svg { max-width: 100%; height: auto; }
+        .article-card ul, .article-card ol { padding-left: 1.35rem; }
+        .section-header-inline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .section-label { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 0.9rem; }
+        .toc-panel { position: sticky; top: 92px; align-self: start; background: var(--color-surface-primary, #fff); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.05); }
+        .toc-panel h3 { margin: 0 0 0.9rem; font-size: 1rem; }
+        .toc-link { display: block; text-decoration: none; color: var(--color-text-secondary); padding: 0.35rem 0; line-height: 1.35; }
+        .toc-link:hover { color: var(--color-primary, #2563eb); }
+        .toc-level-3 { padding-left: 0.85rem; font-size: 0.95rem; }
+        .series-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .series-nav-card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(148,163,184,0.2); border-radius: 18px; padding: 1rem 1.1rem; background: var(--color-surface-primary, #fff); }
+        .series-nav-card:hover { border-color: rgba(37,99,235,0.35); transform: translateY(-1px); }
+        .series-nav-label { display: block; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .series-nav-next { text-align: right; }
+        @media (max-width: 980px) { .series-layout { grid-template-columns: 1fr; } .toc-panel { position: static; order: -1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu"><div class="nav-links">
+                    <a href="../../ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="nav-link active">Inference</a>
+                    <a href="../../probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+            </div></div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb"><a href="../../../index.html">Home</a><span class="breadcrumb-separator">→</span><a href="../index.html">Inference</a><span class="breadcrumb-separator">→</span><span>ELBO</span></nav>
+            <div class="tutorial-tabs"><a href="#theory" class="tutorial-tab active">Theory</a><a href="#exercises" class="tutorial-tab">Exercises</a></div>
+        </div>
+    </header>
+    <main class="series-layout">
+        <section class="series-main">
+            <div class="series-hero">
+                <span class="series-kicker">Inference Series</span>
+                <h1>04. ELBO</h1>
+                <p>Why the evidence lower bound exists and how it powers approximate inference.</p>
+            </div>
+            <article class="article-content article-card" id="theory">
+                <div class="section-header-inline"><span class="section-label">Theory</span></div>
+                <h1 id="tutorial-23-elbo">Tutorial 23: ELBO</h1>
+<h2 id="the-big-picture">The Big Picture</h2>
+<p>The <strong>Evidence Lower Bound (ELBO)</strong> is a tractable objective used when exact posterior inference is hard.</p>
+<p>It appears when we want to optimize $\log p(x)$ but cannot compute it directly.</p>
+<p>The central identity is: $$\log p(x) = \mathcal{L}(q) + D_{KL}(q(z \mid x) \| p(z \mid x))$$</p>
+<p>where $$\mathcal{L}(q) = E_{q(z \mid x)}[\log p(x,z) - \log q(z \mid x)]$$</p>
+<p>Because KL divergence is nonnegative: $$\mathcal{L}(q) \le \log p(x)$$</p>
+<p>That is why it is called a lower bound.</p>
+<h2 id="intuition">Intuition</h2>
+<p>The posterior $p(z \mid x)$ is the ideal answer, but often it is intractable.</p>
+<p>So we choose a simpler distribution $q(z \mid x)$ and try to make it close to the true posterior.</p>
+<p>The ELBO rewards two things:</p>
+<ol>
+<li>putting mass on latent values that explain the data well</li>
+<li>keeping the approximation itself honest and normalized</li>
+</ol>
+<h2 id="derivation">Derivation</h2>
+<p>Start from: $$\log p(x) = \log \int q(z \mid x) \frac{p(x,z)}{q(z \mid x)} dz$$</p>
+<p>Apply Jensen&#x27;s inequality: $$\log p(x) \ge E_q \left[\log \frac{p(x,z)}{q(z \mid x)}\right]$$</p>
+<p>Thus: $$\mathcal{L}(q) = E_q[\log p(x,z)] - E_q[\log q(z \mid x)]$$</p>
+<p>Using $p(x,z)=p(x \mid z)p(z)$: $$\mathcal{L}(q)=E_q[\log p(x \mid z)] - D_{KL}(q(z \mid x)\|p(z))$$</p>
+<p>This is the most common decomposition.</p>
+<h2 id="the-two-elbo-terms">The Two ELBO Terms</h2>
+<h3 id="reconstruction-or-fit-term">Reconstruction or fit term</h3>
+<p>$$E_q[\log p(x \mid z)]$$</p>
+<p>This says: under your approximate posterior, how well do latent variables explain the observation?</p>
+<h3 id="regularization-term">Regularization term</h3>
+<p>$$-D_{KL}(q(z \mid x)\|p(z))$$</p>
+<p>This says: do not wander too far from the prior unless the data really justifies it.</p>
+<h2 id="why-the-elbo-matters">Why the ELBO Matters</h2>
+<p>The ELBO is doing two jobs at once:</p>
+<ol>
+<li>approximate inference</li>
+<li>marginal likelihood optimization</li>
+</ol>
+<p>If you maximize the ELBO with respect to both model parameters and variational parameters, you simultaneously:</p>
+<ul>
+<li>improve the model fit</li>
+<li>improve the posterior approximation inside your chosen family</li>
+</ul>
+<h2 id="geometry-of-the-gap">Geometry of the Gap</h2>
+<p>The gap to the true log evidence is: $$\log p(x) - \mathcal{L}(q) = D_{KL}(q(z \mid x)\|p(z \mid x))$$</p>
+<p>So:</p>
+<ul>
+<li>if $q$ equals the true posterior, the gap is zero</li>
+<li>if $q$ is restricted, the best you can do is the best approximation in that family</li>
+</ul>
+<h2 id="visual-summary">Visual Summary</h2>
+<div align="center">
+<svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg" width="780" height="280" role="img" aria-label="ELBO diagram">
+  <rect x="50" y="70" width="180" height="140" rx="16" fill="#e8f1ff" stroke="#2563eb" stroke-width="2.5"/>
+  <text x="140" y="110" text-anchor="middle" font-size="24" font-weight="600">log p(x)</text>
+  <text x="140" y="145" text-anchor="middle" font-size="16">true log evidence</text>
+  <text x="140" y="170" text-anchor="middle" font-size="16">hard to compute</text>
+
+  <rect x="300" y="105" width="180" height="105" rx="16" fill="#ecfeef" stroke="#16a34a" stroke-width="2.5"/>
+  <text x="390" y="143" text-anchor="middle" font-size="24" font-weight="600">ELBO</text>
+  <text x="390" y="168" text-anchor="middle" font-size="16">tractable objective</text>
+
+  <rect x="545" y="120" width="180" height="90" rx="16" fill="#faf5ff" stroke="#9333ea" stroke-width="2.5"/>
+  <text x="635" y="155" text-anchor="middle" font-size="18" font-weight="600">Gap = KL(q || posterior)</text>
+  <text x="635" y="180" text-anchor="middle" font-size="14">always nonnegative</text>
+
+  <path d="M230 125 L300 145" stroke="#374151" stroke-width="3" marker-end="url(#arrowElbo)"/>
+  <path d="M480 155 L545 160" stroke="#374151" stroke-width="3" marker-end="url(#arrowElbo)"/>
+
+  <text x="390" y="42" text-anchor="middle" font-size="20" font-weight="600">Maximizing the ELBO shrinks the approximation gap</text>
+
+  <defs>
+    <marker id="arrowElbo" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#374151"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<h2 id="elbo-in-latent-variable-models">ELBO in Latent-Variable Models</h2>
+<p>For a VAE-like setup: $$p_\theta(x,z)=p_\theta(x \mid z)p(z), \quad q_\phi(z \mid x)$$</p>
+<p>The objective becomes: $$\mathcal{L}(\theta,\phi;x)=E_{q_\phi(z \mid x)}[\log p_\theta(x \mid z)] - D_{KL}(q_\phi(z \mid x)\|p(z))$$</p>
+<p>This is why the ELBO sits at the center of modern representation learning.</p>
+<h2 id="common-misunderstandings">Common Misunderstandings</h2>
+<ol>
+<li>The ELBO is not the posterior.</li>
+<li>A higher ELBO does not guarantee causal correctness or semantic correctness.</li>
+<li>A tight ELBO still depends on model assumptions.</li>
+<li>Optimizing the ELBO may still give a biased approximation if the variational family is too simple.</li>
+</ol>
+<h2 id="why-elbo-and-not-exact-evidence">Why ELBO and Not Exact Evidence?</h2>
+<p>Because exact evidence requires integrating over all latent variables: $$p(x)=\int p(x,z)dz$$</p>
+<p>In high dimensions or nonlinear models, this is usually intractable.</p>
+<p>The ELBO converts integration difficulty into optimization.</p>
+            </article>
+            <article class="article-content article-card" id="exercises">
+                <div class="section-header-inline"><span class="section-label">Exercises</span></div>
+                <h1 id="tutorial-23-elbo-exercises">Tutorial 23: ELBO Exercises</h1>
+<h2 id="easy-problems">Easy Problems</h2>
+<ol>
+<li>What does ELBO stand for?</li>
+<li>Why is the ELBO called a lower bound?</li>
+<li>Write the definition of the ELBO using $p(x,z)$ and $q(z \mid x)$.</li>
+<li>What inequality is used to derive the ELBO?</li>
+<li>What is the common decomposition of the ELBO in latent-variable models?</li>
+<li>Which KL divergence appears in the gap between log evidence and ELBO?</li>
+<li>Why can the ELBO be optimized even when $\log p(x)$ is hard to compute?</li>
+<li>What role does the prior play in the ELBO decomposition?</li>
+<li>What does the reconstruction term encourage?</li>
+<li>What does the KL regularizer encourage?</li>
+</ol>
+<h2 id="middle-problems">Middle Problems</h2>
+<ol>
+<li>Derive the ELBO starting from $\log p(x)$.</li>
+<li>Explain in words why Jensen&#x27;s inequality produces a lower bound.</li>
+<li>Show how the ELBO becomes $E_q[\log p(x \mid z)] - D_{KL}(q\|p(z))$.</li>
+<li>Explain why maximizing the ELBO improves the variational approximation.</li>
+<li>Describe how the ELBO balances data fit and regularization.</li>
+<li>Explain why a restricted variational family can leave a nonzero gap even at optimum.</li>
+<li>Compare optimizing the ELBO with directly minimizing $D_{KL}(q\|p(z \mid x))$.</li>
+<li>Give an example of a model where the evidence integral is intractable.</li>
+<li>Explain the connection between the ELBO and representation learning in VAEs.</li>
+<li>Describe one failure mode caused by overemphasizing the KL term.</li>
+</ol>
+<h2 id="hard-problems">Hard Problems</h2>
+<ol>
+<li>Prove the identity $\log p(x)=\mathcal{L}(q)+D_{KL}(q\|p(z \mid x))$.</li>
+<li>Explain why optimizing reverse KL often leads to mode-seeking approximations.</li>
+<li>Derive the ELBO for a Gaussian latent-variable model with linear decoder.</li>
+<li>Compare the ELBO to importance sampling lower bounds conceptually.</li>
+<li>Explain how posterior collapse can be understood directly from the ELBO terms.</li>
+<li>Discuss how the ELBO changes when the prior itself has learnable parameters.</li>
+<li>Show how a beta-VAE modifies the ELBO and interpret the effect of $\beta$.</li>
+<li>Give an example where a high ELBO still corresponds to a poor posterior approximation for a downstream task.</li>
+<li>Explain the difference between maximizing average ELBO over data and tightening the bound per observation.</li>
+<li>Write a short essay on the ELBO as a compromise between statistical fidelity and computational tractability.</li>
+</ol>
+            </article>
+            <nav class="series-nav"><a href="../03-bayesian-inference/index.html" class="series-nav-card"><span class="series-nav-label">Previous</span><strong>Bayesian Inference</strong></a><a href="../05-mcmc/index.html" class="series-nav-card series-nav-next"><span class="series-nav-label">Next</span><strong>MCMC</strong></a></nav>
+        </section>
+        <aside class="toc-panel">
+            <h3>On This Page</h3>
+            <a href="#the-big-picture" class="toc-link toc-level-2">The Big Picture</a><a href="#intuition" class="toc-link toc-level-2">Intuition</a><a href="#derivation" class="toc-link toc-level-2">Derivation</a><a href="#the-two-elbo-terms" class="toc-link toc-level-2">The Two ELBO Terms</a><a href="#reconstruction-or-fit-term" class="toc-link toc-level-3">Reconstruction or fit term</a><a href="#regularization-term" class="toc-link toc-level-3">Regularization term</a><a href="#why-the-elbo-matters" class="toc-link toc-level-2">Why the ELBO Matters</a><a href="#geometry-of-the-gap" class="toc-link toc-level-2">Geometry of the Gap</a><a href="#visual-summary" class="toc-link toc-level-2">Visual Summary</a><a href="#elbo-in-latent-variable-models" class="toc-link toc-level-2">ELBO in Latent-Variable Models</a><a href="#common-misunderstandings" class="toc-link toc-level-2">Common Misunderstandings</a><a href="#why-elbo-and-not-exact-evidence" class="toc-link toc-level-2">Why ELBO and Not Exact Evidence?</a>
+        </aside>
+    </main>
+    <script src="../../../js/main.js"></script>
+</body>
+</html>
