@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variational Inference | Autoencoder Models</title>
+    <meta name="description" content="Learn variational inference from first principles: the intractability problem, ELBO derivation, mean-field approximation, CAVI, amortized inference, and connections to the EM algorithm.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../../tutorials/autoencoders/index.html" class="nav-link active">Autoencoder Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Autoencoder Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Variational Inference</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Autoencoder Models</h3>
+                <nav class="sidebar-nav">
+                    <a href="../00-autoencoders/index.html" class="sidebar-link">00. Autoencoders</a>
+                    <a href="../01-variational-inference/index.html" class="sidebar-link active">01. Variational Inference</a>
+                    <a href="../02-vae/index.html" class="sidebar-link">02. Variational Autoencoders</a>
+                    <a href="../03-rate-distortion/index.html" class="sidebar-link">03. Rate-Distortion Theory</a>
+                    <a href="../04-information-bottleneck/index.html" class="sidebar-link">04. Information Bottleneck</a>
+                    <a href="../05-advanced-vaes/index.html" class="sidebar-link">05. Advanced VAEs</a>
+                    <a href="../06-applications/index.html" class="sidebar-link">06. Applications</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>
+                    <a href="../../inference/index.html" class="sidebar-link">Inference</a>
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Variational Inference</h1>
+
+<p>
+    Probabilistic models are only useful if we can perform inference in them. Given observed data $x$, we want to compute the posterior distribution over latent variables $p(z|x)$, which tells us everything the model believes about the hidden structure behind the observation. In simple models -- conjugate exponential families, for example -- the posterior has a closed form. But in the vast majority of interesting models, including deep generative models, the posterior is intractable. Variational inference is the principled framework for turning the intractable inference problem into a tractable optimization problem, and it is the mathematical backbone of variational autoencoders.
+</p>
+
+<p>
+    The core challenge is straightforward to state. Bayes' theorem gives us the posterior:
+</p>
+<div class="math-block">
+    $$p(z|x) = \frac{p(x|z)\,p(z)}{p(x)}$$
+</div>
+<p>
+    The numerator is easy: $p(x|z)$ is the likelihood (our model's prediction given latents), and $p(z)$ is the prior (our belief about the latents before seeing data). The problem lies entirely in the denominator, the marginal likelihood or evidence:
+</p>
+<div class="math-block">
+    $$p(x) = \int p(x|z)\,p(z)\,dz$$
+</div>
+<p>
+    This integral sums the likelihood over every possible configuration of the latent variables, weighted by the prior. For a Gaussian mixture model with $K$ components and $N$ data points, this involves summing over $K^N$ possible assignments. For a neural network decoder with a continuous latent space $z \in \mathbb{R}^d$, it involves integrating over all of $\mathbb{R}^d$ where the integrand is a highly nonlinear function of $z$. Neither computation is remotely feasible. This is the intractability problem that variational inference solves.
+</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition: Variational Inference</div>
+    <p>
+        Variational inference (VI) is a method for approximating intractable posterior distributions. Instead of computing $p(z|x)$ exactly, we posit a family of tractable distributions $\mathcal{Q} = \{q_\phi(z|x) : \phi \in \Phi\}$ and find the member of this family closest to the true posterior by solving an optimization problem. The "variational" in the name comes from the calculus of variations, since we are optimizing over a space of functions (distributions) rather than a finite-dimensional parameter vector -- though in practice we parameterize $q$ and optimize over those parameters.
+    </p>
+</div>
+
+<p>
+    The central idea is to replace an intractable integration problem with a tractable optimization problem. We choose a family of simple distributions $q_\phi(z|x)$ -- for instance, factorized Gaussians -- and then find the member of that family that is closest to the true posterior $p(z|x)$. Closeness is measured by the Kullback-Leibler divergence:
+</p>
+<div class="math-block">
+    $$D_{\text{KL}}(q_\phi(z|x) \| p(z|x)) = \mathbb{E}_{q_\phi(z|x)}\left[\log \frac{q_\phi(z|x)}{p(z|x)}\right]$$
+</div>
+<p>
+    This quantity is always non-negative (by Gibbs' inequality or Jensen's inequality applied to the convex function $-\log$) and equals zero if and only if $q_\phi(z|x) = p(z|x)$ almost everywhere. So minimizing this KL divergence with respect to $\phi$ gives us the best approximation to the true posterior within our chosen family. But there is a catch: expanding the KL divergence requires evaluating $\log p(z|x)$, which itself requires the intractable evidence $p(x)$. This seems circular -- we wanted to avoid computing $p(x)$, yet the objective we want to minimize depends on it. The resolution of this apparent circularity is the evidence lower bound.
+</p>
+
+<h3 id="elbo-derivation">The Evidence Lower Bound (ELBO)</h3>
+
+<p>
+    The ELBO is the central quantity in variational inference. It provides a tractable objective that, when maximized, simultaneously gives us a good approximation to the posterior and a lower bound on the log-evidence. The derivation is one of the most important calculations in modern machine learning, and it can be approached from several angles. We present the most illuminating route.
+</p>
+
+<div class="math-derivation">
+    <div class="math-derivation-title">Derivation: The Evidence Lower Bound (ELBO)</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            <strong>Start from the log-evidence.</strong> We begin with the quantity we wish we could compute but cannot:
+            $$\log p(x) = \log \int p(x, z)\, dz$$
+            This is intractable because the integral inside the logarithm couples all dimensions of $z$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            <strong>Introduce $q$ via importance sampling.</strong> Multiply and divide by $q_\phi(z|x)$ inside the integral:
+            $$\log p(x) = \log \int \frac{p(x, z)}{q_\phi(z|x)} q_\phi(z|x)\, dz = \log\, \mathbb{E}_{q_\phi(z|x)}\left[\frac{p(x, z)}{q_\phi(z|x)}\right]$$
+            This is an identity -- it holds for any distribution $q_\phi(z|x)$ that has the same support as $p(z|x)$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            <strong>Apply Jensen's inequality.</strong> Since $\log$ is a concave function, Jensen's inequality gives us:
+            $$\log\, \mathbb{E}_{q_\phi(z|x)}\left[\frac{p(x, z)}{q_\phi(z|x)}\right] \geq \mathbb{E}_{q_\phi(z|x)}\left[\log \frac{p(x, z)}{q_\phi(z|x)}\right]$$
+            The right-hand side is the ELBO: $\mathcal{L}(\phi) = \mathbb{E}_{q_\phi(z|x)}\left[\log \frac{p(x, z)}{q_\phi(z|x)}\right]$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            <strong>Show that the gap is the KL divergence.</strong> We can also derive the relationship algebraically. Start from the KL divergence definition:
+            $$D_{\text{KL}}(q_\phi(z|x) \| p(z|x)) = \mathbb{E}_{q_\phi}\left[\log \frac{q_\phi(z|x)}{p(z|x)}\right] = \mathbb{E}_{q_\phi}\left[\log q_\phi(z|x) - \log p(x,z) + \log p(x)\right]$$
+            Since $\log p(x)$ does not depend on $z$, it comes out of the expectation:
+            $$D_{\text{KL}}(q_\phi \| p) = -\mathbb{E}_{q_\phi}\left[\log \frac{p(x,z)}{q_\phi(z|x)}\right] + \log p(x) = -\mathcal{L}(\phi) + \log p(x)$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">5</div>
+        <div class="math-step-content">
+            <strong>Rearrange to obtain the fundamental identity.</strong> Solving for $\log p(x)$:
+            $$\log p(x) = \mathcal{L}(\phi) + D_{\text{KL}}(q_\phi(z|x) \| p(z|x))$$
+            Since $D_{\text{KL}} \geq 0$, we have $\log p(x) \geq \mathcal{L}(\phi)$, confirming that the ELBO is indeed a lower bound. Maximizing $\mathcal{L}(\phi)$ is equivalent to minimizing $D_{\text{KL}}(q_\phi \| p)$, because $\log p(x)$ is a constant with respect to $\phi$.
+        </div>
+    </div>
+</div>
+
+<p>
+    The identity $\log p(x) = \text{ELBO} + D_{\text{KL}}(q_\phi \| p)$ is perhaps the single most important equation in variational inference. It tells us three things simultaneously. First, the ELBO is always a lower bound on the log-evidence, hence its name. Second, the gap between the ELBO and the true log-evidence is exactly the KL divergence between our approximation and the true posterior -- so we can gauge how good our approximation is by measuring how tight the bound is. Third, maximizing the ELBO with respect to $\phi$ is equivalent to minimizing the KL divergence, which means we can find the best approximation to the posterior without ever evaluating $p(z|x)$ directly.
+</p>
+
+<h3 id="elbo-decomposition">ELBO Decomposition: Reconstruction + Regularization</h3>
+
+<p>
+    The ELBO can be decomposed into two terms with clear interpretations. Starting from the definition and expanding the joint $p(x,z) = p_\theta(x|z)\,p(z)$:
+</p>
+<div class="math-block">
+    $$\mathcal{L}(\phi, \theta) = \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - D_{\text{KL}}(q_\phi(z|x) \| p(z))$$
+</div>
+<p>
+    The first term is the <strong>reconstruction term</strong> (or expected log-likelihood). It measures how well the model can reconstruct the data $x$ from latent codes $z$ drawn from the approximate posterior $q_\phi(z|x)$. Maximizing this term alone would encourage the model to encode as much information as possible into $z$ -- the encoder would try to make $z$ a perfect, lossless representation of $x$.
+</p>
+<p>
+    The second term is the <strong>KL penalty</strong> (or regularization term). It penalizes the approximate posterior $q_\phi(z|x)$ for deviating from the prior $p(z)$. Minimizing this term alone would force $q_\phi(z|x) = p(z)$ for all $x$, which means the latent code would carry zero information about the input -- it would just be noise from the prior.
+</p>
+<p>
+    The tension between these two terms is the fundamental tradeoff of variational inference applied to generative models. The reconstruction term pushes for informative latent codes; the KL penalty pushes for simple, prior-like latent codes. The optimal balance encodes exactly the information needed for good reconstruction and no more. This is directly connected to the rate-distortion tradeoff from information theory, which we will explore in Chapter 03.
+</p>
+
+<div class="note-box">
+    <div class="box-title">Why the KL penalty matters for generation</div>
+    <p>
+        Without the KL penalty, the encoder could learn to map each training example to a unique, isolated point in latent space. Reconstruction would be perfect, but the latent space would have no structure -- sampling a new $z$ from the prior would land in a region the decoder has never seen, producing garbage. The KL penalty forces the encoder to spread its latent codes across the prior's support, creating a smooth, continuous latent space where nearby points decode to similar outputs. This is what makes the model generative: we can sample $z \sim p(z)$ and decode it into a realistic new data point.
+    </p>
+</div>
+
+<h3 id="mean-field-approximation">Mean-Field Approximation</h3>
+
+<p>
+    The simplest and most widely used variational family is the mean-field family, where the approximate posterior fully factorizes over the latent variables:
+</p>
+<div class="math-block">
+    $$q(z) = \prod_{i=1}^{d} q_i(z_i)$$
+</div>
+<p>
+    This means we assume the latent dimensions are independent under the approximate posterior, even though they may be highly correlated under the true posterior $p(z|x)$. The mean-field assumption is a strong simplification, but it makes optimization tractable and often gives surprisingly good results. The factorization means we only need to store and optimize $d$ univariate distributions rather than one $d$-dimensional joint distribution, reducing the problem from exponential to linear complexity in the latent dimension.
+</p>
+<p>
+    The mean-field assumption has a well-known limitation: it systematically underestimates posterior correlations and variances. If the true posterior has strong dependencies between $z_i$ and $z_j$, the mean-field approximation cannot capture them -- it will find the best product distribution, which typically has narrower marginals than the true posterior. This is a direct consequence of using the reverse KL divergence $D_{\text{KL}}(q \| p)$, which is mode-seeking and prefers to concentrate mass where $p$ has high density rather than spreading mass to cover all of $p$'s support.
+</p>
+
+<h3 id="cavi">Coordinate Ascent Variational Inference (CAVI)</h3>
+
+<p>
+    Given the mean-field factorization, we can derive the optimal update for each factor $q_j(z_j)$ while holding all other factors fixed. This is the coordinate ascent variational inference (CAVI) algorithm, and it is the classical workhorse of variational methods in Bayesian statistics.
+</p>
+<p>
+    The optimal form for $q_j(z_j)$, holding all other factors $q_{-j}$ fixed, is:
+</p>
+<div class="math-block">
+    $$\log q_j^*(z_j) = \mathbb{E}_{q_{-j}}[\log p(x, z)] + \text{const}$$
+</div>
+<p>
+    where the expectation is taken over all latent variables except $z_j$. The constant ensures $q_j^*$ integrates to one. This result is derived by taking the functional derivative of the ELBO with respect to $q_j$ and setting it to zero. For models in the conjugate exponential family, these expectations have closed-form solutions, making each CAVI update an analytic computation. The algorithm iterates over all factors, updating each one in turn, and is guaranteed to monotonically increase the ELBO at each step.
+</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition: CAVI Algorithm</div>
+    <p>
+        Coordinate Ascent Variational Inference (CAVI) is an iterative algorithm for mean-field variational inference. At each iteration, it cycles through the latent variable factors $q_1, q_2, \ldots, q_d$ and updates each one to its conditional optimum given the current values of all others. Each update maximizes the ELBO with respect to one factor while holding the rest fixed. The algorithm converges to a local optimum of the ELBO (which is generally non-convex in the variational parameters) and is guaranteed to never decrease the objective.
+    </p>
+</div>
+
+<p>
+    CAVI is elegant and theoretically clean, but it has significant practical limitations. Each update requires computing expectations over all other factors, which can be expensive. The algorithm processes the entire dataset at each step, making it ill-suited for large-scale problems. And the convergence can be slow, especially when the factors are strongly coupled. These limitations motivated the development of stochastic variational inference and, ultimately, amortized inference with neural networks.
+</p>
+
+<h3 id="em-connection">Connection to the EM Algorithm</h3>
+
+<p>
+    The expectation-maximization (EM) algorithm can be viewed as a special case of variational inference. In the E-step, we compute the posterior $q(z) = p(z|x, \theta^{\text{old}})$ exactly (when this is tractable), which is equivalent to setting the variational distribution to the true posterior and driving the KL divergence to zero. In the M-step, we maximize the expected complete-data log-likelihood $\mathbb{E}_{q(z)}[\log p(x, z | \theta)]$ with respect to $\theta$, which is equivalent to maximizing the ELBO with respect to the model parameters.
+</p>
+<p>
+    The connection becomes precise when we write the EM objective. After the E-step sets $q(z) = p(z|x, \theta^{\text{old}})$, the ELBO becomes:
+</p>
+<div class="math-block">
+    $$\mathcal{L}(\theta) = \mathbb{E}_{p(z|x, \theta^{\text{old}})}[\log p(x, z | \theta)] + H(q)$$
+</div>
+<p>
+    where $H(q)$ is the entropy of $q$, which does not depend on $\theta$. So the M-step maximization of $\mathcal{L}$ with respect to $\theta$ is identical to maximizing the expected complete-data log-likelihood, which is exactly what EM does. This perspective reveals that EM is variational inference with the exact posterior as the variational distribution. When the exact E-step is intractable, replacing it with an approximate variational E-step gives variational EM, which is the bridge between classical EM and modern deep generative models.
+</p>
+
+<h3 id="amortized-inference">Amortized Inference</h3>
+
+<p>
+    Classical variational inference optimizes a separate set of variational parameters $\phi_n$ for each data point $x_n$. This means that at test time, encountering a new observation requires running a full optimization from scratch. Amortized inference replaces this per-example optimization with a single neural network $f_\phi$ that maps any input $x$ directly to the variational parameters of $q_\phi(z|x)$.
+</p>
+<div class="math-block">
+    $$q_\phi(z|x) = \mathcal{N}(z;\, \mu_\phi(x),\, \text{diag}(\sigma^2_\phi(x)))$$
+</div>
+<p>
+    where $\mu_\phi(x)$ and $\sigma^2_\phi(x)$ are outputs of a neural network (the encoder or inference network). The term "amortized" comes from the idea that the computational cost of inference is amortized across all data points: instead of paying a separate optimization cost for each $x_n$, we pay once to train the shared network $f_\phi$, and then inference on any new point is a single forward pass. This is what makes VAEs practical for large datasets -- the encoder performs approximate inference in milliseconds rather than minutes.
+</p>
+<p>
+    The tradeoff is the amortization gap: the shared network $f_\phi$ may not be as accurate as per-example optimization for any individual data point. The amortization gap is the difference between the ELBO achieved by the amortized encoder and the ELBO that could be achieved by optimizing the variational parameters for each data point individually. In practice, the gap is usually small for well-trained networks, and the massive speedup in inference time more than compensates for the slight loss in approximation quality.
+</p>
+
+<h3 id="stochastic-vi">Stochastic Variational Inference</h3>
+
+<p>
+    Stochastic variational inference (SVI) scales variational methods to massive datasets by using stochastic gradient ascent on the ELBO. Instead of computing the ELBO gradient using the entire dataset, SVI subsamples a minibatch of data points and computes a noisy but unbiased estimate of the gradient. This reduces the per-iteration cost from $O(N)$ to $O(B)$ where $B$ is the minibatch size, enabling variational inference on datasets with millions or billions of observations.
+</p>
+<p>
+    The key insight of SVI is that the ELBO for the full dataset decomposes as a sum over data points (assuming i.i.d. observations), so the gradient also decomposes as a sum. Subsampling and rescaling gives an unbiased gradient estimator with standard SGD convergence guarantees. Combined with amortization, SVI is what makes modern variational inference practical: amortization eliminates per-example optimization, and stochastic gradients eliminate the need to process the full dataset at each step. Together, they turn variational inference into a procedure that looks and scales like standard deep learning training.
+</p>
+
+<h3 id="kl-divergence-properties">KL Divergence: Properties and Intuitions</h3>
+
+<p>
+    The KL divergence is the distance measure that drives variational inference, and understanding its properties is essential for understanding why VI behaves the way it does. The KL divergence from $q$ to $p$ is defined as:
+</p>
+<div class="math-block">
+    $$D_{\text{KL}}(q \| p) = \mathbb{E}_{q}\left[\log \frac{q(z)}{p(z)}\right] = \int q(z) \log \frac{q(z)}{p(z)}\, dz$$
+</div>
+<p>
+    <strong>Non-negativity.</strong> The KL divergence satisfies $D_{\text{KL}}(q \| p) \geq 0$ with equality if and only if $q = p$ almost everywhere. This follows directly from Jensen's inequality applied to $-\log$, which is convex: $D_{\text{KL}}(q \| p) = -\mathbb{E}_q[\log(p/q)] \geq -\log \mathbb{E}_q[p/q] = -\log 1 = 0$.
+</p>
+<p>
+    <strong>Asymmetry.</strong> The KL divergence is not symmetric: $D_{\text{KL}}(q \| p) \neq D_{\text{KL}}(p \| q)$ in general. This asymmetry has profound consequences for variational inference. The "reverse KL" $D_{\text{KL}}(q \| p)$ used in standard VI is mode-seeking: it forces $q$ to be zero wherever $p$ is zero, which means $q$ tends to concentrate on a single mode of $p$ and underestimate the posterior's spread. The "forward KL" $D_{\text{KL}}(p \| q)$ is mode-covering: it forces $q$ to have support wherever $p$ has support, which means $q$ tends to spread out and cover all modes but may place mass in low-density regions between modes.
+</p>
+<p>
+    Consider a bimodal posterior $p(z|x)$ with modes at $z = -3$ and $z = +3$. Minimizing the reverse KL $D_{\text{KL}}(q \| p)$ with a unimodal Gaussian $q$ will place $q$ on one of the two modes, ignoring the other entirely. Minimizing the forward KL $D_{\text{KL}}(p \| q)$ will place $q$ centered at $z = 0$ with large variance, covering both modes but also placing substantial mass in the low-density valley between them. Neither approximation is ideal, but they fail in characteristically different ways.
+</p>
+
+<h3 id="information-theoretic-interpretation">Information-Theoretic Interpretation of the ELBO</h3>
+
+<p>
+    The ELBO has a beautiful interpretation in terms of information theory. The reconstruction term $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$ measures the expected number of bits needed to encode $x$ given $z$ under the decoder model. The KL term $D_{\text{KL}}(q_\phi(z|x) \| p(z))$ measures the number of extra bits needed to encode $z$ under the approximate posterior $q_\phi$ compared to the prior $p(z)$ -- this is the information that the encoder transmits about $x$ through the bottleneck $z$.
+</p>
+<p>
+    From this perspective, maximizing the ELBO means finding the best tradeoff between compression (minimizing the bits used to encode $z$) and reconstruction quality (minimizing the bits needed to recover $x$ from $z$). This is precisely the rate-distortion problem: the KL term is the rate (bits used by the code), and the negative reconstruction term is the distortion (reconstruction error). The ELBO traces out the rate-distortion curve as we vary the relative weight of the two terms.
+</p>
+
+<div class="svg-container">
+    <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+        <defs><marker id="arrowVI" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="currentColor"/></marker></defs>
+        <text x="380" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">True Posterior vs Approximate Posterior</text>
+
+        <!-- Axes -->
+        <line x1="80" y1="280" x2="720" y2="280" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="80" y1="280" x2="80" y2="50" stroke="currentColor" stroke-width="1.5"/>
+        <text x="400" y="310" text-anchor="middle" font-size="12" fill="currentColor">z</text>
+        <text x="50" y="165" text-anchor="middle" font-size="12" fill="currentColor" transform="rotate(-90 50 165)">density</text>
+
+        <!-- True posterior p(z|x) - bimodal -->
+        <path d="M120,278 Q180,278 220,200 Q240,140 260,100 Q280,70 300,100 Q320,160 340,250 Q350,270 380,278 Q410,270 410,250 Q420,160 440,100 Q460,70 480,100 Q500,140 520,200 Q560,278 620,278" fill="none" stroke="#2563eb" stroke-width="2.5"/>
+        <text x="300" y="58" font-size="12" fill="#2563eb" font-weight="600">p(z|x) -- true posterior</text>
+
+        <!-- Approximate posterior q(z|x) - unimodal Gaussian, reverse KL -->
+        <path d="M200,278 Q260,278 310,250 Q340,220 360,160 Q370,110 380,90 Q390,110 400,160 Q420,220 450,250 Q500,278 560,278" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="8,4"/>
+        <text x="520" y="100" font-size="12" fill="#dc2626" font-weight="600">q(z|x) -- mode-seeking</text>
+
+        <!-- Forward KL approximation - broad Gaussian -->
+        <path d="M100,278 Q160,270 220,240 Q280,195 320,155 Q350,130 380,120 Q410,130 440,155 Q480,195 540,240 Q600,270 660,278" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="4,4"/>
+        <text x="580" y="145" font-size="12" fill="#16a34a" font-weight="600">q(z|x) -- mode-covering</text>
+
+        <!-- KL gap annotation -->
+        <line x1="380" y1="90" x2="380" y2="120" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <text x="420" y="108" font-size="10" fill="#7c3aed">KL gap</text>
+    </svg>
+</div>
+
+<p>
+    The diagram above illustrates the key difference between mode-seeking (reverse KL) and mode-covering (forward KL) behavior. When the true posterior is multimodal, the reverse KL used in standard variational inference will concentrate the approximation $q$ on a single mode, producing a tight but incomplete approximation. The forward KL would produce a broad approximation that covers both modes but is diffuse. This asymmetry is not a bug but a feature: in many applications, having a confident estimate of one mode is more useful than a vague estimate that averages over multiple modes.
+</p>
+
+<p>
+    The relationship between variational inference and other approximate inference methods is worth noting. Markov chain Monte Carlo (MCMC) methods are asymptotically exact -- given infinite computation, they converge to the true posterior -- but they can be very slow and it is hard to diagnose convergence. Variational inference converges to a specific (possibly incorrect) answer quickly, and we can monitor the ELBO to track progress. The choice between VI and MCMC depends on whether you need accuracy (MCMC) or speed (VI). In practice, VI dominates in deep learning because the models are so large that MCMC is computationally infeasible, and the approximate posteriors from VI are good enough for downstream tasks.
+</p>
+
+<p>
+    Variational inference can also be understood through the lens of optimization on statistical manifolds. The space of all distributions $q_\phi$ forms a Riemannian manifold with the Fisher information metric, and minimizing the KL divergence corresponds to a projection of $p(z|x)$ onto the variational family $\mathcal{Q}$ with respect to this metric. This information-geometric perspective explains why natural gradient methods -- which account for the manifold structure -- converge faster than ordinary gradient methods for variational inference. The natural gradient update takes a step of fixed size in distribution space rather than parameter space, avoiding the problem that small parameter changes can correspond to large distribution changes (or vice versa) depending on the local geometry.
+</p>
+
+<p>
+    To summarize the key ideas before moving to the code examples: variational inference replaces intractable posterior computation with optimization. The ELBO is both the objective we maximize and a lower bound on the log-evidence. The gap between the ELBO and the true log-evidence is the KL divergence between the approximate and true posteriors. Mean-field approximations factorize the posterior, CAVI optimizes one factor at a time, amortized inference uses neural networks to share computation across data points, and stochastic methods scale everything to large datasets. These ideas form the mathematical foundation of variational autoencoders, which we build in the next chapter.
+</p>
+
+                <div class="tutorial-nav">
+                    <a href="../00-autoencoders/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">&larr; Autoencoders</span>
+                    </a>
+                    <a href="../02-vae/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Variational Autoencoders &rarr;</span>
+                    </a>
+                </div>
+            </article>
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="kl-divergence-computation">Computing KL Divergence Between Two Gaussians</h2>
+<p>
+    The KL divergence between two multivariate Gaussians has a closed-form expression that is used constantly in variational inference. Given $q = \mathcal{N}(\mu_1, \Sigma_1)$ and $p = \mathcal{N}(\mu_2, \Sigma_2)$, the KL divergence is:
+</p>
+<div class="math-block">
+    $$D_{\text{KL}}(q \| p) = \frac{1}{2}\left[\log\frac{|\Sigma_2|}{|\Sigma_1|} - d + \text{tr}(\Sigma_2^{-1}\Sigma_1) + (\mu_2 - \mu_1)^T \Sigma_2^{-1} (\mu_2 - \mu_1)\right]$$
+</div>
+<p>
+    When $p$ is the standard normal $\mathcal{N}(0, I)$ and $q$ has diagonal covariance $\text{diag}(\sigma^2)$, this simplifies dramatically and is the formula used in every VAE implementation.
+</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+    <pre><code>
+import torch
+import torch.distributions as dist
+
+def kl_divergence_gaussians(mu1, logvar1, mu2, logvar2):
+    """KL(q || p) between two diagonal Gaussians.
+
+    Args:
+        mu1, logvar1: mean and log-variance of q
+        mu2, logvar2: mean and log-variance of p
+    Returns:
+        KL divergence, shape (batch_size,)
+    """
+    var1 = logvar1.exp()
+    var2 = logvar2.exp()
+    kl = 0.5 * (
+        logvar2 - logvar1           # log(sigma2/sigma1) per dim
+        - 1.0                        # -1 per dim
+        + var1 / var2                # tr(Sigma2^{-1} Sigma1) diagonal
+        + (mu2 - mu1).pow(2) / var2  # Mahalanobis term
+    )
+    return kl.sum(dim=-1)  # sum over latent dimensions
+
+
+def kl_to_standard_normal(mu, logvar):
+    """KL(q || N(0,I)) -- the VAE regularization term.
+
+    This is the special case used in every VAE.
+    """
+    return -0.5 * (1 + logvar - mu.pow(2) - logvar.exp()).sum(dim=-1)
+
+
+# Example usage
+batch_size, latent_dim = 32, 16
+mu_q = torch.randn(batch_size, latent_dim)
+logvar_q = torch.randn(batch_size, latent_dim) * 0.5
+
+# KL to standard normal
+kl_values = kl_to_standard_normal(mu_q, logvar_q)
+print(f"KL to N(0,I): mean={kl_values.mean():.3f}, shape={kl_values.shape}")
+
+# KL between two arbitrary Gaussians
+mu_p = torch.zeros(batch_size, latent_dim)
+logvar_p = torch.zeros(batch_size, latent_dim)
+kl_general = kl_divergence_gaussians(mu_q, logvar_q, mu_p, logvar_p)
+print(f"General KL: mean={kl_general.mean():.3f}")
+
+# Verify they match when p = N(0,I)
+print(f"Match: {torch.allclose(kl_values, kl_general, atol=1e-5)}")
+    </code></pre>
+</div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        Working with log-variances instead of variances is a standard numerical trick: it ensures positivity without constrained optimization and improves gradient flow. The special case <code>kl_to_standard_normal</code> is used in virtually every VAE implementation and is worth memorizing.
+    </p>
+</div>
+
+<h2 id="cavi-gmm">CAVI for a Gaussian Mixture Model</h2>
+<p>
+    We implement coordinate ascent variational inference for a univariate Gaussian mixture model. The model has $K$ components with unknown means $\mu_k$ and known variance $\sigma^2$. Each data point $x_n$ has a latent cluster assignment $c_n \in \{1, \ldots, K\}$. The CAVI updates alternate between updating the cluster responsibilities (like the E-step in EM) and updating the variational distributions over the means.
+</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+    <pre><code>
+import numpy as np
+from scipy.special import digamma, logsumexp
+
+def cavi_gmm(X, K, n_iters=100, sigma2=1.0, prior_mean=0.0, prior_var=10.0):
+    """CAVI for a Gaussian mixture model.
+
+    Model: x_n | c_n, mu ~ N(mu_{c_n}, sigma2)
+           c_n ~ Categorical(1/K, ..., 1/K)
+           mu_k ~ N(prior_mean, prior_var)
+
+    Variational family:
+        q(c, mu) = prod_n q(c_n) * prod_k q(mu_k)
+        q(c_n) = Categorical(r_{n1}, ..., r_{nK})
+        q(mu_k) = N(m_k, s_k^2)
+    """
+    N = len(X)
+
+    # Initialize variational parameters
+    r = np.random.dirichlet(np.ones(K), size=N)  # responsibilities (N, K)
+    m = np.random.randn(K) * 0.1 + X.mean()      # variational means
+    s2 = np.ones(K) * 1.0                         # variational variances
+
+    elbos = []
+
+    for iteration in range(n_iters):
+        # === Update q(c_n) for each data point ===
+        # Optimal: log r_{nk} propto E_q[log p(x_n | c_n=k, mu_k)]
+        # = -1/(2*sigma2) * E_q[(x_n - mu_k)^2]
+        # = -1/(2*sigma2) * (x_n^2 - 2*x_n*m_k + m_k^2 + s2_k)
+        log_r = np.zeros((N, K))
+        for k in range(K):
+            log_r[:, k] = (-0.5 / sigma2) * (
+                X**2 - 2 * X * m[k] + m[k]**2 + s2[k]
+            )
+        # Normalize responsibilities
+        log_r -= logsumexp(log_r, axis=1, keepdims=True)
+        r = np.exp(log_r)
+
+        # === Update q(mu_k) for each component ===
+        # Optimal: q(mu_k) = N(m_k, s_k^2) with:
+        for k in range(K):
+            N_k = r[:, k].sum()
+            precision = 1.0 / prior_var + N_k / sigma2
+            s2[k] = 1.0 / precision
+            m[k] = s2[k] * (
+                prior_mean / prior_var + (r[:, k] * X).sum() / sigma2
+            )
+
+        # === Compute ELBO ===
+        elbo = 0.0
+        # E[log p(x | c, mu)]
+        for k in range(K):
+            elbo += -0.5 / sigma2 * (
+                r[:, k] * (X**2 - 2*X*m[k] + m[k]**2 + s2[k])
+            ).sum()
+        # E[log p(c)] - E[log q(c)]
+        elbo += -np.sum(r * np.log(r + 1e-10)) + N * np.log(1.0/K)
+        # E[log p(mu)] - E[log q(mu)]
+        for k in range(K):
+            elbo += -0.5/prior_var * (m[k]**2 + s2[k] - prior_var)
+            elbo += 0.5 * np.log(2 * np.pi * np.e * s2[k])
+
+        elbos.append(elbo)
+
+    return r, m, s2, elbos
+
+
+# Generate synthetic data from a 3-component mixture
+np.random.seed(42)
+true_means = [-3.0, 0.0, 4.0]
+X = np.concatenate([
+    np.random.randn(100) + mu for mu in true_means
+])
+np.random.shuffle(X)
+
+r, m, s2, elbos = cavi_gmm(X, K=3, n_iters=50)
+print(f"Inferred means: {sorted(m)}")
+print(f"True means:     {sorted(true_means)}")
+print(f"Final ELBO:     {elbos[-1]:.2f}")
+    </code></pre>
+</div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        CAVI for a GMM is the canonical example of classical variational inference. Each update has a closed form because the model is in the conjugate exponential family. Comparing the inferred means to the true means shows that VI recovers the ground truth, while the ELBO trace confirms monotonic convergence.
+    </p>
+</div>
+
+<h2 id="amortized-inference-network">Amortized Inference Network</h2>
+<p>
+    An amortized inference network (encoder) maps inputs directly to variational parameters, replacing per-example optimization with a single forward pass. This is the architecture at the heart of the VAE encoder.
+</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+    <pre><code>
+import torch
+import torch.nn as nn
+
+class AmortizedEncoder(nn.Module):
+    """Amortized inference network: x -> (mu, log_var).
+
+    Maps input data to the parameters of the approximate
+    posterior q_phi(z|x) = N(mu(x), diag(sigma^2(x))).
+    """
+    def __init__(self, input_dim, hidden_dim, latent_dim):
+        super().__init__()
+        self.shared = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+        )
+        self.mu_head = nn.Linear(hidden_dim, latent_dim)
+        self.logvar_head = nn.Linear(hidden_dim, latent_dim)
+
+    def forward(self, x):
+        h = self.shared(x)
+        mu = self.mu_head(h)
+        logvar = self.logvar_head(h)
+        return mu, logvar
+
+    def sample(self, x, n_samples=1):
+        """Sample from q(z|x) using the reparameterization trick."""
+        mu, logvar = self.forward(x)
+        std = (0.5 * logvar).exp()
+        # Reparameterization: z = mu + std * epsilon
+        eps = torch.randn(n_samples, *mu.shape, device=mu.device)
+        z = mu.unsqueeze(0) + std.unsqueeze(0) * eps
+        return z, mu, logvar
+
+
+class PerExampleVI(nn.Module):
+    """Non-amortized baseline: separate (mu, logvar) per data point."""
+    def __init__(self, n_data, latent_dim):
+        super().__init__()
+        self.mu = nn.Parameter(torch.randn(n_data, latent_dim) * 0.01)
+        self.logvar = nn.Parameter(torch.zeros(n_data, latent_dim))
+
+    def forward(self, idx):
+        return self.mu[idx], self.logvar[idx]
+
+
+# Compare parameter counts
+input_dim, hidden_dim, latent_dim, n_data = 784, 256, 32, 60000
+
+amortized = AmortizedEncoder(input_dim, hidden_dim, latent_dim)
+per_example = PerExampleVI(n_data, latent_dim)
+
+n_amortized = sum(p.numel() for p in amortized.parameters())
+n_per_example = sum(p.numel() for p in per_example.parameters())
+
+print(f"Amortized encoder:  {n_amortized:,} parameters")
+print(f"Per-example VI:     {n_per_example:,} parameters")
+print(f"Ratio:              {n_per_example / n_amortized:.1f}x more for per-example")
+    </code></pre>
+</div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        The amortized encoder uses a fixed number of parameters regardless of dataset size, while per-example VI scales linearly with $N$. For MNIST ($N = 60{,}000$), per-example VI needs roughly 50x more parameters. More importantly, the amortized encoder generalizes to unseen inputs -- it can perform inference on new data without retraining.
+    </p>
+</div>
+
+<h2 id="elbo-optimization-visualization">Visualizing ELBO Optimization</h2>
+<p>
+    We visualize how the ELBO evolves during training for a simple 2D latent variable model. We also plot the reconstruction and KL terms separately to show their tension.
+</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+    <pre><code>
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import matplotlib.pyplot as plt
+
+# Simple generative model: z ~ N(0, I), x | z ~ N(Wz + b, sigma2*I)
+torch.manual_seed(42)
+true_W = torch.randn(10, 2)
+true_b = torch.randn(10)
+sigma2 = 0.1
+
+# Generate data
+N = 1000
+z_true = torch.randn(N, 2)
+x_data = z_true @ true_W.T + true_b + torch.randn(N, 10) * sigma2**0.5
+
+# Amortized encoder
+encoder = nn.Sequential(
+    nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU()
+)
+mu_head = nn.Linear(64, 2)
+logvar_head = nn.Linear(64, 2)
+decoder_W = nn.Parameter(torch.randn(10, 2) * 0.1)
+decoder_b = nn.Parameter(torch.zeros(10))
+
+params = (
+    list(encoder.parameters())
+    + list(mu_head.parameters())
+    + list(logvar_head.parameters())
+    + [decoder_W, decoder_b]
+)
+optimizer = optim.Adam(params, lr=1e-3)
+
+# Training loop tracking ELBO components
+elbo_history, recon_history, kl_history = [], [], []
+
+for epoch in range(300):
+    h = encoder(x_data)
+    mu = mu_head(h)
+    logvar = logvar_head(h)
+
+    # Reparameterization trick
+    std = (0.5 * logvar).exp()
+    z = mu + std * torch.randn_like(std)
+
+    # Reconstruction: log p(x|z)
+    x_recon = z @ decoder_W.T + decoder_b
+    recon_loss = -0.5 / sigma2 * ((x_data - x_recon)**2).sum(dim=1).mean()
+
+    # KL: D_KL(q(z|x) || N(0,I))
+    kl_loss = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp()).sum(dim=1).mean()
+
+    elbo = recon_loss - kl_loss
+    loss = -elbo  # minimize negative ELBO
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    elbo_history.append(elbo.item())
+    recon_history.append(recon_loss.item())
+    kl_history.append(kl_loss.item())
+
+# Plot
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+axes[0].plot(elbo_history, color='#2563eb')
+axes[0].set_title('ELBO')
+axes[0].set_xlabel('Epoch')
+axes[1].plot(recon_history, color='#16a34a')
+axes[1].set_title('Reconstruction Term')
+axes[1].set_xlabel('Epoch')
+axes[2].plot(kl_history, color='#dc2626')
+axes[2].set_title('KL Divergence Term')
+axes[2].set_xlabel('Epoch')
+plt.tight_layout()
+plt.savefig('elbo_optimization.png', dpi=150)
+plt.show()
+print(f"Final ELBO: {elbo_history[-1]:.2f}")
+print(f"Final Recon: {recon_history[-1]:.2f}, Final KL: {kl_history[-1]:.2f}")
+    </code></pre>
+</div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        Plotting the ELBO components separately reveals the reconstruction-regularization tension in action. Early in training, the KL term rises as the encoder starts encoding information; later, it stabilizes as the model finds the optimal rate. The reconstruction term improves throughout, but its rate of improvement slows as the KL penalty pushes back.
+    </p>
+</div>
+            </article>
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>
+                    These exercises test your understanding of the core definitions and formulas. Work through each one by hand before checking the solution.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 1: KL between two univariate Gaussians</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Compute $D_{\text{KL}}(\mathcal{N}(\mu_1, \sigma_1^2) \| \mathcal{N}(\mu_2, \sigma_2^2))$ in closed form. Verify that it equals zero when $\mu_1 = \mu_2$ and $\sigma_1 = \sigma_2$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Starting from the definition $D_{\text{KL}}(q \| p) = \mathbb{E}_q[\log q - \log p]$ and substituting the Gaussian densities:
+                                </p>
+                                <p>
+                                    $$D_{\text{KL}} = \mathbb{E}_q\left[-\frac{1}{2}\log(2\pi\sigma_1^2) - \frac{(z-\mu_1)^2}{2\sigma_1^2} + \frac{1}{2}\log(2\pi\sigma_2^2) + \frac{(z-\mu_2)^2}{2\sigma_2^2}\right]$$
+                                </p>
+                                <p>
+                                    Using $\mathbb{E}_q[(z-\mu_1)^2] = \sigma_1^2$ and $\mathbb{E}_q[(z-\mu_2)^2] = \sigma_1^2 + (\mu_1 - \mu_2)^2$:
+                                </p>
+                                <p>
+                                    $$D_{\text{KL}} = \log\frac{\sigma_2}{\sigma_1} + \frac{\sigma_1^2 + (\mu_1 - \mu_2)^2}{2\sigma_2^2} - \frac{1}{2}$$
+                                </p>
+                                <p>
+                                    When $\mu_1 = \mu_2$ and $\sigma_1 = \sigma_2$: $D_{\text{KL}} = \log 1 + \frac{\sigma_1^2}{2\sigma_1^2} - \frac{1}{2} = 0 + \frac{1}{2} - \frac{1}{2} = 0$. Verified.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 2: Non-negativity of KL from Jensen's inequality</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Show that $D_{\text{KL}}(q \| p) \geq 0$ using Jensen's inequality applied to the concave function $\log$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Write $D_{\text{KL}}(q \| p) = -\mathbb{E}_q\left[\log \frac{p(z)}{q(z)}\right]$. Since $\log$ is concave, Jensen's inequality gives:
+                                </p>
+                                <p>
+                                    $$\mathbb{E}_q\left[\log \frac{p(z)}{q(z)}\right] \leq \log \mathbb{E}_q\left[\frac{p(z)}{q(z)}\right] = \log \int q(z)\frac{p(z)}{q(z)}dz = \log \int p(z)\,dz = \log 1 = 0$$
+                                </p>
+                                <p>
+                                    Therefore $D_{\text{KL}}(q \| p) = -\mathbb{E}_q[\log(p/q)] \geq 0$. Equality holds iff $p(z)/q(z)$ is constant $q$-almost everywhere, i.e., $q = p$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 3: Write the ELBO for a specific model</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Consider the model $z \sim \mathcal{N}(0, 1)$, $x | z \sim \mathcal{N}(z, \sigma^2)$, with approximate posterior $q_\phi(z|x) = \mathcal{N}(\mu, \tau^2)$. Write out the ELBO explicitly as a function of $\mu$, $\tau$, $x$, and $\sigma$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The ELBO is $\mathcal{L} = \mathbb{E}_q[\log p(x|z)] - D_{\text{KL}}(q \| p(z))$.
+                                </p>
+                                <p>
+                                    Reconstruction: $\mathbb{E}_q[\log p(x|z)] = \mathbb{E}_q\left[-\frac{1}{2}\log(2\pi\sigma^2) - \frac{(x-z)^2}{2\sigma^2}\right] = -\frac{1}{2}\log(2\pi\sigma^2) - \frac{(x-\mu)^2 + \tau^2}{2\sigma^2}$
+                                </p>
+                                <p>
+                                    KL term: $D_{\text{KL}}(q \| p(z)) = -\frac{1}{2}(1 + \log\tau^2 - \mu^2 - \tau^2)$
+                                </p>
+                                <p>
+                                    ELBO: $\mathcal{L}(\mu, \tau) = -\frac{1}{2}\log(2\pi\sigma^2) - \frac{(x-\mu)^2 + \tau^2}{2\sigma^2} + \frac{1}{2}(1 + \log\tau^2 - \mu^2 - \tau^2)$
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 4: ELBO when q equals p exactly</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                What happens to the ELBO when the approximate posterior $q_\phi(z|x)$ equals the true posterior $p(z|x)$ exactly? What does the ELBO equal in this case?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    From the fundamental identity $\log p(x) = \mathcal{L}(\phi) + D_{\text{KL}}(q_\phi(z|x) \| p(z|x))$, when $q_\phi = p(z|x)$, the KL divergence is zero, so:
+                                </p>
+                                <p>
+                                    $$\mathcal{L}(\phi) = \log p(x)$$
+                                </p>
+                                <p>
+                                    The ELBO equals the log-evidence exactly. The bound is tight. This is the best possible ELBO achievable by any variational distribution, and it confirms that the ELBO is indeed a lower bound: it can reach $\log p(x)$ but never exceed it.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 5: Mean-field update for a Gaussian</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Consider $p(z_1, z_2 | x) \propto \exp(-\frac{1}{2}(z_1^2 + z_2^2 + 2\rho z_1 z_2 - 2xz_1 - 2xz_2))$. Derive the mean-field update for $q_1(z_1)$ given a current estimate $q_2(z_2) = \mathcal{N}(m_2, s_2^2)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The optimal $q_1^*(z_1)$ satisfies $\log q_1^*(z_1) = \mathbb{E}_{q_2}[\log p(z_1, z_2 | x)] + \text{const}$.
+                                </p>
+                                <p>
+                                    Keeping only terms involving $z_1$: $\log q_1^*(z_1) \propto -\frac{1}{2}z_1^2 - \rho z_1 \mathbb{E}_{q_2}[z_2] + x z_1 = -\frac{1}{2}z_1^2 + (x - \rho m_2)z_1$.
+                                </p>
+                                <p>
+                                    Completing the square: $q_1^*(z_1) = \mathcal{N}(x - \rho m_2, 1)$. The mean-field update shifts the mean of $z_1$ by $-\rho m_2$, accounting for the correlation through the current estimate of $z_2$'s mean, but the variance is fixed at 1 (ignoring the posterior correlation -- this is the mean-field approximation's limitation).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 6: Why is KL asymmetric?</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Give a concrete example showing that $D_{\text{KL}}(q \| p) \neq D_{\text{KL}}(p \| q)$. Use $q = \mathcal{N}(0, 1)$ and $p = \mathcal{N}(0, 4)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Using the univariate Gaussian KL formula: $D_{\text{KL}}(\mathcal{N}(\mu_1, \sigma_1^2) \| \mathcal{N}(\mu_2, \sigma_2^2)) = \log\frac{\sigma_2}{\sigma_1} + \frac{\sigma_1^2}{2\sigma_2^2} - \frac{1}{2}$.
+                                </p>
+                                <p>
+                                    $D_{\text{KL}}(q \| p) = \log\frac{2}{1} + \frac{1}{8} - \frac{1}{2} = \log 2 - 0.375 \approx 0.318$
+                                </p>
+                                <p>
+                                    $D_{\text{KL}}(p \| q) = \log\frac{1}{2} + \frac{4}{2} - \frac{1}{2} = -\log 2 + 1.5 \approx 0.807$
+                                </p>
+                                <p>
+                                    These are clearly different: $0.318 \neq 0.807$. Intuitively, $D_{\text{KL}}(q \| p)$ is small because the narrow $q$ sits comfortably inside the wide $p$. But $D_{\text{KL}}(p \| q)$ is large because the wide $p$ places mass in the tails where the narrow $q$ assigns very low probability.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 7: Identify reconstruction and regularization terms</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For a VAE with Bernoulli decoder $p_\theta(x|z) = \prod_i \text{Bern}(x_i; f_\theta(z)_i)$ and standard normal prior, write the ELBO and identify which part is reconstruction and which is regularization.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The ELBO is:
+                                </p>
+                                <p>
+                                    $$\mathcal{L} = \underbrace{\mathbb{E}_{q_\phi(z|x)}\left[\sum_i x_i \log f_\theta(z)_i + (1-x_i)\log(1-f_\theta(z)_i)\right]}_{\text{Reconstruction: binary cross-entropy}} - \underbrace{D_{\text{KL}}(q_\phi(z|x) \| \mathcal{N}(0,I))}_{\text{Regularization: KL to prior}}$$
+                                </p>
+                                <p>
+                                    The reconstruction term is the expected binary cross-entropy between the input $x$ and the decoder's output $f_\theta(z)$, averaged over $z \sim q_\phi(z|x)$. The regularization term is the closed-form KL between the Gaussian encoder and the standard normal prior: $-\frac{1}{2}\sum_j(1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2)$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 8: Log-evidence for a simple model</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For the model $z \sim \mathcal{N}(0, 1)$, $x|z \sim \mathcal{N}(z, \sigma^2)$, compute $p(x) = \int p(x|z)p(z)\,dz$ analytically. What distribution does $x$ follow?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Since both $p(z) = \mathcal{N}(0,1)$ and $p(x|z) = \mathcal{N}(z, \sigma^2)$ are Gaussian, the marginal is also Gaussian. We can compute it by noting that $x = z + \epsilon$ where $z \sim \mathcal{N}(0,1)$ and $\epsilon \sim \mathcal{N}(0, \sigma^2)$ are independent. Therefore:
+                                </p>
+                                <p>
+                                    $$p(x) = \mathcal{N}(x; 0, 1 + \sigma^2)$$
+                                </p>
+                                <p>
+                                    The mean is $\mathbb{E}[x] = \mathbb{E}[z] + \mathbb{E}[\epsilon] = 0$ and the variance is $\text{Var}(x) = \text{Var}(z) + \text{Var}(\epsilon) = 1 + \sigma^2$. This is one of the rare cases where the evidence is tractable, making it a perfect test case for verifying that variational inference recovers the correct answer.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 9: What does "amortized" mean?</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Explain the term "amortized" in amortized inference. What cost is being amortized, and across what?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    In classical variational inference, computing $q_\phi(z|x_n)$ for each data point $x_n$ requires a separate optimization over variational parameters $\phi_n$. The cost is $O(N \cdot T)$ where $N$ is the number of data points and $T$ is the number of optimization steps per point.
+                                </p>
+                                <p>
+                                    In amortized inference, a single neural network $f_\phi$ is trained to map any input $x$ to the variational parameters. The training cost is paid once, and then inference on any (including unseen) data point is a single forward pass $O(1)$. The optimization cost is "amortized" across all data points: instead of paying $T$ steps per point, we pay a shared training cost that covers all points simultaneously. The analogy is financial amortization, where a large upfront cost is spread over many uses.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E2;</span>
+                            <span class="exercise-title">Exercise 10: Variational inference vs MCMC</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                List at least four key tradeoffs between variational inference and Markov chain Monte Carlo for approximate posterior inference.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>1. Speed vs accuracy:</strong> VI is much faster (optimization converges quickly), while MCMC is asymptotically exact but can be very slow to converge.
+                                </p>
+                                <p>
+                                    <strong>2. Scalability:</strong> VI scales to large datasets via stochastic gradients and amortization. MCMC scales poorly because each sample requires a full pass through the data (though stochastic MCMC variants exist).
+                                </p>
+                                <p>
+                                    <strong>3. Approximation quality:</strong> VI produces a biased approximation (restricted to the variational family $\mathcal{Q}$). MCMC samples from the true posterior given enough time.
+                                </p>
+                                <p>
+                                    <strong>4. Diagnostics:</strong> The ELBO provides a clear convergence metric for VI. MCMC convergence diagnostics (R-hat, ESS, trace plots) are harder to interpret and never definitively confirm convergence.
+                                </p>
+                                <p>
+                                    <strong>5. Multimodality:</strong> VI with reverse KL tends to collapse to one mode. MCMC can in principle explore all modes, though it may get stuck in practice.
+                                </p>
+                                <p>
+                                    <strong>6. Differentiability:</strong> VI naturally integrates with gradient-based deep learning. MCMC requires special techniques (e.g., HMC) to exploit gradient information.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>
+                    These exercises require multi-step derivations and deeper understanding of the connections between concepts.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 11: KL between two multivariate Gaussians</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Derive the closed-form KL divergence $D_{\text{KL}}(\mathcal{N}(\mu_1, \Sigma_1) \| \mathcal{N}(\mu_2, \Sigma_2))$ for $d$-dimensional Gaussians with full covariance matrices.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Start from $D_{\text{KL}} = \mathbb{E}_q[\log q - \log p]$ and substitute the multivariate Gaussian densities:
+                                </p>
+                                <p>
+                                    $$\log q(z) = -\frac{d}{2}\log(2\pi) - \frac{1}{2}\log|\Sigma_1| - \frac{1}{2}(z-\mu_1)^T\Sigma_1^{-1}(z-\mu_1)$$
+                                </p>
+                                <p>
+                                    Taking the difference and the expectation under $q$, using $\mathbb{E}_q[(z-\mu_1)(z-\mu_1)^T] = \Sigma_1$ and $\mathbb{E}_q[(z-\mu_2)(z-\mu_2)^T] = \Sigma_1 + (\mu_1-\mu_2)(\mu_1-\mu_2)^T$:
+                                </p>
+                                <p>
+                                    $$D_{\text{KL}} = \frac{1}{2}\left[\log\frac{|\Sigma_2|}{|\Sigma_1|} - d + \text{tr}(\Sigma_2^{-1}\Sigma_1) + (\mu_2-\mu_1)^T\Sigma_2^{-1}(\mu_2-\mu_1)\right]$$
+                                </p>
+                                <p>
+                                    Each term has a clear meaning: the log-determinant ratio measures the volume difference, the trace term measures the spread mismatch, and the quadratic form measures the mean displacement. When $\Sigma_1 = \Sigma_2$ and $\mu_1 = \mu_2$, all terms cancel giving zero.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 12: CAVI update for Gaussian mixture</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Derive the CAVI update equations for $q(c_n)$ and $q(\mu_k)$ in a Gaussian mixture model with known variance $\sigma^2$, uniform mixing weights, and Gaussian prior $\mu_k \sim \mathcal{N}(0, \sigma_0^2)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>Update for $q(c_n)$:</strong> $\log q^*(c_n = k) = \mathbb{E}_{q(\mu)}[\log p(x_n | c_n = k, \mu_k)] + \text{const}$
+                                </p>
+                                <p>
+                                    $$= -\frac{1}{2\sigma^2}\mathbb{E}_q[(x_n - \mu_k)^2] + C = -\frac{1}{2\sigma^2}(x_n^2 - 2x_n m_k + m_k^2 + s_k^2) + C$$
+                                </p>
+                                <p>
+                                    where $m_k = \mathbb{E}_q[\mu_k]$ and $s_k^2 = \text{Var}_q(\mu_k)$. Normalizing: $r_{nk} \propto \exp\left(-\frac{1}{2\sigma^2}(x_n^2 - 2x_n m_k + m_k^2 + s_k^2)\right)$.
+                                </p>
+                                <p>
+                                    <strong>Update for $q(\mu_k)$:</strong> $\log q^*(\mu_k) = \mathbb{E}_{q(c)}[\log p(\mathbf{x}, \mathbf{c}, \mu_k)] + C$. Collecting terms in $\mu_k$:
+                                </p>
+                                <p>
+                                    $$q^*(\mu_k) = \mathcal{N}(m_k, s_k^2), \quad s_k^2 = \left(\frac{1}{\sigma_0^2} + \frac{N_k}{\sigma^2}\right)^{-1}, \quad m_k = s_k^2 \cdot \frac{\sum_n r_{nk} x_n}{\sigma^2}$$
+                                </p>
+                                <p>
+                                    where $N_k = \sum_n r_{nk}$ is the effective number of points assigned to component $k$. This is a precision-weighted combination of the prior and the data, exactly like the Bayesian update for a Gaussian mean with known variance.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 13: EM as a special case of VI</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Show that the EM algorithm is a special case of variational inference where the E-step uses the exact posterior. Write both the E-step and M-step as ELBO operations.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The ELBO as a function of both $q$ and $\theta$ is: $\mathcal{L}(q, \theta) = \mathbb{E}_q[\log p(x, z | \theta)] - \mathbb{E}_q[\log q(z)]$.
+                                </p>
+                                <p>
+                                    <strong>E-step as VI:</strong> Maximize $\mathcal{L}(q, \theta^{\text{old}})$ over $q$ with $\theta$ fixed. The maximum is achieved when $D_{\text{KL}}(q \| p(z|x, \theta^{\text{old}})) = 0$, i.e., $q^*(z) = p(z | x, \theta^{\text{old}})$. This sets the KL gap to zero, making the ELBO equal to $\log p(x | \theta^{\text{old}})$.
+                                </p>
+                                <p>
+                                    <strong>M-step as VI:</strong> Maximize $\mathcal{L}(q^*, \theta)$ over $\theta$ with $q$ fixed at $q^*$. Since $\mathbb{E}_{q^*}[\log q^*(z)]$ does not depend on $\theta$, this reduces to maximizing $\mathbb{E}_{p(z|x,\theta^{\text{old}})}[\log p(x, z | \theta)]$, which is exactly the EM M-step.
+                                </p>
+                                <p>
+                                    When the exact posterior is intractable, replacing the E-step with an approximate variational optimization gives variational EM. If we further restrict $q$ to a factorized family, we get mean-field variational EM.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 14: ELBO gradient with respect to variational parameters</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For $q_\phi(z|x) = \mathcal{N}(\mu, \sigma^2 I)$ with $\phi = (\mu, \log\sigma)$, derive $\nabla_\mu \mathcal{L}$ and $\nabla_{\log\sigma} \mathcal{L}$ using the reparameterization trick $z = \mu + \sigma \epsilon$, $\epsilon \sim \mathcal{N}(0, I)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Using reparameterization, the ELBO becomes:
+                                    $$\mathcal{L}(\phi) = \mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)}[\log p(x, \mu + \sigma\epsilon) - \log q_\phi(\mu + \sigma\epsilon | x)]$$
+                                </p>
+                                <p>
+                                    The gradient with respect to $\mu$:
+                                    $$\nabla_\mu \mathcal{L} = \mathbb{E}_\epsilon\left[\nabla_z \log p(x, z)\big|_{z=\mu+\sigma\epsilon}\right] - \nabla_\mu D_{\text{KL}}(q \| p(z))$$
+                                </p>
+                                <p>
+                                    For the KL term with standard normal prior: $\nabla_\mu D_{\text{KL}} = \mu$ (pushing toward zero).
+                                </p>
+                                <p>
+                                    The gradient with respect to $\log\sigma$:
+                                    $$\nabla_{\log\sigma} \mathcal{L} = \mathbb{E}_\epsilon\left[\nabla_z \log p(x, z)\big|_{z=\mu+\sigma\epsilon} \cdot \sigma\epsilon\right] - \nabla_{\log\sigma} D_{\text{KL}}$$
+                                </p>
+                                <p>
+                                    For the KL term: $\nabla_{\log\sigma} D_{\text{KL}} = \sigma^2 - 1$ (per dimension), pushing $\sigma$ toward 1. The reparameterization trick makes both gradients low-variance because $\epsilon$ is independent of $\phi$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 15: Mean-field for the Ising model</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Consider a 1D Ising model with $p(s_1, \ldots, s_N) \propto \exp\left(J\sum_{i} s_i s_{i+1} + h\sum_i s_i\right)$ where $s_i \in \{-1, +1\}$. Using mean-field $q(s) = \prod_i q_i(s_i)$ with $q_i(s_i = +1) = m_i$, derive the self-consistency equation for $m_i$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The optimal mean-field factor satisfies $\log q_i^*(s_i) = \mathbb{E}_{q_{-i}}[\log p(s)] + C$.
+                                </p>
+                                <p>
+                                    Keeping only terms involving $s_i$: $\log q_i^*(s_i) = s_i \left(J(\mathbb{E}[s_{i-1}] + \mathbb{E}[s_{i+1}]) + h\right) + C$.
+                                </p>
+                                <p>
+                                    Since $\mathbb{E}_q[s_j] = m_j(+1) + (1-m_j)(-1) = 2m_j - 1$, define $\bar{m}_j = 2m_j - 1$. Then:
+                                </p>
+                                <p>
+                                    $$q_i^*(s_i = +1) = \frac{e^{J(\bar{m}_{i-1} + \bar{m}_{i+1}) + h}}{e^{J(\bar{m}_{i-1} + \bar{m}_{i+1}) + h} + e^{-(J(\bar{m}_{i-1} + \bar{m}_{i+1}) + h)}}$$
+                                </p>
+                                <p>
+                                    This gives the self-consistency equation: $\bar{m}_i = \tanh\left(J(\bar{m}_{i-1} + \bar{m}_{i+1}) + h\right)$. This is the classical mean-field equation for the Ising model, relating each spin's magnetization to its neighbors' mean magnetizations.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 16: Forward KL vs reverse KL behavior</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Let $p(z) = 0.5\,\mathcal{N}(-2, 0.5^2) + 0.5\,\mathcal{N}(2, 0.5^2)$ be a mixture of two Gaussians. Using a unimodal Gaussian $q(z) = \mathcal{N}(\mu, \sigma^2)$, describe qualitatively what the optimal $q$ looks like under (a) $D_{\text{KL}}(q \| p)$ and (b) $D_{\text{KL}}(p \| q)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>(a) Reverse KL $D_{\text{KL}}(q \| p)$ (mode-seeking):</strong> This objective penalizes $q$ for placing mass where $p$ is small. Since $p$ has near-zero density between the two modes, $q$ cannot bridge the gap without incurring enormous KL cost. The optimal $q$ concentrates on one of the two modes: either $q \approx \mathcal{N}(-2, 0.5^2)$ or $q \approx \mathcal{N}(2, 0.5^2)$. Both are local optima; which one is found depends on initialization.
+                                </p>
+                                <p>
+                                    <strong>(b) Forward KL $D_{\text{KL}}(p \| q)$ (mode-covering):</strong> This objective penalizes $q$ for having low density where $p$ has mass. Since $p$ has mass at both $z = -2$ and $z = 2$, $q$ must cover both regions. The optimal $q$ is centered at $\mu = 0$ (the mean of $p$) with $\sigma^2 \approx 4 + 0.25 = 4.25$ (the total variance of $p$). This $q$ covers both modes but also places substantial mass in the valley at $z = 0$ where $p$ has almost no density.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 17: Prove ELBO is a lower bound on log-evidence</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Give two independent proofs that $\mathcal{L}(\phi) \leq \log p(x)$: one using Jensen's inequality and one using the non-negativity of KL divergence.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>Proof 1 (Jensen):</strong> $\log p(x) = \log \int \frac{p(x,z)}{q(z|x)} q(z|x)\,dz = \log \mathbb{E}_q\left[\frac{p(x,z)}{q(z|x)}\right] \geq \mathbb{E}_q\left[\log \frac{p(x,z)}{q(z|x)}\right] = \mathcal{L}(\phi)$, where the inequality is Jensen's applied to the concave $\log$.
+                                </p>
+                                <p>
+                                    <strong>Proof 2 (KL non-negativity):</strong> From the identity $\log p(x) = \mathcal{L}(\phi) + D_{\text{KL}}(q_\phi(z|x) \| p(z|x))$ and the fact that $D_{\text{KL}} \geq 0$, we immediately get $\log p(x) \geq \mathcal{L}(\phi)$.
+                                </p>
+                                <p>
+                                    The first proof is more elementary (it only uses Jensen). The second proof is more informative because it identifies the exact gap as the KL divergence between the approximate and true posteriors.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 18: Optimal q in the exponential family</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Suppose the complete-data log-likelihood is in the exponential family: $\log p(x, z | \theta) = \eta(\theta)^T t(x, z) - A(\theta) + \log h(x, z)$. Show that the optimal mean-field factor $q_j^*(z_j)$ is also in an exponential family, and identify its natural parameters.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The CAVI update gives $\log q_j^*(z_j) = \mathbb{E}_{q_{-j}}[\log p(x, z | \theta)] + C$.
+                                </p>
+                                <p>
+                                    Substituting the exponential family form and keeping terms that depend on $z_j$:
+                                </p>
+                                <p>
+                                    $$\log q_j^*(z_j) = \eta(\theta)^T \mathbb{E}_{q_{-j}}[t(x, z)]_{z_j} + \mathbb{E}_{q_{-j}}[\log h(x,z)]_{z_j} + C'$$
+                                </p>
+                                <p>
+                                    where the subscript $z_j$ means we keep only the dependence on $z_j$. If the sufficient statistics and base measure factorize appropriately (which they do in conjugate models), this has the form $\tilde{\eta}_j^T t_j(z_j) + \log h_j(z_j) + C''$, which is an exponential family with natural parameter $\tilde{\eta}_j = \mathbb{E}_{q_{-j}}[\eta_j(x, z_{-j}, \theta)]$.
+                                </p>
+                                <p>
+                                    The natural parameters of the optimal $q_j$ are expectations of the model's natural parameters under the other factors. This is why CAVI in conjugate exponential families has closed-form updates: the natural parameters simply get updated by averaging.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 19: REINFORCE gradient estimator for ELBO</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Derive the score function (REINFORCE) estimator for $\nabla_\phi \mathcal{L}$ when the reparameterization trick is not available (e.g., for discrete latent variables). Show that it is unbiased but discuss its variance.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Starting from $\mathcal{L}(\phi) = \mathbb{E}_{q_\phi(z|x)}[f(z)]$ where $f(z) = \log p(x,z) - \log q_\phi(z|x)$:
+                                </p>
+                                <p>
+                                    $$\nabla_\phi \mathcal{L} = \nabla_\phi \int q_\phi(z|x) f(z)\, dz = \int f(z) \nabla_\phi q_\phi(z|x)\, dz$$
+                                </p>
+                                <p>
+                                    Using the log-derivative trick $\nabla_\phi q_\phi = q_\phi \nabla_\phi \log q_\phi$:
+                                </p>
+                                <p>
+                                    $$\nabla_\phi \mathcal{L} = \mathbb{E}_{q_\phi}\left[f(z) \nabla_\phi \log q_\phi(z|x)\right]$$
+                                </p>
+                                <p>
+                                    This can be estimated by sampling $z^{(s)} \sim q_\phi$ and computing $\frac{1}{S}\sum_s f(z^{(s)}) \nabla_\phi \log q_\phi(z^{(s)}|x)$. This estimator is unbiased but has notoriously high variance because $f(z)$ multiplies the score function, and both can be large. Variance reduction techniques (control variates, baselines) are essential. The reparameterization trick, when available, gives much lower variance by moving the gradient inside the expectation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F7E1;</span>
+                            <span class="exercise-title">Exercise 20: Natural gradient for variational parameters</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                The natural gradient update is $\phi \leftarrow \phi + \rho\, F^{-1} \nabla_\phi \mathcal{L}$ where $F$ is the Fisher information matrix of $q_\phi$. For $q_\phi = \mathcal{N}(\mu, \sigma^2)$ with $\phi = (\mu, \sigma^2)$, compute $F$ and the natural gradient of the KL term in the ELBO.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The Fisher information matrix for $q_\phi = \mathcal{N}(\mu, \sigma^2)$ is:
+                                </p>
+                                <p>
+                                    $$F = \begin{pmatrix} 1/\sigma^2 & 0 \\ 0 & 1/(2\sigma^4) \end{pmatrix}$$
+                                </p>
+                                <p>
+                                    The Euclidean gradient of $-D_{\text{KL}}(q \| \mathcal{N}(0,1))$ is $\nabla_\mu(-D_{\text{KL}}) = -\mu$ and $\nabla_{\sigma^2}(-D_{\text{KL}}) = \frac{1}{2}(1/\sigma^2 - 1)$.
+                                </p>
+                                <p>
+                                    The natural gradient is $F^{-1}\nabla$:
+                                </p>
+                                <p>
+                                    $$\tilde{\nabla}_\mu = \sigma^2 \cdot (-\mu) = -\sigma^2 \mu$$
+                                    $$\tilde{\nabla}_{\sigma^2} = 2\sigma^4 \cdot \frac{1}{2}(1/\sigma^2 - 1) = \sigma^2(1 - \sigma^2)$$
+                                </p>
+                                <p>
+                                    The natural gradient automatically scales the update by the local curvature of the distribution: when $\sigma^2$ is small, parameter changes have large effects on the distribution, so the natural gradient scales them down. This adaptive scaling is why natural gradient methods converge faster than standard gradient descent for variational inference.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>
+                    These exercises require deep mathematical reasoning, multi-page derivations, or connecting ideas across different areas of statistics and information theory.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 21: ELBO gap equals KL(q || p(z|x))</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Prove rigorously that $\log p(x) - \mathcal{L}(\phi) = D_{\text{KL}}(q_\phi(z|x) \| p(z|x))$, starting from the definitions of each quantity. Do not use any intermediate results -- derive everything from scratch.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>Left-hand side:</strong> $\log p(x) - \mathcal{L}(\phi) = \log p(x) - \mathbb{E}_{q_\phi}[\log p(x,z) - \log q_\phi(z|x)]$
+                                </p>
+                                <p>
+                                    $= \log p(x) - \mathbb{E}_{q_\phi}[\log p(x,z)] + \mathbb{E}_{q_\phi}[\log q_\phi(z|x)]$
+                                </p>
+                                <p>
+                                    Since $\log p(x)$ does not depend on $z$: $= \mathbb{E}_{q_\phi}[\log p(x)] - \mathbb{E}_{q_\phi}[\log p(x,z)] + \mathbb{E}_{q_\phi}[\log q_\phi(z|x)]$
+                                </p>
+                                <p>
+                                    $= \mathbb{E}_{q_\phi}[\log p(x) - \log p(x,z) + \log q_\phi(z|x)]$
+                                </p>
+                                <p>
+                                    Using $p(z|x) = p(x,z)/p(x)$, we get $\log p(x) - \log p(x,z) = -\log p(z|x)$:
+                                </p>
+                                <p>
+                                    $= \mathbb{E}_{q_\phi}[\log q_\phi(z|x) - \log p(z|x)]$
+                                </p>
+                                <p>
+                                    <strong>Right-hand side:</strong> $D_{\text{KL}}(q_\phi(z|x) \| p(z|x)) = \mathbb{E}_{q_\phi}[\log q_\phi(z|x) - \log p(z|x)]$
+                                </p>
+                                <p>
+                                    These are identical. The proof requires only the definition of the ELBO, the definition of KL divergence, the chain rule of probability $p(x,z) = p(z|x)p(x)$, and linearity of expectation. No inequalities are needed -- this is an exact identity.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 22: Laplace approximation as special case of VI</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                The Laplace approximation sets $q(z) = \mathcal{N}(z^*, H^{-1})$ where $z^* = \arg\max_z \log p(z|x)$ and $H = -\nabla^2 \log p(z|x)\big|_{z^*}$. Show that this can be derived as a special case of variational inference by choosing the variational family to be all Gaussians and taking a second-order Taylor expansion of the ELBO.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Let $q(z) = \mathcal{N}(\mu, \Sigma)$ be our variational family. The ELBO is:
+                                </p>
+                                <p>
+                                    $$\mathcal{L}(\mu, \Sigma) = \mathbb{E}_q[\log p(x, z)] + H(q) = \mathbb{E}_q[\log p(x, z)] + \frac{1}{2}\log|2\pi e \Sigma|$$
+                                </p>
+                                <p>
+                                    Taylor-expand $\log p(x, z)$ around the MAP point $z^*$:
+                                    $$\log p(x, z) \approx \log p(x, z^*) + \underbrace{\nabla \log p(x, z^*)}_{=0}{}^T(z - z^*) - \frac{1}{2}(z - z^*)^T H (z - z^*)$$
+                                </p>
+                                <p>
+                                    The gradient term vanishes because $z^*$ is the mode. Taking the expectation:
+                                    $$\mathbb{E}_q[\log p(x, z)] \approx \log p(x, z^*) - \frac{1}{2}\text{tr}(H \Sigma) - \frac{1}{2}(\mu - z^*)^T H (\mu - z^*)$$
+                                </p>
+                                <p>
+                                    Optimizing over $\mu$: the quadratic is minimized at $\mu = z^*$. Optimizing over $\Sigma$: $\nabla_\Sigma \mathcal{L} = -\frac{1}{2}H + \frac{1}{2}\Sigma^{-1} = 0$, giving $\Sigma = H^{-1}$. This recovers exactly the Laplace approximation. The Laplace approximation is thus variational inference with a Gaussian family and a second-order approximation to the log-joint.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 23: Mean-field underestimates posterior variance</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Consider $p(z_1, z_2) = \mathcal{N}\left(\begin{pmatrix}0\\0\end{pmatrix}, \begin{pmatrix}1 & \rho\\\rho & 1\end{pmatrix}\right)$ with $|\rho| < 1$. Using the mean-field family $q(z_1, z_2) = q_1(z_1)q_2(z_2)$, find the optimal $q$ and show that each marginal has variance strictly less than 1 when $\rho \neq 0$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The log of the bivariate Gaussian is $\log p(z_1, z_2) = -\frac{1}{2(1-\rho^2)}(z_1^2 - 2\rho z_1 z_2 + z_2^2) + C$.
+                                </p>
+                                <p>
+                                    CAVI update for $q_1$: $\log q_1^*(z_1) = \mathbb{E}_{q_2}[\log p(z_1, z_2)] + C'$
+                                    $= -\frac{1}{2(1-\rho^2)}(z_1^2 - 2\rho z_1 \mathbb{E}[z_2]) + C'$
+                                </p>
+                                <p>
+                                    By symmetry and the zero-mean prior, $\mathbb{E}_{q_2}[z_2] = 0$. So $\log q_1^*(z_1) = -\frac{z_1^2}{2(1-\rho^2)} + C'$, giving $q_1^*(z_1) = \mathcal{N}(0, 1 - \rho^2)$.
+                                </p>
+                                <p>
+                                    By symmetry, $q_2^*(z_2) = \mathcal{N}(0, 1 - \rho^2)$ as well.
+                                </p>
+                                <p>
+                                    The true marginal variance is $\text{Var}_p(z_1) = 1$, but the mean-field gives $\text{Var}_{q_1}(z_1) = 1 - \rho^2 < 1$ whenever $\rho \neq 0$. The mean-field approximation underestimates the marginal variance by exactly $\rho^2$. This happens because the mean-field cannot represent the correlation between $z_1$ and $z_2$; to compensate and still minimize KL, it shrinks the marginal variances. This is a general phenomenon: mean-field VI systematically underestimates posterior uncertainty.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 24: Black-box variational inference</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Derive the black-box variational inference (BBVI) gradient estimator that works for any model and any variational family (without requiring reparameterization or conjugacy). Include at least one variance reduction technique and prove it does not introduce bias.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The ELBO gradient is $\nabla_\phi \mathcal{L} = \nabla_\phi \mathbb{E}_{q_\phi}[\log p(x,z) - \log q_\phi(z|x)]$.
+                                </p>
+                                <p>
+                                    Using the score function identity: $\nabla_\phi \mathcal{L} = \mathbb{E}_{q_\phi}\left[(\log p(x,z) - \log q_\phi(z|x)) \nabla_\phi \log q_\phi(z|x)\right]$
+                                </p>
+                                <p>
+                                    (Note: the $\nabla_\phi$ acting on $-\log q_\phi$ inside the expectation contributes $-\mathbb{E}[\nabla_\phi \log q_\phi] = 0$ by the score function identity, so the full gradient simplifies to the above.)
+                                </p>
+                                <p>
+                                    <strong>Variance reduction via control variate:</strong> Replace $f(z) = \log p(x,z) - \log q_\phi(z|x)$ with $f(z) - b$ where $b$ is a baseline:
+                                    $$\hat{g} = \frac{1}{S}\sum_{s=1}^S (f(z^{(s)}) - b)\nabla_\phi \log q_\phi(z^{(s)}|x)$$
+                                </p>
+                                <p>
+                                    <strong>Proof of unbiasedness:</strong> $\mathbb{E}[b \cdot \nabla_\phi \log q_\phi(z|x)] = b \cdot \mathbb{E}_{q_\phi}[\nabla_\phi \log q_\phi] = b \cdot \nabla_\phi \int q_\phi\, dz = b \cdot \nabla_\phi 1 = 0$. So subtracting any constant $b$ does not change the expected gradient. The optimal baseline that minimizes variance is $b^* = \frac{\mathbb{E}[f(z)^2 \|\nabla \log q\|^2]}{\mathbb{E}[\|\nabla \log q\|^2]}$, but in practice $b = \bar{f}$ (the running mean of $f$) works well.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 25: Convergence of CAVI</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Prove that CAVI monotonically increases the ELBO at each coordinate update, and that it converges to a stationary point of the ELBO. Under what conditions on the model is the ELBO concave in the variational parameters (guaranteeing a unique optimum)?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>Monotonic increase:</strong> Each CAVI update sets $q_j^*(z_j) = \arg\max_{q_j} \mathcal{L}(q_1, \ldots, q_j, \ldots, q_d)$ while holding $q_{-j}$ fixed. Since this is an unconstrained maximization over $q_j$ (in the space of all distributions), the new ELBO is at least as large as the old one. Strict increase holds unless $q_j$ was already optimal.
+                                </p>
+                                <p>
+                                    <strong>Convergence:</strong> The ELBO is bounded above by $\log p(x)$. A bounded, monotonically increasing sequence converges. At a limit point, no single-coordinate update can improve the ELBO, which is exactly the definition of a coordinate-wise stationary point.
+                                </p>
+                                <p>
+                                    <strong>Concavity conditions:</strong> The ELBO is concave in the variational parameters when (1) the model is in the conjugate exponential family, (2) the mean-field family is the corresponding conjugate family, and (3) we parameterize by natural parameters. In this case, the ELBO is concave in each natural parameter vector (since the expected sufficient statistics are linear in the natural parameters and the log-partition function is convex). Global concavity is not guaranteed because the ELBO is generally not jointly concave in all variational parameters simultaneously -- the coupling between factors through the expected sufficient statistics can create non-convexity. However, for log-concave models with log-concave variational families, the ELBO is concave.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 26: Normalizing flows as flexible q</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                A normalizing flow transforms a simple base distribution $z_0 \sim q_0(z_0)$ through a sequence of invertible maps $z_K = f_K \circ \cdots \circ f_1(z_0)$. Derive the density of $z_K$ using the change-of-variables formula, and show how this can be used as a flexible variational distribution. What is the ELBO with a normalizing flow posterior?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    By the change-of-variables formula applied sequentially:
+                                </p>
+                                <p>
+                                    $$\log q_K(z_K) = \log q_0(z_0) - \sum_{k=1}^K \log\left|\det \frac{\partial f_k}{\partial z_{k-1}}\right|$$
+                                </p>
+                                <p>
+                                    where $z_0 = f_1^{-1} \circ \cdots \circ f_K^{-1}(z_K)$. Each $f_k$ must be invertible with a tractable Jacobian determinant.
+                                </p>
+                                <p>
+                                    The ELBO with a normalizing flow posterior:
+                                </p>
+                                <p>
+                                    $$\mathcal{L} = \mathbb{E}_{q_0(z_0)}\left[\log p(x, z_K) - \log q_0(z_0) + \sum_{k=1}^K \log\left|\det \frac{\partial f_k}{\partial z_{k-1}}\right|\right]$$
+                                </p>
+                                <p>
+                                    This is computable as long as: (1) we can sample from $q_0$ (e.g., standard Gaussian), (2) each $f_k$ is differentiable and invertible, and (3) the Jacobian determinant is tractable. The flow adds expressiveness by allowing $q_K$ to be a highly non-Gaussian distribution, while maintaining exact density evaluation. Popular choices for $f_k$ include planar flows ($f(z) = z + u\, h(w^T z + b)$), radial flows, and autoregressive flows. As $K \to \infty$ with universal approximator flows, $q_K$ can approximate any distribution, closing the approximation gap of mean-field VI.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 27: Information geometry of VI</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Describe variational inference as a projection on a statistical manifold. What is the manifold? What is the metric? In what sense is the optimal $q^*$ a "projection" of $p(z|x)$? How does the choice of KL direction (forward vs reverse) correspond to different projections?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>The manifold:</strong> The variational family $\mathcal{Q} = \{q_\phi : \phi \in \Phi\}$ is a submanifold of the space of all probability distributions $\mathcal{P}$. Each point on this manifold is a distribution, and the coordinates are the variational parameters $\phi$.
+                                </p>
+                                <p>
+                                    <strong>The metric:</strong> The Fisher information matrix $F_{ij}(\phi) = \mathbb{E}_{q_\phi}\left[\frac{\partial \log q_\phi}{\partial \phi_i} \frac{\partial \log q_\phi}{\partial \phi_j}\right]$ defines a Riemannian metric on $\mathcal{Q}$. This is the unique metric (up to scale) that is invariant under reparameterization of $\phi$, making it the natural geometry for probability distributions.
+                                </p>
+                                <p>
+                                    <strong>Projection interpretation:</strong> The optimal $q^* = \arg\min_{q \in \mathcal{Q}} D_{\text{KL}}(q \| p)$ is the information projection (I-projection) of $p(z|x)$ onto $\mathcal{Q}$. Locally around $q^*$, this is the closest point on the manifold $\mathcal{Q}$ to the target $p(z|x)$ in the KL "distance." For exponential families, the I-projection matches the expected sufficient statistics, which is the moment-matching property.
+                                </p>
+                                <p>
+                                    <strong>Forward vs reverse KL:</strong> Minimizing $D_{\text{KL}}(q \| p)$ (reverse KL) gives the I-projection: $q^*$ is the closest member of $\mathcal{Q}$ that fits "inside" $p$. Minimizing $D_{\text{KL}}(p \| q)$ (forward KL) gives the M-projection (moment projection): $q^*$ is the member of $\mathcal{Q}$ whose moments match $p$'s. For exponential families, these correspond to matching natural parameters (I-projection) vs matching mean parameters (M-projection). The I-projection is mode-seeking; the M-projection is moment-matching and mode-covering.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 28: Tightness conditions for ELBO</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                The ELBO is tight when $q_\phi(z|x) = p(z|x)$. But what if the true posterior is not in our variational family $\mathcal{Q}$? Characterize the ELBO gap for the mean-field family applied to a multivariate Gaussian posterior, and derive an expression for the gap in terms of the posterior's off-diagonal covariance entries.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Let $p(z|x) = \mathcal{N}(\mu, \Sigma)$ with $\Sigma$ having off-diagonal entries. The best mean-field approximation is $q^*(z) = \prod_i \mathcal{N}(z_i; \mu_i, \Sigma_{ii})$ (matching the marginals).
+                                </p>
+                                <p>
+                                    The ELBO gap is:
+                                    $$D_{\text{KL}}(q^* \| p) = \frac{1}{2}\left[\log\frac{|\Sigma|}{\prod_i \Sigma_{ii}} - d + \text{tr}(\Sigma^{-1} \text{diag}(\Sigma)) + 0\right]$$
+                                </p>
+                                <p>
+                                    The mean term vanishes because $q^*$ and $p$ have the same mean. The trace term simplifies: $\text{tr}(\Sigma^{-1}\text{diag}(\Sigma)) = \sum_i (\Sigma^{-1})_{ii}\Sigma_{ii}$.
+                                </p>
+                                <p>
+                                    For a 2D case with $\Sigma = \begin{pmatrix}1 & \rho\\\rho & 1\end{pmatrix}$: $|\Sigma| = 1 - \rho^2$, $\prod_i \Sigma_{ii} = 1$, $\Sigma^{-1} = \frac{1}{1-\rho^2}\begin{pmatrix}1 & -\rho\\-\rho & 1\end{pmatrix}$, and $\text{tr}(\Sigma^{-1}\text{diag}(\Sigma)) = \frac{2}{1-\rho^2}$.
+                                </p>
+                                <p>
+                                    Gap $= \frac{1}{2}\left[\log(1-\rho^2) - 2 + \frac{2}{1-\rho^2}\right] = \frac{1}{2}\left[\log(1-\rho^2) + \frac{2\rho^2}{1-\rho^2}\right]$
+                                </p>
+                                <p>
+                                    For small $\rho$: gap $\approx \frac{1}{2}(-\rho^2 + 2\rho^2) = \frac{\rho^2}{2}$. The gap grows quadratically with the correlation strength, confirming that mean-field fails gracefully for weak correlations but poorly for strong ones.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 29: IWAE objective derivation</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                The importance-weighted autoencoder (IWAE) uses $K$ samples to form a tighter bound: $\mathcal{L}_K = \mathbb{E}_{z^{(1)}, \ldots, z^{(K)} \sim q}\left[\log \frac{1}{K}\sum_{k=1}^K \frac{p(x, z^{(k)})}{q(z^{(k)}|x)}\right]$. Prove that (a) $\mathcal{L}_1 = \text{ELBO}$, (b) $\mathcal{L}_K \leq \mathcal{L}_{K+1}$, and (c) $\lim_{K \to \infty} \mathcal{L}_K = \log p(x)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>(a) $\mathcal{L}_1 = \text{ELBO}$:</strong> With $K=1$: $\mathcal{L}_1 = \mathbb{E}_{z \sim q}\left[\log \frac{p(x,z)}{q(z|x)}\right] = \text{ELBO}$. Direct substitution.
+                                </p>
+                                <p>
+                                    <strong>(b) $\mathcal{L}_K \leq \mathcal{L}_{K+1}$:</strong> Define $w_k = p(x, z^{(k)})/q(z^{(k)}|x)$. Then $\mathcal{L}_K = \mathbb{E}[\log \frac{1}{K}\sum_k w_k]$. We can write the $(K+1)$-sample estimator as:
+                                    $$\frac{1}{K+1}\sum_{k=1}^{K+1} w_k = \frac{K}{K+1}\cdot\frac{1}{K}\sum_{k=1}^K w_k + \frac{1}{K+1}w_{K+1}$$
+                                </p>
+                                <p>
+                                    By the concavity of $\log$ and Jensen's inequality applied conditionally on $z^{(1)}, \ldots, z^{(K)}$:
+                                    $$\mathbb{E}_{z^{(K+1)}}\left[\log\left(\frac{K}{K+1}S_K + \frac{1}{K+1}w_{K+1}\right)\right] \geq \frac{K}{K+1}\log S_K + \frac{1}{K+1}\mathbb{E}[\log w_{K+1}]$$
+                                </p>
+                                <p>
+                                    where $S_K = \frac{1}{K}\sum_k w_k$. Taking full expectations and using symmetry of the samples, we get $\mathcal{L}_{K+1} \geq \frac{K}{K+1}\mathcal{L}_K + \frac{1}{K+1}\mathcal{L}_1 \geq \mathcal{L}_K$ (since $\mathcal{L}_K \geq \mathcal{L}_1$ by induction).
+                                </p>
+                                <p>
+                                    <strong>(c) $\lim_{K \to \infty} \mathcal{L}_K = \log p(x)$:</strong> By the law of large numbers, $\frac{1}{K}\sum_k w_k \to \mathbb{E}_q[w] = \mathbb{E}_q[p(x,z)/q(z|x)] = \int p(x,z)\,dz = p(x)$ almost surely. Therefore $\log \frac{1}{K}\sum_k w_k \to \log p(x)$, and by the dominated convergence theorem (or uniform integrability), $\mathcal{L}_K \to \log p(x)$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">&#x1F534;</span>
+                            <span class="exercise-title">Exercise 30: The amortization gap</span>
+                            <span class="exercise-toggle">&#x25BC;</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Define the amortization gap formally. Decompose the total inference gap into an approximation gap (due to the restricted variational family) and an amortization gap (due to sharing parameters across data points). Propose a method to measure each component empirically and discuss when the amortization gap dominates.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    <strong>Definitions:</strong> For a given data point $x$, let:
+                                </p>
+                                <p>
+                                    - $\mathcal{L}^*_{\text{opt}}(x)$: the ELBO obtained by optimizing $\phi$ specifically for $x$ (per-example VI)
+                                </p>
+                                <p>
+                                    - $\mathcal{L}^*_{\text{amort}}(x)$: the ELBO obtained from the amortized encoder $f_\phi(x)$
+                                </p>
+                                <p>
+                                    - $\log p(x)$: the true log-evidence
+                                </p>
+                                <p>
+                                    The total inference gap decomposes as:
+                                </p>
+                                <p>
+                                    $$\underbrace{\log p(x) - \mathcal{L}^*_{\text{amort}}(x)}_{\text{total gap}} = \underbrace{\log p(x) - \mathcal{L}^*_{\text{opt}}(x)}_{\text{approximation gap}} + \underbrace{\mathcal{L}^*_{\text{opt}}(x) - \mathcal{L}^*_{\text{amort}}(x)}_{\text{amortization gap}}$$
+                                </p>
+                                <p>
+                                    The approximation gap is $D_{\text{KL}}(q^*_{\text{opt}}(z|x) \| p(z|x))$ -- the best the variational family can do. The amortization gap is the suboptimality of the shared encoder relative to per-example optimization within the same family.
+                                </p>
+                                <p>
+                                    <strong>Empirical measurement:</strong> (1) Train the amortized model normally to get $\mathcal{L}^*_{\text{amort}}$. (2) For a subset of test points, initialize from the encoder output and run additional gradient steps on $(\mu, \log\sigma)$ to convergence; the resulting ELBO is $\mathcal{L}^*_{\text{opt}}$. (3) The difference is the amortization gap.
+                                </p>
+                                <p>
+                                    <strong>When it dominates:</strong> The amortization gap tends to be large when: (a) the mapping from $x$ to optimal variational parameters is highly nonlinear or discontinuous (e.g., multimodal posteriors where different $x$ values require very different $q$), (b) the encoder is underparameterized, (c) training data is limited so the encoder generalizes poorly. For well-trained, expressive encoders on smooth problems, the amortization gap is typically small (a few nats) compared to the approximation gap.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\[', right: '\]', display: true},
+                        {left: '\(', right: '\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

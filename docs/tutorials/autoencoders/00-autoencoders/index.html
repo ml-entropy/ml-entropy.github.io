@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autoencoders | Autoencoder Models</title>
+    <meta name="description" content="Understand autoencoders: encoder-decoder architecture, bottleneck representations, sparse, denoising, and contractive variants, and the connection to PCA and information theory.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../../tutorials/autoencoders/index.html" class="nav-link active">Autoencoder Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Autoencoder Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Autoencoders</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <!-- Sidebar Navigation -->
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Autoencoder Models</h3>
+                <nav class="sidebar-nav">
+                    <a href="../00-autoencoders/index.html" class="sidebar-link active">00. Autoencoders</a>
+                    <a href="../01-variational-inference/index.html" class="sidebar-link">01. Variational Inference</a>
+                    <a href="../02-variational-autoencoders/index.html" class="sidebar-link">02. Variational Autoencoders</a>
+                    <a href="../03-rate-distortion-theory/index.html" class="sidebar-link">03. Rate-Distortion Theory</a>
+                    <a href="../04-information-bottleneck/index.html" class="sidebar-link">04. Information Bottleneck</a>
+                    <a href="../05-advanced-vae-architectures/index.html" class="sidebar-link">05. Advanced VAE Architectures</a>
+                    <a href="../06-applications-frontiers/index.html" class="sidebar-link">06. Applications &amp; Frontiers</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Autoencoders</h1>
+                <p>
+                    An autoencoder is a neural network trained to copy its input to its output through an informational bottleneck. This sounds useless at first — why would you train a network to reproduce what you already have? The answer lies in the bottleneck. By forcing the data through a representation of lower dimension than the input, the network must discover compact, meaningful features that capture the essential structure of the data while discarding noise and redundancy. The encoder compresses; the decoder reconstructs; and what survives the compression is, by definition, what matters most. This simple principle — learn by compressing — turns out to be one of the most powerful ideas in representation learning, and it connects deep learning to classical results in information theory, linear algebra, and statistical estimation.
+                </p>
+                <p>
+                    The autoencoder framework is deceptively general. At one extreme, when the encoder and decoder are linear and the loss is mean squared error, the optimal solution recovers the principal component analysis (PCA) subspace — a result known since the 1980s. At the other extreme, when the encoder and decoder are deep nonlinear networks, autoencoders can learn manifold structures, disentangled factors of variation, and hierarchical representations that no linear method could capture. Between these extremes lies a rich landscape of regularized variants — sparse, denoising, contractive, variational — each imposing a different inductive bias on the learned representation. Understanding the vanilla autoencoder is the essential first step before any of these extensions make sense.
+                </p>
+                <p>
+                    This chapter builds the complete foundation. We start with the core architecture and objective, derive the connection to PCA in the linear case, and then explore three major regularized variants: sparse autoencoders (which encourage most hidden units to be inactive), denoising autoencoders (which learn to undo corruption), and contractive autoencoders (which penalize sensitivity to input perturbations). Each variant has a distinct information-theoretic interpretation, and we develop those connections throughout. By the end of this chapter you will have both the mathematical toolkit and the practical intuition needed for the variational extensions in later chapters.
+                </p>
+
+                <div class="svg-container">
+                    <svg viewBox="0 0 800 260" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+                        <text x="400" y="20" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Autoencoder: Encoder-Bottleneck-Decoder</text>
+
+                        <!-- Input layer (6 nodes) -->
+                        <text x="80" y="55" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">Input x</text>
+                        <circle cx="80" cy="75" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="80" cy="105" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="80" cy="135" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="80" cy="165" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="80" cy="195" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="80" cy="225" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+
+                        <!-- Hidden layer 1 (4 nodes) -->
+                        <text x="240" y="85" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">Hidden</text>
+                        <circle cx="240" cy="105" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+                        <circle cx="240" cy="135" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+                        <circle cx="240" cy="165" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+                        <circle cx="240" cy="195" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+
+                        <!-- Bottleneck (2 nodes) -->
+                        <text x="400" y="120" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">Bottleneck z</text>
+                        <circle cx="400" cy="140" r="12" fill="#7c3aed" fill-opacity="0.15" stroke="#7c3aed" stroke-width="2.5"/>
+                        <circle cx="400" cy="175" r="12" fill="#7c3aed" fill-opacity="0.15" stroke="#7c3aed" stroke-width="2.5"/>
+
+                        <!-- Hidden layer 2 (4 nodes) -->
+                        <text x="560" y="85" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">Hidden</text>
+                        <circle cx="560" cy="105" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+                        <circle cx="560" cy="135" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+                        <circle cx="560" cy="165" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+                        <circle cx="560" cy="195" r="10" fill="none" stroke="#4f46e5" stroke-width="2"/>
+
+                        <!-- Output layer (6 nodes) -->
+                        <text x="720" y="55" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">Output x&#770;</text>
+                        <circle cx="720" cy="75" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="720" cy="105" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="720" cy="135" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="720" cy="165" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="720" cy="195" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+                        <circle cx="720" cy="225" r="10" fill="none" stroke="#2563eb" stroke-width="2"/>
+
+                        <!-- Connections: Input to Hidden1 (sample) -->
+                        <line x1="90" y1="75" x2="230" y2="105" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="90" y1="105" x2="230" y2="105" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="90" y1="135" x2="230" y2="135" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="90" y1="165" x2="230" y2="165" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="90" y1="195" x2="230" y2="195" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="90" y1="225" x2="230" y2="195" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="90" y1="75" x2="230" y2="135" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="90" y1="225" x2="230" y2="165" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+
+                        <!-- Connections: Hidden1 to Bottleneck -->
+                        <line x1="250" y1="105" x2="388" y2="140" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="250" y1="135" x2="388" y2="140" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="250" y1="165" x2="388" y2="175" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="250" y1="195" x2="388" y2="175" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="250" y1="105" x2="388" y2="175" stroke="#7c3aed" opacity="0.15" stroke-width="1"/>
+                        <line x1="250" y1="195" x2="388" y2="140" stroke="#7c3aed" opacity="0.15" stroke-width="1"/>
+
+                        <!-- Connections: Bottleneck to Hidden2 -->
+                        <line x1="412" y1="140" x2="550" y2="105" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="412" y1="140" x2="550" y2="135" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="412" y1="175" x2="550" y2="165" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="412" y1="175" x2="550" y2="195" stroke="#7c3aed" opacity="0.25" stroke-width="1.5"/>
+                        <line x1="412" y1="175" x2="550" y2="105" stroke="#7c3aed" opacity="0.15" stroke-width="1"/>
+                        <line x1="412" y1="140" x2="550" y2="195" stroke="#7c3aed" opacity="0.15" stroke-width="1"/>
+
+                        <!-- Connections: Hidden2 to Output (sample) -->
+                        <line x1="570" y1="105" x2="710" y2="75" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="570" y1="105" x2="710" y2="105" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="570" y1="135" x2="710" y2="135" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="570" y1="165" x2="710" y2="165" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="570" y1="195" x2="710" y2="195" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="570" y1="195" x2="710" y2="225" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="570" y1="135" x2="710" y2="75" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+                        <line x1="570" y1="165" x2="710" y2="225" stroke="currentColor" opacity="0.1" stroke-width="1"/>
+
+                        <!-- Labels -->
+                        <text x="160" y="248" text-anchor="middle" font-size="12" font-weight="600" fill="#2563eb">Encoder f&#x3D5;</text>
+                        <text x="400" y="248" text-anchor="middle" font-size="12" font-weight="600" fill="#7c3aed">z = f&#x3D5;(x)</text>
+                        <text x="640" y="248" text-anchor="middle" font-size="12" font-weight="600" fill="#2563eb">Decoder g&#x3B8;</text>
+                    </svg>
+                </div>
+
+<div class="definition-box">
+    <div class="box-title">Core idea</div>
+    <p>
+        An autoencoder learns a compressed representation by training a neural network to reconstruct its own input through a bottleneck. The encoder $f_\phi: \mathbb{R}^d \to \mathbb{R}^k$ maps the input to a low-dimensional code $z = f_\phi(x)$, and the decoder $g_\theta: \mathbb{R}^k \to \mathbb{R}^d$ maps the code back to the input space. The network is trained to minimize reconstruction error, and the bottleneck ($k < d$) forces the code to capture only the most important features.
+    </p>
+</div>
+
+                <h3 id="mathematical-formulation">1.1 Mathematical Formulation</h3>
+                <p>
+                    The autoencoder objective is elegantly simple. Given a data distribution $p_{\text{data}}(x)$, an encoder $f_\phi$, and a decoder $g_\theta$, we minimize the expected reconstruction error:
+                </p>
+                <div class="math-block">
+                    $$\min_{\theta, \phi} \; \mathbb{E}_{x \sim p_{\text{data}}} \left[ \| x - g_\theta(f_\phi(x)) \|^2 \right]$$
+                </div>
+                <p>
+                    The squared $L_2$ norm is the most common choice, but it is not the only one. For binary or normalized data, binary cross-entropy (BCE) is more appropriate. For images, perceptual losses or adversarial losses sometimes replace the pixel-wise MSE. But the mathematical structure is always the same: compose the encoder and decoder, measure how far the output is from the input, and backpropagate. The encoder parameters $\phi$ and decoder parameters $\theta$ are jointly optimized — neither is meaningful without the other during training, though after training the encoder alone is often the useful component for downstream tasks.
+                </p>
+                <p>
+                    The reconstruction loss can be decomposed to understand what the network learns. For MSE loss with zero-mean unit-variance data, the expected reconstruction error is:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}(\theta, \phi) = \mathbb{E}_{x}\left[\|x - \hat{x}\|^2\right] = \mathbb{E}_{x}\left[\|x\|^2\right] - 2\,\mathbb{E}_{x}\left[x^\top \hat{x}\right] + \mathbb{E}_{x}\left[\|\hat{x}\|^2\right]$$
+                </div>
+                <p>
+                    The first term is the data energy and is constant with respect to the parameters. The middle term rewards reconstructions that are correlated with the input — it is maximized when $\hat{x}$ points in the same direction as $x$. The last term penalizes reconstructions that are too large. The balance between these terms means the network must produce outputs that are both accurate in direction and appropriate in magnitude.
+                </p>
+
+                <h3 id="why-bottlenecks-force-useful-representations">1.2 Why Bottlenecks Force Useful Representations</h3>
+                <p>
+                    The bottleneck dimension $k$ is the key design choice. When $k < d$, the encoder cannot simply memorize every input — it must learn a mapping that preserves the most informative features while discarding the rest. This is compression in the information-theoretic sense: the code $z = f_\phi(x) \in \mathbb{R}^k$ can represent at most $k$ continuous degrees of freedom, so the network must decide which $k$-dimensional subspace (or, for nonlinear encoders, which $k$-dimensional manifold) captures the most variance or structure in the data.
+                </p>
+                <p>
+                    From the data processing inequality, we know that $I(x; z) \leq H(x)$ for any deterministic encoder. More importantly, because $z$ lives in $\mathbb{R}^k$ with $k < d$, the mutual information $I(x; z)$ is bounded by the information capacity of the bottleneck. The network's only hope of achieving low reconstruction error is to use this limited capacity wisely — encoding the principal modes of variation while treating noise and idiosyncratic details as expendable. This is why autoencoders with appropriately sized bottlenecks learn useful features: the bottleneck acts as an information filter, and the reconstruction loss provides the training signal that determines what gets through.
+                </p>
+                <p>
+                    If the bottleneck is too small ($k \ll$ the intrinsic dimensionality of the data), reconstruction will be poor because essential structure is lost. If the bottleneck is too large ($k \geq d$), the network can learn the identity function and the code captures nothing useful. The sweet spot is when $k$ approximately matches the intrinsic dimensionality of the data manifold — the number of independent factors of variation that generate the observed data.
+                </p>
+
+                <h3 id="connection-to-pca">1.3 Connection to PCA (Linear Case)</h3>
+                <p>
+                    When both the encoder and decoder are linear maps with no bias — $f_\phi(x) = Wx$ with $W \in \mathbb{R}^{k \times d}$ and $g_\theta(z) = Dz$ with $D \in \mathbb{R}^{d \times k}$ — the autoencoder objective becomes:
+                </p>
+                <div class="math-block">
+                    $$\min_{W, D} \; \mathbb{E}_{x}\left[\|x - DWx\|^2\right]$$
+                </div>
+                <p>
+                    This is the problem of finding the best rank-$k$ linear approximation to the data. The classical result is that the optimal solution has $DW$ equal to the projection onto the subspace spanned by the top $k$ eigenvectors of the data covariance matrix $\Sigma = \mathbb{E}[xx^\top]$. In other words, a linear autoencoder recovers PCA.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Linear Autoencoder Recovers PCA Subspace</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Setup.</strong> Let $W \in \mathbb{R}^{k \times d}$ be the encoder and $D \in \mathbb{R}^{d \times k}$ be the decoder. The reconstruction is $\hat{x} = DWx$, and the loss is $\mathcal{L} = \mathbb{E}[\|x - DWx\|^2] = \text{tr}((I - DW)\Sigma(I - DW)^\top)$ where $\Sigma = \mathbb{E}[xx^\top]$ is the data covariance.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Optimal decoder given encoder.</strong> For fixed $W$, the optimal decoder minimizes $\mathbb{E}[\|x - Dz\|^2]$ where $z = Wx$. Taking the gradient with respect to $D$ and setting to zero: $D^* = \Sigma W^\top (W\Sigma W^\top)^{-1}$. When $W$ has orthonormal rows with respect to $\Sigma$, this simplifies to $D^* = W^\top$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Combined optimization.</strong> The product $P = DW$ is a rank-$k$ matrix, and the loss is $\text{tr}(\Sigma) - 2\,\text{tr}(P\Sigma) + \text{tr}(P\Sigma P^\top)$. The Eckart-Young theorem tells us that the rank-$k$ matrix minimizing $\|I - P\|_\Sigma^2$ (in the $\Sigma$-weighted Frobenius norm) is the projection onto the top $k$ eigenvectors of $\Sigma$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            <strong>Conclusion.</strong> Let $\Sigma = U\Lambda U^\top$ be the eigendecomposition. The optimal projection is $P^* = U_k U_k^\top$ where $U_k$ contains the top $k$ eigenvectors. The residual error is $\sum_{i=k+1}^{d} \lambda_i$ — the sum of the discarded eigenvalues. The autoencoder learns exactly the PCA subspace. $\blacksquare$
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Important subtlety</div>
+                    <p>
+                        The linear autoencoder recovers the PCA <em>subspace</em>, not necessarily the PCA <em>basis</em>. The columns of $D$ will span the same subspace as the top $k$ eigenvectors of $\Sigma$, but they may be an arbitrary rotation of the principal components within that subspace. To recover the actual principal component directions, you would need to add an orthogonality constraint or perform SVD on the learned weight matrices after training.
+                    </p>
+                </div>
+
+                <h3 id="sparse-autoencoders">2.1 Sparse Autoencoders</h3>
+                <p>
+                    The undercomplete bottleneck is not the only way to prevent trivial solutions. An alternative — and sometimes more powerful — approach is to use an overcomplete representation ($k > d$) but add a sparsity penalty that encourages most hidden units to be inactive for any given input. The idea is that instead of limiting the <em>number</em> of features, we limit the <em>number simultaneously active</em>. This allows the network to learn a large dictionary of features while ensuring each data point is described by only a few of them.
+                </p>
+                <p>
+                    The simplest sparsity penalty adds an $L_1$ term to the loss:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{sparse}} = \mathbb{E}_{x}\left[\|x - g_\theta(f_\phi(x))\|^2\right] + \lambda \, \mathbb{E}_{x}\left[\|f_\phi(x)\|_1\right]$$
+                </div>
+                <p>
+                    The $L_1$ norm $\|z\|_1 = \sum_j |z_j|$ penalizes the total magnitude of the activations, which promotes sparsity because $L_1$ regularization drives many components exactly to zero (unlike $L_2$, which shrinks all components toward zero but rarely reaches it). The hyperparameter $\lambda$ controls the tradeoff between reconstruction fidelity and sparsity.
+                </p>
+                <p>
+                    A more principled approach uses a KL divergence penalty. Let $\hat{\rho}_j = \frac{1}{N}\sum_{i=1}^{N} f_\phi(x^{(i)})_j$ be the average activation of hidden unit $j$ across the training set, and let $\rho$ be the desired target sparsity (e.g., $\rho = 0.05$, meaning we want each unit active about 5% of the time). Then the KL sparsity penalty is:
+                </p>
+                <div class="math-block">
+                    $$\Omega_{\text{KL}} = \sum_{j=1}^{k} \text{KL}(\rho \| \hat{\rho}_j) = \sum_{j=1}^{k} \left[ \rho \log \frac{\rho}{\hat{\rho}_j} + (1-\rho) \log \frac{1-\rho}{1-\hat{\rho}_j} \right]$$
+                </div>
+                <p>
+                    This penalty is zero when $\hat{\rho}_j = \rho$ for all $j$, and it increases as the average activation deviates from the target. The KL penalty is strictly convex in $\hat{\rho}_j$, providing a well-behaved optimization landscape. Compared to the $L_1$ penalty, the KL approach targets the <em>population-level</em> activation statistics rather than per-example sparsity, which can lead to more evenly distributed feature usage.
+                </p>
+
+                <h3 id="denoising-autoencoders">2.2 Denoising Autoencoders</h3>
+                <p>
+                    A denoising autoencoder (DAE) takes a different approach to regularization: instead of modifying the loss function, it modifies the input. The training procedure corrupts each input $x$ to produce $\tilde{x}$ (typically by adding Gaussian noise: $\tilde{x} = x + \eta$, $\eta \sim \mathcal{N}(0, \sigma^2 I)$, or by randomly zeroing out components), then trains the network to reconstruct the <em>clean</em> input from the corrupted version:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{DAE}} = \mathbb{E}_{x \sim p_{\text{data}}} \, \mathbb{E}_{\tilde{x} \sim q(\tilde{x}|x)} \left[ \| x - g_\theta(f_\phi(\tilde{x})) \|^2 \right]$$
+                </div>
+                <p>
+                    This forces the autoencoder to learn not just to copy, but to infer the underlying clean signal from a noisy observation. The network must learn the statistical structure of the data well enough to separate signal from noise — a much harder task than mere copying, and one that produces more robust representations. Denoising autoencoders learn to map corrupted points back toward the data manifold, which means the learned function implicitly encodes the shape and location of that manifold.
+                </p>
+                <p>
+                    There is a remarkable theoretical connection between denoising autoencoders and score matching. Vincent (2011) showed that in the limit of small corruption noise, the optimal denoising function learns the <em>score function</em> — the gradient of the log data density:
+                </p>
+                <div class="math-block">
+                    $$g_\theta(f_\phi(\tilde{x})) - \tilde{x} \approx \sigma^2 \nabla_{\tilde{x}} \log p_{\sigma}(\tilde{x})$$
+                </div>
+                <p>
+                    where $p_\sigma$ is the data distribution convolved with the corruption noise. The vector pointing from the corrupted input to the reconstruction approximates the score — the direction of steepest ascent toward higher data density. This connection is one of the intellectual ancestors of diffusion models: if you can train a network to denoise at multiple noise levels, you have implicitly learned the score function at those levels, and you can use it to generate new data by following the score from pure noise toward the data manifold.
+                </p>
+
+                <h3 id="contractive-autoencoders">2.3 Contractive Autoencoders</h3>
+                <p>
+                    A contractive autoencoder (CAE) adds an explicit penalty on the sensitivity of the encoder to input perturbations. The penalty is the squared Frobenius norm of the encoder's Jacobian matrix:
+                </p>
+                <div class="math-block">
+                    $$\mathcal{L}_{\text{CAE}} = \mathbb{E}_{x}\left[\|x - g_\theta(f_\phi(x))\|^2\right] + \lambda \, \mathbb{E}_{x}\left[\left\| \frac{\partial f_\phi(x)}{\partial x} \right\|_F^2\right]$$
+                </div>
+                <p>
+                    The Jacobian $J(x) = \frac{\partial f_\phi(x)}{\partial x} \in \mathbb{R}^{k \times d}$ measures how much each component of the code $z$ changes when the input $x$ is perturbed. Penalizing $\|J\|_F^2 = \sum_{i,j} \left(\frac{\partial z_i}{\partial x_j}\right)^2$ encourages the encoder to be locally insensitive — to map nearby inputs to nearby codes. This is a form of regularization that forces the learned representation to be smooth: small perturbations in input space should not cause large jumps in code space.
+                </p>
+                <p>
+                    The contractive penalty has a geometric interpretation. It encourages the encoder to "contract" the input space — to reduce local distances. The only way the autoencoder can simultaneously contract the code space and reconstruct well is if it contracts along directions orthogonal to the data manifold (noise directions) while preserving distances along the manifold (signal directions). In other words, the Jacobian should have small singular values for off-manifold directions and larger singular values for on-manifold directions. This makes the contractive autoencoder an implicit manifold learner.
+                </p>
+                <p>
+                    For a single hidden layer with sigmoid activations $f_\phi(x) = \sigma(Wx + b)$, the Jacobian is $J = \text{diag}(\sigma'(Wx + b)) \cdot W$, and the penalty becomes:
+                </p>
+                <div class="math-block">
+                    $$\left\| J \right\|_F^2 = \sum_{j=1}^{k} \sigma'(w_j^\top x + b_j)^2 \, \|w_j\|^2$$
+                </div>
+                <p>
+                    where $w_j$ is the $j$-th row of $W$. For the sigmoid $\sigma(a) = 1/(1+e^{-a})$, the derivative is $\sigma'(a) = \sigma(a)(1-\sigma(a))$, which is largest when $a = 0$ (the unit is uncertain) and smallest when $|a|$ is large (the unit is saturated). The penalty therefore encourages units to be either clearly on or clearly off — saturated units have small Jacobian contributions — while penalizing units that are in the uncertain, highly sensitive regime.
+                </p>
+
+                <h3 id="information-theoretic-perspective">3.1 Information-Theoretic Perspective</h3>
+                <p>
+                    The autoencoder can be viewed through the lens of information theory as a system that processes data through a chain $x \to z \to \hat{x}$. By the data processing inequality, the mutual information satisfies:
+                </p>
+                <div class="math-block">
+                    $$I(x; \hat{x}) \leq I(x; z) \leq H(x)$$
+                </div>
+                <p>
+                    This chain of inequalities reveals the fundamental tradeoff. The encoder destroys information (since $z$ has fewer dimensions than $x$, we generally have $I(x; z) < H(x)$), and the decoder cannot recover what was lost ($I(x; \hat{x}) \leq I(x; z)$). The reconstruction loss measures how well the surviving information allows us to reconstruct the input. A good autoencoder is one where $I(x; z)$ is as large as possible given the bottleneck constraint, and where the decoder uses that information efficiently.
+                </p>
+                <p>
+                    For a deterministic encoder, $z = f_\phi(x)$ is a function of $x$, so $H(z|x) = 0$ and $I(x; z) = H(z)$. The bottleneck limits $H(z)$ because $z \in \mathbb{R}^k$ — the entropy of a continuous random variable in $\mathbb{R}^k$ is bounded by the log-volume of the region the codes occupy. This means the autoencoder must learn codes that are spread out enough to distinguish different inputs but compact enough to fit within the bottleneck's capacity.
+                </p>
+                <p>
+                    The information-theoretic view also clarifies the difference between the autoencoder variants. The undercomplete autoencoder limits information by constraining the <em>dimension</em> of $z$. The sparse autoencoder limits information by constraining the <em>effective dimension</em> — even though $z$ lives in a high-dimensional space, the sparsity penalty ensures that only a few coordinates are active, limiting the information to roughly $O(s \log k)$ bits where $s$ is the average sparsity level. The denoising autoencoder limits information by corrupting the input, so the encoder receives a noisy version of $x$ with reduced mutual information $I(\tilde{x}; x) < H(x)$. The contractive autoencoder limits information by penalizing sensitivity, which effectively smooths the encoder and reduces its capacity to transmit fine-grained distinctions.
+                </p>
+                <p>
+                    This unifying perspective — each variant restricts the information bottleneck in a different way — is central to the rate-distortion theory of autoencoders, which we develop formally in Chapter 03.
+                </p>
+
+                <h3 id="beyond-mse">3.2 Beyond MSE: Choosing the Reconstruction Loss</h3>
+                <p>
+                    The choice of reconstruction loss implicitly defines a noise model. MSE loss corresponds to assuming the decoder output is the mean of a Gaussian: $p(x|z) = \mathcal{N}(x; g_\theta(z), I)$, and maximizing the likelihood under this model is equivalent to minimizing $\|x - g_\theta(z)\|^2$. For binary data, BCE loss corresponds to a Bernoulli model: $p(x|z) = \prod_i g_\theta(z)_i^{x_i}(1-g_\theta(z)_i)^{1-x_i}$. This probabilistic interpretation becomes essential when we move to variational autoencoders in Chapter 02, where the reconstruction loss is explicitly the negative log-likelihood term in the ELBO.
+                </p>
+                <p>
+                    For image data, MSE loss tends to produce blurry reconstructions because it averages over all plausible reconstructions. When the mapping from $z$ to $x$ is one-to-many (as it always is when $k < d$), the MSE-optimal output is the conditional mean $\mathbb{E}[x|z]$, which averages over the ambiguity and produces a blurred result. Perceptual losses, adversarial losses, and learned metrics can alleviate this problem by rewarding outputs that are plausible rather than merely close in $L_2$ distance.
+                </p>
+
+                <h3 id="practical-considerations">3.3 Practical Architecture Considerations</h3>
+                <p>
+                    Several architectural choices affect autoencoder performance in practice. <strong>Tied weights</strong> constrain the decoder weight matrix to be the transpose of the encoder weight matrix: $D = W^\top$. This halves the number of parameters in those layers and acts as a regularizer, preventing the encoder and decoder from learning incompatible representations. The PCA connection makes this choice natural — in the linear case, the optimal decoder is exactly $W^\top$ when the encoder has orthogonal rows.
+                </p>
+                <p>
+                    <strong>Depth</strong> matters more for autoencoders than for many supervised tasks. A deep encoder can learn hierarchical features — edges in the first layer, textures in the second, object parts in the third — while a shallow encoder must compress directly from pixels to codes. The universal approximation theorem guarantees that a single wide hidden layer suffices in principle, but in practice deep networks learn more compositional and efficient representations. The same argument applies to the decoder, which must invert the hierarchical encoding process.
+                </p>
+                <p>
+                    <strong>Batch normalization and skip connections</strong> should be used with care. Batch normalization in the encoder can destroy information about the input distribution's scale and mean, potentially harming reconstruction. Skip connections can allow information to bypass the bottleneck entirely, defeating the purpose of compression. When using architectures like U-Net (common in VAE decoders), the skip connections should be designed so they do not circumvent the bottleneck layer itself.
+                </p>
+
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Summary</h2>
+    <p>
+        An autoencoder learns representations by training a neural network to reconstruct its input through a bottleneck. The bottleneck forces the network to compress, and the reconstruction loss ensures the compression is useful. In the linear case, the autoencoder recovers the PCA subspace — the best rank-$k$ approximation to the data covariance. Nonlinear autoencoders can learn richer manifold structures. Three key regularized variants — sparse, denoising, and contractive — each restrict the information bottleneck in different ways: by limiting active units, corrupting inputs, or penalizing encoder sensitivity. The denoising variant has a deep connection to score matching and diffusion models. All variants can be unified under the information-theoretic view: the encoder destroys information (data processing inequality), and the reconstruction loss ensures that what survives is maximally useful. This foundation prepares us for variational inference (Chapter 01) and variational autoencoders (Chapter 02), where the bottleneck becomes a probabilistic latent variable.
+    </p>
+</div>
+                <div class="tutorial-nav">
+                    <a href="../01-variational-inference/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Variational Inference →</span>
+                    </a>
+                </div>
+            </article>
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="basic-autoencoder-pytorch">Basic Autoencoder in PyTorch (MNIST)</h2>
+                <p>
+                    A minimal autoencoder for MNIST. The encoder maps 784-dimensional pixel vectors to a 32-dimensional bottleneck, and the decoder maps back. We use ReLU activations and sigmoid output to keep pixel values in $[0,1]$.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+
+class Autoencoder(nn.Module):
+    def __init__(self, input_dim=784, hidden_dim=256, bottleneck_dim=32):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, bottleneck_dim),
+            nn.ReLU(),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(bottleneck_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, input_dim),
+            nn.Sigmoid(),  # output in [0, 1] for pixel values
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+# Training loop
+transform = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x: x.view(-1))])
+train_data = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+train_loader = DataLoader(train_data, batch_size=256, shuffle=True)
+
+model = Autoencoder()
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.MSELoss()
+
+for epoch in range(20):
+    total_loss = 0
+    for batch, _ in train_loader:
+        x_hat, z = model(batch)
+        loss = criterion(x_hat, batch)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader):.4f}")
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        This is the simplest possible autoencoder. The 784 → 256 → 32 → 256 → 784 architecture creates a 32-dimensional bottleneck that must capture the essential structure of handwritten digits. After training, the 32-dimensional code $z$ serves as a learned feature vector.
+    </p>
+</div>
+
+<h2 id="sparse-autoencoder-kl">Sparse Autoencoder with KL Penalty</h2>
+                <p>
+                    An overcomplete autoencoder with a KL divergence sparsity penalty. The bottleneck is wider than the input, but the KL penalty ensures each unit is active only about $\rho = 5\%$ of the time on average.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+class SparseAutoencoder(nn.Module):
+    def __init__(self, input_dim=784, hidden_dim=1024):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.Sigmoid(),  # activations in [0,1] for KL penalty
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(hidden_dim, input_dim),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+def kl_divergence(rho, rho_hat):
+    """KL(Bernoulli(rho) || Bernoulli(rho_hat)) for each unit."""
+    return rho * torch.log(rho / (rho_hat + 1e-8)) + \
+           (1 - rho) * torch.log((1 - rho) / (1 - rho_hat + 1e-8))
+
+def sparse_loss(x, x_hat, z, rho=0.05, beta=1.0):
+    """Reconstruction loss + KL sparsity penalty."""
+    mse = nn.functional.mse_loss(x_hat, x)
+    rho_hat = z.mean(dim=0)  # average activation per unit
+    kl = kl_divergence(torch.tensor(rho), rho_hat).sum()
+    return mse + beta * kl
+
+model = SparseAutoencoder()
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+for epoch in range(20):
+    total_loss = 0
+    for batch, _ in train_loader:
+        x_hat, z = model(batch)
+        loss = sparse_loss(batch, x_hat, z, rho=0.05, beta=0.5)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    avg_sparsity = 0  # track to verify
+    with torch.no_grad():
+        for batch, _ in train_loader:
+            _, z = model(batch)
+            avg_sparsity += z.mean().item()
+    avg_sparsity /= len(train_loader)
+    print(f"Epoch {epoch+1}, Loss: {total_loss/len(train_loader):.4f}, "
+          f"Avg activation: {avg_sparsity:.4f}")
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        The hidden dimension (1024) is larger than the input (784), making this overcomplete. Without the KL penalty, the network could learn the identity. The sparsity constraint forces it to learn a distributed dictionary of features instead.
+    </p>
+</div>
+
+<h2 id="denoising-autoencoder">Denoising Autoencoder</h2>
+                <p>
+                    A denoising autoencoder that learns to reconstruct clean inputs from corrupted versions. We corrupt by adding Gaussian noise with standard deviation $\sigma = 0.3$.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+class DenoisingAutoencoder(nn.Module):
+    def __init__(self, input_dim=784, hidden_dim=512, bottleneck_dim=128):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, bottleneck_dim),
+            nn.ReLU(),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(bottleneck_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, input_dim),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+def add_noise(x, noise_std=0.3):
+    """Add Gaussian noise and clamp to [0, 1]."""
+    return (x + noise_std * torch.randn_like(x)).clamp(0, 1)
+
+model = DenoisingAutoencoder()
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.MSELoss()
+
+for epoch in range(20):
+    total_loss = 0
+    for batch, _ in train_loader:
+        noisy_batch = add_noise(batch, noise_std=0.3)
+        x_hat, z = model(noisy_batch)
+        loss = criterion(x_hat, batch)  # compare to CLEAN input
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader):.4f}")
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        The key detail is that the loss compares the output to the <em>clean</em> input, not the noisy input. This forces the network to learn the data manifold structure rather than just copying. The direction from noisy input to reconstruction approximates the score function.
+    </p>
+</div>
+
+<h2 id="visualizing-latent-space">Visualizing Latent Space</h2>
+                <p>
+                    Training an autoencoder with a 2D bottleneck lets us directly visualize how the network organizes different digit classes in latent space.
+                </p>
+                <div class="code-block">
+                    <div class="code-block-header">
+                        <span class="code-block-lang">Python</span>
+                        <button class="code-block-copy">Copy</button>
+                    </div>
+                    <pre><code>
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Train a 2D bottleneck autoencoder
+model_2d = Autoencoder(input_dim=784, hidden_dim=256, bottleneck_dim=2)
+optimizer_2d = optim.Adam(model_2d.parameters(), lr=1e-3)
+
+for epoch in range(30):
+    for batch, _ in train_loader:
+        x_hat, z = model_2d(batch)
+        loss = nn.functional.mse_loss(x_hat, batch)
+        optimizer_2d.zero_grad()
+        loss.backward()
+        optimizer_2d.step()
+
+# Collect latent codes and labels
+all_z, all_labels = [], []
+model_2d.eval()
+with torch.no_grad():
+    for batch, labels in train_loader:
+        _, z = model_2d(batch)
+        all_z.append(z.numpy())
+        all_labels.append(labels.numpy())
+
+all_z = np.concatenate(all_z)
+all_labels = np.concatenate(all_labels)
+
+# Plot latent space colored by digit class
+fig, ax = plt.subplots(figsize=(10, 8))
+scatter = ax.scatter(all_z[:, 0], all_z[:, 1], c=all_labels,
+                     cmap='tab10', s=1, alpha=0.5)
+ax.set_xlabel('z_1')
+ax.set_ylabel('z_2')
+ax.set_title('2D Autoencoder Latent Space (MNIST)')
+plt.colorbar(scatter, label='Digit class')
+plt.tight_layout()
+plt.savefig('latent_space.png', dpi=150)
+plt.show()
+
+# Decode a grid of points to visualize what the decoder has learned
+n = 20
+z1 = np.linspace(all_z[:, 0].min(), all_z[:, 0].max(), n)
+z2 = np.linspace(all_z[:, 1].min(), all_z[:, 1].max(), n)
+grid_z1, grid_z2 = np.meshgrid(z1, z2)
+grid = np.stack([grid_z1.ravel(), grid_z2.ravel()], axis=1)
+
+with torch.no_grad():
+    decoded = model_2d.decoder(torch.tensor(grid, dtype=torch.float32))
+    decoded = decoded.view(-1, 28, 28).numpy()
+
+fig, axes = plt.subplots(n, n, figsize=(15, 15))
+for i in range(n):
+    for j in range(n):
+        axes[i, j].imshow(decoded[i * n + j], cmap='gray')
+        axes[i, j].axis('off')
+plt.suptitle('Decoded grid from 2D latent space')
+plt.tight_layout()
+plt.savefig('decoded_grid.png', dpi=150)
+plt.show()
+                    </code></pre>
+                </div>
+<div class="note-box">
+    <div class="box-title">Why this implementation matters</div>
+    <p>
+        The 2D bottleneck is too small for good reconstruction but perfect for visualization. The scatter plot reveals how the autoencoder organizes digit classes in its latent space — similar digits cluster together. The decoded grid shows how the decoder interpolates between regions, revealing the smooth manifold structure the network has learned.
+    </p>
+</div>
+            </article>
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>
+                    Start with concept checks and basic computations. These reinforce the core definitions and formulas.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 1: Compute bottleneck compression ratio</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                An autoencoder maps $784$-dimensional MNIST images to a $32$-dimensional bottleneck. What is the compression ratio? If each dimension is stored as a 32-bit float, how many bytes does the original image require versus the code?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The compression ratio is $784 / 32 = 24.5\times$. The original requires $784 \times 4 = 3{,}136$ bytes and the code requires $32 \times 4 = 128$ bytes. This is a 24.5-fold reduction in storage, though the reconstruction will not be perfect due to the information lost at the bottleneck.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 2: Write reconstruction loss for binary data</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For binary data $x_i \in \{0, 1\}$ with decoder output $\hat{x}_i \in (0, 1)$, write the binary cross-entropy reconstruction loss. Why is this more appropriate than MSE for binary data?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The BCE loss is $\mathcal{L}_{\text{BCE}} = -\sum_{i=1}^{d}\left[x_i \log \hat{x}_i + (1-x_i)\log(1-\hat{x}_i)\right]$. This is more appropriate because it corresponds to the negative log-likelihood under a Bernoulli model $p(x_i|z) = \hat{x}_i^{x_i}(1-\hat{x}_i)^{1-x_i}$. MSE treats the output as a Gaussian mean, which is a poor fit for binary data — it does not penalize predictions outside $[0,1]$ correctly and provides weaker gradients near the boundaries.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 3: What happens if bottleneck = input dimension?</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Suppose you set the bottleneck dimension $k$ equal to the input dimension $d$, with no other regularization. What can the autoencoder learn? Is this useful?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    When $k = d$, the network can learn the identity mapping ($f_\phi = g_\theta^{-1}$), achieving zero reconstruction loss without learning any useful features. The bottleneck imposes no compression, so the code $z$ may simply be a copy of the input (or an invertible transformation of it). This is not useful for representation learning because no information is discarded, so the code does not capture any compressed structure.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 4: Compute number of parameters in a simple AE</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                An autoencoder has architecture $784 \to 256 \to 32 \to 256 \to 784$ with bias terms at each layer. How many trainable parameters does it have?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Layer 1: $784 \times 256 + 256 = 200{,}960$. Layer 2: $256 \times 32 + 32 = 8{,}224$. Layer 3: $32 \times 256 + 256 = 8{,}448$. Layer 4: $256 \times 784 + 784 = 201{,}488$. Total: $200{,}960 + 8{,}224 + 8{,}448 + 201{,}488 = 419{,}120$ parameters. Note the encoder and decoder have roughly equal parameter counts due to the symmetric architecture.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 5: Why can't we use the identity function?</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Explain why an undercomplete autoencoder ($k < d$) cannot learn the identity function $\hat{x} = x$, even though it would achieve zero loss.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The identity function requires the composite map $g_\theta \circ f_\phi: \mathbb{R}^d \to \mathbb{R}^d$ to have rank $d$. But $f_\phi$ maps to $\mathbb{R}^k$ with $k < d$, so the composite $g_\theta \circ f_\phi$ has rank at most $k < d$. A rank-deficient linear map cannot be the identity, and even with nonlinear activations, the image of the decoder is at most a $k$-dimensional manifold in $\mathbb{R}^d$, which cannot cover all of $\mathbb{R}^d$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 6: L1 vs L2 reconstruction loss difference</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Compare $L_1$ reconstruction loss $\|x - \hat{x}\|_1$ and $L_2$ reconstruction loss $\|x - \hat{x}\|_2^2$. Which is more robust to outlier pixels, and why?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    $L_1$ loss is more robust to outliers. The $L_2$ loss squares the error, so a single pixel with error $e$ contributes $e^2$, which can dominate the total loss for large $e$. The $L_1$ loss contributes only $|e|$, giving outlier pixels less influence. Equivalently, $L_2$ corresponds to a Gaussian noise model (which has thin tails), while $L_1$ corresponds to a Laplace noise model (which has heavier tails and tolerates occasional large deviations).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 7: Compute encoder output given weights</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                A single-layer encoder has $W = \begin{pmatrix} 1 & 0 & -1 \\ 0 & 1 & 1 \end{pmatrix}$, $b = \begin{pmatrix} 0 \\ 0 \end{pmatrix}$, and uses ReLU activation. Compute $z = \text{ReLU}(Wx + b)$ for $x = (1, 2, 3)^\top$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    $Wx + b = \begin{pmatrix} 1(1) + 0(2) + (-1)(3) \\ 0(1) + 1(2) + 1(3) \end{pmatrix} = \begin{pmatrix} -2 \\ 5 \end{pmatrix}$. Applying ReLU: $z = \begin{pmatrix} \max(0, -2) \\ \max(0, 5) \end{pmatrix} = \begin{pmatrix} 0 \\ 5 \end{pmatrix}$. The first component is zeroed out by ReLU, so only the second component carries information about this input.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 8: What does a 2D bottleneck enable?</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Why is a 2D bottleneck especially useful, even though it typically gives poor reconstruction quality?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    A 2D bottleneck allows direct visualization of the latent space as a scatter plot, with each data point mapped to a location in the plane. This makes it possible to see how the autoencoder organizes different classes, discover cluster structure, and visualize interpolation paths — none of which are directly visible in higher-dimensional spaces. The tradeoff is that 2 dimensions are usually far too few for faithful reconstruction.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 9: Undercomplete vs overcomplete AE</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Define undercomplete and overcomplete autoencoders. Which one requires additional regularization to learn useful representations, and why?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    An undercomplete autoencoder has bottleneck dimension $k < d$ (fewer code dimensions than input dimensions). An overcomplete autoencoder has $k \geq d$. The overcomplete version requires additional regularization (such as sparsity, denoising, or contractive penalties) because it has enough capacity to learn the identity function, achieving zero reconstruction loss without capturing any useful structure. The undercomplete version is inherently regularized by the dimensional bottleneck.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 10: When does a linear AE equal PCA?</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                State the conditions under which a linear autoencoder's solution is equivalent to PCA. What is the reconstruction error in terms of the eigenvalues of the data covariance?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    A linear autoencoder (no activation functions, MSE loss) with bottleneck dimension $k$ recovers the PCA subspace when trained to convergence on zero-mean data. The optimal reconstruction projects onto the subspace spanned by the top $k$ eigenvectors of the covariance $\Sigma$. The reconstruction error is $\sum_{i=k+1}^{d} \lambda_i$, the sum of the $d - k$ smallest eigenvalues — exactly the variance not captured by the top $k$ principal components.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>
+                    These require derivations, analysis, and connecting concepts across sections.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 11: Derive the gradient of MSE reconstruction loss</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For a single-layer encoder $z = \sigma(Wx + b)$ and linear decoder $\hat{x} = Dz$, derive $\frac{\partial \mathcal{L}}{\partial D}$ where $\mathcal{L} = \|x - Dz\|^2$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Expanding the loss: $\mathcal{L} = (x - Dz)^\top(x - Dz)$. Differentiating with respect to $D$: $\frac{\partial \mathcal{L}}{\partial D} = -2(x - Dz)z^\top = -2(x - \hat{x})z^\top$. This is a rank-1 outer product of the reconstruction error and the code vector. The gradient pushes each column of $D$ in the direction that reduces the error component corresponding to that code dimension. For a batch of $N$ examples, the gradient averages to $\frac{\partial \mathcal{L}}{\partial D} = -\frac{2}{N}\sum_{i=1}^{N}(x^{(i)} - \hat{x}^{(i)})(z^{(i)})^\top$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 12: Show linear AE recovers PCA subspace</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Prove that for a linear autoencoder $\hat{x} = DWx$ with MSE loss and zero-mean data with covariance $\Sigma$, the optimal $DW$ is the projection onto the top $k$ eigenvectors of $\Sigma$. (Hint: use the Eckart-Young theorem.)
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The loss is $\mathcal{L} = \text{tr}((I - DW)\Sigma(I - DW)^\top)$. Let $P = DW$; since $W \in \mathbb{R}^{k \times d}$ and $D \in \mathbb{R}^{d \times k}$, $P$ has rank at most $k$. Expanding: $\mathcal{L} = \text{tr}(\Sigma) - 2\,\text{tr}(P\Sigma) + \text{tr}(P\Sigma P^\top)$. Since $\text{tr}(\Sigma)$ is constant, we minimize $-2\,\text{tr}(P\Sigma) + \text{tr}(P\Sigma P^\top)$. When $P$ is an orthogonal projection ($P^2 = P$, $P = P^\top$), this reduces to $-\text{tr}(P\Sigma)$, which is minimized by choosing $P = U_k U_k^\top$ where $U_k$ are the top $k$ eigenvectors of $\Sigma$. The Eckart-Young theorem confirms this is optimal over all rank-$k$ matrices.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 13: Derive KL sparsity penalty gradient</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Compute $\frac{\partial}{\partial \hat{\rho}_j}\text{KL}(\rho \| \hat{\rho}_j)$ where $\text{KL}(\rho \| \hat{\rho}_j) = \rho \log\frac{\rho}{\hat{\rho}_j} + (1-\rho)\log\frac{1-\rho}{1-\hat{\rho}_j}$. At what value of $\hat{\rho}_j$ is the gradient zero?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Differentiating: $\frac{\partial}{\partial \hat{\rho}_j}\text{KL}(\rho \| \hat{\rho}_j) = -\frac{\rho}{\hat{\rho}_j} + \frac{1-\rho}{1-\hat{\rho}_j}$. Setting to zero: $\frac{\rho}{\hat{\rho}_j} = \frac{1-\rho}{1-\hat{\rho}_j}$, which gives $\hat{\rho}_j = \rho$. The gradient is zero when the average activation matches the target sparsity. When $\hat{\rho}_j > \rho$, the gradient is positive (pushing activations down), and when $\hat{\rho}_j < \rho$, the gradient is negative (pushing activations up). This self-correcting behavior is why the KL penalty reliably achieves the target sparsity.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 14: Denoising AE expected loss under Gaussian corruption</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Write the expected denoising loss $\mathcal{L}_{\text{DAE}} = \mathbb{E}_{x, \eta}[\|x - r(\underbrace{x + \eta}_{\tilde{x}})\|^2]$ where $\eta \sim \mathcal{N}(0, \sigma^2 I)$ and $r$ is the autoencoder. Show that the optimal $r^*(\tilde{x}) = \mathbb{E}[x | \tilde{x}]$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The loss is $\mathcal{L} = \mathbb{E}_{x}\mathbb{E}_{\eta}[\|x - r(x + \eta)\|^2] = \mathbb{E}_{\tilde{x}}\mathbb{E}_{x|\tilde{x}}[\|x - r(\tilde{x})\|^2]$, where we used Bayes' rule to rewrite the joint expectation. For fixed $\tilde{x}$, the inner expectation $\mathbb{E}_{x|\tilde{x}}[\|x - r(\tilde{x})\|^2]$ is minimized when $r(\tilde{x}) = \mathbb{E}[x|\tilde{x}]$, the posterior mean (this follows from the fact that the conditional mean minimizes MSE). Therefore $r^*(\tilde{x}) = \mathbb{E}[x|\tilde{x}]$. The optimal denoising autoencoder computes the Bayes-optimal estimate of the clean input given the corrupted observation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 15: Contractive AE — compute Jacobian for ReLU encoder</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For an encoder $f(x) = \text{ReLU}(Wx + b)$, compute the Jacobian $J = \frac{\partial f}{\partial x}$ and the Frobenius norm $\|J\|_F^2$. How does the ReLU affect the penalty compared to sigmoid?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The Jacobian is $J = \text{diag}(\mathbf{1}[Wx + b > 0]) \cdot W$, where $\mathbf{1}[\cdot]$ is the indicator function. The $j$-th row of $J$ is $w_j$ if unit $j$ is active (pre-activation positive) and zero otherwise. Therefore $\|J\|_F^2 = \sum_{j: \text{active}} \|w_j\|^2$. Unlike the sigmoid case where $\sigma'(a)$ smoothly modulates each row's contribution, ReLU gives a binary on/off: active units contribute their full weight norm, inactive units contribute nothing. This makes the penalty less smooth but computationally cheaper.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 16: Show that tied weights reduce parameters by how much</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Consider a single-hidden-layer autoencoder with encoder $W \in \mathbb{R}^{k \times d}$, $b_e \in \mathbb{R}^k$, decoder $D \in \mathbb{R}^{d \times k}$, $b_d \in \mathbb{R}^d$. If we tie weights ($D = W^\top$), how many parameters are saved? Express as a fraction of the untied total.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Untied: $kd + k + dk + d = 2kd + k + d$ parameters. Tied ($D = W^\top$): $kd + k + d$ parameters (we save the decoder weight matrix but keep both biases). Parameters saved: $kd$. As a fraction of the untied total: $\frac{kd}{2kd + k + d}$. For large $k$ and $d$, this approaches $\frac{1}{2}$ — tied weights save nearly half the parameters. For the MNIST example ($d = 784$, $k = 256$), the savings are $\frac{200{,}704}{402{,}448} \approx 49.9\%$.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 17: Compare AE bottleneck to SVD truncation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Given a data matrix $X \in \mathbb{R}^{n \times d}$ with SVD $X = U\Sigma V^\top$, describe the rank-$k$ truncated SVD reconstruction. How does a nonlinear autoencoder potentially improve upon this?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The rank-$k$ truncated SVD gives $X_k = U_k \Sigma_k V_k^\top$, the best rank-$k$ approximation in Frobenius norm. This is identical to PCA reconstruction. A nonlinear autoencoder can improve upon this because it learns a $k$-dimensional <em>manifold</em> rather than a $k$-dimensional <em>subspace</em>. If the data lies near a curved surface (e.g., a spiral, a torus), a linear method wastes capacity approximating the curvature with extra dimensions, while a nonlinear encoder can map directly onto the manifold coordinates. The gap between linear and nonlinear reconstruction error measures the curvature of the data manifold.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 18: Information bottleneck of a 2-layer encoder</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Consider an encoder with two layers: $h = \sigma(W_1 x + b_1) \in \mathbb{R}^{m}$ then $z = W_2 h + b_2 \in \mathbb{R}^k$ with $d > m > k$. Using the data processing inequality, what can you say about $I(x; z)$ versus $I(x; h)$?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The chain $x \to h \to z$ is a Markov chain (each layer is a deterministic function of the previous), so by the data processing inequality, $I(x; z) \leq I(x; h) \leq H(x)$. Each layer can only lose information, never gain it. The first layer reduces $d$ dimensions to $m$, losing some information. The second layer further reduces from $m$ to $k$, losing more. The two-layer encoder is strictly more constrained than a single layer mapping directly from $d$ to $k$ — however, the nonlinearity $\sigma$ in the first layer allows the encoder to learn a more useful intermediate representation before the final compression.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 19: Derive the score-matching connection for denoising AE</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For Gaussian corruption $\tilde{x} = x + \sigma\epsilon$ with $\epsilon \sim \mathcal{N}(0,I)$, show that the optimal denoising direction $r^*(\tilde{x}) - \tilde{x}$ is proportional to $\nabla_{\tilde{x}} \log p_\sigma(\tilde{x})$ where $p_\sigma = p_{\text{data}} * \mathcal{N}(0, \sigma^2 I)$.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The optimal denoiser is $r^*(\tilde{x}) = \mathbb{E}[x|\tilde{x}]$. Using Tweedie's formula for the Gaussian case: $\mathbb{E}[x|\tilde{x}] = \tilde{x} + \sigma^2 \nabla_{\tilde{x}} \log p_\sigma(\tilde{x})$, where $p_\sigma(\tilde{x}) = \int p_{\text{data}}(x) \mathcal{N}(\tilde{x}; x, \sigma^2 I) dx$ is the noise-smoothed data density. Therefore $r^*(\tilde{x}) - \tilde{x} = \sigma^2 \nabla_{\tilde{x}} \log p_\sigma(\tilde{x})$. The denoising direction is exactly $\sigma^2$ times the score function of the smoothed distribution. This is the theoretical foundation linking denoising autoencoders to score-based generative models and diffusion.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 20: Regularization equivalence — weight decay vs bottleneck</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For a linear autoencoder, argue that adding $L_2$ weight decay $\lambda(\|W\|_F^2 + \|D\|_F^2)$ has a similar effect to reducing the bottleneck dimension. In what sense are they equivalent?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    With weight decay, the optimal solution still projects onto eigenvectors of $\Sigma$, but the effective contribution of each eigenvector is shrunk by a factor that depends on $\lambda$ and the corresponding eigenvalue. Specifically, the $i$-th singular value of the reconstruction matrix becomes $\frac{\lambda_i}{\lambda_i + \lambda}$ rather than either 1 (included) or 0 (excluded) as in hard truncation. This is "soft" dimensionality reduction: instead of discarding small eigenvalues entirely, weight decay smoothly suppresses them. The equivalence is that both methods reduce the effective rank of the reconstruction, but the bottleneck does it sharply (hard threshold on rank) while weight decay does it gradually (continuous shrinkage of singular values).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>
+                    These problems require proofs, multi-step derivations, or creative problem-solving.
+                </p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 21: Prove linear AE optimal solution spans PCA subspace</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Prove rigorously that any critical point of the linear autoencoder loss $\mathcal{L} = \mathbb{E}[\|x - DWx\|^2]$ with minimal loss has the property that the columns of $D$ (or equivalently, the rows of $W$) span the subspace of the top $k$ eigenvectors of $\Sigma = \mathbb{E}[xx^\top]$. You may assume $\Sigma$ has distinct eigenvalues.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Set $\nabla_D \mathcal{L} = 0$: this gives $D^* \Sigma_z = \Sigma_{xz}$ where $\Sigma_z = W\Sigma W^\top$ and $\Sigma_{xz} = \Sigma W^\top$, so $D^* = \Sigma W^\top (W\Sigma W^\top)^{-1}$. Substituting back, the loss becomes $\text{tr}(\Sigma) - \text{tr}(W^\top(W\Sigma W^\top)^{-1}W\Sigma^2)$. Minimizing this over $W$ is equivalent to maximizing $\text{tr}(W^\top (W\Sigma W^\top)^{-1} W \Sigma^2)$. By the generalized Rayleigh quotient theorem, this is maximized when the rows of $W$ align with the top $k$ eigenvectors of $\Sigma$, in which case $W\Sigma W^\top$ is diagonal with entries $\lambda_1, \ldots, \lambda_k$ and the objective equals $\sum_{i=1}^k \lambda_i$. Since eigenvalues are distinct, any global minimizer must span the top-$k$ eigenspace. $\blacksquare$
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 22: Derive Jacobian penalty as local distance preservation</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Show that the contractive penalty $\|J(x)\|_F^2$ bounds how much the encoder distorts local distances: for a perturbation $\delta$, show that $\|f(x+\delta) - f(x)\|^2 \leq \|J(x)\|_F^2 \|\delta\|^2 + O(\|\delta\|^3)$ and interpret the penalty as encouraging the encoder to be locally non-expansive.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    By Taylor expansion, $f(x + \delta) = f(x) + J(x)\delta + O(\|\delta\|^2)$. Therefore $\|f(x+\delta) - f(x)\|^2 = \|J(x)\delta\|^2 + O(\|\delta\|^3) = \delta^\top J(x)^\top J(x) \delta + O(\|\delta\|^3)$. By the Cauchy-Schwarz inequality, $\delta^\top J^\top J \delta \leq \|J\|_{\text{op}}^2 \|\delta\|^2 \leq \|J\|_F^2 \|\delta\|^2$, where $\|J\|_{\text{op}}$ is the operator (spectral) norm and $\|J\|_F^2 = \sum_i \sigma_i^2 \geq \sigma_{\max}^2 = \|J\|_{\text{op}}^2$. Penalizing $\|J\|_F^2$ thus penalizes the sum of squared singular values of $J$, encouraging <em>all</em> singular values to be small, making the encoder locally contractive — it shrinks distances in all directions. $\blacksquare$
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 23: Show denoising AE estimates score function in the limit</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Prove formally that as $\sigma \to 0$, the optimal denoising function satisfies $\frac{r^*(\tilde{x}) - \tilde{x}}{\sigma^2} \to \nabla_x \log p_{\text{data}}(x)$ wherever $p_{\text{data}}(x) > 0$. You may assume $p_{\text{data}}$ is smooth.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    From Tweedie's formula, $r^*(\tilde{x}) - \tilde{x} = \sigma^2 \nabla_{\tilde{x}} \log p_\sigma(\tilde{x})$ where $p_\sigma(\tilde{x}) = (p_{\text{data}} * \mathcal{N}(0,\sigma^2 I))(\tilde{x})$. As $\sigma \to 0$, the Gaussian kernel $\mathcal{N}(0, \sigma^2 I)$ converges to a Dirac delta, so $p_\sigma(\tilde{x}) \to p_{\text{data}}(\tilde{x})$ pointwise where $p_{\text{data}}$ is continuous. Since convolution commutes with differentiation for smooth densities, $\nabla_{\tilde{x}} p_\sigma \to \nabla_{\tilde{x}} p_{\text{data}}$ as well. Therefore $\nabla_{\tilde{x}} \log p_\sigma(\tilde{x}) = \frac{\nabla p_\sigma(\tilde{x})}{p_\sigma(\tilde{x})} \to \frac{\nabla p_{\text{data}}(x)}{p_{\text{data}}(x)} = \nabla_x \log p_{\text{data}}(x)$ at any point where $p_{\text{data}}(x) > 0$. Thus $\frac{r^*(\tilde{x}) - \tilde{x}}{\sigma^2} \to \nabla_x \log p_{\text{data}}(x)$. $\blacksquare$
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 24: Information-theoretic lower bound on reconstruction error</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For a $k$-dimensional bottleneck and data with differential entropy $h(x)$, derive a lower bound on the expected reconstruction error $\mathbb{E}[\|x - \hat{x}\|^2]$ in terms of the entropy power. (Hint: use the entropy power inequality and rate-distortion theory.)
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    From rate-distortion theory, the minimum achievable distortion under MSE for a source with differential entropy $h(x)$ at rate $R$ bits is bounded by $D(R) \geq \frac{1}{2\pi e} 2^{2(h(x) - R)/d}$ per dimension, where $d$ is the ambient dimension. For an autoencoder with a $k$-dimensional bottleneck, the maximum achievable rate is $R \leq \frac{k}{2}\log(1 + \text{SNR}_{\max})$ (assuming the bottleneck can carry at most $k$ continuous-valued dimensions). Therefore $\mathbb{E}[\|x - \hat{x}\|^2] \geq \frac{d}{2\pi e} 2^{2(h(x) - R)/d}$. For Gaussian data with covariance $\Sigma = \text{diag}(\lambda_1, \ldots, \lambda_d)$, this reduces to $\sum_{i=k+1}^d \lambda_i$ when the rate is optimally allocated — matching the PCA reconstruction error. This shows PCA is rate-distortion optimal for Gaussian sources.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 25: Design AE for manifold with known topology</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Suppose data lies on a circle $\mathcal{S}^1$ embedded in $\mathbb{R}^2$. Can a standard autoencoder with a 1D bottleneck perfectly reconstruct all points? What topological obstruction exists, and how might you address it?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    A circle has intrinsic dimension 1, suggesting $k = 1$ should suffice. However, the circle is topologically nontrivial — it is not homeomorphic to an interval. Any continuous encoder $f: \mathcal{S}^1 \to \mathbb{R}$ must have at least two points that map to the same value (since a continuous function on a circle achieves its maximum and minimum, and by the intermediate value theorem, every value between them is hit at least twice). Therefore perfect reconstruction is impossible with a single real-valued bottleneck and continuous encoder/decoder. Solutions include: (1) use a 2D bottleneck ($k = 2$) and accept redundancy; (2) use a periodic/angular bottleneck $z \in [0, 2\pi)$ instead of $\mathbb{R}$; (3) use multiple charts (local coordinate patches) as in differential geometry.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 26: Prove contractive penalty bounds local Lipschitz constant</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Prove that the Frobenius norm of the Jacobian satisfies $\|f(x_1) - f(x_2)\| \leq \sup_{x \in [x_1, x_2]} \|J(x)\|_F \cdot \|x_1 - x_2\|$ for points on the line segment between $x_1$ and $x_2$. Use this to show that the contractive penalty directly controls the local Lipschitz constant of the encoder.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    By the mean value theorem for vector-valued functions (or equivalently, integrating the derivative along the line segment): $f(x_2) - f(x_1) = \int_0^1 J(x_1 + t(x_2 - x_1))(x_2 - x_1)\,dt$. Taking norms: $\|f(x_2) - f(x_1)\| \leq \int_0^1 \|J(x_1 + t(x_2-x_1))\|_{\text{op}} \|x_2 - x_1\|\,dt \leq \sup_t \|J\|_{\text{op}} \|x_2 - x_1\|$. Since $\|J\|_{\text{op}} \leq \|J\|_F$, penalizing $\mathbb{E}[\|J\|_F^2]$ encourages the local Lipschitz constant to be small everywhere. A small Lipschitz constant means nearby inputs map to nearby codes — the encoder is a contraction mapping locally. $\blacksquare$
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 27: Derive optimal bottleneck dimension given data covariance</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Given data with covariance eigenvalues $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_d > 0$, derive the optimal bottleneck dimension $k^*$ that minimizes a penalized objective $\mathcal{J}(k) = \sum_{i=k+1}^d \lambda_i + \gamma k$, where $\gamma > 0$ penalizes model complexity.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The objective is $\mathcal{J}(k) = \sum_{i=k+1}^d \lambda_i + \gamma k$. The change when increasing $k$ to $k+1$ is $\mathcal{J}(k+1) - \mathcal{J}(k) = -\lambda_{k+1} + \gamma$. Adding dimension $k+1$ is beneficial when $\lambda_{k+1} > \gamma$ (the variance captured exceeds the complexity penalty). The optimal $k^*$ is the largest $k$ such that $\lambda_k > \gamma$, i.e., $k^* = \max\{k : \lambda_k > \gamma\}$. This is analogous to the Kaiser criterion in PCA (which uses $\gamma = \bar{\lambda}$, the average eigenvalue) or AIC/BIC model selection. The threshold $\gamma$ determines the cutoff between "signal" eigenvalues worth encoding and "noise" eigenvalues that cost more to encode than they save in reconstruction error.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 28: Connection between sparse AE and dictionary learning</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Show that a single-layer sparse autoencoder with tied weights ($D = W^\top$), $L_1$ penalty, and linear activation in the decoder is closely related to the dictionary learning problem $\min_{D, Z} \|X - DZ\|_F^2 + \lambda \|Z\|_1$ subject to column normalization of $D$. What is the key difference?
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    In dictionary learning, the dictionary $D$ and codes $Z$ are jointly optimized, and the codes are computed by solving a convex optimization (LASSO) for each input. In the sparse autoencoder, the encoder $f_\phi(x) = \sigma(Wx + b)$ provides an <em>amortized</em> approximation to this optimization — instead of solving LASSO per input, the encoder learns a feedforward mapping that produces approximately sparse codes in a single pass. The decoder $D$ plays the same role as the dictionary. The key difference is that dictionary learning solves for optimal codes per input (at test time), while the autoencoder trades optimality for speed by amortizing the inference into a learned encoder network. When the autoencoder is well-trained with tied weights, $D = W^\top$ corresponds to the dictionary columns, and the encoder approximates the LASSO solution.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 29: When does depth help? Representation power argument</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                Construct an explicit example of a data distribution where a 2-layer (deep) autoencoder achieves strictly lower reconstruction error than any 1-layer (shallow) autoencoder with the same bottleneck dimension. (Hint: consider data on a nonlinear manifold that requires composition of functions to parameterize.)
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    Consider data uniformly distributed on the Swiss roll: $x = (t\cos t, t\sin t, h)$ for $t \in [3\pi/2, 9\pi/2]$, $h \in [0, 1]$. This is a 2D manifold in $\mathbb{R}^3$. With a 2D bottleneck, the optimal codes are $(t, h)$. A single-layer encoder $z = \sigma(Wx + b)$ cannot "unroll" the spiral — the unrolling requires composing a nonlinear coordinate transformation (converting $(x_1, x_2)$ to polar-like coordinates) that exceeds the capacity of one affine-plus-activation step. A deep encoder can compose layers: the first layer detects radial and angular features, and the second combines them to extract $t$. Formally, the unrolling map has Lipschitz constant that grows with the number of turns, and a single ReLU layer with $k$ hidden units can only represent piecewise-linear functions with $O(k)$ pieces, which is insufficient for highly wound spirals. A 2-layer network with $m$ hidden units can represent $O(m^2)$ linear regions, giving it the capacity to unroll more complex curves.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 30: Rate-distortion preview — AE operating point on R(D) curve</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>
+                                For a Gaussian source $x \sim \mathcal{N}(0, \Sigma)$ with $\Sigma = \text{diag}(\lambda_1, \ldots, \lambda_d)$, the rate-distortion function under MSE is $R(D) = \sum_{i=1}^d \frac{1}{2}\max\left(0, \log\frac{\lambda_i}{\theta}\right)$ where $\theta$ is chosen so that $\sum_i \min(\lambda_i, \theta) = D$. Show that a $k$-dimensional linear autoencoder operates at a specific point on this curve and identify that point.
+                            </p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>
+                                    The linear autoencoder with bottleneck dimension $k$ achieves distortion $D_k = \sum_{i=k+1}^d \lambda_i$ (the sum of discarded eigenvalues) at rate $R_k = \frac{1}{2}\sum_{i=1}^k \log\frac{\lambda_i}{\lambda_{k+1}}$ (the number of nats needed to encode the top $k$ components at the resolution set by $\theta = \lambda_{k+1}$). This corresponds to choosing $\theta = \lambda_{k+1}$ in the rate-distortion formula: all eigenvalues $\lambda_i > \theta$ are encoded (contributing $\frac{1}{2}\log(\lambda_i/\theta)$ to the rate), and all $\lambda_i \leq \theta$ are replaced by the threshold value (contributing $\theta$ to distortion). The linear autoencoder thus operates at the point $(R_k, D_k)$ on the $R(D)$ curve, and this point is on the curve (not above it) because the Gaussian source is matched to the MSE distortion measure — the reverse water-filling solution achieves the bound. This previews Chapter 03, where we study rate-distortion theory in depth.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\[', right: '\]', display: true},
+                        {left: '\(', right: '\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

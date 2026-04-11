@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variational Autoencoders | Autoencoder Models</title>
+    <meta name="description" content="The VAE framework: reparameterization trick, ELBO as loss, latent space structure, KL divergence regularization, and generation from learned distributions.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">∇</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../../tutorials/autoencoders/index.html" class="nav-link active">Autoencoder Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Autoencoder Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Variational Autoencoders</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Autoencoder Models</h3>
+                <nav class="sidebar-nav">
+                    <a href="../00-autoencoders/index.html" class="sidebar-link">00. Autoencoders</a>
+                    <a href="../01-variational-inference/index.html" class="sidebar-link">01. Variational Inference</a>
+                    <a href="../02-vae/index.html" class="sidebar-link active">02. Variational Autoencoders</a>
+                    <a href="../03-rate-distortion/index.html" class="sidebar-link">03. Rate-Distortion Theory</a>
+                    <a href="../04-information-bottleneck/index.html" class="sidebar-link">04. Information Bottleneck</a>
+                    <a href="../05-advanced-vaes/index.html" class="sidebar-link">05. Advanced VAE Architectures</a>
+                    <a href="../06-applications/index.html" class="sidebar-link">06. Applications &amp; Frontiers</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Variational Autoencoders</h1>
+
+<p>
+    The variational autoencoder (VAE) is one of the most elegant constructions in modern machine learning: it fuses the encoder-decoder architecture of classical autoencoders with the probabilistic framework of variational inference, producing a model that simultaneously learns compressed representations and a generative model of the data. Unlike a deterministic autoencoder that maps each input to a single point in latent space, the VAE maps each input to a <em>distribution</em> over latent codes, then samples from that distribution before decoding. This seemingly small change — replacing a deterministic bottleneck with a stochastic one — has profound consequences for the quality of the latent space, the ability to generate new samples, and the theoretical interpretability of the model.
+</p>
+<p>
+    The key challenge that the VAE solves is: how do you train a deep generative model $p_\theta(x) = \int p_\theta(x|z)p(z)\,dz$ when the integral is intractable? The answer is variational inference — approximate the true posterior $p_\theta(z|x)$ with a learned encoder $q_\phi(z|x)$, then jointly optimize both networks by maximizing the evidence lower bound (ELBO). The resulting training objective decomposes into two interpretable terms: a reconstruction loss that measures how well the decoder recovers the input, and a KL divergence penalty that keeps the encoder's output close to the prior. This chapter derives the VAE from first principles, explains the reparameterization trick that makes gradient-based training possible, and explores the structure of the learned latent space.
+</p>
+
+<div class="definition-box">
+    <div class="box-title">Core idea</div>
+    <p>
+        A VAE defines a generative model $p_\theta(x,z) = p_\theta(x|z)p(z)$ and simultaneously learns an approximate posterior $q_\phi(z|x)$. Training maximizes the ELBO, which lower-bounds the log-evidence $\log p_\theta(x)$. The reparameterization trick enables backpropagation through the stochastic sampling step.
+    </p>
+</div>
+
+<h2 id="generative-model">1. The Generative Model</h2>
+<p>
+    The VAE assumes data is generated by a two-step process: first, a latent variable $z$ is drawn from a simple prior $p(z) = \mathcal{N}(0, I)$; then the observation $x$ is drawn from a conditional distribution $p_\theta(x|z)$ parameterized by a neural network (the decoder). The marginal likelihood of the data under this model is:
+</p>
+<div class="math-block">
+    $$p_\theta(x) = \int p_\theta(x|z) p(z) \, dz$$
+</div>
+<p>
+    This integral is intractable for any interesting decoder because it requires summing over all possible latent codes. For a 64-dimensional latent space, this is a 64-dimensional integral over a complicated, non-linear integrand. We cannot compute it analytically, and naive Monte Carlo estimation is hopelessly inefficient because most values of $z$ will produce negligible $p_\theta(x|z)$ for a given $x$.
+</p>
+
+<h2 id="inference-model">2. The Inference Model (Encoder)</h2>
+<p>
+    Since the true posterior $p_\theta(z|x) = p_\theta(x|z)p(z)/p_\theta(x)$ is intractable (it requires the same intractable $p_\theta(x)$ in the denominator), we introduce an approximate posterior — the encoder network:
+</p>
+<div class="math-block">
+    $$q_\phi(z|x) = \mathcal{N}(z; \mu_\phi(x), \text{diag}(\sigma^2_\phi(x)))$$
+</div>
+<p>
+    The encoder takes an input $x$ and outputs two vectors: the mean $\mu_\phi(x)$ and the log-variance $\log \sigma^2_\phi(x)$ of a diagonal Gaussian. This is a design choice — diagonal Gaussian is the simplest family that is expressive enough to be useful while still allowing the KL divergence to be computed in closed form. More expressive approximate posteriors (normalizing flows, implicit distributions) are possible but add complexity.
+</p>
+
+<h2 id="elbo-derivation">3. The ELBO: VAE Training Objective</h2>
+<p>
+    The VAE is trained by maximizing the Evidence Lower Bound. We derived the ELBO in the previous chapter on variational inference; here we specialize it to the VAE setting and unpack its two terms.
+</p>
+<div class="math-derivation">
+    <div class="math-derivation-title">ELBO for the VAE</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            <strong>Start from log-evidence.</strong> We want to maximize $\log p_\theta(x)$ but cannot compute it. Write:
+            $$\log p_\theta(x) = \log \int p_\theta(x|z) p(z) \, dz$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            <strong>Introduce $q_\phi(z|x)$ via importance sampling.</strong> Multiply and divide inside the integral:
+            $$\log p_\theta(x) = \log \int \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)} q_\phi(z|x) \, dz = \log \mathbb{E}_{q_\phi(z|x)}\left[\frac{p_\theta(x|z)p(z)}{q_\phi(z|x)}\right]$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            <strong>Apply Jensen's inequality.</strong> Since $\log$ is concave:
+            $$\log p_\theta(x) \geq \mathbb{E}_{q_\phi(z|x)}\left[\log \frac{p_\theta(x|z)p(z)}{q_\phi(z|x)}\right] = \text{ELBO}(\theta, \phi; x)$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">4</div>
+        <div class="math-step-content">
+            <strong>Decompose the ELBO.</strong> Split the log-ratio:
+            $$\text{ELBO} = \underbrace{\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction term}} - \underbrace{D_{\text{KL}}(q_\phi(z|x) \| p(z))}_{\text{regularization term}}$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">5</div>
+        <div class="math-step-content">
+            <strong>The gap is the approximation error.</strong> The exact relationship is:
+            $$\log p_\theta(x) = \text{ELBO} + D_{\text{KL}}(q_\phi(z|x) \| p_\theta(z|x))$$
+            Since KL divergence is non-negative, the ELBO is indeed a lower bound. Maximizing the ELBO simultaneously improves the generative model (increasing $\log p_\theta(x)$) and tightens the approximation (decreasing the KL gap).
+        </div>
+    </div>
+</div>
+
+<h2 id="two-terms">4. Understanding the Two Terms</h2>
+<p>
+    <strong>Reconstruction term</strong> $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$: This measures how well the decoder reconstructs $x$ from latent codes sampled from the encoder. For a Gaussian decoder with fixed variance, this reduces to negative mean squared error. For a Bernoulli decoder (binary data), this becomes binary cross-entropy. This term wants the encoder to produce codes that faithfully represent the input.
+</p>
+<p>
+    <strong>KL regularization term</strong> $D_{\text{KL}}(q_\phi(z|x) \| p(z))$: This penalizes the encoder for producing posteriors that deviate from the prior $\mathcal{N}(0,I)$. Without this term, the encoder would collapse each input to a single point (recovering a deterministic autoencoder). The KL term ensures the latent space is smooth, continuous, and structured — essential properties for generation.
+</p>
+
+<div class="note-box">
+    <div class="box-title">The tension between the two terms</div>
+    <p>
+        The reconstruction term wants each $q_\phi(z|x)$ to be a tight spike around the code that best reconstructs $x$. The KL term wants $q_\phi(z|x)$ to be a broad $\mathcal{N}(0,I)$. The optimal VAE balances these competing pressures: the encoder produces distributions that are spread enough to regularize the latent space but concentrated enough to enable accurate reconstruction. This tension is precisely the rate-distortion tradeoff, as we will see in Chapter 03.
+    </p>
+</div>
+
+<h2 id="reparameterization">5. The Reparameterization Trick</h2>
+<p>
+    The ELBO involves an expectation over $q_\phi(z|x)$. To optimize it with SGD, we need to estimate gradients with respect to $\phi$. The problem: $z \sim q_\phi(z|x)$ is a random variable whose distribution depends on $\phi$, so we cannot simply backpropagate through the sampling operation.
+</p>
+<p>
+    The reparameterization trick resolves this by expressing the random variable as a deterministic, differentiable transformation of a parameter-free noise source:
+</p>
+<div class="math-block">
+    $$z = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$$
+</div>
+<p>
+    Now $z$ is a deterministic function of $\phi$ (through $\mu$ and $\sigma$) and $\epsilon$ (which does not depend on $\phi$). The gradient $\nabla_\phi \mathbb{E}_{q_\phi}[f(z)]$ becomes $\mathbb{E}_{\epsilon}[\nabla_\phi f(\mu_\phi(x) + \sigma_\phi(x) \odot \epsilon)]$, which can be estimated by a single Monte Carlo sample of $\epsilon$ and standard backpropagation.
+</p>
+
+<div class="math-derivation">
+    <div class="math-derivation-title">Why reparameterization works</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            <strong>Without reparameterization:</strong> $\nabla_\phi \mathbb{E}_{q_\phi(z|x)}[f(z)] = \nabla_\phi \int f(z) q_\phi(z|x) dz$. The integral depends on $\phi$ through the distribution, not the integrand. Moving the gradient inside requires the log-derivative trick (REINFORCE), which gives high-variance estimates.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            <strong>With reparameterization:</strong> $\nabla_\phi \mathbb{E}_{\epsilon \sim \mathcal{N}(0,I)}[f(g_\phi(\epsilon, x))] = \mathbb{E}_\epsilon[\nabla_\phi f(g_\phi(\epsilon, x))]$ where $g_\phi(\epsilon, x) = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon$. Now the gradient moves inside the expectation because the distribution of $\epsilon$ does not depend on $\phi$. The resulting gradient estimate has much lower variance than REINFORCE.
+        </div>
+    </div>
+</div>
+
+<h2 id="kl-closed-form">6. KL Divergence in Closed Form</h2>
+<p>
+    For a diagonal Gaussian encoder $q_\phi(z|x) = \mathcal{N}(\mu, \text{diag}(\sigma^2))$ and standard normal prior $p(z) = \mathcal{N}(0, I)$, the KL divergence has a closed-form expression:
+</p>
+<div class="math-block">
+    $$D_{\text{KL}}(q_\phi(z|x) \| p(z)) = -\frac{1}{2} \sum_{j=1}^{d} \left(1 + \log \sigma_j^2 - \mu_j^2 - \sigma_j^2\right)$$
+</div>
+<div class="math-derivation">
+    <div class="math-derivation-title">Derivation of the closed-form KL</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            <strong>Write out the KL definition.</strong> For two Gaussians, $D_{\text{KL}}(\mathcal{N}(\mu, \Sigma) \| \mathcal{N}(0, I)) = \frac{1}{2}\left[\text{tr}(\Sigma) + \mu^\top \mu - d - \log \det \Sigma\right]$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            <strong>Substitute diagonal covariance.</strong> With $\Sigma = \text{diag}(\sigma_1^2, \ldots, \sigma_d^2)$: $\text{tr}(\Sigma) = \sum_j \sigma_j^2$, $\log\det\Sigma = \sum_j \log \sigma_j^2$, $\mu^\top\mu = \sum_j \mu_j^2$.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            <strong>Combine.</strong> $D_{\text{KL}} = \frac{1}{2}\sum_{j=1}^d (\sigma_j^2 + \mu_j^2 - 1 - \log \sigma_j^2) = -\frac{1}{2}\sum_{j=1}^d(1 + \log \sigma_j^2 - \mu_j^2 - \sigma_j^2)$.
+        </div>
+    </div>
+</div>
+
+<h2 id="training">7. Training Procedure</h2>
+<p>
+    The complete VAE training loop is remarkably simple. For each mini-batch of data points $\{x_1, \ldots, x_B\}$:
+</p>
+<ol>
+    <li>Pass each $x_i$ through the encoder to get $\mu_\phi(x_i)$ and $\log \sigma^2_\phi(x_i)$</li>
+    <li>Sample $\epsilon \sim \mathcal{N}(0, I)$ and compute $z_i = \mu_\phi(x_i) + \sigma_\phi(x_i) \odot \epsilon$</li>
+    <li>Pass $z_i$ through the decoder to get reconstruction parameters</li>
+    <li>Compute the loss: $\mathcal{L} = -\frac{1}{B}\sum_{i=1}^B \left[\log p_\theta(x_i | z_i) - D_{\text{KL}}(q_\phi(z_i|x_i) \| p(z))\right]$</li>
+    <li>Backpropagate and update $\theta$ and $\phi$ simultaneously</li>
+</ol>
+
+<h2 id="latent-space">8. Latent Space Properties</h2>
+<p>
+    The KL regularization endows the VAE latent space with two crucial properties that deterministic autoencoders lack. <strong>Continuity</strong>: nearby points in latent space decode to similar outputs. <strong>Completeness</strong>: every point sampled from the prior $p(z)$ decodes to a plausible output. These properties emerge because the KL term prevents the encoder from placing all its probability mass on isolated points — it must spread probability around, filling the latent space with meaningful codes.
+</p>
+<p>
+    This enables <strong>interpolation</strong>: given two data points $x_1$ and $x_2$, encode them to $z_1 = \mu_\phi(x_1)$ and $z_2 = \mu_\phi(x_2)$, then decode points along the line $z_\lambda = (1-\lambda)z_1 + \lambda z_2$ for $\lambda \in [0,1]$. The resulting decoded images smoothly transition between $x_1$ and $x_2$, passing through semantically meaningful intermediate states.
+</p>
+<p>
+    It also enables <strong>generation</strong>: sample $z \sim \mathcal{N}(0, I)$ and decode. Because the KL term has kept the aggregate posterior $q_\phi(z) = \mathbb{E}_{p(x)}[q_\phi(z|x)]$ close to $\mathcal{N}(0,I)$, most samples from the prior land in regions where the decoder produces realistic outputs.
+</p>
+
+<h2 id="posterior-collapse">9. Posterior Collapse</h2>
+<p>
+    A major failure mode of VAEs is <strong>posterior collapse</strong>: the encoder learns $q_\phi(z|x) \approx p(z) = \mathcal{N}(0,I)$ for all $x$, meaning the latent variable carries no information about the input. The decoder then ignores $z$ entirely and models $p(x)$ as a marginal distribution without conditioning on $z$. This happens when the decoder is powerful enough (e.g., an autoregressive model) to model $p(x)$ well without help from $z$.
+</p>
+<p>
+    The ELBO provides insight into why: posterior collapse achieves $D_{\text{KL}} = 0$ (perfect KL score) at the cost of reconstruction quality. If the decoder can still achieve reasonable reconstruction without $z$, the model finds this collapse solution because it globally minimizes the KL term.
+</p>
+<div class="note-box">
+    <div class="box-title">Mitigating posterior collapse</div>
+    <p>
+        Common strategies include: (1) <strong>KL annealing</strong> — start training with the KL weight at 0 and gradually increase it to 1, allowing the encoder to first learn useful representations before being penalized; (2) <strong>Free bits</strong> — set a minimum target for $D_{\text{KL}}$ per dimension, e.g., $\max(D_{\text{KL},j}, \lambda)$ for each latent dimension $j$; (3) <strong>Weakening the decoder</strong> — use a less expressive decoder so it genuinely needs latent information; (4) <strong>$\delta$-VAE</strong> — constrain the decoder to use $z$ by architectural design.
+    </p>
+</div>
+
+<h2 id="decoder-choices">10. Decoder Output Distributions</h2>
+<p>
+    The choice of $p_\theta(x|z)$ determines the reconstruction loss:
+</p>
+<ul>
+    <li><strong>Gaussian decoder</strong>: $p_\theta(x|z) = \mathcal{N}(x; \mu_\theta(z), \sigma^2 I)$. The reconstruction loss is MSE: $-\log p_\theta(x|z) \propto \frac{1}{2\sigma^2}\|x - \mu_\theta(z)\|^2$. For fixed $\sigma^2 = 1$, this is simply $\frac{1}{2}\|x - \hat{x}\|^2$.</li>
+    <li><strong>Bernoulli decoder</strong>: $p_\theta(x|z) = \prod_i p_i^{x_i}(1-p_i)^{1-x_i}$ where $p_i = \text{sigmoid}(f_\theta(z)_i)$. The reconstruction loss is binary cross-entropy. Appropriate for binary or normalized-to-[0,1] data like binarized MNIST.</li>
+</ul>
+
+<h2 id="information-view">11. Information-Theoretic View</h2>
+<p>
+    The ELBO admits a revealing information-theoretic decomposition. Define the <strong>rate</strong> as $R = \mathbb{E}_{p(x)}[D_{\text{KL}}(q_\phi(z|x) \| p(z))]$ and the <strong>distortion</strong> as $D = -\mathbb{E}_{p(x)}\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$. Then the average ELBO over the data distribution is:
+</p>
+<div class="math-block">
+    $$\mathbb{E}_{p(x)}[\text{ELBO}] = -D - R$$
+</div>
+<p>
+    Maximizing the ELBO is equivalent to minimizing $D + R$: the sum of distortion and rate. This is precisely Shannon's rate-distortion optimization problem! The rate $R$ measures how many bits the latent code uses (relative to the prior), and the distortion $D$ measures reconstruction error. The VAE automatically finds an operating point on the rate-distortion curve. Chapter 03 develops this connection in full depth.
+</p>
+
+<div class="svg-container">
+    <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+        <text x="350" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">VAE Architecture with Reparameterization</text>
+        <rect x="30" y="100" width="100" height="140" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="80" y="160" text-anchor="middle" font-size="12" fill="currentColor">Input</text>
+        <text x="80" y="180" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">x</text>
+        <rect x="170" y="70" width="120" height="80" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+        <text x="230" y="105" text-anchor="middle" font-size="11" fill="currentColor">Encoder</text>
+        <text x="230" y="125" text-anchor="middle" font-size="11" fill="currentColor">→ μ_φ(x)</text>
+        <rect x="170" y="190" width="120" height="80" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+        <text x="230" y="225" text-anchor="middle" font-size="11" fill="currentColor">Encoder</text>
+        <text x="230" y="245" text-anchor="middle" font-size="11" fill="currentColor">→ log σ²_φ(x)</text>
+        <rect x="340" y="100" width="120" height="140" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+        <text x="400" y="150" text-anchor="middle" font-size="11" fill="currentColor">Reparameterize</text>
+        <text x="400" y="175" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">z = μ + σ⊙ε</text>
+        <text x="400" y="200" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.7">ε ~ N(0,I)</text>
+        <rect x="510" y="100" width="100" height="140" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+        <text x="560" y="160" text-anchor="middle" font-size="12" fill="currentColor">Decoder</text>
+        <text x="560" y="180" text-anchor="middle" font-size="11" fill="currentColor">g_θ(z)</text>
+        <rect x="650" y="100" width="40" height="140" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+        <text x="670" y="175" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">x̂</text>
+        <line x1="130" y1="145" x2="170" y2="110" stroke="currentColor" opacity="0.45"/>
+        <line x1="130" y1="195" x2="170" y2="230" stroke="currentColor" opacity="0.45"/>
+        <line x1="290" y1="110" x2="340" y2="155" stroke="currentColor" opacity="0.45"/>
+        <line x1="290" y1="230" x2="340" y2="185" stroke="currentColor" opacity="0.45"/>
+        <line x1="460" y1="170" x2="510" y2="170" stroke="currentColor" opacity="0.45"/>
+        <line x1="610" y1="170" x2="650" y2="170" stroke="currentColor" opacity="0.45"/>
+        <text x="350" y="310" text-anchor="middle" font-size="12" fill="currentColor">The reparameterization trick moves the stochasticity to an input ε, enabling backpropagation through μ and σ.</text>
+    </svg>
+</div>
+
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Summary</h2>
+    <p>
+        The VAE combines neural encoder-decoder architectures with variational inference. The encoder maps inputs to distributions $q_\phi(z|x) = \mathcal{N}(\mu_\phi(x), \sigma^2_\phi(x)I)$ rather than point codes, and the model is trained by maximizing the ELBO: reconstruction quality minus KL regularization. The reparameterization trick $z = \mu + \sigma \odot \epsilon$ enables gradient-based training despite the stochastic sampling. The KL term ensures a smooth, complete latent space suitable for interpolation and generation. From an information-theoretic perspective, the VAE navigates the rate-distortion tradeoff: the KL term is the rate (bits used by the code) and the reconstruction loss is the distortion.
+    </p>
+</div>
+
+                <div class="tutorial-nav">
+                    <a href="../01-variational-inference/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Variational Inference</span>
+                    </a>
+                    <a href="../03-rate-distortion/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Rate-Distortion Theory →</span>
+                    </a>
+                </div>
+            </article>
+
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="full-vae-pytorch">Full VAE in PyTorch</h2>
+<p>A complete VAE implementation for MNIST, with encoder, decoder, reparameterization, and the ELBO loss.</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VAE(nn.Module):
+    def __init__(self, input_dim=784, hidden_dim=400, latent_dim=20):
+        super().__init__()
+        # Encoder
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc_mu = nn.Linear(hidden_dim, latent_dim)
+        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
+        # Decoder
+        self.fc3 = nn.Linear(latent_dim, hidden_dim)
+        self.fc4 = nn.Linear(hidden_dim, input_dim)
+
+    def encode(self, x):
+        h = F.relu(self.fc1(x))
+        return self.fc_mu(h), self.fc_logvar(h)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + std * eps
+
+    def decode(self, z):
+        h = F.relu(self.fc3(z))
+        return torch.sigmoid(self.fc4(h))
+
+    def forward(self, x):
+        mu, logvar = self.encode(x.view(-1, 784))
+        z = self.reparameterize(mu, logvar)
+        recon = self.decode(z)
+        return recon, mu, logvar
+
+def vae_loss(recon_x, x, mu, logvar):
+    # Reconstruction loss (binary cross-entropy)
+    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
+    # KL divergence: -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return BCE + KLD
+</code></pre>
+</div>
+
+<h2 id="reparameterization-detail">Reparameterization Trick Detail</h2>
+<p>Demonstrating why reparameterization enables gradient flow.</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+<pre><code>import torch
+
+# Without reparameterization: cannot backprop through sampling
+mu = torch.tensor([1.0, 2.0], requires_grad=True)
+sigma = torch.tensor([0.5, 0.3], requires_grad=True)
+
+# This would NOT propagate gradients to mu, sigma:
+# z = torch.normal(mu, sigma)  # sampling breaks the graph
+
+# With reparameterization: gradients flow through mu and sigma
+eps = torch.randn_like(mu)  # does not depend on parameters
+z = mu + sigma * eps         # deterministic function of mu, sigma, eps
+
+loss = z.sum()
+loss.backward()
+print(f"grad mu:    {mu.grad}")     # tensor([1., 1.])
+print(f"grad sigma: {sigma.grad}")  # tensor([eps_0, eps_1])
+</code></pre>
+</div>
+
+<h2 id="latent-visualization">Latent Space Visualization</h2>
+<p>Encoding MNIST digits and plotting the 2D latent space.</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+<pre><code>import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_latent_space(model, data_loader, device='cpu'):
+    model.eval()
+    zs, labels = [], []
+    with torch.no_grad():
+        for x, y in data_loader:
+            mu, _ = model.encode(x.view(-1, 784).to(device))
+            zs.append(mu.cpu().numpy())
+            labels.append(y.numpy())
+    zs = np.concatenate(zs)
+    labels = np.concatenate(labels)
+
+    plt.figure(figsize=(10, 8))
+    scatter = plt.scatter(zs[:, 0], zs[:, 1], c=labels, cmap='tab10',
+                         alpha=0.5, s=2)
+    plt.colorbar(scatter, label='Digit')
+    plt.xlabel('z₁')
+    plt.ylabel('z₂')
+    plt.title('VAE Latent Space (2D)')
+    plt.show()
+</code></pre>
+</div>
+
+<h2 id="generation">Generating New Samples</h2>
+<p>Sampling from the prior and decoding to generate new images.</p>
+<div class="code-block">
+    <div class="code-block-header">
+        <span class="code-block-lang">Python</span>
+        <button class="code-block-copy">Copy</button>
+    </div>
+<pre><code>def generate_samples(model, n=64, latent_dim=20, device='cpu'):
+    model.eval()
+    with torch.no_grad():
+        # Sample from prior
+        z = torch.randn(n, latent_dim).to(device)
+        # Decode
+        samples = model.decode(z).cpu().view(-1, 1, 28, 28)
+    return samples
+
+def interpolate(model, x1, x2, steps=10, device='cpu'):
+    model.eval()
+    with torch.no_grad():
+        mu1, _ = model.encode(x1.view(1, -1).to(device))
+        mu2, _ = model.encode(x2.view(1, -1).to(device))
+        # Linear interpolation in latent space
+        lambdas = torch.linspace(0, 1, steps).to(device)
+        zs = torch.stack([(1 - l) * mu1 + l * mu2 for l in lambdas]).squeeze(1)
+        recons = model.decode(zs).cpu().view(-1, 1, 28, 28)
+    return recons
+</code></pre>
+</div>
+            </article>
+
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>Direct computations and concept checks on the VAE framework.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 1: Compute KL for specific values</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>The encoder outputs $\mu = (1, -2)$ and $\sigma^2 = (0.5, 2.0)$ for a 2D latent space. Compute $D_{\text{KL}}(q(z|x) \| p(z))$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Using the closed form: $D_{\text{KL}} = -\frac{1}{2}\sum_j(1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2)$. For $j=1$: $-(1 + \log 0.5 - 1 - 0.5)/2 = -(1 - 0.693 - 1 - 0.5)/2 = -(-1.193)/2 = 0.597$. For $j=2$: $-(1 + \log 2 - 4 - 2)/2 = -(1 + 0.693 - 4 - 2)/2 = -(-4.307)/2 = 2.154$. Total: $D_{\text{KL}} = 0.597 + 2.154 = 2.75$ nats.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 2: Apply reparameterization</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Given $\mu = 2.0$, $\sigma = 0.5$, and $\epsilon = 1.3$, compute the latent sample $z$ using the reparameterization trick.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>$z = \mu + \sigma \cdot \epsilon = 2.0 + 0.5 \times 1.3 = 2.0 + 0.65 = 2.65$. The key point is that $z$ is a deterministic function of $(\mu, \sigma, \epsilon)$, so gradients with respect to $\mu$ and $\sigma$ are well-defined: $\partial z / \partial \mu = 1$ and $\partial z / \partial \sigma = \epsilon = 1.3$.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 3: What is the prior?</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>In the standard VAE, what is $p(z)$ and why is this choice made?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>$p(z) = \mathcal{N}(0, I)$ — a standard multivariate Gaussian. This choice is made because (1) it is easy to sample from during generation, (2) the KL divergence $D_{\text{KL}}(q_\phi(z|x) \| p(z))$ has a closed-form expression when $q$ is also Gaussian, and (3) any distribution with a smooth density can be obtained by passing samples from $\mathcal{N}(0,I)$ through a sufficiently expressive decoder.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 4: Why stochastic encoder?</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Why does the VAE use a stochastic encoder $q_\phi(z|x)$ instead of a deterministic mapping $z = f_\phi(x)$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>A stochastic encoder serves two purposes: (1) it provides a probabilistic framework for variational inference — the ELBO requires a distribution $q_\phi(z|x)$ to compute the KL divergence; (2) the injected noise acts as a regularizer that smooths the latent space, preventing the encoder from mapping similar inputs to distant points and ensuring that the latent space is suitable for generation and interpolation.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 5: Count parameters</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>A VAE has input dimension 784, hidden dimension 256, and latent dimension 10. How many parameters are in the encoder (including bias terms)?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The encoder has three linear layers: fc1 ($784 \times 256 + 256 = 200{,}960$), fc_mu ($256 \times 10 + 10 = 2{,}570$), fc_logvar ($256 \times 10 + 10 = 2{,}570$). Total encoder parameters: $200{,}960 + 2{,}570 + 2{,}570 = 206{,}100$. Note the encoder needs two output heads (mu and logvar), roughly doubling the final layer cost compared to a deterministic autoencoder.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 6: Reconstruction term</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>What does the reconstruction term $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$ encourage the model to do?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>It encourages the decoder to produce outputs that are close to the original input $x$. Maximizing $\log p_\theta(x|z)$ means making the decoded output assign high probability to the true input. For a Gaussian decoder this reduces to minimizing MSE; for a Bernoulli decoder it reduces to minimizing binary cross-entropy. This term drives the model to learn useful representations that preserve input information.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 7: KL term role</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>What does the KL regularization term $D_{\text{KL}}(q_\phi(z|x) \| p(z))$ encourage?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>It encourages the approximate posterior $q_\phi(z|x)$ to stay close to the prior $\mathcal{N}(0,I)$. This prevents the encoder from placing all probability mass on narrow spikes far from the origin. The effect is a smooth, structured latent space where nearby codes produce similar outputs and random samples from $p(z)$ decode to realistic data. Without this term the latent space would have gaps and the model could not generate coherently.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 8: Generation procedure</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Describe the two-step process for generating a new sample from a trained VAE.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Step 1: Sample a latent code from the prior, $z \sim \mathcal{N}(0, I)$. Step 2: Pass $z$ through the decoder to obtain $\hat{x} = g_\theta(z)$ (or sample from $p_\theta(x|z)$ if the decoder defines a distribution). The encoder is not used at generation time — it is only needed during training to provide the approximate posterior.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 9: AE vs VAE latent space</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>What is the key difference between the latent space of a deterministic autoencoder and a VAE?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>A deterministic AE maps each input to a single point in latent space, with no constraint on the global structure. The latent space may have large gaps where no training data maps, and decoding from those gaps produces garbage. A VAE maps each input to a distribution and regularizes the aggregate latent distribution to match $\mathcal{N}(0,I)$, ensuring the space is continuous (nearby points decode similarly) and complete (all regions decode to plausible outputs).</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟢</span>
+                            <span class="exercise-title">Exercise 10: Zero KL weight</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>What happens if you train a VAE with the KL weight set to 0?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>With KL weight 0, the loss is purely reconstruction. The encoder will learn to output very small variances (approaching a delta function) and the model reduces to a deterministic autoencoder with an unnecessary sampling step. The latent space will not match the prior $\mathcal{N}(0,I)$, so sampling from the prior will produce poor-quality outputs. Interpolation may also degrade because the latent space structure is unconstrained.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>Derivations and deeper analysis of the VAE framework.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 11: Derive KL for diagonal Gaussian</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive the closed-form KL divergence $D_{\text{KL}}(\mathcal{N}(\mu, \text{diag}(\sigma^2)) \| \mathcal{N}(0, I))$ from the definition $D_{\text{KL}} = \int q(z) \log \frac{q(z)}{p(z)} dz$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Write $\log q(z) = -\frac{d}{2}\log(2\pi) - \frac{1}{2}\sum_j \log\sigma_j^2 - \frac{1}{2}\sum_j \frac{(z_j - \mu_j)^2}{\sigma_j^2}$ and $\log p(z) = -\frac{d}{2}\log(2\pi) - \frac{1}{2}\sum_j z_j^2$. Then $\mathbb{E}_q[\log q - \log p] = -\frac{1}{2}\sum_j \log\sigma_j^2 - \frac{d}{2} + \frac{1}{2}\sum_j \mathbb{E}_q[z_j^2]$. Since $\mathbb{E}_q[z_j^2] = \mu_j^2 + \sigma_j^2$, we get $D_{\text{KL}} = \frac{1}{2}\sum_j(\sigma_j^2 + \mu_j^2 - 1 - \log\sigma_j^2) = -\frac{1}{2}\sum_j(1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2)$.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 12: Reparameterized ELBO gradient</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive $\nabla_\phi \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$ using the reparameterization trick. Show explicitly how $\epsilon$ replaces the dependence on $\phi$ in the sampling distribution.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Let $z = g(\phi, \epsilon) = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon$ with $\epsilon \sim \mathcal{N}(0,I)$. Then $\nabla_\phi \mathbb{E}_{q_\phi}[\log p_\theta(x|z)] = \nabla_\phi \mathbb{E}_\epsilon[\log p_\theta(x|g(\phi,\epsilon))] = \mathbb{E}_\epsilon[\nabla_\phi \log p_\theta(x|g(\phi,\epsilon))]$. By the chain rule: $\nabla_\phi \log p_\theta(x|z) = \nabla_z \log p_\theta(x|z) \cdot \nabla_\phi g(\phi,\epsilon)$. Here $\nabla_\phi g = (\nabla_\phi \mu_\phi + \epsilon \odot \nabla_\phi \sigma_\phi)$. The gradient estimator with a single sample $\epsilon^{(1)}$ is $\nabla_z \log p_\theta(x|z^{(1)}) \cdot \nabla_\phi g(\phi, \epsilon^{(1)})$, which has much lower variance than the REINFORCE estimator.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 13: Why naive sampling breaks backprop</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Explain precisely why $z \sim \mathcal{N}(\mu_\phi, \sigma^2_\phi I)$ does not allow gradients to flow to $\phi$, and why the REINFORCE estimator has high variance.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>When we sample $z$ from a distribution parameterized by $\phi$, the sampling operation is not a deterministic computation — there is no computational graph path from $\phi$ to $z$ that autodifferentiation can follow. The REINFORCE trick uses the identity $\nabla_\phi \mathbb{E}_{q_\phi}[f(z)] = \mathbb{E}_{q_\phi}[f(z)\nabla_\phi \log q_\phi(z)]$. While correct, this estimator has variance proportional to $\text{Var}[f(z) \nabla_\phi \log q_\phi(z)]$, which can be enormous because $f(z)$ (the loss) is typically a large number that multiplies the score $\nabla_\phi \log q_\phi$, creating wild fluctuations. Reparameterization replaces this with a pathwise gradient that has variance depending only on the smoothness of $f$.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 14: Bernoulli decoder loss</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive the reconstruction loss for a Bernoulli decoder: $p_\theta(x|z) = \prod_{i=1}^d p_i^{x_i}(1-p_i)^{1-x_i}$ where $p_i = \text{sigmoid}(f_\theta(z)_i)$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>$\log p_\theta(x|z) = \sum_{i=1}^d [x_i \log p_i + (1-x_i)\log(1-p_i)]$. This is the negative binary cross-entropy. Substituting $p_i = \sigma(l_i)$ where $l_i = f_\theta(z)_i$ are the logits: $\log p_\theta(x|z) = \sum_i [x_i \log\sigma(l_i) + (1-x_i)\log(1-\sigma(l_i))] = -\text{BCE}(x, \sigma(l))$. In PyTorch this is implemented as <code>F.binary_cross_entropy(recon, x, reduction='sum')</code>.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 15: KL annealing schedule</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Design a KL annealing schedule for training. Define $\beta(t)$ as a function of training step $t$. Justify your choice.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>A common choice is linear annealing: $\beta(t) = \min(1, t / T_{\text{warmup}})$ where $T_{\text{warmup}}$ is typically 10-50% of total training steps. During warmup, $\beta < 1$ reduces the KL penalty, allowing the encoder to learn informative representations before being regularized. Another option is cyclical annealing: $\beta$ oscillates between 0 and 1 multiple times during training, which empirically leads to better latent usage. The justification is that early KL regularization pushes the encoder toward the prior before it has learned useful codes, causing posterior collapse.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 16: Aggregated posterior</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Show that the aggregated posterior $q_\phi(z) = \mathbb{E}_{p(x)}[q_\phi(z|x)]$ can differ from $p(z)$ even when the VAE is trained to convergence.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The VAE minimizes $\mathbb{E}_{p(x)}[D_{\text{KL}}(q_\phi(z|x) \| p(z))]$, not $D_{\text{KL}}(q_\phi(z) \| p(z))$. These are different quantities: the first penalizes each conditional $q_\phi(z|x)$ individually for deviating from $p(z)$, while the second measures the deviation of the marginal mixture. A simple example: if the data has two well-separated clusters and the encoder maps each cluster to a different region of latent space, each conditional $q_\phi(z|x)$ may be close to $\mathcal{N}(0,I)$ individually (with means near 0 and appropriate variances), but the mixture $q_\phi(z)$ will be bimodal. The aggregated posterior mismatch $D_{\text{KL}}(q_\phi(z) \| p(z))$ is sometimes called the "marginal KL" and is an active area of research (addressed by WAE and other methods).</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 17: ELBO for 1D Gaussian data</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Compute the ELBO for a 1D VAE with: prior $p(z) = \mathcal{N}(0,1)$, encoder $q(z|x) = \mathcal{N}(x, 0.5)$, decoder $p(x|z) = \mathcal{N}(z, 1)$, evaluated at $x = 2$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The KL term: $D_{\text{KL}}(\mathcal{N}(2, 0.5) \| \mathcal{N}(0,1)) = \frac{1}{2}(0.5 + 4 - 1 - \log 0.5) = \frac{1}{2}(3.5 + 0.693) = 2.097$. The reconstruction term: $\mathbb{E}_{z \sim \mathcal{N}(2, 0.5)}[\log p(x=2|z)] = \mathbb{E}_z[-\frac{1}{2}\log(2\pi) - \frac{(2-z)^2}{2}] = -\frac{1}{2}\log(2\pi) - \frac{1}{2}\mathbb{E}[(2-z)^2]$. Since $z \sim \mathcal{N}(2, 0.5)$, $\mathbb{E}[(2-z)^2] = \text{Var}(z) = 0.5$. So reconstruction $= -\frac{1}{2}\log(2\pi) - 0.25 \approx -1.169$. ELBO $= -1.169 - 2.097 = -3.266$.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 18: Optimal decoder variance</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>For a Gaussian decoder $p_\theta(x|z) = \mathcal{N}(\mu_\theta(z), \sigma^2_{\text{dec}}I)$, derive the optimal $\sigma^2_{\text{dec}}$ that maximizes the ELBO.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The reconstruction term is $\mathbb{E}_q[\log p(x|z)] = -\frac{d}{2}\log(2\pi\sigma^2_{\text{dec}}) - \frac{1}{2\sigma^2_{\text{dec}}}\mathbb{E}_q[\|x - \mu_\theta(z)\|^2]$. Taking the derivative with respect to $\sigma^2_{\text{dec}}$ and setting to zero: $-\frac{d}{2\sigma^2_{\text{dec}}} + \frac{\mathbb{E}_q[\|x-\mu_\theta(z)\|^2]}{2(\sigma^2_{\text{dec}})^2} = 0$. Solving: $\sigma^2_{\text{dec}} = \frac{1}{d}\mathbb{E}_q[\|x - \mu_\theta(z)\|^2]$, the average per-dimension reconstruction MSE. In practice, most implementations fix $\sigma^2_{\text{dec}} = 1$ and simply minimize MSE, which implicitly sets a particular weighting between reconstruction and KL.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 19: VAE as regularized AE</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Show that a VAE with very small encoder variance ($\sigma_\phi(x) \to 0$) reduces to a deterministic autoencoder with a specific regularization penalty on the latent codes.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>As $\sigma_j \to 0$, $q_\phi(z|x) \to \delta(z - \mu_\phi(x))$ and the reconstruction term becomes $\log p_\theta(x|\mu_\phi(x))$ — the deterministic reconstruction loss. The KL term becomes $D_{\text{KL}}(\delta(z-\mu) \| \mathcal{N}(0,I)) = \frac{1}{2}\|\mu_\phi(x)\|^2 + \text{const}$ (since $\log\sigma_j^2 \to -\infty$ and $\sigma_j^2 \to 0$ cancel in a specific way, but the dominant term is $\frac{1}{2}\|\mu\|^2$). So the VAE objective reduces to MSE reconstruction plus $\frac{1}{2}\|\mu_\phi(x)\|^2$ regularization — an autoencoder with L2 penalty on the latent codes, which is analogous to weight decay.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🟡</span>
+                            <span class="exercise-title">Exercise 20: Posterior collapse diagnosis</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>You observe that during VAE training, $D_{\text{KL}}(q_\phi(z|x) \| p(z)) \approx 0$ for all $x$, yet the reconstruction loss plateaus at a moderate value. Diagnose this behavior and explain what has happened.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>This is posterior collapse. The encoder has learned $q_\phi(z|x) \approx \mathcal{N}(0, I)$ for all inputs — the latent code carries zero information about $x$. The decoder ignores $z$ and models $p(x)$ as an unconditional distribution (e.g., the mean image for Gaussian decoder). This happens when the decoder is powerful enough to achieve reasonable reconstruction without conditioning on $z$, or when the KL penalty dominates early in training before the encoder has learned useful representations. Remedies include KL annealing, free bits, or using a weaker decoder.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>Proofs, advanced derivations, and deep connections.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 21: ELBO tightness gap</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive the exact relationship $\log p_\theta(x) = \text{ELBO} + D_{\text{KL}}(q_\phi(z|x) \| p_\theta(z|x))$ and explain its implications for training.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Start from $D_{\text{KL}}(q_\phi(z|x) \| p_\theta(z|x)) = \mathbb{E}_q[\log q_\phi(z|x) - \log p_\theta(z|x)]$. Substitute $p_\theta(z|x) = p_\theta(x|z)p(z)/p_\theta(x)$: $= \mathbb{E}_q[\log q_\phi(z|x) - \log p_\theta(x|z) - \log p(z) + \log p_\theta(x)]$. Rearranging: $\log p_\theta(x) = \mathbb{E}_q[\log p_\theta(x|z) - \log q_\phi(z|x) + \log p(z)] + D_{\text{KL}}(q \| p_\theta(z|x)) = \text{ELBO} + D_{\text{KL}}(q \| p_\theta(z|x))$. Implication: maximizing the ELBO simultaneously tries to increase $\log p_\theta(x)$ (better generative model) and decrease $D_{\text{KL}}(q \| p_\theta(z|x))$ (better approximate posterior). The gap between ELBO and true log-evidence is exactly the quality of the approximate posterior.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 22: Reparameterization vs REINFORCE variance</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Prove that the reparameterization gradient estimator has lower variance than REINFORCE for the VAE objective, under smoothness assumptions on $\log p_\theta(x|z)$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The REINFORCE estimator is $\hat{g}_{\text{RF}} = \log p_\theta(x|z) \nabla_\phi \log q_\phi(z|x)$ with $z \sim q_\phi$. The reparameterized estimator is $\hat{g}_{\text{RP}} = \nabla_z \log p_\theta(x|z) \cdot \nabla_\phi(\mu + \sigma \epsilon)$ with $\epsilon \sim \mathcal{N}(0,I)$. The variance of REINFORCE scales as $\text{Var}[f(z) \cdot s(z)]$ where $f = \log p_\theta(x|z)$ and $s = \nabla_\phi \log q_\phi$. The $f(z)$ factor can be large and its fluctuations directly multiply the score, creating high variance. For reparameterization, $\text{Var}[\nabla_z f \cdot \nabla_\phi g]$ depends on the gradient of $f$, not $f$ itself. When $f$ is smooth (Lipschitz gradients), $\nabla_z f$ has bounded variance even when $f$ takes extreme values. Formally, $\text{Var}[\hat{g}_{\text{RP}}] = O(L^2 \sigma^2)$ where $L$ is the Lipschitz constant of $\nabla f$, while $\text{Var}[\hat{g}_{\text{RF}}] = O(\|f\|^2_\infty \cdot d/\sigma^2)$, which diverges as $\sigma \to 0$ or when $f$ has large magnitude.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 23: Rate-distortion decomposition</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive the information-theoretic decomposition $-\mathbb{E}_{p(x)}[\text{ELBO}] = R + D$ where $R = I_q(X; Z)$ is the rate and $D$ is the expected distortion. Show the relationship between $I_q(X;Z)$ and the expected KL term.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The average negative ELBO is $\mathbb{E}_{p(x)}[-\mathbb{E}_q[\log p(x|z)] + D_{\text{KL}}(q(z|x)\|p(z))]$. The first term is the distortion $D$. For the rate: $\mathbb{E}_{p(x)}[D_{\text{KL}}(q(z|x)\|p(z))] = \mathbb{E}_{p(x)}[\mathbb{E}_q[\log q(z|x) - \log p(z)]]$. Now $I_q(X;Z) = \mathbb{E}_{p(x)}[D_{\text{KL}}(q(z|x) \| q(z))]$ where $q(z) = \mathbb{E}_{p(x)}[q(z|x)]$ is the aggregated posterior. We can write: $\mathbb{E}_{p(x)}[D_{\text{KL}}(q(z|x)\|p(z))] = I_q(X;Z) + D_{\text{KL}}(q(z)\|p(z))$. So $R = I_q(X;Z) + D_{\text{KL}}(q(z)\|p(z)) \geq I_q(X;Z)$. The VAE rate upper-bounds the true mutual information, with the gap being the aggregated posterior mismatch. This shows the VAE operates above the true R(D) curve, with the slack determined by how well $q(z)$ matches $p(z)$.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 24: Powerful decoder causes collapse</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Prove that a VAE with an autoregressive decoder $p_\theta(x|z) = \prod_i p_\theta(x_i | x_{&lt;i}, z)$ that is sufficiently expressive will exhibit posterior collapse as a global optimum of the ELBO.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>If the autoregressive decoder is powerful enough to model $p(x) = \prod_i p(x_i|x_{&lt;i})$ without conditioning on $z$, then at the optimum: $p_\theta(x|z) = p(x)$ for all $z$, giving $\log p_\theta(x|z) = \log p(x)$ regardless of $z$. The reconstruction term becomes $\mathbb{E}_q[\log p(x)] = \log p(x)$, independent of $q$. The ELBO is then $\log p(x) - D_{\text{KL}}(q(z|x)\|p(z))$, maximized when $D_{\text{KL}} = 0$, i.e., $q(z|x) = p(z)$. This is posterior collapse: $z$ carries no information about $x$. The proof relies on the fact that the autoregressive model class contains the true data distribution, so the decoder can achieve optimal reconstruction without $z$. This is a fundamental tension in VAE design: more expressive decoders improve reconstruction but reduce the incentive to use the latent variable.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 25: Optimal encoder for linear VAE</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Consider a linear VAE: encoder $q_\phi(z|x) = \mathcal{N}(Wx, \sigma^2 I)$ and decoder $p_\theta(x|z) = \mathcal{N}(Vz, I)$, with $x \sim \mathcal{N}(0, \Sigma)$. Derive the optimal $W$ and $V$ that maximize the ELBO.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The ELBO for the linear case becomes: $\text{ELBO} = -\frac{1}{2}\mathbb{E}[\|x - VWx - V\sigma\epsilon\|^2] - \frac{1}{2}(\text{tr}(\sigma^2 I) + \text{tr}(W\Sigma W^\top) - d_z - d_z\log\sigma^2) + \text{const}$. At the optimum, $VW$ projects onto the top-$d_z$ principal components of $\Sigma$. Specifically, if $\Sigma = U\Lambda U^\top$ is the eigendecomposition, then $W = U_{d_z}^\top$ (projection onto top eigenvectors) and $V = U_{d_z}\Lambda_{d_z}^{1/2}$ (scaled back). The optimal $\sigma^2$ is determined by the discarded eigenvalues: $\sigma^2_j = \frac{\lambda_j}{\lambda_j + 1}$ for the retained dimensions. This shows that a linear VAE recovers a probabilistic PCA solution, connecting the VAE framework to classical dimensionality reduction.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 26: Latent space smoothness</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Prove that VAE latent space interpolations are smooth: if the decoder $g_\theta$ is Lipschitz continuous, then $\|g_\theta(z_1) - g_\theta(z_2)\| \leq L\|z_1 - z_2\|$ for Lipschitz constant $L$, and explain why the KL regularization helps ensure this property.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The Lipschitz bound follows directly from the definition: if $g_\theta$ is $L$-Lipschitz, then nearby latent points produce nearby reconstructions. The KL regularization helps ensure this indirectly: by forcing $q_\phi(z|x)$ to spread probability mass (rather than concentrate on isolated points), the KL term ensures that the decoder must produce reasonable outputs over a connected region of latent space around each encoding. If the decoder were not smooth in the regions between encoded points, there would be a mismatch between the spread of $q_\phi(z|x)$ (forced by KL to be broad) and the decoder's ability to reconstruct well from all points in that spread (required by the reconstruction term). The tension between these two terms implicitly regularizes the decoder to be smooth. More formally, the ELBO can be lower-bounded in terms of the decoder's Lipschitz constant and the encoder's variance, establishing that an optimal VAE decoder must have controlled Lipschitz constant.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 27: IWAE bound</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive the Importance Weighted Autoencoder (IWAE) bound: $\mathcal{L}_K = \mathbb{E}_{z_1,\ldots,z_K \sim q_\phi}[\log \frac{1}{K}\sum_{k=1}^K \frac{p_\theta(x,z_k)}{q_\phi(z_k|x)}]$. Prove that $\mathcal{L}_K \geq \mathcal{L}_1 = \text{ELBO}$ and that $\mathcal{L}_K \to \log p_\theta(x)$ as $K \to \infty$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>Define $w_k = p_\theta(x,z_k)/q_\phi(z_k|x)$. Then $\mathcal{L}_K = \mathbb{E}[\log\frac{1}{K}\sum_k w_k]$. For $K=1$: $\mathcal{L}_1 = \mathbb{E}[\log w_1] = \text{ELBO}$. For $\mathcal{L}_K \geq \mathcal{L}_1$: by Jensen's inequality applied to the concave $\log$, $\mathbb{E}[\log\frac{1}{K}\sum_k w_k] \geq \frac{1}{K}\sum_k \mathbb{E}[\log w_k] = \text{ELBO}$. Actually the tighter proof uses the fact that the $K$-sample estimator is itself an unbiased estimator of $p_\theta(x)$ inside the log, and Jensen gives $\mathcal{L}_K \leq \log \mathbb{E}[\frac{1}{K}\sum_k w_k] = \log p_\theta(x)$. The monotonicity $\mathcal{L}_K \leq \mathcal{L}_{K+1}$ follows from the tower property and Jensen. As $K \to \infty$, $\frac{1}{K}\sum_k w_k \to \mathbb{E}_q[w] = p_\theta(x)$ by the law of large numbers, so $\mathcal{L}_K \to \log p_\theta(x)$.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 28: Bits-Back coding</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Derive the Bits-Back coding interpretation of the VAE. Show that encoding $x$ with a VAE requires $-\log p_\theta(x|z)$ bits for reconstruction, $D_{\text{KL}}(q\|p)$ bits for the latent code, but $H(q_\phi(z|x))$ bits can be recovered ("bits back"), netting $-\text{ELBO}$ bits total.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>In bits-back coding, we encode $x$ in three steps: (1) Use a previously shared random string to "sample" $z \sim q_\phi(z|x)$ — this actually <em>consumes</em> $-\log q_\phi(z|x)$ bits from the shared string (these bits are "spent" on selecting which $z$); (2) Encode $x$ given $z$ using $p_\theta(x|z)$, costing $-\log p_\theta(x|z)$ bits; (3) Encode $z$ using the prior $p(z)$, costing $-\log p(z)$ bits. Total cost: $-\log p_\theta(x|z) - \log p(z)$. But the decoder can "recover" the bits used in step 1 by computing $q_\phi(z|x)$ and extracting $-\log q_\phi(z|x)$ bits back. Net cost: $-\log p_\theta(x|z) - \log p(z) + \log q_\phi(z|x) = -\log p_\theta(x|z) + \log\frac{q_\phi(z|x)}{p(z)}$. Taking expectation over $q$: $\mathbb{E}_q[-\log p_\theta(x|z) + \log q_\phi(z|x) - \log p(z)] = -\text{ELBO}$. This provides an operational coding interpretation of the ELBO.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 29: Wake-sleep connection</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Compare the VAE training to the wake-sleep algorithm. In the wake phase, samples come from the data and train the generative model; in the sleep phase, samples come from the generative model and train the recognition model. Show how the VAE unifies both phases.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>In wake-sleep: the wake phase optimizes $\theta$ by sampling $x \sim p_{\text{data}}, z \sim q_\phi(z|x)$ and maximizing $\mathbb{E}[\log p_\theta(x|z)]$ — same as the reconstruction term in ELBO. The sleep phase optimizes $\phi$ by sampling $z \sim p(z), x \sim p_\theta(x|z)$ and minimizing $D_{\text{KL}}(p_\theta(z|x) \| q_\phi(z|x))$ — the reverse KL. The VAE instead optimizes both $\theta$ and $\phi$ jointly by maximizing the ELBO, which involves $D_{\text{KL}}(q_\phi(z|x) \| p_\theta(z|x))$ — the forward KL. The key difference is that wake-sleep uses two separate objectives with different KL directions, while the VAE uses a single, coherent objective (ELBO). The VAE's forward KL is mode-covering (spreading $q$ to cover all modes of $p_\theta(z|x)$), while wake-sleep's reverse KL is mode-seeking (concentrating $q$ on the dominant mode). The VAE is more principled but can produce overly diffuse approximate posteriors.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header">
+                            <span class="exercise-difficulty">🔴</span>
+                            <span class="exercise-title">Exercise 30: β-VAE as rate-distortion</span>
+                            <span class="exercise-toggle">▼</span>
+                        </div>
+                        <div class="exercise-body">
+                            <p>Show that the β-VAE objective $\mathcal{L}_\beta = \mathbb{E}_q[\log p(x|z)] - \beta D_{\text{KL}}(q(z|x) \| p(z))$ corresponds to a Lagrangian relaxation of the rate-distortion problem $\min_q D \text{ subject to } R \leq R_0$, where $\beta$ is the Lagrange multiplier.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content">
+                                <p>The rate-distortion problem is $\min_{q,\theta} \mathbb{E}_{p(x)}\mathbb{E}_q[-\log p_\theta(x|z)]$ subject to $\mathbb{E}_{p(x)}[D_{\text{KL}}(q(z|x)\|p(z))] \leq R_0$. The Lagrangian is $\mathcal{L} = \mathbb{E}_{p(x)}[\mathbb{E}_q[-\log p(x|z)] + \beta(D_{\text{KL}}(q(z|x)\|p(z)) - R_0)] = -\mathbb{E}_{p(x)}[\text{ELBO}_\beta] + \beta R_0$. Since $R_0$ is a constant, minimizing $\mathcal{L}$ is equivalent to maximizing $\text{ELBO}_\beta = \mathbb{E}_q[\log p(x|z)] - \beta D_{\text{KL}}$. Different values of $\beta$ correspond to different rate constraints $R_0$: $\beta > 1$ enforces a tighter rate constraint (more compression, potentially better disentanglement), while $\beta < 1$ allows higher rate (better reconstruction). As $\beta$ varies from 0 to $\infty$, the optimal solution traces out the R(D) curve. This shows that the β-VAE is not an ad hoc modification but a principled way to explore the rate-distortion tradeoff.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">∇</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\[', right: '\]', display: true},
+                        {left: '\(', right: '\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>
