@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Information Bottleneck | Autoencoder Models</title>
+    <meta name="description" content="The Information Bottleneck principle: rate versus relevance, sufficient representations, the information plane, variational IB, and connections to VAEs and supervised learning.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Playfair+Display:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../../tutorials/autoencoders/index.html" class="nav-link active">Autoencoder Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Autoencoder Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Information Bottleneck</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Autoencoder Models</h3>
+                <nav class="sidebar-nav">
+                    <a href="../00-autoencoders/index.html" class="sidebar-link">00. Autoencoders</a>
+                    <a href="../01-variational-inference/index.html" class="sidebar-link">01. Variational Inference</a>
+                    <a href="../02-vae/index.html" class="sidebar-link">02. Variational Autoencoders</a>
+                    <a href="../03-rate-distortion/index.html" class="sidebar-link">03. Rate-Distortion Theory</a>
+                    <a href="../04-information-bottleneck/index.html" class="sidebar-link active">04. Information Bottleneck</a>
+                    <a href="../05-advanced-vaes/index.html" class="sidebar-link">05. Advanced VAE Architectures</a>
+                    <a href="../06-applications/index.html" class="sidebar-link">06. Applications &amp; Frontiers</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../inference/index.html" class="sidebar-link">Inference</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../calculus/index.html" class="sidebar-link">Calculus</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Information Bottleneck</h1>
+
+<p>
+    Rate-distortion theory asks how many bits are needed to reconstruct an input within a chosen distortion budget. The Information Bottleneck (IB) asks a sharper question: if the goal is not to reproduce <em>everything</em> about the input, but only the part that matters for a target, what is the best compressed representation? That shift changes the objective from reconstruction to <em>relevance</em>. A good representation $Z$ should forget nuisance variation in $X$ while preserving the information in $X$ that predicts $Y$.
+</p>
+<p>
+    This makes IB one of the cleanest frameworks for thinking about supervised representation learning. It formalizes the intuition that useful models should compress aggressively, but not blindly. Compression is only good when it removes irrelevant detail. A representation that retains every pixel, every background artifact, and every spurious correlation may reconstruct well, yet generalize poorly. IB gives a principled way to separate "information about the input" from "information useful for the task."
+</p>
+
+<div class="definition-box">
+    <div class="box-title">Information Bottleneck Objective</div>
+    <p>
+        Given an input $X$, a target $Y$, and a representation $Z$ obeying the Markov chain $Y - X - Z$, the Information Bottleneck objective is
+        $$\mathcal{L}_{\text{IB}} = I(X; Z) - \beta I(Z; Y)$$
+        where $I(X; Z)$ is the <em>rate</em> or compression cost, $I(Z; Y)$ is the <em>relevance</em>, and $\beta &gt; 0$ sets the tradeoff between the two.
+    </p>
+</div>
+
+<h2 id="from-reconstruction-to-relevance">1. From reconstruction to relevance</h2>
+<p>
+    A classical autoencoder treats the input as its own target: $Y = X$. The goal is to retain enough information in $Z$ to reconstruct the input. IB generalizes that picture by allowing a different target. In classification, $Y$ is a class label. In speech recognition, $Y$ might be phonemes or text. In scientific modeling, $Y$ could be a measured phenotype, a future observation, or a property of interest. Once $Y$ is distinct from $X$, the representation should not preserve all of $X$ equally. It should preserve only the parts that help predict $Y$.
+</p>
+<p>
+    This is why IB is often described as the supervised analogue of rate-distortion. In rate-distortion, distortion decides what information matters. In IB, the target variable $Y$ decides what matters. If lighting changes in an image do not affect the class label, then an IB-optimal representation should be invariant to lighting. If background texture is predictive only in the training set but not in the real world, the ideal representation should discard it.
+</p>
+
+<div class="note-box">
+    <div class="box-title">The central tradeoff</div>
+    <p>
+        $I(X;Z)$ pushes the model to forget. $I(Z;Y)$ pushes it to remember. Good representations sit at the boundary: as compressed as possible while still preserving what matters for the task.
+    </p>
+</div>
+
+<h2 id="objective-meaning">2. What the two mutual informations mean</h2>
+<p>
+    The first term, $I(X; Z)$, measures how many bits the representation stores about the input. Large $I(X; Z)$ means the representation is detailed and input-specific. Small $I(X; Z)$ means many different inputs map to similar or overlapping codes. This is the compression term.
+</p>
+<p>
+    The second term, $I(Z; Y)$, measures how informative the representation is about the target. Large $I(Z; Y)$ means that once we see $Z$, much of the uncertainty about $Y$ disappears. This is the relevance term.
+</p>
+<p>
+    The coefficient $\beta$ determines the operating point. Small $\beta$ values favor aggressive compression and tolerate loss of predictive detail. Large $\beta$ values prioritize task information and allow more bits to pass through the bottleneck. Just as varying the Lagrange multiplier in rate-distortion traces out an $R(D)$ curve, varying $\beta$ in IB traces out a <em>rate-relevance</em> curve.
+</p>
+
+<h2 id="sufficient-representations">3. Sufficient and minimal representations</h2>
+<p>
+    A representation $Z$ is <em>sufficient</em> for $Y$ if it preserves all task-relevant information:
+    $$I(Z; Y) = I(X; Y)$$
+    This means $Z$ is just as informative about the target as the full input is. But there may be many sufficient representations. Some are bloated and memorize irrelevant structure. The IB principle prefers the <em>minimal sufficient</em> representation: among all sufficient representations, choose the one with the smallest $I(X; Z)$.
+</p>
+<p>
+    This idea is powerful because it aligns neatly with generalization. If two representations are equally predictive, the one that stores fewer input details is less likely to overfit nuisance variation. In other words, IB makes explicit the statistical instinct behind regularization: prefer the simpler explanation that preserves only what is required.
+</p>
+
+<div class="svg-container">
+    <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+        <text x="380" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">The information plane: good representations move down and right</text>
+        <line x1="90" y1="275" x2="700" y2="275" stroke="currentColor" opacity="0.28"/>
+        <line x1="90" y1="40" x2="90" y2="275" stroke="currentColor" opacity="0.28"/>
+        <text x="395" y="307" text-anchor="middle" font-size="12" fill="currentColor">Compression: I(X; Z)</text>
+        <text x="38" y="162" text-anchor="middle" font-size="12" fill="currentColor" transform="rotate(-90 38 162)">Relevance: I(Z; Y)</text>
+        <path d="M110 250 C180 215 250 180 320 150 C410 112 505 92 660 70" fill="none" stroke="#2563eb" stroke-width="3"/>
+        <circle cx="170" cy="220" r="7" fill="#f59e0b"/>
+        <text x="184" y="214" font-size="11" fill="#f59e0b">underfit</text>
+        <circle cx="355" cy="136" r="7" fill="#16a34a"/>
+        <text x="369" y="130" font-size="11" fill="#16a34a">efficient</text>
+        <circle cx="580" cy="82" r="7" fill="#dc2626"/>
+        <text x="594" y="76" font-size="11" fill="#dc2626">memorizing</text>
+        <text x="516" y="236" font-size="11" fill="currentColor" opacity="0.6">Pareto frontier</text>
+        <path d="M585 92 L618 138" stroke="#dc2626" opacity="0.4" stroke-dasharray="5 4"/>
+        <text x="624" y="149" font-size="11" fill="currentColor" opacity="0.65">more bits, not always better</text>
+    </svg>
+</div>
+
+<h2 id="self-consistent-equations">4. The self-consistent IB solution</h2>
+<p>
+    In the discrete setting, the optimal encoder distribution can be derived with calculus of variations. The result is elegant:
+    $$p(z|x) = \frac{p(z)}{Z_\beta(x)} \exp\left(-\beta D_{\text{KL}}(p(y|x)\|p(y|z))\right)$$
+    where $Z_\beta(x)$ is a normalizing constant.
+</p>
+<p>
+    This equation says that an input $x$ should map to representation state $z$ when the predictive distribution $p(y|z)$ is close to the "true" predictive distribution $p(y|x)$. The KL divergence acts like a distortion measure over label distributions. In other words, IB clusters inputs together when they imply similar predictions about $Y$.
+</p>
+<p>
+    This is the key conceptual bridge from compression to learning: unlike k-means, which groups points by Euclidean proximity, IB groups points by <em>predictive equivalence</em>. Two inputs far apart in raw space can share a representation if they imply the same target distribution.
+</p>
+
+<h2 id="information-plane">5. The information plane</h2>
+<p>
+    The information plane plots representations using two coordinates: $I(X; Z)$ on the horizontal axis and $I(Z; Y)$ on the vertical axis. Each point corresponds to one encoder. Better models move upward by increasing relevance, and leftward by compressing more. The optimal frontier is the set of Pareto-efficient representations: you cannot compress further without losing relevance, and you cannot gain relevance without storing more input information.
+</p>
+<p>
+    This view is especially helpful for understanding training dynamics. Early in training, a model often increases both $I(X; Z)$ and $I(Z; Y)$ as it discovers predictive structure. Later, regularization or noise can reduce $I(X; Z)$ while preserving most of $I(Z; Y)$, moving the model toward a more compact operating point. Whether or not all deep networks literally undergo this exact trajectory is debated, but the information-plane picture remains an excellent design language.
+</p>
+
+<h2 id="variational-information-bottleneck">6. Variational Information Bottleneck</h2>
+<p>
+    Exact mutual information is hard to compute in high-dimensional continuous models, so modern practice uses variational bounds. A common setup introduces a stochastic encoder $q_\phi(z|x)$, a predictor $p_\theta(y|z)$, and a reference marginal $r(z)$ such as $\mathcal{N}(0, I)$. Then:
+    $$I(X; Z) \leq \mathbb{E}_{p(x)}\left[D_{\text{KL}}(q_\phi(z|x)\|r(z))\right]$$
+    which yields the variational IB objective
+    $$\mathcal{L}_{\text{VIB}} = \mathbb{E}_{p(x,y)}\mathbb{E}_{q_\phi(z|x)}[-\log p_\theta(y|z)] + \beta \mathbb{E}_{p(x)}\left[D_{\text{KL}}(q_\phi(z|x)\|r(z))\right]$$
+</p>
+<p>
+    This looks almost identical to the VAE objective, but the decoder is now a predictor of $Y$ instead of a reconstructor of $X$. The cross-entropy term is task loss. The KL term is the compression penalty. The stochastic bottleneck encourages invariance, robustness, and calibrated uncertainty because the model is forced to use only information that survives noise injection and rate regularization.
+</p>
+
+<div class="math-derivation">
+    <div class="math-derivation-title">Why the KL term is an upper bound on rate</div>
+    <div class="math-step">
+        <div class="math-step-number">1</div>
+        <div class="math-step-content">
+            The mutual information is
+            $$I(X;Z)=\mathbb{E}_{p(x)}\left[D_{\text{KL}}(q(z|x)\|q(z))\right]$$
+            where $q(z)=\int p(x)q(z|x)\,dx$ is the aggregated posterior.
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">2</div>
+        <div class="math-step-content">
+            Introduce any reference distribution $r(z)$ and expand:
+            $$\mathbb{E}_{p(x)}[D_{\text{KL}}(q(z|x)\|r(z))] = I(X;Z) + D_{\text{KL}}(q(z)\|r(z))$$
+        </div>
+    </div>
+    <div class="math-step">
+        <div class="math-step-number">3</div>
+        <div class="math-step-content">
+            Since KL divergence is non-negative,
+            $$I(X;Z) \leq \mathbb{E}_{p(x)}[D_{\text{KL}}(q(z|x)\|r(z))]$$
+            with equality when the aggregated posterior exactly matches the reference marginal.
+        </div>
+    </div>
+</div>
+
+<h2 id="connections-to-vaes">7. Connections to VAEs, beta-VAEs, and supervised learning</h2>
+<p>
+    The VAE and IB share the same mathematical skeleton. Both use a stochastic encoder, both penalize information flow through a KL term, and both interpret learning as a tradeoff between fidelity and compression. The difference is the notion of fidelity. In a VAE, the objective is to reconstruct $X$. In IB, the objective is to predict $Y$.
+</p>
+<p>
+    This makes IB a useful lens for understanding many regularized deep models:
+</p>
+<ul>
+    <li><strong>Beta-VAE:</strong> Controls latent rate in unsupervised learning, sweeping a rate-distortion curve.</li>
+    <li><strong>Variational IB:</strong> Controls latent rate in supervised learning, sweeping a rate-relevance curve.</li>
+    <li><strong>Noisy bottlenecks and dropout:</strong> Implicitly reduce $I(X;Z)$ by making it expensive to transmit fragile, input-specific details.</li>
+    <li><strong>Representation learning:</strong> Encourages invariant features that keep target information while discarding nuisance factors.</li>
+</ul>
+
+<h2 id="practical-guidelines">8. Practical guidelines and common failure modes</h2>
+<p>
+    IB-style objectives are powerful, but they are not magic. If $\beta$ is too large, the model can over-compress and destroy class information. If $\beta$ is too small, the representation may memorize input quirks and overfit. Estimating mutual information directly is difficult in high dimensions, so most implementations rely on bounds whose tightness depends on architecture and batch size.
+</p>
+<p>
+    There are also modeling assumptions hidden in the objective. The Markov chain $Y - X - Z$ assumes the target depends on the representation only through the input. The reference marginal $r(z)$ shapes which representations are cheap. A spherical Gaussian prior makes isotropic, origin-centered latents inexpensive, while more structured priors can encourage clustering or disentanglement. In practice, good results often come from modest bottleneck noise, a careful $\beta$ sweep, and monitoring both predictive performance and latent rate during training.
+</p>
+
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Summary</h2>
+    <p>
+        The Information Bottleneck replaces reconstruction with relevance. It seeks a representation $Z$ that stores as little about $X$ as possible while preserving as much as possible about a target $Y$. The objective $\mathcal{L}_{\text{IB}} = I(X;Z) - \beta I(Z;Y)$ defines a rate-relevance tradeoff analogous to rate-distortion theory. In the discrete case, the optimal encoder clusters inputs by predictive equivalence. In modern deep learning, the variational IB uses a stochastic encoder and a KL penalty to upper-bound representation rate, yielding a practical supervised bottleneck objective closely related to the VAE.
+    </p>
+</div>
+
+                <div class="tutorial-nav">
+                    <a href="../03-rate-distortion/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Rate-Distortion Theory</span>
+                    </a>
+                    <a href="../05-advanced-vaes/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Advanced VAE Architectures →</span>
+                    </a>
+                </div>
+            </article>
+
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="compute-ib-objective">Computing the discrete IB objective</h2>
+<p>
+    For a small joint distribution $p(x,y)$ and a hand-designed encoder $p(z|x)$, we can compute compression and relevance exactly.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>import numpy as np
+
+# Joint distribution p(x, y)
+p_xy = np.array([
+    [0.18, 0.02],
+    [0.12, 0.08],
+    [0.03, 0.17],
+    [0.02, 0.38],
+])
+p_x = p_xy.sum(axis=1, keepdims=True)
+p_y = p_xy.sum(axis=0, keepdims=True)
+
+# Encoder p(z|x) with 2 bottleneck states
+p_z_given_x = np.array([
+    [0.90, 0.10],
+    [0.75, 0.25],
+    [0.20, 0.80],
+    [0.05, 0.95],
+])
+
+def kl(p, q, eps=1e-12):
+    p = np.clip(p, eps, 1.0)
+    q = np.clip(q, eps, 1.0)
+    return np.sum(p * (np.log(p) - np.log(q)))
+
+p_xz = p_x * p_z_given_x
+p_z = p_xz.sum(axis=0, keepdims=True)
+
+# I(X; Z)
+ixz = 0.0
+for x in range(p_z_given_x.shape[0]):
+    ixz += p_x[x, 0] * kl(p_z_given_x[x], p_z[0])
+
+# Build p(z, y)
+p_zy = np.zeros((2, 2))
+for x in range(4):
+    for y in range(2):
+        for z in range(2):
+            p_zy[z, y] += p_xy[x, y] * p_z_given_x[x, z]
+
+p_z = p_zy.sum(axis=1, keepdims=True)
+p_y = p_zy.sum(axis=0, keepdims=True)
+
+# I(Z; Y)
+izy = 0.0
+for z in range(2):
+    p_y_given_z = p_zy[z] / p_z[z, 0]
+    izy += p_z[z, 0] * kl(p_y_given_z, p_y[0])
+
+beta = 4.0
+objective = ixz - beta * izy
+print(f"I(X;Z) = {ixz:.4f} nats")
+print(f"I(Z;Y) = {izy:.4f} nats")
+print(f"IB objective = {objective:.4f}")
+</code></pre>
+</div>
+
+<h2 id="iterative-discrete-ib">Iterative discrete IB updates</h2>
+<p>
+    The classical discrete IB algorithm alternates between updating $p(z|x)$, $p(z)$, and $p(y|z)$ until convergence.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>import numpy as np
+
+def discrete_information_bottleneck(p_xy, n_z, beta, steps=200, eps=1e-12):
+    p_x = p_xy.sum(axis=1, keepdims=True)
+    p_y_given_x = p_xy / np.clip(p_x, eps, None)
+
+    # Random soft assignments p(z|x)
+    rng = np.random.default_rng(0)
+    p_z_given_x = rng.uniform(size=(p_xy.shape[0], n_z))
+    p_z_given_x /= p_z_given_x.sum(axis=1, keepdims=True)
+
+    for _ in range(steps):
+        p_xz = p_x * p_z_given_x
+        p_z = p_xz.sum(axis=0, keepdims=True)
+
+        # p(y|z)
+        p_y_given_z = np.zeros((n_z, p_xy.shape[1]))
+        for z in range(n_z):
+            for x in range(p_xy.shape[0]):
+                p_y_given_z[z] += p_x[x, 0] * p_z_given_x[x, z] * p_y_given_x[x]
+            p_y_given_z[z] /= np.clip(p_z[0, z], eps, None)
+
+        # Update encoder
+        for x in range(p_xy.shape[0]):
+            logits = []
+            for z in range(n_z):
+                dkl = np.sum(
+                    p_y_given_x[x] * (
+                        np.log(np.clip(p_y_given_x[x], eps, None)) -
+                        np.log(np.clip(p_y_given_z[z], eps, None))
+                    )
+                )
+                logits.append(np.log(np.clip(p_z[0, z], eps, None)) - beta * dkl)
+            logits = np.array(logits)
+            logits -= logits.max()
+            p_z_given_x[x] = np.exp(logits)
+            p_z_given_x[x] /= p_z_given_x[x].sum()
+
+    return p_z_given_x, p_y_given_z
+</code></pre>
+</div>
+
+<h2 id="variational-ib-pytorch">Variational IB classifier in PyTorch</h2>
+<p>
+    A practical deep IB model uses a Gaussian bottleneck, a classifier head, and a KL penalty to control rate.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VariationalIB(nn.Module):
+    def __init__(self, in_dim, hidden_dim, latent_dim, n_classes):
+        super().__init__()
+        self.backbone = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+        )
+        self.mu = nn.Linear(hidden_dim, latent_dim)
+        self.logvar = nn.Linear(hidden_dim, latent_dim)
+        self.classifier = nn.Linear(latent_dim, n_classes)
+
+    def encode(self, x):
+        h = self.backbone(x)
+        return self.mu(h), self.logvar(h)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        logits = self.classifier(z)
+        return logits, mu, logvar
+
+def vib_loss(logits, y, mu, logvar, beta=1e-3):
+    ce = F.cross_entropy(logits, y)
+    kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
+    return ce + beta * kl, {"cross_entropy": ce.item(), "rate_upper_bound": kl.item()}
+</code></pre>
+</div>
+
+<h2 id="sweeping-beta">Sweeping beta to trace the rate-relevance frontier</h2>
+<p>
+    One practical way to study IB models is to train several bottleneck strengths and compare latent rate against validation accuracy.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>betas = [0.0, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2]
+frontier = []
+
+for beta in betas:
+    model = VariationalIB(in_dim=784, hidden_dim=256, latent_dim=32, n_classes=10)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    for epoch in range(10):
+        for x, y in train_loader:
+            logits, mu, logvar = model(x)
+            loss, stats = vib_loss(logits, y, mu, logvar, beta=beta)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+    val_acc = evaluate_accuracy(model, val_loader)
+    avg_rate = evaluate_average_kl(model, val_loader)
+    frontier.append((beta, avg_rate, val_acc))
+
+for beta, rate, acc in frontier:
+    print(f"beta={beta:>6g}  rate~{rate:6.3f} nats  val_acc={acc:5.2%}")
+</code></pre>
+</div>
+            </article>
+
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>Short conceptual checks to make sure the objective is intuitive.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 1: What does each term do?</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>In $\mathcal{L}_{\text{IB}} = I(X;Z) - \beta I(Z;Y)$, what do the two terms encourage?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>$I(X;Z)$ penalizes storing too much input-specific information, so it encourages compression. $I(Z;Y)$ rewards predictive usefulness, so it encourages preserving target-relevant information. The objective seeks a representation that is small but still informative for the task.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 2: Beta extremes</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Describe the qualitative behavior when $\beta \to 0$ and when $\beta \to \infty$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>As $\beta \to 0$, relevance is almost ignored and the model prefers maximal compression, often collapsing toward an uninformative representation. As $\beta \to \infty$, preserving task information dominates and the model allows much larger $I(X;Z)$ to keep $I(Z;Y)$ high.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 3: Why not reconstruct X?</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why can reconstruction be the wrong target for supervised representation learning?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Reconstruction forces the model to preserve all details that help rebuild the input, including nuisance factors irrelevant to prediction. In supervised tasks we usually want invariance, not faithful reconstruction. IB replaces "reconstruct everything" with "keep only what helps predict Y."</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 4: Data processing bound</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>If $Y - X - Z$ is a Markov chain, what inequality relates $I(Z;Y)$ and $I(X;Y)$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>By the data processing inequality, $I(Z;Y) \leq I(X;Y)$. A representation cannot contain more information about the target than the original input does.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 5: Sufficient representation</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>What does it mean for $Z$ to be sufficient for $Y$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>$Z$ is sufficient for $Y$ when it preserves all target information present in $X$, i.e. $I(Z;Y)=I(X;Y)$. In that case the representation loses no information relevant to predicting the target.</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>Derivations and interpretation problems.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 6: IB reduces to rate-distortion</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Show informally that if $Y=X$, then IB becomes a form of rate-distortion optimization.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>If $Y=X$, then relevance becomes $I(Z;X)$ and the objective compares how much of the input survives the bottleneck against how much is stored. Equivalent constrained forms recover the same logic as rate-distortion: preserve enough information to reproduce the input while minimizing representation rate.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 7: Variational upper bound</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why is $\mathbb{E}_{p(x)}[D_{\text{KL}}(q(z|x)\|r(z))]$ an upper bound on $I(X;Z)$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Because it equals $I(X;Z) + D_{\text{KL}}(q(z)\|r(z))$. The second term is non-negative, so replacing the true aggregated posterior $q(z)$ with a convenient reference marginal $r(z)$ can only increase the value.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 8: Predictive clustering</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why does the optimal discrete IB encoder cluster points by similarity of $p(y|x)$ rather than similarity of $x$ itself?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>The self-consistent encoder uses the penalty $D_{\text{KL}}(p(y|x)\|p(y|z))$. Inputs are grouped when they induce similar label distributions, because the objective only cares about how well the cluster supports prediction of $Y$, not how close the raw inputs are in Euclidean space.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 9: Minimal sufficient statistic</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Explain why the minimal sufficient representation is attractive for generalization.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Among all representations that preserve target information, the minimal sufficient one stores the least extra detail about the input. That means less capacity is available for nuisance factors and spurious correlations, which generally improves robustness and reduces overfitting.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 10: Gaussian bottleneck KL</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>For $q(z|x)=\mathcal{N}(\mu(x), \text{diag}(\sigma^2(x)))$ and $r(z)=\mathcal{N}(0,I)$, write the KL term used in the variational IB.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>The KL is
+                            $$D_{\text{KL}}(q(z|x)\|r(z)) = -\frac{1}{2}\sum_j \left(1 + \log \sigma_j^2(x) - \mu_j^2(x) - \sigma_j^2(x)\right)$$
+                            exactly the same closed-form expression used in a diagonal-Gaussian VAE.</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>Longer derivations that connect IB to broader information theory.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 11: Self-consistent encoder equation</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Sketch the variational derivation of $p(z|x) \propto p(z)\exp(-\beta D_{\text{KL}}(p(y|x)\|p(y|z)))$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Write the Lagrangian for $I(X;Z)-\beta I(Z;Y)$ plus normalization constraints on $p(z|x)$. Differentiate with respect to $p(z|x)$, remembering that both $p(z)$ and $p(y|z)$ depend on $p(z|x)$. Setting the functional derivative to zero yields a Gibbs-form encoder whose energy is the KL divergence between the local predictive distribution $p(y|x)$ and the cluster predictive distribution $p(y|z)$.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 12: Deterministic labels</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>If $Y=f(X)$ is deterministic, what does a sufficient representation need to preserve?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>It only needs to preserve enough information to recover the equivalence class induced by $f$. Inputs that map to the same label can be merged without losing relevance. So the minimal sufficient representation can be much smaller than the full input whenever many inputs share the same target.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 13: Information-plane slope</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why does changing $\beta$ move the optimum along the rate-relevance frontier rather than away from it?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Because $\beta$ is the Lagrange multiplier of a constrained optimization. Minimizing $I(X;Z)-\beta I(Z;Y)$ selects the Pareto-optimal point whose frontier slope matches $\beta$. Non-frontier points are dominated by some other representation with both lower rate and higher relevance, so they cannot minimize the Lagrangian.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 14: Linear-Gaussian IB</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>In the Gaussian setting, why does IB favor principal directions that are predictive of $Y$ rather than simply directions of largest variance in $X$?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>PCA keeps directions that explain input variance, regardless of task relevance. Gaussian IB keeps directions that maximize predictive signal about $Y$ per bit of representation rate. High-variance nuisance directions are discarded if they do not help predict the target, while low-variance but target-aligned directions may be retained.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 15: Deep IB versus plain weight decay</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why is an explicit stochastic bottleneck qualitatively different from ordinary weight decay?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Weight decay penalizes parameter magnitude, which only indirectly affects the representation. IB penalizes information flow itself, forcing the model to learn representations that remain predictive under injected uncertainty and limited rate. Two networks with similar weight norms can have very different $I(X;Z)$, so the bottleneck addresses a more direct quantity.</p></div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content"><div class="footer-brand"><span class="logo-symbol">∇</span><span>ML Fundamentals</span></div><p class="footer-tagline">Deep understanding through first principles.</p></div>
+            <div class="footer-links"><a href="../../../index.html">Home</a><a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a></div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [{left: '$$', right: '$$', display: true},{left: '$', right: '$', display: false},{left: '\[', right: '\]', display: true},{left: '\(', right: '\)', display: false}],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

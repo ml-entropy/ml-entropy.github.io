@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced VAE Architectures | Autoencoder Models</title>
+    <meta name="description" content="Advanced VAE architectures including beta-VAE, VQ-VAE, Wasserstein Autoencoders, hierarchical VAEs, expressive posteriors, and practical design tradeoffs.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Playfair+Display:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∞</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo"><span class="logo-symbol">∇</span><span class="logo-text">ML Fundamentals</span></a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/diffusion/index.html" class="nav-link">Diffusion Models</a>
+                    <a href="../../../tutorials/autoencoders/index.html" class="nav-link active">Autoencoder Models</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../index.html" class="nav-link">Home</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">→</span>
+                <a href="../index.html">Autoencoder Models</a>
+                <span class="breadcrumb-separator">→</span>
+                <span>Advanced VAE Architectures</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#code" class="tutorial-tab">Code</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Autoencoder Models</h3>
+                <nav class="sidebar-nav">
+                    <a href="../00-autoencoders/index.html" class="sidebar-link">00. Autoencoders</a>
+                    <a href="../01-variational-inference/index.html" class="sidebar-link">01. Variational Inference</a>
+                    <a href="../02-vae/index.html" class="sidebar-link">02. Variational Autoencoders</a>
+                    <a href="../03-rate-distortion/index.html" class="sidebar-link">03. Rate-Distortion Theory</a>
+                    <a href="../04-information-bottleneck/index.html" class="sidebar-link">04. Information Bottleneck</a>
+                    <a href="../05-advanced-vaes/index.html" class="sidebar-link active">05. Advanced VAE Architectures</a>
+                    <a href="../06-applications/index.html" class="sidebar-link">06. Applications &amp; Frontiers</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
+                    <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>
+                    <a href="../../probability/index.html" class="sidebar-link">Probability</a>
+                    <a href="../../linear-algebra/index.html" class="sidebar-link">Linear Algebra</a>
+                    <a href="../../inference/index.html" class="sidebar-link">Inference</a>
+                </nav>
+            </div>
+        </aside>
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+<h1>Advanced VAE Architectures</h1>
+
+<p>
+    The vanilla VAE is elegant, but it is not the end of the story. Its Gaussian latent space is smooth and easy to train, yet it can blur reconstructions, waste capacity, and underuse the latent variable when paired with a strong decoder. Modern autoencoder research is largely about repairing those failure modes without losing the conceptual clarity that made the VAE appealing in the first place.
+</p>
+<p>
+    Advanced VAE architectures can be understood as different answers to the same design question: <em>what kind of bottleneck should a generative model learn?</em> Some variants increase pressure to compress and disentangle. Some switch from continuous to discrete codes. Some regularize only the aggregated latent distribution instead of every conditional posterior. Some introduce multiple stochastic layers to model global structure and local detail separately. The architecture zoo looks diverse on the surface, but most variants are simple modifications of the rate, distortion, and prior-matching story you already know.
+</p>
+
+<div class="definition-box">
+    <div class="box-title">A unifying view</div>
+    <p>
+        Most advanced VAE variants modify one of four ingredients:
+    </p>
+    <ul>
+        <li><strong>Rate control:</strong> Change how strongly information flow through $Z$ is penalized.</li>
+        <li><strong>Latent type:</strong> Use continuous, discrete, or hierarchical latent variables.</li>
+        <li><strong>Prior matching:</strong> Match each posterior, or only the aggregated posterior.</li>
+        <li><strong>Posterior expressivity:</strong> Make $q_\phi(z|x)$ richer than a diagonal Gaussian.</li>
+    </ul>
+</div>
+
+<h2 id="why-vanilla-vae-breaks">1. Why the vanilla VAE is not always enough</h2>
+<p>
+    A standard VAE balances reconstruction against a KL penalty. This gives a structured latent space, but the balance can be fragile. If the decoder is too weak, reconstructions become blurry because the model averages over uncertainty. If the decoder is too strong, it can model the data without consulting $z$, leading to <em>posterior collapse</em>. If the latent prior is too simple, the model spends effort squeezing complex data geometry into an isotropic Gaussian. If the task needs compact symbolic structure, continuous Gaussian latents may simply be the wrong representation.
+</p>
+<p>
+    These problems motivate different architectural responses. Beta-VAE increases pressure on rate to make factors cleaner. VQ-VAE replaces continuous latents with discrete codebooks. Wasserstein Autoencoders relax the prior-matching constraint. Hierarchical VAEs allocate different stochastic variables to different abstraction levels. The right choice depends on whether you care most about disentanglement, sharpness, compression, scaling, or downstream generation.
+</p>
+
+<h2 id="beta-vae">2. Beta-VAE: turning the rate knob</h2>
+<p>
+    The beta-VAE modifies the ELBO by scaling the KL term:
+    $$\mathcal{L}_{\beta\text{-VAE}} = \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - \beta D_{\text{KL}}(q_\phi(z|x)\|p(z))$$
+    with $\beta &gt; 1$ encouraging stronger compression.
+</p>
+<p>
+    In rate-distortion language, this changes the slope of the operating point. Higher $\beta$ means each extra nat of latent information is more expensive, so the model learns a more parsimonious code. Empirically this often encourages <em>disentanglement</em>: different latent dimensions align with different generative factors such as pose, scale, or color. But the cost is predictable too. Stronger compression usually harms reconstruction fidelity. Disentanglement is not free; it is purchased by refusing to spend rate on entangled detail.
+</p>
+
+<div class="note-box">
+    <div class="box-title">Beta-VAE is a controlled bottleneck, not a magic disentangler</div>
+    <p>
+        A larger $\beta$ creates pressure for factorized, low-rate representations, but it does not guarantee semantically meaningful factors by itself. Data symmetry, decoder capacity, and inductive bias still matter.
+    </p>
+</div>
+
+<h2 id="vq-vae">3. VQ-VAE: discrete latent codes</h2>
+<p>
+    VQ-VAE replaces continuous Gaussian latents with a learned codebook. The encoder outputs a continuous vector $z_e(x)$, which is snapped to the nearest codebook entry:
+    $$z_q(x) = e_k \quad \text{where } k = \arg\min_j \|z_e(x) - e_j\|_2^2$$
+    The decoder then reconstructs from the discrete code $z_q$.
+</p>
+<p>
+    This changes the modeling problem substantially. Discrete codes are attractive when the latent space should behave like tokens: image patches, phonetic units, semantic chunks, or codec symbols. They make the rate explicit because each spatial location can carry only $\log_2 K$ bits if the codebook has $K$ entries. They also pair naturally with autoregressive priors and transformers, which is why VQ-style autoencoders became foundational in neural audio codecs, image tokenizers, and latent generative pipelines.
+</p>
+<p>
+    The core training challenge is non-differentiability. VQ-VAE addresses this with the straight-through estimator and a three-part loss consisting of reconstruction, codebook, and commitment terms. Training can still fail through <em>codebook collapse</em>, where only a small fraction of entries are used. Practical systems therefore monitor codebook utilization carefully and often use EMA codebook updates or reset strategies.
+</p>
+
+<h2 id="wae">4. Wasserstein Autoencoder: match the aggregate, not every posterior</h2>
+<p>
+    A VAE penalizes every conditional posterior $q(z|x)$ for straying from the prior. That is a strong constraint. A Wasserstein Autoencoder (WAE) relaxes it by matching only the <em>aggregated posterior</em>
+    $$q(z) = \mathbb{E}_{p(x)}[q(z|x)]$$
+    to the prior $p(z)$. The objective is usually written as
+    $$\mathcal{L}_{\text{WAE}} = \mathbb{E}_{p(x)q(z|x)}[c(x, g_\theta(z))] + \lambda D(q(z), p(z))$$
+    where $D$ is an MMD or adversarial divergence.
+</p>
+<p>
+    This gives the encoder more freedom. Individual inputs can map to sharp, nearly deterministic latents as long as the global distribution of those latents covers the prior. That is why WAEs often produce crisper reconstructions than VAEs: they avoid forcing each individual posterior to look Gaussian. The tradeoff is that training is now sensitive to the quality of the distribution matcher. A weak MMD kernel or unstable adversarial critic can leave holes in latent space or under-regularize the aggregate.
+</p>
+
+<h2 id="hierarchical-vaes">5. Hierarchical VAEs and NVAE-style models</h2>
+<p>
+    Real data has structure at multiple scales. High-level semantics decide <em>what</em> is in an image; low-level detail decides <em>how</em> it looks locally. A single latent vector is often too blunt an instrument to capture both. Hierarchical VAEs introduce several latent variables, typically arranged from coarse to fine:
+    $$p(x, z_1, \dots, z_L) = p(z_L)\prod_{\ell=1}^{L-1} p(z_\ell | z_{\ell+1}) \, p(x|z_1, \dots, z_L)$$
+</p>
+<p>
+    This lets different layers carry different kinds of information. Top latents can model global structure such as object identity or scene layout, while lower latents refine texture and local detail. NVAE is a strong modern example: it combines hierarchical latents, residual parameterization, and carefully engineered normalization to scale VAEs to high-resolution images with substantially improved sample quality.
+</p>
+<p>
+    The price is complexity. Hierarchical ELBOs are longer, optimization is more delicate, and posterior collapse can happen at some latent levels but not others. In practice, skip connections, KL balancing, and architecture-aware priors are important if multiple latent layers are to remain active.
+</p>
+
+<div class="svg-container">
+    <svg viewBox="0 0 820 300" xmlns="http://www.w3.org/2000/svg" style="width: 100%; font-family: Inter, sans-serif;">
+        <text x="410" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor">Different VAE families change different parts of the bottleneck story</text>
+        <rect x="60" y="86" width="150" height="90" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="135" y="116" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">beta-VAE</text>
+        <text x="135" y="138" text-anchor="middle" font-size="11" fill="currentColor">changes rate weight</text>
+        <text x="135" y="156" text-anchor="middle" font-size="11" fill="currentColor">encourages low-rate factors</text>
+
+        <rect x="245" y="86" width="150" height="90" rx="16" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+        <text x="320" y="116" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">VQ-VAE</text>
+        <text x="320" y="138" text-anchor="middle" font-size="11" fill="currentColor">discrete codebook</text>
+        <text x="320" y="156" text-anchor="middle" font-size="11" fill="currentColor">explicit symbolic rate</text>
+
+        <rect x="430" y="86" width="150" height="90" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+        <text x="505" y="116" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">WAE</text>
+        <text x="505" y="138" text-anchor="middle" font-size="11" fill="currentColor">matches q(z)</text>
+        <text x="505" y="156" text-anchor="middle" font-size="11" fill="currentColor">permits sharper posteriors</text>
+
+        <rect x="615" y="86" width="150" height="90" rx="16" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+        <text x="690" y="116" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Hierarchical VAE</text>
+        <text x="690" y="138" text-anchor="middle" font-size="11" fill="currentColor">multi-scale latents</text>
+        <text x="690" y="156" text-anchor="middle" font-size="11" fill="currentColor">global plus local detail</text>
+
+        <path d="M150 210 H675" stroke="currentColor" opacity="0.25" stroke-width="2"/>
+        <text x="410" y="248" text-anchor="middle" font-size="12" fill="currentColor">All of them are still negotiating the same tradeoff: rate, prior structure, and what the decoder must reconstruct.</text>
+    </svg>
+</div>
+
+<h2 id="expressive-posteriors">6. Expressive posteriors, richer priors, tighter bounds</h2>
+<p>
+    Another axis of improvement is posterior expressivity. The standard diagonal Gaussian encoder may be too simple to approximate the true posterior well. Normalizing flows enrich the approximate posterior by applying invertible transformations to a simple base distribution. Importance-weighted objectives such as IWAE tighten the marginal-likelihood bound by using multiple samples. Structured priors, mixtures, and autoregressive decoders can all be added to make the latent-variable model better match the data.
+</p>
+<p>
+    But every extra improvement changes the engineering tradeoff. Rich posteriors can reduce amortization error but add compute. Powerful decoders improve likelihood yet increase the risk of collapse. Discrete latents enable tokenization but bring codebook maintenance. Hierarchical stacks model detail but complicate optimization. There is no single "best VAE." There are only better matches between objective, architecture, and downstream use.
+</p>
+
+<h2 id="how-to-choose">7. Choosing the right architecture</h2>
+<p>
+    A pragmatic rule of thumb is:
+</p>
+<ul>
+    <li><strong>Need interpretable factors?</strong> Start with beta-VAE.</li>
+    <li><strong>Need discrete tokens for downstream sequence models?</strong> Use VQ-VAE.</li>
+    <li><strong>Need sharper reconstructions with deterministic encoders?</strong> Consider WAE.</li>
+    <li><strong>Need large, high-resolution generative models?</strong> Use hierarchical VAEs or NVAE-style designs.</li>
+    <li><strong>Need better bounds or more flexible inference?</strong> Add flows or IWAE-style training.</li>
+</ul>
+<p>
+    The best architecture is determined less by ideology than by the bottleneck you actually need. A representation for compression, a representation for controllable generation, and a representation for scientific latent structure are not the same object.
+</p>
+
+<div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h2>Summary</h2>
+    <p>
+        Advanced VAE architectures are best understood as controlled modifications of the latent bottleneck. Beta-VAE changes the rate penalty to encourage lower-capacity, often more disentangled codes. VQ-VAE replaces continuous latents with discrete codebooks that work well as tokens. WAE matches only the aggregated posterior, allowing sharper and more deterministic encoders. Hierarchical VAEs distribute information across multiple stochastic layers to handle multi-scale structure. Each choice reflects a different compromise between compression, generative quality, training stability, and downstream usefulness.
+    </p>
+</div>
+
+                <div class="tutorial-nav">
+                    <a href="../04-information-bottleneck/index.html" class="tutorial-nav-link prev">
+                        <span class="nav-label">Previous</span>
+                        <span class="nav-title">← Information Bottleneck</span>
+                    </a>
+                    <a href="../06-applications/index.html" class="tutorial-nav-link next">
+                        <span class="nav-label">Next</span>
+                        <span class="nav-title">Applications &amp; Frontiers →</span>
+                    </a>
+                </div>
+            </article>
+
+            <article class="article-content" id="code" style="display:none;">
+<h2 id="beta-vae-training-step">Beta-VAE with KL warmup and free bits</h2>
+<p>
+    Two standard tricks for stabilizing latent usage are KL warmup and free bits.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>import torch
+import torch.nn.functional as F
+
+def beta_vae_loss(x, recon, mu, logvar, step, warmup_steps=10_000, beta_max=4.0, free_bits=0.5):
+    recon_loss = F.mse_loss(recon, x, reduction="sum") / x.size(0)
+
+    kl_per_dim = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp())
+    kl_per_dim = kl_per_dim.mean(dim=0)
+    kl_free = torch.clamp(kl_per_dim, min=free_bits).sum()
+
+    beta = min(beta_max, beta_max * step / warmup_steps)
+    loss = recon_loss + beta * kl_free
+    return loss, {
+        "reconstruction": recon_loss.item(),
+        "kl": kl_per_dim.sum().item(),
+        "beta": beta,
+    }
+</code></pre>
+</div>
+
+<h2 id="vq-vae-quantizer">VQ-VAE quantizer module</h2>
+<p>
+    The straight-through estimator lets gradients pass through quantization during the backward pass.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VectorQuantizer(nn.Module):
+    def __init__(self, codebook_size, dim, commitment_weight=0.25):
+        super().__init__()
+        self.codebook = nn.Embedding(codebook_size, dim)
+        self.commitment_weight = commitment_weight
+        nn.init.uniform_(self.codebook.weight, -1.0 / codebook_size, 1.0 / codebook_size)
+
+    def forward(self, z_e):
+        flat = z_e.reshape(-1, z_e.size(-1))
+        distances = (
+            flat.pow(2).sum(dim=1, keepdim=True)
+            - 2 * flat @ self.codebook.weight.t()
+            + self.codebook.weight.pow(2).sum(dim=1)
+        )
+        indices = distances.argmin(dim=1)
+        z_q = self.codebook(indices).view_as(z_e)
+
+        codebook_loss = F.mse_loss(z_q, z_e.detach())
+        commitment_loss = F.mse_loss(z_e, z_q.detach())
+        loss = codebook_loss + self.commitment_weight * commitment_loss
+
+        # Straight-through estimator
+        z_q_st = z_e + (z_q - z_e).detach()
+        return z_q_st, indices.view(z_e.shape[:-1]), loss
+</code></pre>
+</div>
+
+<h2 id="wae-mmd">WAE with MMD prior matching</h2>
+<p>
+    WAE often uses Maximum Mean Discrepancy to match the aggregated posterior to the prior without an adversarial critic.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>import torch
+
+def rbf_kernel(x, y, sigma=1.0):
+    x2 = (x ** 2).sum(dim=1, keepdim=True)
+    y2 = (y ** 2).sum(dim=1, keepdim=True)
+    dist = x2 - 2 * x @ y.t() + y2.t()
+    return torch.exp(-dist / (2 * sigma ** 2))
+
+def mmd_penalty(z, prior_z, sigma=1.0):
+    k_xx = rbf_kernel(z, z, sigma).mean()
+    k_yy = rbf_kernel(prior_z, prior_z, sigma).mean()
+    k_xy = rbf_kernel(z, prior_z, sigma).mean()
+    return k_xx + k_yy - 2 * k_xy
+
+def wae_loss(x, recon, z, lambda_mmd=10.0):
+    recon_loss = torch.mean((x - recon) ** 2)
+    prior_z = torch.randn_like(z)
+    penalty = mmd_penalty(z, prior_z, sigma=2.0)
+    return recon_loss + lambda_mmd * penalty
+</code></pre>
+</div>
+
+<h2 id="hierarchical-vae-skeleton">Hierarchical VAE forward skeleton</h2>
+<p>
+    Multi-level latent models often infer a top latent first, then refine with lower-level stochastic variables.
+</p>
+<div class="code-block">
+    <div class="code-block-header"><span class="code-block-lang">Python</span><button class="code-block-copy">Copy</button></div>
+<pre><code>class HierarchicalVAE(nn.Module):
+    def __init__(self, encoder_top, encoder_bottom, prior_bottom, decoder):
+        super().__init__()
+        self.encoder_top = encoder_top
+        self.encoder_bottom = encoder_bottom
+        self.prior_bottom = prior_bottom
+        self.decoder = decoder
+
+    def sample_gaussian(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        return mu + std * torch.randn_like(std)
+
+    def forward(self, x):
+        mu2, logvar2, h = self.encoder_top(x)
+        z2 = self.sample_gaussian(mu2, logvar2)
+
+        prior_mu1, prior_logvar1 = self.prior_bottom(z2)
+        post_mu1, post_logvar1 = self.encoder_bottom(h, z2)
+        z1 = self.sample_gaussian(post_mu1, post_logvar1)
+
+        recon = self.decoder(z1, z2)
+        return {
+            "recon": recon,
+            "top_stats": (mu2, logvar2),
+            "bottom_prior": (prior_mu1, prior_logvar1),
+            "bottom_post": (post_mu1, post_logvar1),
+        }
+</code></pre>
+</div>
+            </article>
+
+            <article class="article-content" id="exercises" style="display:none;">
+                <h2 id="easy-exercises">Easy Exercises</h2>
+                <p>Core conceptual checks for the major architecture families.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 1: What changes in beta-VAE?</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>What single change distinguishes beta-VAE from the standard VAE?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Beta-VAE multiplies the KL term by a scalar $\beta$. This changes how expensive latent information is relative to reconstruction quality.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 2: Why use discrete latents?</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Give one advantage of VQ-VAE over a Gaussian latent VAE.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>VQ-VAE produces explicit discrete symbols, which makes the latent space easy to model with token-based sequence models and gives a clear, quantized rate budget.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 3: Aggregated posterior</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>What is the aggregated posterior in a WAE?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>It is the latent marginal produced by the encoder over the data distribution: $q(z)=\mathbb{E}_{p(x)}[q(z|x)]$. WAEs try to match this overall distribution to the prior.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 4: Posterior collapse</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>What does it mean when a VAE collapses?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Posterior collapse means the encoder outputs nearly the prior for every input, so the latent variable carries almost no information about $x$ and the decoder effectively ignores it.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟢</span><span class="exercise-title">Exercise 5: Why hierarchical latents?</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>What problem do hierarchical VAEs try to solve that a single latent vector struggles with?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>They separate information across multiple scales, allowing global semantics and fine local detail to be modeled by different latent variables instead of forcing everything into one bottleneck.</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="medium-exercises">Medium Exercises</h2>
+                <p>Quantitative and interpretive exercises on architecture choices.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 6: Beta-VAE as rate-distortion</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Explain why beta-VAE can be viewed as minimizing $D + \beta R$.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>The reconstruction term corresponds to distortion $D$, while the KL term upper-bounds the representation rate $R$. Multiplying the KL by $\beta$ changes the tradeoff slope, so the loss becomes the Lagrangian form of rate-distortion optimization.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 7: Codebook capacity</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>If a VQ-VAE uses a codebook of size $K=1024$ over a grid of $16 \times 16$ latent positions, how many bits can the discrete bottleneck represent before entropy coding?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Each position carries $\log_2 1024 = 10$ bits. There are $16 \times 16 = 256$ positions, so the raw capacity is $2560$ bits.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 8: Why WAE can be sharper</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why can a WAE produce sharper reconstructions than a VAE?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Because it does not force every individual posterior $q(z|x)$ to resemble the prior. The encoder can produce sharp, almost deterministic codes while still matching the prior only in aggregate, which often improves reconstruction fidelity.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 9: Straight-through estimator bias</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why is the straight-through estimator biased, and why does it still work?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>It is biased because it pretends quantization has derivative 1 even though argmin is non-differentiable. It works when encoder outputs stay near selected codebook entries, making quantization a small perturbation so the copied gradient is still informative.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🟡</span><span class="exercise-title">Exercise 10: Why multiple KL terms can collapse unevenly</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why might a hierarchical VAE use its top latent but ignore its bottom latent, or vice versa?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>Different latent levels compete with decoder capacity and with each other. If one level already explains the information the decoder needs, the marginal benefit of using another level may not justify its KL cost, so that level collapses.</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="hard-exercises">Hard Exercises</h2>
+                <p>More technical exercises on objectives and training behavior.</p>
+                <div class="exercise-list">
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 11: EMA codebook updates</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why do EMA codebook updates often stabilize VQ-VAE training better than pure gradient updates?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>EMA updates approximate online k-means centroids. They directly move each codebook vector toward the average of assigned encoder outputs, which reduces noisy oscillation and makes underused entries less sensitive to sparse, high-variance gradients.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 12: Posterior collapse with strong decoders</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Why does increasing decoder expressivity make collapse more likely in a VAE?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>If the decoder can model $p(x)$ well without conditioning on $z$, then the reconstruction term no longer rewards using the latent variable. The KL term still penalizes information in $z$, so the optimum moves toward $q(z|x)=p(z)$.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 13: WAE deterministic encoders</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>Explain how a deterministic encoder can still satisfy the WAE prior-matching requirement.</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>WAE only requires the push-forward of the data distribution through the encoder to match the prior in aggregate. A deterministic map can do this by rearranging data mass so the overall latent distribution equals the target prior, even though each individual sample has zero conditional variance.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 14: Hierarchical ELBO decomposition</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>For a two-level VAE with latents $(z_1, z_2)$, what are the three main terms that appear in the ELBO?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>You get one reconstruction term $\mathbb{E}_{q(z_1,z_2|x)}[\log p(x|z_1,z_2)]$, one KL term for the top latent against its prior, and one conditional KL term comparing the lower posterior $q(z_1|x,z_2)$ to the conditional prior $p(z_1|z_2)$.</p></div>
+                        </div>
+                    </div>
+                    <div class="exercise-item">
+                        <div class="exercise-header"><span class="exercise-difficulty">🔴</span><span class="exercise-title">Exercise 15: Architecture choice</span><span class="exercise-toggle">▼</span></div>
+                        <div class="exercise-body">
+                            <p>You need a tokenizer for a downstream transformer that will model image latents autoregressively. Which family from this chapter is the most natural starting point, and why?</p>
+                            <button class="solution-toggle">Show Solution</button>
+                            <div class="solution-content"><p>VQ-VAE is the most natural choice because it produces discrete codes directly. Those codes behave like tokens, have an explicit symbolic rate, and can be modeled with transformers or language-model-style priors without extra discretization machinery.</p></div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </main>
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list"></nav>
+        </aside>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content"><div class="footer-brand"><span class="logo-symbol">∇</span><span>ML Fundamentals</span></div><p class="footer-tagline">Deep understanding through first principles.</p></div>
+            <div class="footer-links"><a href="../../../index.html">Home</a><a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a></div>
+        </div>
+    </footer>
+    <script src="../../../js/main.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [{left: '$$', right: '$$', display: true},{left: '$', right: '$', display: false},{left: '\[', right: '\]', display: true},{left: '\(', right: '\)', display: false}],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>
