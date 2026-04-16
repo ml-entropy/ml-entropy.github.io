@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SoundStream, DAC, SNAC, And BigCodec | ML Fundamentals</title>
-    <meta name="description" content="A comparative tutorial on four worthwhile neural codec designs: SoundStream, DAC, SNAC, and BigCodec, with emphasis on design axes, entropy, bitrate, token rate, and downstream LM implications.">
+    <meta name="description" content="A gradual comparative tutorial on SoundStream, DAC, SNAC, and BigCodec, with emphasis on information-theory design axes, entropy rate, temporal scale, semantic structure, and codec selection.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -70,79 +70,106 @@
 
     <div class="tutorial-wrapper">
         <aside class="tutorial-sidebar">
-    <div class="sidebar-section">
-        <h3 class="sidebar-section-title">Neural Codec Series</h3>
-        <nav class="sidebar-nav">
-            <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
-            <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
-            <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
-            <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
-            <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
-            <a href="../17-xcodec2/index.html" class="sidebar-link">17. XCodec2</a>
-            <a href="../18-modern-codec-designs/index.html" class="sidebar-link active">18. SoundStream, DAC, SNAC, BigCodec</a>
-        </nav>
-    </div>
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Neural Codec Series</h3>
+                <nav class="sidebar-nav">
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
+                    <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
+                    <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
+                    <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
+                    <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
+                    <a href="../17-xcodec2/index.html" class="sidebar-link">17. XCodec2</a>
+                    <a href="../18-modern-codec-designs/index.html" class="sidebar-link active">18. SoundStream, DAC, SNAC, BigCodec</a>
+                </nav>
+            </div>
 
-    <div class="sidebar-section" style="margin-top: 2rem;">
-        <h3 class="sidebar-section-title">Related Subjects</h3>
-        <nav class="sidebar-nav">
-            <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression & Codecs</a>
-            <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
-            <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
-            <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
-            <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E & Speech LLMs</a>
-        </nav>
-    </div>
-</aside>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression &amp; Codecs</a>
+                    <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
+                    <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
+                    <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
+                    <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E &amp; Speech LLMs</a>
+                </nav>
+            </div>
+        </aside>
 
         <main class="tutorial-main">
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>18. SoundStream, DAC, SNAC, And BigCodec</h1>
-                    <p class="lead">Once you understand VQ, RVQ, EnCodec, Mimi, and XCodec2, the next step is not memorizing more brand names. It is recognizing recurring design moves. SoundStream, DAC, SNAC, and BigCodec are four excellent case studies in how neural codecs choose different tradeoffs.</p>
+                    <p class="lead">At this point the right question is no longer “Which codec name should I memorize?” It is “Which design axis is this codec moving?” SoundStream, DAC, SNAC, and BigCodec are useful because each one highlights a different way of allocating bits, uncertainty, and model capacity.</p>
                 </div>
 
-                <h2 id="soundstream">SoundStream: The Template Many Others Followed</h2>
-<p>SoundStream is the paper that made the modern codec recipe feel canonical: fully convolutional encoder-decoder, residual vector quantizer, adversarial plus reconstruction training, structured dropout over quantizer layers, and streamable low-latency inference. Google reports that a single model can operate from 3 kbps to 18 kbps and run in real time on a smartphone CPU.</p>
-<p>Conceptually, SoundStream matters because it showed that a learned codec could outperform classical baselines at very low rates while remaining simple enough to deploy. If EnCodec is the most widely reused acoustic tokenizer, SoundStream is the template from which many later acoustic tokenizers inherited their shape.</p>
+                <h2 id="how-to-read">How To Read Codec Families Instead Of Brand Names</h2>
+                <p>Modern neural codecs differ along a few recurring axes:</p>
+                <ul>
+                    <li>How many decisions per second must the model make?</li>
+                    <li>How is the discrete alphabet structured?</li>
+                    <li>How much of the objective is acoustic versus semantic?</li>
+                    <li>How much of the performance depends on architectural capacity?</li>
+                </ul>
+                <p>If you learn to read new papers through these questions, the design space becomes much less confusing. The rest of this tutorial uses four representative systems to build that habit.</p>
+                <div class="definition-box">
+                    <div class="box-title">Master Mental Model</div>
+                    <p>Every codec is a policy for spending limited bits on limited uncertainty. The design question is always: which uncertainty is expensive enough to keep, and which uncertainty is cheap enough to discard?</p>
+                </div>
 
-<h2 id="dac">DAC: Push Fidelity Up Without Losing Codec Simplicity</h2>
-<p>Descript Audio Codec emphasizes high-fidelity universal audio. The official repository advertises 44.1 kHz audio compressed at 8 kbps, around 90x compression, with models that support 44.1, 24, and 16 kHz mono or stereo audio. DAC is explicitly presented as a drop-in replacement for EnCodec in audio language modeling pipelines.</p>
-<p>The important lesson from DAC is that not every codec innovation is semantic. Sometimes the point is simply to make the acoustic bottleneck better: fewer artifacts, broader domain coverage, stronger full-band reconstruction. If your downstream model already knows what to say and your bottleneck is sound quality, DAC is an attractive design reference.</p>
+                <h2 id="soundstream">SoundStream: The Canonical Modern Template</h2>
+                <p>SoundStream is historically important because it made the standard neural codec recipe feel canonical: convolutional encoder-decoder, residual vector quantization, adversarial and reconstruction losses, structured dropout over quantizer levels, and a streamable implementation.</p>
+                <p>The key lesson is not just that SoundStream works. The key lesson is the shape of the solution. Once you have an RVQ hierarchy with quantizer dropout, you have a progressive code:</p>
+                $$R_{\text{nom}} = K f \log_2 N.$$
+                <p>If you drop from $K$ levels to a smaller active subset, you slide along a bitrate-quality curve without retraining a whole new codec. That design pattern shows up again and again.</p>
+                <p>In practical terms, SoundStream is the prototype for “strong, streamable, flexible acoustic codec.”</p>
 
-<h2 id="snac">SNAC: Multi-Scale Quantizers At Different Temporal Rates</h2>
-<p>SNAC asks a sharp question: why should every quantizer operate at the same temporal resolution? Its answer is to extend RVQ with quantizers running at different frame rates. Coarse structure can be represented sparsely, while fast local detail can still receive a higher-rate refinement path.</p>
-<p>This is a deeply information-theoretic move. Different phenomena in audio live on different time scales. Vowels, syllables, rhythm, and texture are not equally dynamic. SNAC aligns bit allocation with that fact. For long-context generation, this can be more efficient than forcing every level to pay the same temporal price.</p>
+                <h2 id="dac">DAC: Push Fidelity Up Without Abandoning Codec Simplicity</h2>
+                <p>Descript Audio Codec, or DAC, is a good counterexample to the idea that every new codec innovation must be semantic. DAC emphasizes high-fidelity universal audio and positions itself as a strong replacement or alternative to EnCodec for audio language modeling pipelines.</p>
+                <p>The lesson from DAC is that sometimes the real bottleneck is not semantic structure at all. Sometimes the bottleneck is reconstruction quality across broad domains such as speech, music, and environmental audio. In that regime, a stronger acoustic bottleneck is exactly the right thing to improve.</p>
+                <p>So DAC is a reminder that “better tokenizer” depends on the downstream task. A beautiful high-fidelity acoustic codec can still be the correct engineering decision if audible quality is the dominant constraint.</p>
 
-<h2 id="bigcodec">BigCodec: Spend Parameters To Win At Ultra-Low Bitrate</h2>
-<p>BigCodec pushes low-bitrate speech much harder than most prior work. The paper reports a 1.04 kbps operating point, a 159M-parameter model, integrated sequential models for better temporal dependency capture, and low-dimensional vector quantization to improve code utilization. The design message is that low bitrate is not only a rate problem. It is also a capacity problem.</p>
-<p>That is an important correction to naive thinking. If you compress speech down to about 1 kbps, the representation becomes so tight that model capacity, temporal modeling, and code utilization all become first-order concerns. BigCodec is worth studying because it shows that at extreme compression, better architecture may matter as much as better bit allocation.</p>
+                <h2 id="snac">SNAC: Spend Time Resolution Where It Matters</h2>
+                <p>SNAC asks a very sharp question: why should every quantizer operate at the same temporal scale? Speech and audio contain structure at multiple rates. Syllables evolve slowly, transients happen quickly, and some texture sits in between.</p>
+                <p>SNAC's answer is multi-scale quantization. Instead of one shared frame rate for all refinement levels, it uses streams operating at different temporal resolutions. A simple information-rate picture looks like</p>
+                $$R_{\text{eff}} \approx \sum_{s} f_s H(C_s),$$
+                <p>where each scale $s$ has its own frame rate $f_s$ and token entropy $H(C_s)$.</p>
+                <p><strong>Example.</strong> If a coarse stream runs at 12.5 Hz with 5 bits/token and a fine stream runs at 50 Hz with 3 bits/token, then the total entropy rate is</p>
+                $$12.5 \cdot 5 + 50 \cdot 3 = 62.5 + 150 = 212.5 \text{ bits/s}.$$
+                <p>The point is not the exact number. The point is the allocation logic: use slow streams for slow structure and fast streams only where they are worth paying for.</p>
 
-<h2 id="design-axes">The Four Design Axes That Keep Reappearing</h2>
-<table>
-    <thead>
-        <tr><th>Axis</th><th>Question</th><th>Examples</th></tr>
-    </thead>
-    <tbody>
-        <tr><td>Temporal rate</td><td>How many decisions per second must the LM make?</td><td>Mimi lowers it aggressively; SNAC varies it by scale</td></tr>
-        <tr><td>Vocabulary structure</td><td>Many small synchronized codebooks or one large stream?</td><td>RVQ codecs vs XCodec2</td></tr>
-        <tr><td>Semantic supervision</td><td>Are tokens optimized only for acoustics or also for meaning?</td><td>EnCodec vs Mimi/XCodec</td></tr>
-        <tr><td>Model capacity</td><td>Is the bottleneck limited by bits, architecture, or both?</td><td>BigCodec makes capacity an explicit lever</td></tr>
-    </tbody>
-</table>
-<p>Once you see these axes, new codec papers become much easier to read. Most of them are making one of four moves: spend bits differently over time, change the alphabet structure, add semantic guidance, or increase model capacity so the available bits are used better.</p>
+                <h2 id="bigcodec">BigCodec: At Ultra-Low Bitrate, Capacity Becomes A First-Class Variable</h2>
+                <p>BigCodec pushes very low-bitrate speech aggressively. At those operating points, the usual assumption that “the rate budget is the only hard constraint” stops being sufficient. If the model is too weak, it will waste the few bits it has. So BigCodec emphasizes architectural scale, temporal modeling, and code utilization as first-class design variables.</p>
+                <p>This is the right way to think about extreme compression. If you squeeze speech down toward 1 kbps, the margin for inefficient representation becomes tiny. Better capacity can mean the difference between a useful semantic-acoustic bottleneck and a collapsed one.</p>
+                <div class="note-box">
+                    <div class="box-title">Important Correction</div>
+                    <p style="margin-bottom: 0;">Very low bitrate is not just a quantization problem. It is also a model-capacity and utilization problem. If your architecture cannot use the bits intelligently, adding clever rate formulas will not save you.</p>
+                </div>
 
-<h2 id="selection">How To Choose A Codec For A TTS Or Speech-LM Project</h2>
-<p>If you need a historically grounded, streamable RVQ baseline, start with SoundStream. If you need high-quality general audio reconstruction, DAC is strong. If you care about multi-timescale efficiency, study SNAC. If you are pushing ultra-low-bitrate speech and suspect your model is underpowered, BigCodec is the right reference.</p>
-<p>More broadly, choose the codec that attacks your actual bottleneck. If the problem is LM coherence, look at token rate and semantics. If the problem is artifacts, look at acoustic fidelity and adversarial training. If the problem is poor utilization at 1 kbps, architecture scale may be the answer. Codec selection is an information-allocation decision, not a brand preference.</p>
-<div class="definition-box">
-    <div class="box-title">The Big Lesson</div>
-    <p>Every good codec paper is really a paper about where uncertainty lives in audio and how expensive it should be to represent. Once you frame it that way, the design space becomes much easier to reason about.</p>
-</div>
+                <h2 id="axes">The Four Recurring Design Axes</h2>
+                <table>
+                    <thead>
+                        <tr><th>Axis</th><th>Main question</th><th>Representative codec</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Temporal rate</td><td>How many decisions per second must the model make?</td><td>Mimi, SNAC</td></tr>
+                        <tr><td>Vocabulary structure</td><td>One large stream or many smaller structured streams?</td><td>XCodec2 versus RVQ families</td></tr>
+                        <tr><td>Acoustic versus semantic objective</td><td>What uncertainty is preserved first?</td><td>EnCodec versus X-Codec/Mimi</td></tr>
+                        <tr><td>Model capacity</td><td>Is the bottleneck limited by bits, architecture, or both?</td><td>BigCodec</td></tr>
+                    </tbody>
+                </table>
+                <p>SoundStream fits mostly as the template acoustic baseline. DAC pushes fidelity. SNAC redistributes temporal rate. BigCodec emphasizes model capacity. Once you notice those moves, new papers become much easier to categorize.</p>
+
+                <h2 id="selection">How To Choose A Codec For Your Project</h2>
+                <p>If your bottleneck is a streamable, flexible acoustic baseline, SoundStream is the classical reference. If your bottleneck is high-fidelity general-audio quality, DAC is a strong place to look. If your bottleneck is waste from forcing every stream to pay the same time resolution, SNAC is the most informative reference. If your bottleneck is ultra-low-bitrate speech with suspiciously poor utilization, BigCodec is the right thing to study.</p>
+                <p>The critical point is that codec selection should follow the bottleneck, not fashion. The best codec for an interactive speech agent may be a terrible choice for 44.1 kHz music generation, and the best codec for maximum fidelity may be a poor interface for a language model.</p>
+
+                <h2 id="big-lesson">The Big Lesson Of The Whole Series</h2>
+                <p>VQ, RVQ, EnCodec, Mimi, XCodec2, SoundStream, DAC, SNAC, and BigCodec are not isolated inventions. They are different answers to the same question: how should a finite bit budget be organized so that the preserved uncertainty is exactly the uncertainty your downstream system cares about?</p>
+                <p>That is the information-theory perspective worth keeping. Once you think in terms of entropy rate, mutual information, temporal scale, and capacity, codec papers stop looking like a list of names and start looking like a coherent design space.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
-                    <li><a href="https://research.google/pubs/soundstream-an-end-to-end-neural-audio-codec/" target="_blank" rel="noopener">SoundStream official publication page</a> - Official Google Research publication page.</li>
+                    <li><a href="https://research.google/pubs/soundstream-an-end-to-end-neural-audio-codec/" target="_blank" rel="noopener">SoundStream official publication page</a> - Official publication page.</li>
                     <li><a href="https://github.com/descriptinc/descript-audio-codec" target="_blank" rel="noopener">descriptinc/descript-audio-codec</a> - Official DAC repository.</li>
                     <li><a href="https://arxiv.org/abs/2410.14411" target="_blank" rel="noopener">SNAC: Multi-Scale Neural Audio Codec</a> - Original SNAC paper.</li>
                     <li><a href="https://arxiv.org/abs/2409.05377" target="_blank" rel="noopener">BigCodec: Pushing the Limits of Low-Bitrate Neural Speech Codec</a> - Original BigCodec paper.</li>
@@ -150,65 +177,96 @@
             </article>
 
             <article class="article-content" id="exercises" style="display: none;">
-                <h2>How To Use These Exercises</h2>
-<p>Work the easy set without notes, use scratch paper for the medium set, and treat the hard set as mini-research problems. These are intentionally unsolved so they function as real practice rather than passive reading.</p>
+                <h2>Exercises</h2>
+                <p>These exercises are comparative. The easy section checks whether you can place each codec on the right design axis. The medium section asks you to compute or reason about those axes. The hard section asks you to think like a researcher choosing or designing a codec under real constraints.</p>
 
-<h2>Easy</h2>
-<ol>
-        <li>Which codec is most directly associated with structured quantizer dropout in its original paper?</li>
-        <li>What sample rate and bitrate does the DAC repository highlight most prominently?</li>
-        <li>What is the central idea behind SNAC?</li>
-        <li>What problem is BigCodec trying to fix besides the bitrate limit itself?</li>
-        <li>Why is SoundStream historically important even if newer codecs outperform it?</li>
-        <li>Name one codec from this tutorial that is a strong general-audio baseline rather than a speech-semantic tokenizer.</li>
-        <li>Which design axis does SNAC modify most directly: vocabulary size, temporal scale, or semantic supervision?</li>
-        <li>What is the main domain emphasis of BigCodec according to its title and abstract?</li>
-        <li>Why might a codec with better fidelity still be a worse tokenizer for an LM?</li>
-        <li>Give one reason DAC is often discussed as a drop-in replacement for EnCodec.</li>
-</ol>
+                <div class="exercise-list">
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
 
-<h2>Medium</h2>
-<ol>
-        <li>Compare SoundStream and DAC in terms of what they try to optimize first: flexible bitrate or very high-fidelity universal reconstruction.</li>
-        <li>Explain how SNAC can reduce waste by matching quantizers to different temporal scales.</li>
-        <li>Why does BigCodec make model capacity a central design variable at about 1 kbps?</li>
-        <li>Design a comparison chart that would let you decide among SoundStream, DAC, SNAC, and BigCodec for a new project.</li>
-        <li>If your downstream LM struggles with very long sequences, which codec design axis should you inspect first?</li>
-        <li>Suppose you care mainly about singing quality at 44.1 kHz. Which of these codecs would you investigate first and why?</li>
-        <li>How would you test whether SNAC's multi-scale structure actually helps LM modeling rather than only reconstruction?</li>
-        <li>Explain why a universal codec and a speech-specialized codec should not be judged by identical downstream criteria.</li>
-        <li>BigCodec reports improved code utilization. Why does that matter more at ultra-low bitrate than at 8 kbps?</li>
-        <li>Which of these codecs would you choose as a baseline when proposing a new semantic-aware tokenizer, and why?</li>
-</ol>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Historical Template</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec is the clearest historical template for modern RVQ-based neural audio codecs?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SoundStream.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Fidelity-Oriented Baseline</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec family is emphasized here as a strong high-fidelity general-audio baseline?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> DAC.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Multi-Scale Idea</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is SNAC's central idea in one sentence?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Different quantizer streams should operate at different temporal resolutions instead of all sharing one frame rate.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Capacity Focus</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec explicitly highlights model capacity as a first-class lever at ultra-low bitrate?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> BigCodec.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. A Shared Theme</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What shared question do all these codecs answer in different ways?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They all answer how to allocate limited bits and model capacity over the uncertainty present in audio.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Why SoundStream Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is SoundStream historically important even if newer codecs can outperform it?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It established the now-standard recipe of RVQ, adversarial training, and quantizer dropout for streamable neural audio codecs.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Temporal-Scale Axis</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec in this page most directly changes the temporal-scale axis?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SNAC.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Universal Audio Emphasis</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec is described as especially relevant when the bottleneck is broad acoustic fidelity rather than semantic tokenization?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> DAC.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Ultra-Low-Bitrate Speech</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec would you study first if your goal is about 1 kbps speech and you suspect architecture weakness is the main issue?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> BigCodec.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. A Better Question Than “Which Is Best?”</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What question should you ask instead of “Which codec is best?”</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Ask which design bottleneck matters for your task: temporal rate, vocabulary structure, semantic preservation, or model capacity.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. Why DAC Is Not “More Semantic”</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is DAC an example that not every codec improvement is semantic?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because DAC focuses on stronger high-fidelity audio reconstruction rather than explicitly restructuring tokens around semantic content.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. Progressive Code</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which design idea makes SoundStream especially flexible across bitrates?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> RVQ with quantizer dropout, which creates a progressive code that can be truncated by depth.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. What SNAC Exploits</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What property of audio does SNAC exploit more directly than same-rate RVQ?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> That different kinds of audio structure evolve at different time scales.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. When Capacity Matters Most</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>At what operating regime does capacity become especially critical according to the BigCodec lesson?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> At very low bitrate, where inefficient use of the available bits becomes devastating.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. Why A Better Codec Can Be A Worse Tokenizer</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can a codec with better reconstruction still be a worse tokenizer for an LM?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because better reconstruction does not guarantee lower sequence burden or better preservation of the semantic information the LM must predict.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. One Axis That Keeps Reappearing</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one design axis from the comparison table.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Temporal rate, vocabulary structure, acoustic-versus-semantic objective, or model capacity.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. Why Model Capacity Can Waste Bits</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why does a weak model waste a low bitrate budget?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it cannot organize the representation efficiently, so the few available bits get spent on poor or redundant structure.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. Selection Principle</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What should drive codec selection according to this tutorial?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The true system bottleneck, not popularity or brand familiarity.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. Which Codec If You Need Streamability?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec family is the classical reference if you want a streamable RVQ baseline?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SoundStream.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Which Codec If You Need Better Time Allocation?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec would you inspect first if you suspect the problem is wasting too many token decisions on the wrong time scale?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SNAC.</p></div></div></div>
 
-<h2>Hard</h2>
-<ol>
-        <li>Propose a unified evaluation protocol that fairly compares SoundStream, DAC, SNAC, BigCodec, EnCodec, Mimi, and XCodec2 across both compression and generation use cases.</li>
-        <li>Argue for or against the claim that multi-scale temporal allocation is a more important frontier than ever-larger vocabularies for future audio LMs.</li>
-        <li>Design a new codec that combines BigCodec-style high capacity, SNAC-style multi-scale quantization, and Mimi-style semantic guidance. Which pieces are compatible, and which are likely to interfere?</li>
-        <li>Suppose a DAC-based TTS system has beautiful timbre but poor long-form coherence. Give a diagnosis that blames the tokenizer as little as possible, then one that blames it as much as possible.</li>
-        <li>How would you determine whether an observed improvement from a new codec comes from lower entropy rate, stronger semantics, or simply better decoder quality?</li>
-        <li>Give a principled argument for when a project should prioritize acoustic transparency over LM-friendly token structure.</li>
-        <li>If you were forced to use one codec for both music generation and multilingual zero-shot TTS, how would you decide among the families studied in this series?</li>
-        <li>Design an experiment where the exact same LM backbone is trained on EnCodec, DAC, SNAC, Mimi, and XCodec2 tokens. What would you measure to isolate tokenizer effects?</li>
-        <li>Under what conditions could SoundStream still be the best engineering choice even if its reconstruction quality is not state of the art?</li>
-        <li>Formulate your own codec design manifesto in five criteria, each tied to an information-theory objective such as entropy rate, distortion, mutual information with text, or latency.</li>
-</ol>
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Nominal Rate Example</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If a SoundStream-like codec uses $K=4$ codebooks, frame rate $f=50$ Hz, and codebook size $N=1024$, what is the nominal bitrate?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $R_{\text{nom}} = 4 \cdot 50 \cdot 10 = 2000$ bits/s.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. SNAC Rate Example</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>A coarse stream runs at 10 Hz with 4 bits/token and a fine stream runs at 40 Hz with 3 bits/token. What is the total entropy rate?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $10 \cdot 4 + 40 \cdot 3 = 40 + 120 = 160$ bits/s.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Why Multi-Scale Can Save Waste</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can multi-scale quantization be more efficient than same-rate quantization?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it lets slow-changing structure be represented sparsely and fast-changing detail be represented densely only where necessary.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Compare SoundStream And DAC</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the main difference in emphasis between SoundStream and DAC?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SoundStream is the flexible streamable template, while DAC emphasizes pushing fidelity and broad audio quality higher.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. If The LM Struggles With Long Sequences</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which design axis should you inspect first if your LM struggles with very long token sequences?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Inspect temporal rate first, because that directly determines how many steps the LM must model.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. If The Audio Sounds Thin</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If your generated audio sounds thin and artifact-heavy even though semantics are correct, which family from this page might be most relevant to inspect?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> DAC, because it emphasizes stronger high-fidelity acoustic reconstruction.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Why BigCodec Is Different</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why does BigCodec make capacity a central design variable rather than only bitrate?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because at ultra-low bitrate the model must use the few available bits extremely efficiently, and insufficient capacity can ruin the whole representation.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Useful Comparison Chart</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What columns would you include in a codec comparison chart for project selection?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Include token or frame rate, nominal and effective bitrate, domain focus, vocabulary or stream structure, latency, semantic support, fidelity quality, and downstream LM cost.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Why Universal And Speech-Specific Should Not Share One Metric</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why should a universal codec and a speech-specialized tokenizer not be judged only by the same downstream metric?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because a universal codec may optimize broad acoustic fidelity, while a speech tokenizer may optimize semantic controllability and LM efficiency. Different tasks value different outcomes.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Better Utilization Matters More When?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why does improved code utilization matter more at 1 kbps than at 8 kbps?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because at 1 kbps there is almost no spare capacity, so wasting even a small fraction of the representation is much more damaging.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. Best Baseline For A Semantic Tokenizer Paper</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec from this page would be the strongest classical acoustic baseline when proposing a new semantic-aware tokenizer?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SoundStream or DAC can both be relevant, but DAC is especially strong when you want a high-fidelity acoustic baseline and SoundStream when you want the canonical streamable RVQ baseline.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. Why The Formula Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What intuition does $R_{\text{eff}} \approx \sum_s f_s H(C_s)$ give for SNAC-style systems?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It shows that each scale contributes its own share of the total information rate, so you can reason about whether a stream is worth its temporal cost.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Long-Form Music Or Speech?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If your project is long-form music generation at high sample rate, why might DAC matter more than BigCodec?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because DAC focuses on broad high-fidelity audio quality, while BigCodec is mainly about ultra-low-bitrate speech.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. Sequence-Length Argument For SNAC</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How can SNAC potentially help an LM compared with same-rate RVQ?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It can reduce unnecessary high-rate token generation for slow structure, potentially lowering sequence burden where fine time resolution is not needed.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. Why SoundStream Still Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can SoundStream still be a valuable engineering choice even if newer codecs achieve better quality?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it is conceptually clean, streamable, flexible across bitrates, and often easier to reason about as a baseline.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. If Rate Is Not The Whole Story</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What does BigCodec teach about the phrase “rate is not the whole story”?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It teaches that architecture strength and utilization can be just as important as the nominal bitrate budget, especially at extreme compression.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. Better Time Allocation Versus Better Alphabet</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which design move is SNAC making that XCodec2 is not?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SNAC changes temporal allocation across scales, whereas XCodec2 changes vocabulary and stream structure.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. Stronger Acoustic Baseline</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What downstream question does DAC help answer more than a semantics-heavy tokenizer?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It helps answer how much better the system can sound if the acoustic bottleneck itself is improved.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. If You Need Truncation By Design</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which family on this page naturally supports truncation-based bitrate control?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SoundStream-style RVQ codecs with quantizer dropout.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Why Reading By Axes Helps</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is it useful to categorize codec papers by design axis?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it clarifies what a new paper is actually improving and prevents you from confusing unrelated kinds of progress.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Unified Evaluation Protocol</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Design a unified evaluation protocol that fairly compares SoundStream, DAC, SNAC, BigCodec, EnCodec, Mimi, and XCodec2 across compression and generation.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Use matched downstream model families and matched datasets where possible, report nominal and effective rate, audio quality, semantic accuracy, speaker similarity, long-context stability, latency, and training or inference cost. The evaluation must separate codec-only reconstruction results from downstream LM results because those are different objectives.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Multi-Scale Versus Large Vocabulary</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Argue for or against the claim that multi-scale temporal allocation is a more important frontier than ever-larger vocabularies.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A good argument for the claim is that speech and audio are inherently multi-timescale, so temporal misallocation can waste more LM budget than a weak alphabet. A good argument against it is that a powerful single-stream semantic tokenizer can simplify the downstream model enough to outweigh imperfect time-scale allocation. The answer is task dependent.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Hybrid Codec Design</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Design a new codec that combines BigCodec-style capacity, SNAC-style multi-scale quantization, and Mimi-style semantic guidance.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> One plausible design is a large-capacity encoder-decoder with a low-rate semantic stream trained by distillation, plus multi-scale acoustic streams for slow and fast detail. The challenge is preventing the high-capacity model from ignoring the semantic structure or collapsing the multi-scale streams into redundancy, so careful loss design and probing would be required.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Best Tokenizer, Weakest LM</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If a DAC-based TTS system has excellent timbre but poor long-form coherence, give one diagnosis that blames the LM more than the tokenizer and one that blames the tokenizer more than the LM.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The LM-focused diagnosis is that the model cannot maintain long-range discourse or planning even with good acoustic tokens. The tokenizer-focused diagnosis is that the tokens are too acoustically dense and sequence-heavy, so the LM never gets a clean semantic structure to model over long spans.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Isolate Cause Of Improvement</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How would you determine whether a new codec's gain comes from lower entropy rate, stronger semantics, or simply a better decoder?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Hold the downstream LM fixed, swap tokenizers while controlling rate and decoder quality, and separately probe semantic recoverability and entropy statistics. Decoder-only gains should show up in reconstruction without corresponding LM gains, while semantic or entropy-rate gains should affect downstream modeling more directly.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Acoustic Transparency Versus LM Friendliness</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give a principled argument for when a project should prioritize acoustic transparency over LM-friendly token structure.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> If the downstream content is already known or easy to specify and the dominant user-facing requirement is sound quality, then preserving more acoustic detail may matter more than simplifying the LM interface. This is often true in restoration or codec-only applications and sometimes in music generation.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. One Codec For Everything?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If you were forced to choose one codec family for both music generation and multilingual zero-shot TTS, how would you reason about the choice?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> I would choose the family that best balances cross-domain acoustic quality with manageable LM burden, then explicitly accept the compromise. A high-fidelity acoustic codec may win for music but lose some TTS semantics, while a speech-optimized tokenizer may do the opposite; the final choice depends on which failure is more tolerable.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Same LM, Different Tokens</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Design an experiment where the exact same LM backbone is trained on EnCodec, DAC, SNAC, Mimi, and XCodec2 tokens. What would you measure to isolate tokenizer effects?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Measure training loss, step throughput, context coverage, semantic accuracy, speaker similarity, audio naturalness, and failure types under matched optimization settings. Tokenizer effects show up in how the same LM uses its fixed capacity under each representation.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. When SoundStream Still Wins</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Under what conditions could SoundStream still be the best engineering choice?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It can still win when you need a simple, streamable, well-understood RVQ baseline with flexible bitrate control and you value engineering reliability over the last bit of benchmark quality.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Codec Design Manifesto</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a five-part codec design manifesto using information-theory language.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> One good manifesto is: minimize entropy rate that the LM must model; preserve the mutual information that matters for the task; spend time resolution where signal dynamics justify it; ensure model capacity is large enough to use the bits efficiently; and measure distortion in the space users actually care about, not only in raw waveform error.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. Why Brand Rankings Mislead</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why are simple “best codec” rankings usually misleading?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because codecs optimize different objectives and serve different downstream systems, so a ranking without task context collapses fundamentally different tradeoffs into one meaningless number.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. Capacity-Limited Tokenizer</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What symptom would suggest that your tokenizer is capacity-limited rather than rate-limited?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> If increasing model size or temporal modeling improves quality substantially without changing bitrate, the system was likely capacity-limited.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Temporal Waste Diagnosis</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What measurement would reveal that a codec is wasting too much temporal resolution on slow-changing structure?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Inspect per-stream entropy rate and ablate lower frame rates for slow components; if quality barely changes, the original representation was likely overpaying in temporal resolution.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. Better Fidelity, Worse Context</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can a higher-fidelity codec sometimes make a long-context speech model worse?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the extra fidelity may come with denser or more entangled tokens, which consume sequence budget and make long-range planning harder for the LM.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. The Wrong Bottleneck</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What happens if you optimize the wrong codec bottleneck for your application?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> You can make measurable progress on the wrong dimension while user-facing performance barely improves, because the actual limiting factor was elsewhere.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. Best Paper To Read For Progressive Coding</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec family from this page should you read first if you want the clearest origin story for structured quantizer dropout and progressive bitrate?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SoundStream.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. Best Paper To Read For Multi-Scale Thinking</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec family should you study if you want to understand when one frame rate is not enough?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> SNAC.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. Best Paper To Read For Capacity At Extreme Compression</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which codec family should you study if you want to understand why low-bitrate speech can demand a much larger model?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> BigCodec.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. A Good Comparative Research Question</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write one good comparative research question inspired by this page.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> One strong question is: for long-context speech generation, is it more valuable to reduce entropy rate by lowering frame rate or by introducing semantic supervision at the same frame rate?</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Your Closing Principle</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a one-sentence closing principle for how to think about all codec families together.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The right codec is the one whose allocation of entropy, time resolution, and model capacity matches the information your downstream system truly needs to preserve.</p></div></div></div>
+                </div>
             </article>
         </main>
 
         <aside class="toc-container">
-    <h4 class="toc-title">Contents</h4>
-    <nav class="toc-list">
-        <a href="#soundstream" class="toc-link">SoundStream: The Template Many Others Followed</a>
-        <a href="#dac" class="toc-link">DAC: Push Fidelity Up Without Losing Codec Simplicity</a>
-        <a href="#snac" class="toc-link">SNAC: Multi-Scale Quantizers At Different Temporal Rates</a>
-        <a href="#bigcodec" class="toc-link">BigCodec: Spend Parameters To Win At Ultra-Low Bitrate</a>
-        <a href="#design-axes" class="toc-link">The Four Design Axes That Keep Reappearing</a>
-        <a href="#selection" class="toc-link">How To Choose A Codec For A TTS Or Speech-LM Project</a>
-        <a href="#primary-sources" class="toc-link">Primary Sources</a>
-    </nav>
-</aside>
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#how-to-read" class="toc-link">How To Read Codec Families Instead Of Brand Names</a>
+                <a href="#soundstream" class="toc-link">SoundStream: The Canonical Modern Template</a>
+                <a href="#dac" class="toc-link">DAC: Push Fidelity Up Without Abandoning Codec Simplicity</a>
+                <a href="#snac" class="toc-link">SNAC: Spend Time Resolution Where It Matters</a>
+                <a href="#bigcodec" class="toc-link">BigCodec: At Ultra-Low Bitrate, Capacity Becomes A First-Class Variable</a>
+                <a href="#axes" class="toc-link">The Four Recurring Design Axes</a>
+                <a href="#selection" class="toc-link">How To Choose A Codec For Your Project</a>
+                <a href="#big-lesson" class="toc-link">The Big Lesson Of The Whole Series</a>
+                <a href="#primary-sources" class="toc-link">Primary Sources</a>
+            </nav>
+        </aside>
     </div>
 
     <footer class="footer">

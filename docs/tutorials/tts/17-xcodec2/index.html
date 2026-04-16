@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XCodec2: Semantic-Aware Speech Tokenization | ML Fundamentals</title>
-    <meta name="description" content="A tutorial on XCodec2 and the semantic-shortcoming thesis: X-Codec, XCodec2, single vector quantization, large vocabularies, multilingual speech tokenization, and entropy-aware LM design.">
+    <meta name="description" content="A gradual tutorial on XCodec2: semantic-shortcoming motivation, large single-vocabulary tokenization, entropy and utilization, and why XCodec2 is designed to look more like a text tokenizer for speech.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -70,149 +70,188 @@
 
     <div class="tutorial-wrapper">
         <aside class="tutorial-sidebar">
-    <div class="sidebar-section">
-        <h3 class="sidebar-section-title">Neural Codec Series</h3>
-        <nav class="sidebar-nav">
-            <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
-            <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
-            <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
-            <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
-            <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
-            <a href="../17-xcodec2/index.html" class="sidebar-link active">17. XCodec2</a>
-            <a href="../18-modern-codec-designs/index.html" class="sidebar-link">18. SoundStream, DAC, SNAC, BigCodec</a>
-        </nav>
-    </div>
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Neural Codec Series</h3>
+                <nav class="sidebar-nav">
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
+                    <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
+                    <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
+                    <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
+                    <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
+                    <a href="../17-xcodec2/index.html" class="sidebar-link active">17. XCodec2</a>
+                    <a href="../18-modern-codec-designs/index.html" class="sidebar-link">18. SoundStream, DAC, SNAC, BigCodec</a>
+                </nav>
+            </div>
 
-    <div class="sidebar-section" style="margin-top: 2rem;">
-        <h3 class="sidebar-section-title">Related Subjects</h3>
-        <nav class="sidebar-nav">
-            <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression & Codecs</a>
-            <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
-            <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
-            <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
-            <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E & Speech LLMs</a>
-        </nav>
-    </div>
-</aside>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Subjects</h3>
+                <nav class="sidebar-nav">
+                    <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression &amp; Codecs</a>
+                    <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
+                    <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
+                    <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
+                    <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E &amp; Speech LLMs</a>
+                </nav>
+            </div>
+        </aside>
 
         <main class="tutorial-main">
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>17. XCodec2: Semantic-Aware Speech Tokenization</h1>
-                    <p class="lead">XCodec2 starts from a sharp criticism of EnCodec-style tokenization for speech LMs: a codec optimized for acoustic compression is not automatically a good interface for language modeling. Its answer is to push semantics into the tokenizer and make the token stream look more like text.</p>
+                    <p class="lead">XCodec2 starts from a sharp complaint: a tokenizer that is optimal for acoustic compression is not automatically optimal for speech language modeling. Its answer is to make speech tokens more semantic, more text-like, and easier to consume with a standard large-vocabulary autoregressive model.</p>
                 </div>
 
                 <h2 id="semantic-shortcoming">The Semantic Shortcoming Thesis</h2>
-<p>The X-Codec paper argues that acoustic codecs such as EnCodec can be semantically suboptimal for audio language models. In speech synthesis, this appears as word skipping, wrong words, or elevated WER even when the audio sounds plausible. The key claim is not that acoustic codecs are bad at compression. The claim is that compression-optimized tokens do not always preserve the right information for generation conditioned on text.</p>
-<p>This is a crucial information-theory distinction. A codec can preserve high mutual information with perceptual waveform quality while preserving less mutual information with transcript content. For speech LMs, both matter, but text-conditioned generation is often bottlenecked by the second term.</p>
+                <p>The X-Codec line of work argues that EnCodec-style tokenization can be semantically suboptimal for speech generation. The symptom is intuitive: the audio may sound plausible, but the model can still skip words, substitute words, or drift semantically under text conditioning.</p>
+                <p>You can describe the issue with mutual information. Let $C$ be codec tokens, $X$ be the waveform, and $T$ be transcript-level content. A strong acoustic codec tries to keep $I(C;X)$ high enough for good reconstruction. A speech-native tokenizer also wants $I(C;T)$ to be large in the right part of the representation. Those are related goals, but they are not the same goal.</p>
+                <div class="definition-box">
+                    <div class="box-title">Mental Model</div>
+                    <p>An acoustic tokenizer asks, “How do I preserve what the sound needs?” A semantic-aware speech tokenizer asks, “How do I preserve what the language model needs first, and then keep enough acoustics to sound convincing?”</p>
+                </div>
 
-<h2 id="from-xcodec">From X-Codec To XCodec2</h2>
-<p>The original X-Codec approach introduces semantic features from a pretrained semantic encoder before quantization and adds a semantic reconstruction objective after quantization. The goal is straightforward: force the bottleneck to remain predictive of what was said, not only how it sounded.</p>
-<p>XCodec2 keeps that semantic-aware spirit but changes the tokenizer profile dramatically. According to the official repository and model card, it uses single vector quantization, a 65,536-entry codebook based on finite scalar quantization, and 50 tokens per second. That is much closer to the design language of text tokenizers than to the standard many-stream RVQ setup.</p>
+                <h2 id="from-xcodec">From X-Codec To XCodec2</h2>
+                <p>The original X-Codec idea adds semantic features before quantization and adds semantic reconstruction pressure after quantization. XCodec2 keeps that spirit but changes the token structure more radically. Instead of many synchronized RVQ streams, it moves toward one large-vocabulary stream that behaves more like text tokenization.</p>
+                <p>According to the official materials, XCodec2 uses a single vector-quantized stream, a 65,536-entry vocabulary, around 50 tokens per second, strong code usage, a semantic encoder based on Wav2Vec2-BERT, a BigCodec acoustic front end, and a Transformer plus Vocos on the decoder side. That is a very different philosophy from an 8-by-1024 RVQ layout.</p>
 
-<h2 id="architecture">Published XCodec2 Features</h2>
-<table>
-    <thead>
-        <tr><th>Feature</th><th>Published Detail</th></tr>
-    </thead>
-    <tbody>
-        <tr><td>Quantization style</td><td>Single vector quantization</td></tr>
-        <tr><td>Vocabulary</td><td>65,536 entries with FSQ</td></tr>
-        <tr><td>Usage</td><td>~99% codebook usage reported by the official repo</td></tr>
-        <tr><td>Token rate</td><td>50 tokens per second</td></tr>
-        <tr><td>Semantic encoder</td><td>Wav2Vec2-BERT</td></tr>
-        <tr><td>Training data</td><td>150k hours of multilingual speech reported by the repo</td></tr>
-        <tr><td>Decoder</td><td>Transformer + Vocos</td></tr>
-        <tr><td>Acoustic front end</td><td>BigCodec encoder</td></tr>
-        <tr><td>Audio scope</td><td>16 kHz speech</td></tr>
-    </tbody>
-</table>
-<p>This is a very different philosophy from eight 1024-way RVQ streams. Instead of many small synchronized choices, XCodec2 prefers one large symbolic choice per step. The official repo explicitly frames the resulting utilization as being comparable in spirit to text tokenizers with large vocabularies.</p>
+                <h2 id="single-stream">Deriving The Single-Stream Rate Slowly</h2>
+                <p>Let us compute the nominal upper bound. A vocabulary of 65,536 entries means</p>
+                $$\log_2 65536 = 16 \text{ bits/token}.$$
+                <p>If the system emits 50 tokens per second, then the nominal ceiling is</p>
+                $$50 \cdot 16 = 800 \text{ bits/s}.$$
+                <p>This is not the same as saying the true entropy is 16 bits per token. It is only the maximum possible cost if all symbols were equally likely. If the actual entropy is, say, 9 bits per token, then the effective entropy-coded rate would be</p>
+                $$50 \cdot 9 = 450 \text{ bits/s}.$$
+                <p>This distinction matters because XCodec2's large vocabulary only pays off if usage is good and if the model's symbol probabilities are meaningful.</p>
+                <div class="note-box">
+                    <div class="box-title">Why High Usage Matters</div>
+                    <p style="margin-bottom: 0;">A large vocabulary is only valuable if the model uses it efficiently. If most entries are dead, you carry the cost of a huge softmax without getting the representational benefit.</p>
+                </div>
 
-<h2 id="entropy-model">Entropy And The Case For A Large Single Vocabulary</h2>
-<p>If a tokenizer emits one symbol from a 65,536-way vocabulary at 50 steps per second, the ceiling is $50 \cdot 16 = 800$ bits per second before entropy coding. That number is an inference from the published token rate and vocabulary size, not a value quoted directly by the authors. The more important point is structural: XCodec2 trades many low-arity synchronized streams for one high-arity stream.</p>
-<p>Why might that help? Because a single stream is easy for a standard decoder-only LM to model, and high code usage means the large vocabulary is not mostly wasted. If the semantic encoder has already shaped the latent space, the large codebook can behave more like a linguistically meaningful alphabet than a purely acoustic residual stack.</p>
-<div class="definition-box">
-    <div class="box-title">Mental Model</div>
-    <p>XCodec2 is trying to make speech tokens feel less like compressed acoustics and more like a speech-native text tokenizer: one stream, high utilization, multilingual semantics, and enough acoustic detail to reconstruct convincing speech.</p>
-</div>
+                <h2 id="compare-rvq">One Large Stream Versus Many Small Streams</h2>
+                <p>Now compare two tokenizers:</p>
+                <ul>
+                    <li>XCodec2-like: 1 stream, 50 tokens/s, 65,536 possible symbols each step.</li>
+                    <li>EnCodec-like: 8 streams, 75 frames/s, 1024 possible symbols per stream.</li>
+                </ul>
+                <p>Flattened into sequential decisions, the second design creates</p>
+                $$8 \cdot 75 = 600 \text{ token decisions/s},$$
+                <p>while the first creates only 50 decisions/s. The tradeoff is obvious:</p>
+                <ul>
+                    <li>XCodec2 makes far fewer decisions, but each decision is over a huge vocabulary.</li>
+                    <li>RVQ makes many more decisions, but each decision is over a smaller vocabulary.</li>
+                </ul>
+                <p>XCodec2 is effectively betting that one big, semantically shaped choice per step is easier for a standard decoder-only LM than many little acoustic refinements spread across streams.</p>
 
-<h2 id="strengths-tradeoffs">Strengths, Costs, And What To Watch</h2>
-<p>XCodec2 has obvious advantages for LLaMA-style speech generation. One stream is simple. 50 tokens per second is manageable. Multilingual semantic supervision is a strong inductive bias. But the design also has costs. A 65k-way softmax is large. The codec is specialized to 16 kHz speech rather than broad audio. And unlike RVQ, it does not provide an explicit progressive refinement hierarchy you can truncate by level.</p>
-<p>In other words, XCodec2 does not dominate EnCodec or Mimi universally. It is a strong answer to a specific question: "How do I build a speech tokenizer that an LM can model directly, especially in multilingual text-to-speech?" If that is your question, it is one of the most important tokenizers to study.</p>
+                <h2 id="semantic-supervision">Why Semantic Supervision Helps</h2>
+                <p>If you supervise the tokenizer with semantic speech features, you change what the codebook geometry means. Nearby codes are more likely to reflect linguistic or speech-semantic proximity rather than only acoustic similarity. This does not eliminate acoustics, but it shifts the bottleneck toward content-aware structure.</p>
+                <p>That is why the X-Codec papers emphasize the semantic shortcoming of purely acoustic codecs. The goal is not only to reconstruct speech that sounds good. It is to make the discrete representation easier to condition from text and easier to continue with an LM while maintaining semantic integrity.</p>
 
-<h2 id="for-tts">When XCodec2 Makes The Most Sense</h2>
-<p>Use XCodec2 when you care about direct speech LM training, multilingual speech generation, and semantic integrity under text conditioning. It is especially natural in pipelines where you want the output side of the model to look like a normal large-vocabulary autoregressive sequence.</p>
-<p>Use caution if you need full-band music, environmental sound, or explicit progressive bitrate control. In those cases, RVQ-based codecs still have advantages. But as a speech-native tokenizer for LLMs, XCodec2 represents one of the clearest departures from the EnCodec template.</p>
+                <h2 id="costs">What XCodec2 Gains And What It Pays</h2>
+                <p>XCodec2 gains a single stream, lower step rate than EnCodec-style RVQ, high utilization of a large vocabulary, and strong semantic support for multilingual speech generation. Those are excellent properties if your downstream model looks like a standard large-vocabulary decoder-only LM.</p>
+                <p>But it pays real costs. A 65k softmax is large. The tokenizer is specialized to speech rather than broad general audio. And unlike RVQ, it does not offer an obvious progressive refinement path that you can truncate by depth. So the design is not "better at everything." It is sharper for a particular use case.</p>
+
+                <h2 id="when-to-use">When XCodec2 Makes The Most Sense</h2>
+                <p>Choose XCodec2 when you care about text-conditioned speech generation, multilingual speech modeling, and a token stream that integrates naturally into a large-vocabulary autoregressive stack. If you want speech tokens that feel as close as possible to text tokens in form, this is one of the best systems to study.</p>
+                <p>If you need progressive bitrate control, broad audio coverage, or a more classical codec hierarchy, RVQ-based designs still have advantages. XCodec2 is not the universal answer. It is a very strong answer to the question, “How do I build a speech tokenizer for an LM rather than only a codec for the waveform?”</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
-                    <li><a href="https://github.com/zhenye234/X-Codec-2.0" target="_blank" rel="noopener">X-Codec-2.0 official repository</a> - Official feature list and implementation notes.</li>
+                    <li><a href="https://github.com/zhenye234/X-Codec-2.0" target="_blank" rel="noopener">X-Codec-2.0 official repository</a> - Official implementation and feature summary.</li>
                     <li><a href="https://huggingface.co/HKUSTAudio/xcodec2" target="_blank" rel="noopener">HKUSTAudio/xcodec2 model card</a> - Official model card and usage notes.</li>
-                    <li><a href="https://arxiv.org/abs/2408.17175" target="_blank" rel="noopener">Codec Does Matter: Exploring the Semantic Shortcoming of Codec for Audio Language Model</a> - Paper motivating X-Codec.</li>
+                    <li><a href="https://arxiv.org/abs/2408.17175" target="_blank" rel="noopener">Codec Does Matter: Exploring the Semantic Shortcoming of Codec for Audio Language Model</a> - Paper motivating the semantic-shortcoming thesis.</li>
                 </ul>
             </article>
 
             <article class="article-content" id="exercises" style="display: none;">
-                <h2>How To Use These Exercises</h2>
-<p>Work the easy set without notes, use scratch paper for the medium set, and treat the hard set as mini-research problems. These are intentionally unsolved so they function as real practice rather than passive reading.</p>
+                <h2>Exercises</h2>
+                <p>These exercises focus on the shift from acoustic tokenization to semantic-aware speech tokenization. The easy section checks whether the basic design difference is clear. The medium section makes you compare rates, streams, and modeling burdens. The hard section asks whether the XCodec2 design really changes the speech LM problem in the way it claims.</p>
 
-<h2>Easy</h2>
-<ol>
-        <li>What core criticism does X-Codec make of EnCodec-style tokenization for speech LMs?</li>
-        <li>According to the official repo, how many tokens per second does XCodec2 use?</li>
-        <li>What is the published vocabulary size of XCodec2?</li>
-        <li>Which semantic encoder does the official repo say XCodec2 uses?</li>
-        <li>Why is a single token stream attractive for decoder-only LMs?</li>
-        <li>What does high codebook usage mean in this context?</li>
-        <li>What audio domain is XCodec2 specialized for according to the official materials?</li>
-        <li>Name one architectural component on the decoder side of XCodec2.</li>
-        <li>In one sentence, explain the difference between a semantic-aware tokenizer and a purely acoustic tokenizer.</li>
-        <li>Why might a tokenizer with good MOS still have poor WER in text-conditioned generation?</li>
-</ol>
+                <div class="exercise-list">
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
 
-<h2>Medium</h2>
-<ol>
-        <li>Using the published 50 tokens/s rate and 65,536-way vocabulary, compute the maximum raw bits per second before entropy coding.</li>
-        <li>Compare one 65,536-way stream at 50 Hz with eight 1024-way streams at 75 Hz. Which has more token decisions per second, and which has the larger per-step choice set?</li>
-        <li>Why might 99% code usage be especially important for a very large vocabulary tokenizer?</li>
-        <li>Design a probe to test whether XCodec2 preserves transcript information better than EnCodec.</li>
-        <li>Explain how semantic supervision can reduce text-audio mismatch in TTS.</li>
-        <li>What tradeoff does XCodec2 make by abandoning an explicit RVQ hierarchy?</li>
-        <li>Why is multilingual semantic support especially relevant for a tokenizer used in speech synthesis?</li>
-        <li>Suppose an LM trained on XCodec2 tokens still skips words. List two hypotheses that blame the tokenizer and two that blame the LM.</li>
-        <li>Why might a large single-stream tokenizer be easier to integrate into a LLaMA-style stack than RVQ streams?</li>
-        <li>Explain why a large softmax is both a benefit and a cost in XCodec2-like systems.</li>
-</ol>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. The Core Criticism</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the main criticism X-Codec makes of EnCodec-style tokenization for speech LMs?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> That good acoustic compression does not guarantee good semantic preservation for text-conditioned speech generation.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Published Token Rate</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How many tokens per second does XCodec2 publicly report?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> About 50 tokens per second.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Vocabulary Size</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What vocabulary size is associated with XCodec2?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> 65,536 entries.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Semantic Encoder</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which semantic encoder is used in the official description?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Wav2Vec2-BERT.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Single Stream</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is a single token stream attractive for a decoder-only LM?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It matches the standard language-model setup more directly and avoids handling many synchronized streams.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Softmax Cost</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the obvious computational cost of a 65k vocabulary?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A large softmax and larger embedding tables, which increase compute and memory cost.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Acoustic Front End</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What acoustic encoder family is used as the front end in XCodec2?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A BigCodec encoder.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Decoder Side</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one decoder-side component used by XCodec2.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A Transformer or Vocos.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Speech Domain</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What audio domain is XCodec2 mainly specialized for?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Speech rather than general audio.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Why High Usage Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is high code usage especially important for a very large vocabulary tokenizer?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because otherwise most of the huge vocabulary would be wasted, while the system would still pay the cost of modeling it.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. What Mutual Information Issue Exists?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which mutual-information term is emphasized more strongly by a speech-semantic tokenizer than by a purely acoustic codec?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The tokenizer tries to increase mutual information between tokens and transcript-level content, $I(C;T)$.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. Maximum Bits Per Token</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How many nominal bits can one XCodec2 token carry at most?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $\log_2 65536 = 16$ bits.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Why Text-Like?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is XCodec2 sometimes described as more “text-like” than RVQ codecs?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it uses one large vocabulary stream rather than many synchronized small-vocabulary streams.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. A Direct Benefit</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one direct benefit of the XCodec2 design for multilingual speech generation.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It provides a semantically guided, single-stream interface that is easier to plug into a multilingual decoder-only model.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. A Direct Cost</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one direct cost of the XCodec2 design relative to RVQ.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It loses RVQ's obvious progressive refinement and bitrate-truncation structure.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. Why Good MOS Is Not Enough</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can good MOS still coexist with poor semantic fidelity?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because audio can sound natural even if the generated words or meaning are wrong.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. What XCodec2 Optimizes For</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In one sentence, what does XCodec2 optimize for more explicitly than EnCodec?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It optimizes the tokenization to preserve speech semantics in a form an LM can model directly.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. Large Vocabulary Ceiling</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the nominal bits-per-second ceiling of a 50 Hz stream with 65,536 symbols?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $50 \cdot 16 = 800$ bits/s.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. Why Efficient Usage Matters For Entropy</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What happens to effective entropy if a large vocabulary collapses onto only a small active subset?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Effective entropy drops, meaning the huge vocabulary is not truly carrying as much information as it could.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Best Use Case</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give one use case where XCodec2 makes especially strong sense.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Multilingual text-conditioned speech generation with a decoder-only speech LM.</p></div></div></div>
 
-<h2>Hard</h2>
-<ol>
-        <li>Give the strongest argument for the claim that speech tokenizers should be optimized for semantic integrity rather than pure acoustic rate-distortion.</li>
-        <li>Design a fair benchmark comparing EnCodec, Mimi, and XCodec2 for zero-shot multilingual TTS. Specify metrics, prompts, datasets, and failure analyses.</li>
-        <li>Argue carefully whether a single 65k vocabulary is fundamentally more “text-like” than RVQ or whether that is mostly an implementation convenience.</li>
-        <li>Propose a hybrid tokenizer that combines XCodec2-style semantic supervision with a progressive RVQ refinement path.</li>
-        <li>Suppose XCodec2 has excellent WER but worse speaker similarity than EnCodec. How could the tokenization objective cause that outcome?</li>
-        <li>Design an entropy analysis that would reveal whether XCodec2 is truly using its large vocabulary efficiently across languages.</li>
-        <li>How would you modify XCodec2 if you needed 24 kHz output while preserving the same LM-friendly single-stream property?</li>
-        <li>Explain when a single-stream tokenizer could actually be worse than RVQ for speech generation, even if the LM architecture is simpler.</li>
-        <li>Formulate a mutual-information decomposition that separates transcript content, speaker identity, and prosody in XCodec2 tokens.</li>
-        <li>If the first generation model is already decoder-only and multilingual, what evidence would convince you to switch from XCodec2 back to EnCodec or Mimi?</li>
-</ol>
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Derive 800 bps</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Show step by step why 50 tokens/s with a 65,536-way vocabulary gives an 800 bits/s nominal ceiling.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Since $\log_2 65536 = 16$, each token costs at most 16 bits. At 50 tokens/s, the nominal rate is $50 \cdot 16 = 800$ bits/s.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Effective Rate Example</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If empirical entropy is 9 bits/token instead of 16, what effective bits/s do you get at 50 tokens/s?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $50 \cdot 9 = 450$ bits/s.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Decision-Rate Comparison</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Compare 1 stream at 50 Hz with 8 streams at 75 Hz after flattening. How many token decisions per second does each create?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The first creates 50 decisions/s. The second creates $8 \cdot 75 = 600$ decisions/s.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Why A Single Stream Can Help</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why might one large stream be easier for a standard LLaMA-style model than many RVQ streams?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the architecture already expects one sequence of discrete symbols, so there is no need to invent extra machinery for synchronized multi-stream prediction.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Probe Design</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How would you test whether XCodec2 preserves transcript information better than EnCodec?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Use matched downstream models or probes to predict transcripts from each tokenizer and compare WER or transcript mutual information under identical conditions.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. 99% Usage Interpretation</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is very high code usage especially impressive for a 65k vocabulary?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it means the model is actually spreading information across the huge vocabulary rather than collapsing onto a tiny fraction of it.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. What A Large Softmax Buys</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What representational advantage can a large softmax provide if utilization is high?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It can offer a very rich symbolic alphabet so each step can encode a more informative speech state.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. What A Large Softmax Costs</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Besides compute, what modeling risk comes with a very large vocabulary?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> If the training data or tokenizer geometry is insufficient, the model may use the vocabulary inefficiently or overfit spurious distinctions.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Compare Mutual Information Goals</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In one or two sentences, contrast maximizing $I(C;X)$ and maximizing $I(C;T)$.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Maximizing $I(C;X)$ prioritizes preserving waveform detail for reconstruction, while maximizing $I(C;T)$ prioritizes preserving transcript-level content for text-conditioned generation. A good speech tokenizer often needs a better balance of both than a purely acoustic codec does.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Why Multilingual Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is multilingual supervision especially valuable for a speech tokenizer?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it helps the tokenizer represent speech content across languages instead of overfitting to one language's phonetic or lexical structure.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. When The Single Stream Could Fail</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one scenario where one large stream could be worse than RVQ even if it is simpler for the LM.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It could be worse if you need explicit progressive bitrate control or fine acoustic refinements that are naturally expressed by separate RVQ levels.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. Entropy Interpretation</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If the true entropy were only 6 bits/token, what effective size would the 65k vocabulary behave like?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It would behave like an effective perplexity of $2^6 = 64$ equally likely choices.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Compare Per-Step And Per-Second Burden</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which system has the larger per-step choice set and which has the larger number of steps per second: XCodec2 or EnCodec-style RVQ?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> XCodec2 has the larger per-step choice set, while EnCodec-style RVQ has the much larger number of steps per second when flattened.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. Text-Like Is Not Magical</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why does “more text-like tokenization” not automatically guarantee better speech generation?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because speech still requires acoustic nuance, timing, and prosody. A text-like interface helps the LM, but it can still fail if it loses too much acoustic or expressive information.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. Why Semantic Supervision Can Help WER</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why might semantic supervision reduce word skipping in TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it encourages tokens to remain predictive of transcript content, making it easier for the LM to keep track of what words should be spoken.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. Why Speech-Only Specialization Can Be Good</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is speech specialization not necessarily a weakness for XCodec2?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because if your goal is speech generation, specializing the tokenizer for speech semantics can be exactly what improves downstream performance.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. If Utilization Is Low</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If a 65k vocabulary uses only a few hundred active codes, what would you conclude?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The tokenizer is using the vocabulary inefficiently, so the very large alphabet is not justified by actual information usage.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. Why XCodec2 And Mimi Are Different</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is one major difference in philosophy between XCodec2 and Mimi?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> XCodec2 prefers a single large-vocabulary stream, while Mimi prefers a low-rate semantic-acoustic hierarchy with multiple streams.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. LM Cost Tradeoff</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why might XCodec2 reduce sequence-length cost but increase per-step softmax cost relative to RVQ?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it replaces many small symbol choices with one large symbol choice, trading token count for vocabulary size.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Best Fair Benchmark</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What should be held fixed in a fair comparison between XCodec2 and another tokenizer?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The downstream model family, training data, evaluation tasks, and compute budget should be held as constant as possible.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Strongest Case For Semantic Integrity</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give the strongest argument for prioritizing semantic integrity over pure acoustic rate-distortion in speech tokenization.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> In text-conditioned speech generation, the dominant failure can be saying the wrong thing rather than sounding slightly less natural. If the tokenizer fails to preserve transcript-relevant structure, no amount of acoustic realism can fix semantic mistakes downstream.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Benchmark Design</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Design a fair benchmark comparing EnCodec, Mimi, and XCodec2 for zero-shot multilingual TTS.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Use the same speech LM architecture, the same multilingual datasets, matched voice prompts, and identical training budgets. Evaluate naturalness, speaker similarity, WER, long-context consistency, token-rate cost, and failure cases such as word skipping or accent drift.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Is Single-Stream Truly More Text-Like?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Argue carefully whether a single 65k vocabulary is fundamentally more text-like than RVQ or merely more convenient for implementation.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It is more text-like structurally because standard text LMs expect one large-vocabulary stream, but that does not mean the semantic geometry is automatically text-like. Some of the benefit is conceptual and architectural convenience, not a guarantee about linguistic structure.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Hybrid Proposal</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Propose a hybrid tokenizer combining XCodec2-style semantic supervision with an RVQ refinement path.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> One design is to use a semantic single-stream token or shallow stage for content planning, followed by optional RVQ acoustic refinements predicted in parallel. That could preserve LM-friendly semantics while restoring progressive control over fidelity.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Better WER, Worse Speaker Similarity</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If XCodec2 improves WER but harms speaker similarity relative to EnCodec, how might the tokenizer objective explain that?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The objective may be pushing the representation to prioritize content-bearing distinctions over timbral distinctions, so transcript fidelity improves while speaker-specific detail becomes less dominant.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Vocabulary Utilization Analysis</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How would you analyze whether XCodec2 uses its large vocabulary efficiently across languages?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Measure per-language and pooled token entropy, perplexity, and active-code counts, then inspect whether some languages collapse onto smaller subsets. Efficient multilingual usage should show strong entropy and broad coverage without severe language imbalance.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Extending To 24 kHz</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How might you extend XCodec2 to 24 kHz while trying to preserve the single-stream property?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> You would likely need a stronger acoustic front end and decoder while keeping the same single symbolic stream, possibly with more expressive conditioning or higher-entropy tokens so the stream still captures the extra bandwidth.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. When Single-Stream Could Be Worse</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>When could a single-stream tokenizer actually be worse than RVQ for speech generation?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It could be worse when explicit hierarchical refinement matters, when the large vocabulary is hard to model efficiently, or when fine acoustic control requires more structure than one stream can provide.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Mutual-Information Decomposition</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a conceptual mutual-information decomposition involving transcript content, speaker identity, and prosody for speech tokens.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> One useful view is to consider separate goals such as maximizing $I(C;T)$ for transcript content, preserving enough $I(C;V)$ for voice identity, and enough $I(C;P)$ for prosody, then asking how the tokenizer allocates capacity among those competing terms.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. What Would Make You Switch Back?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What evidence would convince you to switch from XCodec2 back to EnCodec or Mimi for a given project?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> If a controlled benchmark showed better long-context coherence, lower compute, or better speaker and prosody quality without sacrificing semantics, I would switch. The right tokenizer is task dependent, not ideological.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. Why Large Vocabulary Alone Is Not Enough</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why would simply enlarging the EnCodec codebook not automatically create an XCodec2-style benefit?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because XCodec2's advantage is not only vocabulary size. It also comes from semantic shaping and the single-stream design that changes how the LM sees the sequence.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. If Usage Is High But WER Is Still Bad</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If vocabulary usage is excellent but text-conditioned WER is still high, what might that imply?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It implies utilization alone is not enough; the geometry of the codes or the downstream LM's ability to exploit them may still be inadequate for semantic generation.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Compression Versus Generation Objective</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why should tokenizers for speech generation not be evaluated only as compression systems?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the downstream goal is not just to store audio cheaply. It is to generate correct, coherent, natural speech from conditioning signals, which requires semantic and modeling evaluations beyond classical codec metrics.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. Why XCodec2 Can Be Powerful For Decoder-Only Models</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give the strongest argument for why XCodec2 is a natural fit for decoder-only speech LMs.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It offers a single semantically shaped discrete stream, which matches the assumptions and training dynamics of modern text LMs far more directly than multi-stream RVQ layouts.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. Why It Is Not A Universal Codec</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is it misleading to treat XCodec2 as a universal codec winner?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it is optimized for speech-LM friendliness, not necessarily for broad audio domains, progressive bitrate control, or every acoustic tradeoff that other codecs optimize.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. Scaling Question</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If you scaled the vocabulary even larger, what would you need to check first?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> You would need to check utilization, entropy, training stability, and downstream softmax cost; a larger vocabulary is only useful if the system can exploit it efficiently.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. If You Needed Variable Bitrate</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How might the lack of explicit progressive depth hurt an application that needs variable bitrate?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It removes the simple “drop late levels” mechanism of RVQ, so bitrate control may require retraining or more complicated token-selection strategies.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. What Makes A Good Speech Token?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a one-sentence criterion for a good XCodec2-style speech token.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A good speech token should carry enough semantic and speech-state information that an LM can predict correct content while still leaving enough acoustic detail for natural reconstruction.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. Compare With Mimi</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What question should determine whether you choose XCodec2 or Mimi for a speech LM?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The key question is whether your model benefits more from a single large-vocabulary semantic stream or from a very low-rate semantic-acoustic hierarchy.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Your Final Judgment</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a one-sentence summary of XCodec2's place in the speech-tokenizer landscape.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> XCodec2 is one of the clearest attempts to make speech tokens behave like a semantically shaped language-model alphabet instead of a stack of acoustic residual codes.</p></div></div></div>
+                </div>
             </article>
         </main>
 
         <aside class="toc-container">
-    <h4 class="toc-title">Contents</h4>
-    <nav class="toc-list">
-        <a href="#semantic-shortcoming" class="toc-link">The Semantic Shortcoming Thesis</a>
-        <a href="#from-xcodec" class="toc-link">From X-Codec To XCodec2</a>
-        <a href="#architecture" class="toc-link">Published XCodec2 Features</a>
-        <a href="#entropy-model" class="toc-link">Entropy And The Case For A Large Single Vocabulary</a>
-        <a href="#strengths-tradeoffs" class="toc-link">Strengths, Costs, And What To Watch</a>
-        <a href="#for-tts" class="toc-link">When XCodec2 Makes The Most Sense</a>
-        <a href="#primary-sources" class="toc-link">Primary Sources</a>
-    </nav>
-</aside>
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#semantic-shortcoming" class="toc-link">The Semantic Shortcoming Thesis</a>
+                <a href="#from-xcodec" class="toc-link">From X-Codec To XCodec2</a>
+                <a href="#single-stream" class="toc-link">Deriving The Single-Stream Rate Slowly</a>
+                <a href="#compare-rvq" class="toc-link">One Large Stream Versus Many Small Streams</a>
+                <a href="#semantic-supervision" class="toc-link">Why Semantic Supervision Helps</a>
+                <a href="#costs" class="toc-link">What XCodec2 Gains And What It Pays</a>
+                <a href="#when-to-use" class="toc-link">When XCodec2 Makes The Most Sense</a>
+                <a href="#primary-sources" class="toc-link">Primary Sources</a>
+            </nav>
+        </aside>
     </div>
 
     <footer class="footer">
