@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tradeoffs And Hybrid Futures | ML Fundamentals</title>
+    <meta name="description" content="A tutorial on the tradeoffs between discrete codec LMs, non-autoregressive continuous-latent generators, and autoregressive continuous-token models. Emphasis on rate-distortion, entropy, latency, robustness, and likely hybrid futures.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Tradeoffs And Hybrid Futures</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Continuous Latent Series</h3>
+                <nav class="sidebar-nav">
+                    <a href="../19-continuous-latent-generation/index.html" class="sidebar-link">19. Continuous Latent Generation</a>
+                    <a href="../20-information-theory-continuous-latents/index.html" class="sidebar-link">20. Information Theory Of Continuous Latents</a>
+                    <a href="../21-voicebox-e2-f5/index.html" class="sidebar-link">21. Voicebox, E2-TTS, And F5-TTS</a>
+                    <a href="../22-melle-felle/index.html" class="sidebar-link">22. MELLE, FELLE, And Continuous-Token LMs</a>
+                    <a href="../23-continuous-latent-tradeoffs/index.html" class="sidebar-link active">23. Tradeoffs And Hybrid Futures</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Tutorials</h3>
+                <nav class="sidebar-nav">
+                    <a href="../10-audio-codecs/index.html" class="sidebar-link">Neural Audio Codecs</a>
+                    <a href="../15-encodec/index.html" class="sidebar-link">EnCodec</a>
+                    <a href="../21-voicebox-e2-f5/index.html" class="sidebar-link">Voicebox, E2-TTS, And F5-TTS</a>
+                    <a href="../22-melle-felle/index.html" class="sidebar-link">MELLE, FELLE</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>23. Tradeoffs And Hybrid Futures</h1>
+                    <p class="lead">The real question is no longer "discrete or continuous?" The real question is where discreteness helps and where it hurts. Compression, storage, and multimodal interfaces often favor tokens. Fidelity, smooth geometry, and continuous generation often favor dense latents. Modern systems are increasingly hybrid.</p>
+                </div>
+
+                <h2 id="core-question">The Core Design Question</h2>
+                <p>Any speech generation system must answer three questions:</p>
+                <ol>
+                    <li>What representation should the model generate?</li>
+                    <li>What uncertainty should the model represent explicitly?</li>
+                    <li>Where should compression happen, if at all?</li>
+                </ol>
+                <p>Discrete codec-token systems answer: generate a finite symbol sequence, represent uncertainty with categorical entropy, and make compression central. Continuous-latent systems answer: generate a dense acoustic state, represent uncertainty with densities or flows, and delay or avoid compression.</p>
+                <p>That is why the tradeoff is fundamentally information-theoretic, not just architectural.</p>
+
+                <h2 id="three-families">Three Major Families</h2>
+                <table>
+                    <thead>
+                        <tr><th>Family</th><th>Output representation</th><th>Main strength</th><th>Main weakness</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Discrete codec LM</td><td>Quantized audio tokens</td><td>Natural LM interface and compressibility</td><td>Quantization loss and long token sequences</td></tr>
+                        <tr><td>Continuous non-AR generator</td><td>Mel or continuous latent trajectory</td><td>Parallel or near-parallel generation, no tokenization bottleneck</td><td>Continuous training objective is harder and storage interface is weaker</td></tr>
+                        <tr><td>Continuous AR LM</td><td>Continuous frame or block per step</td><td>Keeps LM-style continuation without VQ</td><td>Still sequential at inference</td></tr>
+                    </tbody>
+                </table>
+                <p>The three families are not enemies. They are different answers to different deployment constraints.</p>
+
+                <h2 id="rate-distortion">Rate-Distortion, Slowly And Properly</h2>
+                <p>Compression theory asks: if I allow average distortion $D$, what minimum rate $R$ do I need? That tradeoff is encoded by the rate-distortion function $R(D)$.</p>
+                <p>Discrete codec systems live directly inside this question. They choose a finite alphabet, quantize the signal, and try to minimize distortion at a low bitrate. The point of the discrete representation is that it can be entropy-coded into bits efficiently.</p>
+                <p>Continuous generation systems live in a different regime. They are often not trying to store the output representation. They are trying to <em>generate</em> a faithful sample from a conditional distribution.</p>
+                <p>This is why continuous latents can afford to preserve geometric detail that a codec would throw away. Their effective "internal rate" may be high, but that is acceptable if the representation is only an internal state before waveform synthesis.</p>
+                <div class="example-box">
+                    <div class="box-title">Mental Model</div>
+                    <p>A codec asks, "how many bits do I need to keep this signal?" A continuous generator asks, "how much acoustic detail do I need to synthesize this signal well?" Those are related questions, but not the same question.</p>
+                </div>
+
+                <h3>Where Entropy Shows Up</h3>
+                <p>For discrete tokens, entropy looks like:</p>
+                $$H(C_t \mid C_{<t}, x).$$
+                <p>For continuous latents, uncertainty is better described by differential entropy or by the complexity of the conditional transport process:</p>
+                $$h(\mathbf{z}_t \mid \mathbf{z}_{<t}, x).$$
+                <p>The first counts symbolic uncertainty in bits. The second measures how spread out the next acoustic state remains in continuous space.</p>
+                <p>A useful bridge between them is quantization. If you quantize a continuous latent finely enough, the discrete entropy of the quantized variable approaches the differential entropy plus a resolution-dependent term. So the two worlds are mathematically connected, but their engineering priorities differ.</p>
+
+                <h2 id="latency">Latency, Sequence Length, And Inference Cost</h2>
+                <p>Speech is long. A few seconds of audio can mean hundreds of mel frames or many hundreds of codec tokens. Sequence length is therefore a first-order design variable.</p>
+                <p>Discrete codec LMs often suffer from:</p>
+                <ul>
+                    <li>many autoregressive steps,</li>
+                    <li>multi-codebook decoding,</li>
+                    <li>two-stage AR plus NAR pipelines.</li>
+                </ul>
+                <p>Continuous non-autoregressive generators often win on latency because they generate whole spans in a handful of ODE or flow steps. Continuous autoregressive models sit in the middle: they avoid multi-codebook token sampling, but they still decode sequentially.</p>
+                <p>This leads to a simple rule: if latency dominates, non-AR continuous generation becomes attractive quickly.</p>
+
+                <h2 id="robustness">What Usually Breaks In Each Family</h2>
+                <p>Discrete codec LMs often break through token-level sampling errors. A small wrong token choice can create buzzing, silence loops, or repeated acoustic fragments. Continuous systems usually fail differently. They are more likely to blur timing, over-smooth dynamics, or drift in duration if alignment is weak.</p>
+                <p>So the robustness tradeoff is not "good versus bad." It is "symbolic errors versus geometric errors."</p>
+                <p>That distinction matters in evaluation. A system with lower WER may still sound less natural if its acoustics are quantized or unstable. A system with smoother acoustics may still fail on timing if its alignment logic is weak.</p>
+
+                <h2 id="hybrids">Why Hybrid Systems Are Likely</h2>
+                <p>The most plausible future is not a clean winner. It is hybrid systems that put discreteness only where it buys leverage.</p>
+                <p>Some promising hybrid patterns are:</p>
+                <ul>
+                    <li>discrete semantic tokens plus continuous acoustic generation,</li>
+                    <li>coarse discrete planning plus fine continuous refinement,</li>
+                    <li>continuous speech generation with optional later quantization for storage,</li>
+                    <li>dialogue systems that directly generate multi-speaker continuous mel streams, as in work like CoVoMix2.</li>
+                </ul>
+                <p>The logic is simple. Discrete variables are good interfaces. Continuous variables are good manifolds. A good system can use both.</p>
+
+                <h2 id="practical-checklist">A Practical Design Checklist</h2>
+                <p>If you are choosing a representation for a new speech system, ask:</p>
+                <ol>
+                    <li>Do I need a storage-efficient bitstream or only an internal latent?</li>
+                    <li>Do I need compatibility with a token-based multimodal LM?</li>
+                    <li>Is low latency more important than left-to-right controllability?</li>
+                    <li>Will quantization error matter for my target quality level?</li>
+                    <li>Can my training pipeline support continuous generative objectives well?</li>
+                </ol>
+                <p>If the first two answers are yes, discrete tokens are still compelling. If the last three dominate, continuous latents become much more attractive.</p>
+
+                <h2 id="takeaways">Final Takeaways</h2>
+                <p>Discrete tokens won an important battle because they let speech piggyback on the success of language modeling. Continuous latents are winning back ground because speech is not text. Speech lives on a smooth, high-information manifold, and forcing that manifold into a finite alphabet is often unnecessary for generation.</p>
+                <p>So the deeper lesson is not "continuous beats discrete." It is this: compression and generation are different problems, and the best speech representation depends on which problem you are truly solving.</p>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://voicebox.metademolab.com/" target="_blank" rel="noopener">Voicebox official project page</a> - non-autoregressive continuous speech infilling.</li>
+                    <li><a href="https://ar5iv.labs.arxiv.org/html/2406.18009" target="_blank" rel="noopener">E2 TTS</a> - filler-token conditioned flow matching for TTS.</li>
+                    <li><a href="https://arxiv.org/abs/2410.06885" target="_blank" rel="noopener">F5-TTS</a> - practical flow-matching TTS refinement.</li>
+                    <li><a href="https://aclanthology.org/2025.acl-long.65.pdf" target="_blank" rel="noopener">Autoregressive Speech Synthesis without Vector Quantization</a> - MELLE paper.</li>
+                    <li><a href="https://arxiv.org/abs/2502.11128" target="_blank" rel="noopener">FELLE: Autoregressive Speech Synthesis with Token-Wise Coarse-to-Fine Flow Matching</a> - FELLE paper.</li>
+                    <li><a href="https://www.microsoft.com/en-us/research/publication/covomix2-advancing-zero-shot-dialogue-generation-with-fully-non-autoregressive-flow-matching/" target="_blank" rel="noopener">CoVoMix2 official page</a> - dialogue generation example that directly predicts continuous mel spectrograms.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>These exercises are about judgment. They test whether you can compare discrete and continuous speech-generation systems through entropy, rate-distortion, latency, and robustness.</p>
+
+                <div class="exercise-list">
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Compression Or Generation?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the key high-level difference between a codec and a continuous generator?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A codec is designed to store or transmit speech efficiently, while a continuous generator is primarily designed to synthesize faithful speech representations.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Which Family Compresses Best?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which of the three major families is naturally best suited for compression?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Discrete codec-token systems, because they provide a finite alphabet that can be entropy-coded efficiently.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Which Family Usually Wins On Parallelism?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which family usually has the best chance of very low-latency parallel generation?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Continuous non-autoregressive generators.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Main Weakness Of Continuous AR</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the main weakness of autoregressive continuous-token models?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They are still sequential at inference, so long-form generation remains slower than fully parallel alternatives.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Entropy Symbol</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which quantity is the natural discrete uncertainty measure: $H$ or $h$?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $H$, the discrete entropy.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Differential Entropy Symbol</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which quantity is the natural continuous uncertainty measure: $H$ or $h$?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $h$, the differential entropy.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Hybrid Meaning</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What does a hybrid system mean in this context?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It means using discrete and continuous representations in different parts of the speech pipeline rather than committing to only one.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Token Error Or Geometry Error?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Are silence loops in codec LMs more like symbolic errors or geometric errors?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They are more like symbolic errors caused by bad token sampling decisions.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. One Continuous Strength</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one strength of continuous latents.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They can preserve smooth acoustic geometry without quantization distortion.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. One Discrete Strength</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one strength of discrete tokens.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They provide a compact, token-based interface that fits naturally into language-model and compression pipelines.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Read The Table</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Which family would you choose first if you need both strong compressibility and a clean token interface for a multimodal LM?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A discrete codec-token family, because both compressibility and token interfaces are its natural strengths.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Rate-Distortion Intuition</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What does the rate-distortion function $R(D)$ describe in one sentence?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It describes the minimum coding rate needed to achieve a given average distortion level.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Why Internal Rate Can Be High</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can a continuous generator afford a high-dimensional latent that would be unattractive for compression?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because that latent may be only an internal representation used briefly for synthesis, not a bitstream that must be stored or transmitted efficiently.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Quantization Bridge</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How does quantization connect continuous and discrete uncertainty?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Quantization converts a continuous variable into discrete bins, so its discrete entropy approximates the continuous differential entropy plus a resolution-dependent offset.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Latency Choice</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If inference latency is the top priority, which family should you inspect first and why?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> I would inspect continuous non-autoregressive generators first, because they can synthesize long spans in a small number of global generation steps instead of decoding one step at a time.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Error Taxonomy</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is it useful to distinguish symbolic errors from geometric errors?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because different model families fail in different ways, and the fix depends on whether the problem is bad token selection or bad continuous trajectory and alignment behavior.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Hybrid Example</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give one concrete hybrid architecture idea.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Use discrete semantic units for content planning, then generate the final acoustics with a continuous flow-matching decoder.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Dialogue Example</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is direct continuous generation appealing for dialogue systems like CoVoMix2?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because multi-speaker timing, overlap, and conversational dynamics are naturally continuous and may be awkward to express through long discrete token sequences.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Why Tokens Still Matter</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Even if continuous latents sound better, why might a product still prefer discrete tokens?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because tokens are easier to store, transmit, cache, index, and integrate with existing token-based multimodal systems.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Strongest One-Line Summary</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Summarize the tradeoff in one sentence.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Discrete representations are better interfaces for compression and token-centric systems, while continuous representations are often better spaces for faithful speech generation.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Compression Is Not Generation</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give the strongest argument for why compression objectives should not automatically dictate the best representation for generation.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Compression asks for the smallest bit budget that preserves acceptable reconstruction, while generation asks for a conditional sample that sounds natural and faithful. A representation optimized for low bitrate may deliberately remove distinctions that a generator would benefit from retaining. So the optimum for compression can be suboptimal for synthesis.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Why Discrete Tokens Won First</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why did discrete codec tokens become dominant before continuous-latent approaches returned strongly?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because they let speech reuse the very successful next-token language-model framework immediately, with standard cross-entropy training, existing LM architectures, and a clear token interface for multimodal systems.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Strongest Case For Hybrids</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why are hybrid systems probably more realistic than a total discrete-versus-continuous winner?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because discrete and continuous representations solve different subproblems well. Discrete units are excellent for interfaces, storage, and symbolic conditioning, while continuous states are excellent for smooth acoustics and high-fidelity generation. A hybrid can exploit both strengths at once.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Product Choice</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>You are building a low-latency, high-quality dubbing system that does not need to store intermediate speech states. Which family would you prioritize first and why?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> I would prioritize continuous non-autoregressive generation, because latency and fidelity dominate, and there is no strong need for a compressed discrete intermediate representation.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Research Choice</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>You want a speech model to interact tightly with a text-token LLM that already expects token streams. Which family becomes much more attractive?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A discrete codec-token family becomes much more attractive because it matches the existing token-stream interface directly.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Fair Comparison Protocol</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How would you compare a discrete codec LM and a continuous-latent model fairly?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Hold training data scale, prompt format, vocoder quality, and evaluation tasks fixed, then compare naturalness, speaker similarity, WER, latency, robustness, and failure modes such as repetition, timing drift, and silence artifacts.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Entropy And Sequence Length</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can lowering entropy per step still fail to solve latency if the sequence is very long?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because total generation cost depends not only on uncertainty per step but also on how many sequential steps must be taken. Even easy steps are expensive if there are too many of them.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Best Interface Rule</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a rule for when representation should be treated as an interface problem rather than a fidelity problem.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Treat representation mainly as an interface problem when storage, transmission, retrieval, or multimodal interoperability dominate the system requirements more than raw synthesis fidelity.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Best Fidelity Rule</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a rule for when representation should be treated mainly as a fidelity problem.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Treat representation mainly as a fidelity problem when the latent is only an internal generation state and the system’s success is judged mostly by naturalness, speaker similarity, timing, and acoustic detail.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Final Position</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a two-sentence position on the future of speech representations.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Discrete audio tokens will remain important wherever compression, interoperability, and token-based reasoning matter. But continuous latents are likely to dominate more of the generation stack because they preserve the smooth geometry and acoustic detail that speech synthesis actually needs.</p></div></div></div>
+                </div>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#core-question" class="toc-link">The Core Design Question</a>
+                <a href="#three-families" class="toc-link">Three Major Families</a>
+                <a href="#rate-distortion" class="toc-link">Rate-Distortion</a>
+                <a href="#latency" class="toc-link">Latency And Sequence Length</a>
+                <a href="#robustness" class="toc-link">Failure Modes</a>
+                <a href="#hybrids" class="toc-link">Hybrid Systems</a>
+                <a href="#practical-checklist" class="toc-link">Design Checklist</a>
+                <a href="#takeaways" class="toc-link">Takeaways</a>
+                <a href="#primary-sources" class="toc-link">Primary Sources</a>
+            </nav>
+        </aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

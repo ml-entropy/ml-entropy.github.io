@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voicebox, E2-TTS, And F5-TTS | ML Fundamentals</title>
+    <meta name="description" content="A tutorial on the flow-matching family of continuous-latent speech generation: Voicebox, E2-TTS, and F5-TTS, with speech infilling, filler tokens, and transport-based generation explained step by step.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Voicebox, E2-TTS, And F5-TTS</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Continuous Latent Series</h3>
+                <nav class="sidebar-nav">
+                    <a href="../19-continuous-latent-generation/index.html" class="sidebar-link">19. Continuous Latent Generation</a>
+                    <a href="../20-information-theory-continuous-latents/index.html" class="sidebar-link">20. Information Theory Of Continuous Latents</a>
+                    <a href="../21-voicebox-e2-f5/index.html" class="sidebar-link active">21. Voicebox, E2-TTS, And F5-TTS</a>
+                    <a href="../22-melle-felle/index.html" class="sidebar-link">22. MELLE, FELLE, And Continuous-Token LMs</a>
+                    <a href="../23-continuous-latent-tradeoffs/index.html" class="sidebar-link">23. Tradeoffs And Hybrid Futures</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Tutorials</h3>
+                <nav class="sidebar-nav">
+                    <a href="../01-f5-tts/index.html" class="sidebar-link">F5-TTS</a>
+                    <a href="../11-grad-tts/index.html" class="sidebar-link">Grad-TTS</a>
+                    <a href="../12-vall-e/index.html" class="sidebar-link">VALL-E &amp; Speech LMs</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>21. Voicebox, E2-TTS, And F5-TTS</h1>
+                    <p class="lead">This family of models made continuous-latent speech generation feel practical at scale. The key move is to generate speech as a conditional transport problem in continuous space instead of sampling discrete codec tokens one by one.</p>
+                </div>
+
+                <h2 id="shared-idea">The Shared Idea: Speech Infilling As Continuous Generation</h2>
+                <p>Voicebox, E2-TTS, and F5-TTS all start from the same deeper idea: speech generation can be reframed as infilling a missing continuous speech segment given text and context. Instead of predicting an audio token sequence autoregressively, they learn a model that fills in masked or target speech using a continuous transport process.</p>
+                <p>This is powerful because the model can condition on surrounding speech, preserve style from a prompt, and avoid step-by-step codec-token sampling. The output remains continuous: typically mel or mel-like features, or another continuous speech representation.</p>
+                <div class="definition-box">
+                    <div class="box-title">Mental Model</div>
+                    <p>These models do not ask, "Which discrete symbol comes next?" They ask, "How should a noisy or missing speech region move through continuous space until it becomes the correct utterance?"</p>
+                </div>
+
+                <h2 id="flow-matching-basics">Flow Matching, Derived Slowly</h2>
+                <p>The basic flow-matching setup starts with a clean target sample $\mathbf{x}_1$ and a simple source sample $\mathbf{x}_0$, often Gaussian noise. A time-indexed path connects them:</p>
+                $$\mathbf{x}_t = (1-t)\mathbf{x}_0 + t\mathbf{x}_1, \qquad t \in [0,1].$$
+                <p>If you differentiate with respect to $t$, you get</p>
+                $$\frac{d\mathbf{x}_t}{dt} = \mathbf{x}_1 - \mathbf{x}_0.$$
+                <p>That derivative is the velocity of the straight-line path. Flow matching trains a neural network to predict an appropriate velocity field $\mathbf{v}_\theta(\mathbf{x}_t,t,\text{cond})$ so that integrating the learned ODE carries noise toward valid speech.</p>
+                <p>A simplified training loss is</p>
+                $$\mathcal{L}_{\text{FM}} = \mathbb{E}\left[\|\mathbf{v}_\theta(\mathbf{x}_t,t,\text{cond}) - (\mathbf{x}_1 - \mathbf{x}_0)\|_2^2\right].$$
+                <p>Read this equation carefully. The model sees an intermediate noisy state $\mathbf{x}_t$, a time $t$, and conditioning information. It is asked to predict how that state should move next if it is to end up at the clean speech sample.</p>
+
+                <h2 id="voicebox">Voicebox: Large-Scale Text-Guided Speech Infilling</h2>
+                <p>Voicebox is the first model in this family that really made the design feel general-purpose. Meta describes it as a non-autoregressive flow-matching model trained to infill speech given audio context and text. That framing matters. Because the task is infilling, Voicebox can condition on both past and future context, not just the left context as in an autoregressive model.</p>
+                <p>The official project highlights several consequences:</p>
+                <ul>
+                    <li>zero-shot TTS,</li>
+                    <li>cross-lingual style transfer,</li>
+                    <li>speech editing,</li>
+                    <li>denoising and content replacement.</li>
+                </ul>
+                <p>These are all variants of the same conditional missing-data problem. Once the model learns to infill continuous speech conditioned on text and context, many tasks collapse into one unified interface.</p>
+                <p>Another major benefit is speed. Voicebox reports up to 20x faster generation than strong autoregressive baselines because it is not sampling long token sequences one step at a time.</p>
+
+                <h2 id="e2">E2-TTS: The Filler-Token Breakthrough</h2>
+                <p>E2-TTS makes a very strong claim: you do not need a complicated duration model, grapheme-to-phoneme pipeline, or monotonic alignment machinery to build a strong zero-shot TTS system. Instead, you pad the text with filler tokens until it matches the target frame length and let the flow-matching model learn the alignment implicitly.</p>
+                <p>Suppose the text sequence has length $L$ and the target speech representation has frame length $T$. E2-TTS creates an extended text sequence of length $T$ by appending filler tokens. The model then conditions on that padded sequence and learns speech infilling in continuous space.</p>
+                <p>This is important because it changes where complexity lives. Traditional TTS often needs explicit duration prediction. E2-TTS pushes that burden into the generator itself. The model jointly learns content, timing, and acoustics in one continuous process.</p>
+                <div class="note-box">
+                    <div class="box-title">Why This Was Surprising</div>
+                    <p style="margin-bottom: 0;">The filler-token trick sounds almost too simple. But that simplicity is exactly why E2-TTS mattered: it showed that high-quality zero-shot TTS did not need as much explicit alignment machinery as the field had assumed.</p>
+                </div>
+
+                <h2 id="f5">F5-TTS: Refining E2-TTS Into A Strong Practical System</h2>
+                <p>F5-TTS keeps the same core philosophy but addresses some of E2-TTS's practical weaknesses. The paper explicitly says E2-TTS proved the feasibility of the filler-token idea, but made the design hard to follow due to slower convergence and lower robustness.</p>
+                <p>F5-TTS adds two especially important improvements:</p>
+                <ul>
+                    <li>a stronger text-side refinement stage using ConvNeXt,</li>
+                    <li>Sway Sampling, an inference-time strategy for choosing flow steps more effectively.</li>
+                </ul>
+                <p>The first helps alignment and robustness. The second improves inference efficiency and sample quality without retraining the model. So F5-TTS is best read as the "make the simple idea work reliably at scale" paper.</p>
+                <p>Its official materials also emphasize multilingual training, zero-shot voice cloning, code switching, and real-time factors that are much friendlier than classical diffusion TTS.</p>
+
+                <h2 id="compare">Comparing The Three Models</h2>
+                <table>
+                    <thead>
+                        <tr><th>Model</th><th>Key idea</th><th>What it simplified or improved</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Voicebox</td><td>Text-guided speech infilling at scale</td><td>Unified many tasks under one non-AR continuous generator</td></tr>
+                        <tr><td>E2-TTS</td><td>Character-plus-filler-token conditioning</td><td>Removed much explicit duration and alignment machinery</td></tr>
+                        <tr><td>F5-TTS</td><td>Stronger practical refinement of E2-TTS</td><td>Improved robustness, convergence, and sampling efficiency</td></tr>
+                    </tbody>
+                </table>
+                <p>All three avoid discrete audio token generation. All three rely on continuous transport. But they differ in how much complexity they place on data scale, prompt conditioning, text alignment, and inference engineering.</p>
+
+                <h2 id="why-better-than-discrete">Why This Family Can Beat Discrete Codec LMs</h2>
+                <p>There are at least four reasons:</p>
+                <ul>
+                    <li>no quantization distortion from codec tokens,</li>
+                    <li>fully non-autoregressive generation over the target region,</li>
+                    <li>continuous conditioning from prompt audio rather than only symbolic codes,</li>
+                    <li>faster inference for long outputs when ODE steps are few.</li>
+                </ul>
+                <p>But these models do not dominate universally. They often need stronger continuous generative training, a vocoder or decoder suited to the continuous representation, and careful duration or length handling at inference.</p>
+
+                <h2 id="failure-modes">Failure Modes And Design Risks</h2>
+                <p>If the alignment logic is weak, the model can drift in duration or pronunciation. If the continuous objective is too simple, outputs can become bland or unstable. If prompt conditioning is weak, speaker identity can fade. And if the flow path is hard to learn, inference may need too many steps to stay attractive.</p>
+                <p>So the family works best when the continuous representation, conditioning structure, and sampling procedure are designed as one coherent system.</p>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://voicebox.metademolab.com/" target="_blank" rel="noopener">Voicebox official project page</a> - Overview and task framing for large-scale text-guided speech infilling.</li>
+                    <li><a href="https://dl.fbaipublicfiles.com/voicebox/paper.pdf" target="_blank" rel="noopener">Voicebox paper</a> - Original paper.</li>
+                    <li><a href="https://ar5iv.labs.arxiv.org/html/2406.18009" target="_blank" rel="noopener">E2 TTS</a> - E2-TTS paper with filler-token conditioning and flow matching.</li>
+                    <li><a href="https://arxiv.org/abs/2410.06885" target="_blank" rel="noopener">F5-TTS</a> - F5-TTS paper.</li>
+                    <li><a href="https://github.com/SWivid/F5-TTS" target="_blank" rel="noopener">F5-TTS official repository</a> - Practical implementation details and release history.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>These exercises focus on the flow-matching family as a concrete alternative to discrete codec-token LMs. The easy section checks the shared picture. The medium section asks you to reason through the alignment and flow mechanics. The hard section asks for system-level judgment.</p>
+
+                <div class="exercise-list">
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Shared Core Idea</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the shared high-level idea behind Voicebox, E2-TTS, and F5-TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They model speech generation as a continuous speech-infilling or transport problem rather than discrete audio-token prediction.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Flow Matching Learns What?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What kind of function is learned in flow matching?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A time-dependent vector field that tells the model how to move a noisy state toward clean data.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Why Voicebox Was Important</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one thing Voicebox showed clearly.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It showed that large-scale non-autoregressive speech infilling could unify zero-shot TTS, editing, denoising, and style transfer.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. E2-TTS Trick</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What simple conditioning trick is central to E2-TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Padding the text with filler tokens so it matches the speech-frame length.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. F5-TTS Improvement</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one major improvement F5-TTS adds over the basic E2-TTS recipe.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> ConvNeXt-based text refinement or Sway Sampling.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Why Continuous?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why do these models count as continuous-latent generation?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because they generate continuous speech features directly rather than generating discrete codec indices.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Voicebox Conditioning Advantage</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can Voicebox use future context in a way an autoregressive codec LM cannot?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it is trained as an infilling model rather than a strictly left-to-right next-token predictor.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Non-AR Advantage</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the main speed advantage of these models over discrete autoregressive token generators?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They avoid token-by-token autoregressive sampling over long audio sequences.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Why Filler Tokens Help</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What problem do filler tokens address in E2-TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> They provide a simple way to align text conditioning length with speech-frame length without an explicit duration model.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. One Risk</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one failure mode of this family.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Duration drift, weak pronunciation alignment, unstable style transfer, or too many inference steps.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Differentiate The Path</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If $\mathbf{x}_t = (1-t)\mathbf{x}_0 + t\mathbf{x}_1$, compute $\frac{d\mathbf{x}_t}{dt}$.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $$\frac{d\mathbf{x}_t}{dt} = \mathbf{x}_1 - \mathbf{x}_0.$$</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Interpret The Loss</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In $\mathcal{L}_{\text{FM}} = \mathbb{E}\|\mathbf{v}_\theta - (\mathbf{x}_1-\mathbf{x}_0)\|_2^2$, what is the target term $(\mathbf{x}_1-\mathbf{x}_0)$?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It is the desired velocity of the path from noise to the clean sample under the simple straight-line interpolation.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Why Future Context Helps Editing</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is access to future context especially useful for speech editing and infilling?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the model can make the generated region consistent with both what came before and what comes after, improving continuity and natural transitions.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. E2-TTS Simplicity Claim</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What pieces of classical TTS infrastructure does E2-TTS claim it can avoid?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It claims it can avoid a duration model, grapheme-to-phoneme conversion, and complex alignment machinery such as MAS in its core design.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Why F5 Refines Text</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why does F5-TTS add text-side refinement before generation?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> To make the text representation easier to align with speech and improve robustness and convergence.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Continuous Advantage Over Codec Tokens</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can these models preserve more acoustic nuance than discrete codec-token generators?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because they do not force the target representation through hard vector quantization, which can discard fine distinctions.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. One Unified Task View</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Explain how zero-shot TTS and content editing can both be viewed as infilling.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> In both cases the model must generate a target speech region conditioned on text and context audio; the difference is only what is held fixed and what region is considered missing.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Why Sway Sampling Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can an inference-time step schedule matter so much in flow-matching TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the quality and efficiency of numerical integration depend on which time points are emphasized during sampling, especially when using only a small number of steps.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Why Non-AR Is Not Automatically Easy</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If these models are non-autoregressive, why can alignment still be difficult?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the model must still infer how text content maps onto output frames, and that temporal correspondence is inherently nontrivial.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Family Summary</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Summarize the family in one sentence.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Voicebox, E2-TTS, and F5-TTS show that high-quality zero-shot speech can be generated by transporting continuous speech representations under text and prompt conditioning instead of predicting discrete codec tokens.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Why Infilling Scales Better Than Left-To-Right For Some Tasks</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give a strong argument for why infilling is a better framing than left-to-right generation for speech editing.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Editing requires consistency with both preceding and following speech. An infilling model naturally conditions on both, while a left-to-right generator must guess future compatibility indirectly.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Why These Models Challenge Codec-LM Dominance</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why does this family challenge the idea that discrete codec tokens are the natural future of zero-shot TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it demonstrates that strong zero-shot TTS, editing, and style transfer can be done directly in continuous space with good quality and much faster non-autoregressive generation, without a discrete tokenizer.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Why E2-TTS Was Surprising</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why was the filler-token design in E2-TTS conceptually surprising to the field?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the field had come to expect explicit duration or alignment machinery, and E2-TTS suggested that a surprisingly simple continuous generator could absorb much of that complexity itself.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Build A Better F5</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If you wanted to improve F5-TTS further for long-form dialogue, what system bottlenecks would you inspect first?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> I would inspect prompt conditioning over long spans, timing and duration control, conversational speaker consistency, and the stability of the continuous trajectory under long outputs or overlapping turns.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. If Alignment Breaks</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If a model in this family pronounces the right words but places pauses poorly, what does that suggest?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It suggests the model has learned content reasonably well but has weaker control over the timing or duration structure of the generated continuous sequence.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Why Flow Matching Can Need Fewer Steps Than Diffusion</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give the strongest intuition for why flow matching can be faster at inference than classical diffusion.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Flow matching can learn straighter transport paths from noise to data, so a numerical solver can approximate the trajectory well with fewer steps than a diffusion process constrained by a fixed noising schedule.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Why Continuous Infilling Is General</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Argue why a text-guided speech-infilling objective can subsume many speech tasks.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because denoising, editing, continuation, style transfer, and zero-shot TTS can all be expressed as generating a missing or target region given context audio and text constraints. The task differs only in what portion is masked and what conditioning is provided.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Fair Comparison Against VALL-E</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How would you compare a flow-matching continuous-latent model fairly against a discrete codec LM?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Hold prompt setup, vocoder quality, training data scale, and evaluation tasks fixed, then compare naturalness, WER, speaker similarity, latency, and failure modes such as silence, repetition, and timing drift.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. One Strong Limitation</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is one strong reason a multimodal product team might still prefer discrete audio tokens over this continuous family?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Discrete tokens integrate more naturally into text-token-centric multimodal LMs and storage pipelines, whereas continuous outputs require a different modeling interface.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Your Design Rule</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a one-sentence design rule for this family.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> If you can define the speech task as infilling in a rich continuous representation and keep alignment under control, flow matching gives you a powerful path away from discrete-token autoregression.</p></div></div></div>
+                </div>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#shared-idea" class="toc-link">The Shared Idea</a>
+                <a href="#flow-matching-basics" class="toc-link">Flow Matching, Derived Slowly</a>
+                <a href="#voicebox" class="toc-link">Voicebox</a>
+                <a href="#e2" class="toc-link">E2-TTS</a>
+                <a href="#f5" class="toc-link">F5-TTS</a>
+                <a href="#compare" class="toc-link">Comparing The Three Models</a>
+                <a href="#why-better-than-discrete" class="toc-link">Why This Family Can Beat Discrete Codec LMs</a>
+                <a href="#failure-modes" class="toc-link">Failure Modes</a>
+                <a href="#primary-sources" class="toc-link">Primary Sources</a>
+            </nav>
+        </aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

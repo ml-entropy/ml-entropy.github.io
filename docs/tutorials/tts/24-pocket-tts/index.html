@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pocket TTS: CPU-First Continuous-Latent TTS | ML Fundamentals</title>
+    <meta name="description" content="A gradual tutorial on Kyutai Pocket TTS: why CPU-first TTS changes the design space, how continuous audio language models help, how voice cloning fits into the pipeline, and what the information-theory tradeoffs are.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Pocket TTS: CPU-First Continuous-Latent TTS</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-section-title">Efficient TTS</h3>
+                <nav class="sidebar-nav">
+                    <a href="../24-pocket-tts/index.html" class="sidebar-link active">24. Pocket TTS</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">Related Tutorials</h3>
+                <nav class="sidebar-nav">
+                    <a href="../19-continuous-latent-generation/index.html" class="sidebar-link">Continuous Latent Generation</a>
+                    <a href="../20-information-theory-continuous-latents/index.html" class="sidebar-link">Information Theory Of Continuous Latents</a>
+                    <a href="../22-melle-felle/index.html" class="sidebar-link">MELLE, FELLE</a>
+                    <a href="../23-continuous-latent-tradeoffs/index.html" class="sidebar-link">Tradeoffs And Hybrid Futures</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>24. Pocket TTS: CPU-First Continuous-Latent TTS</h1>
+                    <p class="lead">Most modern high-quality TTS systems are discussed as if a GPU is normal. Pocket TTS changes the question. It asks: what if the target machine is a laptop CPU, the latency budget is tight, and you still want voice cloning and usable quality? That shifts the engineering objective from "best possible speech" to "best speech per unit of compute."</p>
+                </div>
+
+                <h2 id="what-is-it">What Is Pocket TTS?</h2>
+                <p>Kyutai describes Pocket TTS as a tiny TTS model with voice cloning that is fast enough to run on CPU. On the official Pocket TTS pages, Kyutai states that the model has <strong>100 million parameters</strong>, streams audio, reaches the first chunk in about <strong>200 ms</strong>, runs about <strong>6x faster than real time</strong> on a MacBook Air M4 CPU, and uses only <strong>2 CPU cores</strong>. The official docs also emphasize that it is <strong>English only at the moment</strong>, supports voice cloning, can handle very long text, and can even run in-browser.</p>
+                <p>Those facts matter because they tell you what the design target is. Pocket TTS is not trying to beat the largest server models on absolute quality. It is trying to dominate the <em>edge TTS</em> regime: low setup cost, low serving cost, low latency, and no GPU dependency.</p>
+                <div class="definition-box">
+                    <div class="box-title">Mental Model</div>
+                    <p>Pocket TTS is not mainly "a smaller TTS." It is a TTS system optimized for a different operating point: minimal hardware, immediate startup, practical voice reuse, and continuous generation without a heavy discrete-token stack.</p>
+                </div>
+
+                <h2 id="why-cpu">Why CPU-First TTS Changes The Design Space</h2>
+                <p>Once CPU inference is the constraint, two things become expensive very quickly:</p>
+                <ul>
+                    <li>long autoregressive sequences,</li>
+                    <li>heavy per-step sampling heads.</li>
+                </ul>
+                <p>A classic discrete codec LM can be excellent, but if each audio frame requires multiple codebook-token decisions, the decision count multiplies. If a sequence has $T$ time steps and an RVQ stack depth of $Q$, then a discrete system may need on the order of</p>
+                $$N_{\text{disc}} \approx TQ$$
+                <p>token decisions, while a continuous-latent next-frame system needs roughly</p>
+                $$N_{\text{cont}} \approx T.$$
+                <p>That does not automatically make continuous modeling cheaper, because each continuous step can be harder. But it explains the basic attraction: remove the RVQ depth axis, remove quantization, and the sequence geometry becomes much friendlier.</p>
+                <div class="example-box">
+                    <div class="box-title">A Toy Comparison</div>
+                    <p>If a discrete audio model used 8 codebooks, then every frame would require 8 token decisions instead of 1 continuous-frame decision. Even before discussing model quality, that is an 8x difference in sequential decision count. On a CPU, that difference matters.</p>
+                </div>
+
+                <h2 id="calm-connection">How Pocket TTS Fits The CALM Picture</h2>
+                <p>The strongest primary source for understanding Pocket TTS technically is Kyutai's <em>Continuous Audio Language Models</em> paper. That paper says CALM replaces lossy discrete codec tokens with a continuous audio-VAE latent and uses:</p>
+                <ul>
+                    <li>a Transformer backbone that produces contextual embeddings over time,</li>
+                    <li>a lightweight head that generates the next continuous latent frame,</li>
+                    <li>consistency modeling instead of a slower diffusion-style head.</li>
+                </ul>
+                <p>The same paper explicitly states that Kyutai releases Pocket TTS as an open-source 100M-parameter TTS model that runs faster than real time on laptop CPU.</p>
+                <div class="note-box">
+                    <div class="box-title">Inference From Sources</div>
+                    <p style="margin-bottom: 0;">Kyutai's public Pocket TTS docs focus on usage and deployment, while the CALM paper explains the continuous-latent modeling design. So the most defensible reading is: Pocket TTS is a compact practical descendant of the CALM approach. That architectural connection is an inference grounded in Kyutai's own official sources, not a verbatim architecture spec published on the Pocket TTS landing page.</p>
+                </div>
+
+                <h2 id="core-architecture">A Practical Architecture Sketch</h2>
+                <p>At a high level, the system can be understood in four stages.</p>
+                <ol>
+                    <li>Encode the voice prompt into a reusable conditioning state.</li>
+                    <li>Read the text and previous generated audio latents with a causal backbone.</li>
+                    <li>Generate the next continuous latent frame with a small consistency-style head.</li>
+                    <li>Decode the latent stream into waveform audio.</li>
+                </ol>
+                <p>Conceptually, if $\mathbf{z}_t$ is the next audio latent and $\mathbf{h}_t$ is the Transformer context at time $t$, then the backbone does something like</p>
+                $$\mathbf{h}_t = \mathrm{Transformer}(\mathbf{z}_{<t}, x, v),$$
+                <p>where $x$ is the text conditioning and $v$ is the voice-conditioning state. Then a smaller head turns $\mathbf{h}_t$ into the next latent:</p>
+                $$\mathbf{z}_t = g_\theta(\mathbf{h}_t, \epsilon),$$
+                <p>with $\epsilon$ representing the remaining stochasticity or noise input. This is not the exact implementation equation, but it is the right mental model.</p>
+
+                <h3>Why Consistency Modeling Matters</h3>
+                <p>A diffusion head may need many refinement steps. CALM instead emphasizes a <strong>consistency model</strong>, which tries to map noisy latent states back toward the clean latent in far fewer steps. That is exactly the kind of change that matters for CPUs.</p>
+                <p>The intuition is simple. Suppose a clean latent is $\mathbf{z}$ and a noisy version is</p>
+                $$\tilde{\mathbf{z}} = \alpha(\tau)\mathbf{z} + \sigma(\tau)\boldsymbol{\epsilon}.$$
+                <p>A consistency head learns a map that pushes $\tilde{\mathbf{z}}$ back toward the same clean target for different noise levels $\tau$. So instead of a long denoising chain, we get a much shorter correction process.</p>
+                <p>For edge deployment, fewer correction steps usually mean lower latency and lower power.</p>
+
+                <h2 id="info-theory">The Information-Theory View</h2>
+                <p>Pocket TTS is a good example of why <em>generation</em> and <em>compression</em> are different problems. A discrete codec exists partly to make speech representable as a compact symbolic stream. That is useful for storage and for multimodal token interfaces. But it also introduces a quantization bottleneck.</p>
+                <p>A continuous-latent system keeps more geometric detail in the hidden representation. From an information-theory viewpoint, it delays information loss. The model still has to reduce uncertainty, but it does so in a continuous latent space rather than through codebook symbols.</p>
+                <p>The design objective therefore shifts from:</p>
+                <ul>
+                    <li>"how many bits per second do I need?"</li>
+                </ul>
+                <p>to:</p>
+                <ul>
+                    <li>"how much conditional uncertainty must I resolve per second, under a CPU budget?"</li>
+                </ul>
+                <p>That is a different optimization problem.</p>
+
+                <h3>Why Voice Cloning Fits Naturally</h3>
+                <p>The official docs expose voice cloning through a prompt-audio workflow and also allow exporting a voice state to a `safetensors` file for fast reuse. This is an important clue about the system's mental model.</p>
+                <p>A voice prompt is not treated as a one-off waveform that must be reprocessed every time. Instead, it becomes a reusable conditioning state. Information-theoretically, that means the model caches speaker identity and style information once, then conditions many future generations on that compact state.</p>
+                <p>If we write the speaker prompt as $p$ and the exported voice state as $v$, then the intended workflow is:</p>
+                $$p \longrightarrow v \longrightarrow \text{many generations}. $$
+                <p>That is practical because the expensive part of extracting speaker information is amortized across many requests.</p>
+
+                <h2 id="workflow">How You Actually Use Pocket TTS</h2>
+                <p>Kyutai's official docs emphasize three usage modes:</p>
+                <ul>
+                    <li>a CLI `generate` command,</li>
+                    <li>a `serve` command for a local HTTP interface,</li>
+                    <li>a Python API for loading the model, extracting voice state, and generating audio.</li>
+                </ul>
+                <p>The core Python flow looks like this:</p>
+                <pre><code class="language-python">from pocket_tts import TTSModel
+
+tts_model = TTSModel.load_model()
+voice_state = tts_model.get_state_for_audio_prompt("alba")
+audio = tts_model.generate_audio(voice_state, "Hello world!")</code></pre>
+                <p>And if you want to optimize repeated voice use, the docs recommend exporting the voice state once and reloading it later. That is not just convenience. It is part of the latency strategy.</p>
+
+                <h2 id="why-important">Why Pocket TTS Is Technically Important</h2>
+                <p>Three reasons make Pocket TTS worth studying.</p>
+                <ol>
+                    <li>It is a concrete proof that continuous-latent TTS is not only a research idea for big GPUs.</li>
+                    <li>It shows that the "small model" story can still include voice cloning and streaming.</li>
+                    <li>It forces you to think about compute-per-audio-second, not only quality-at-any-cost.</li>
+                </ol>
+                <p>That is a healthy correction. A model that is slightly worse but runs everywhere may be much more important than a state-of-the-art model that only fits a server cluster.</p>
+
+                <h2 id="limits">Limitations And Tradeoffs</h2>
+                <p>The official Kyutai docs currently list important limits:</p>
+                <ul>
+                    <li>English only,</li>
+                    <li>no official pause control from text yet,</li>
+                    <li>no int8 quantization support yet,</li>
+                    <li>voice-clone quality depends strongly on prompt quality.</li>
+                </ul>
+                <p>There is also a strategic tradeoff. Pocket TTS is great for edge deployment, but if your system needs the strongest multilingual quality or integration into a large token-centric multimodal LM, a small continuous-latent CPU model may not be the best fit.</p>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://kyutai.org/tts" target="_blank" rel="noopener">Kyutai TTS official page</a> - release framing, Pocket TTS positioning, and date.</li>
+                    <li><a href="https://github.com/kyutai-labs/pocket-tts" target="_blank" rel="noopener">Pocket TTS official repository</a> - CPU claims, CLI/API usage, voice export, and deployment details.</li>
+                    <li><a href="https://kyutai-labs.github.io/pocket-tts/" target="_blank" rel="noopener">Pocket TTS official documentation</a> - main usage docs and supported workflows.</li>
+                    <li><a href="https://arxiv.org/abs/2509.06926" target="_blank" rel="noopener">Continuous Audio Language Models</a> - CALM paper that explicitly introduces continuous audio language modeling and links Pocket TTS as its practical release.</li>
+                    <li><a href="https://huggingface.co/kyutai/pocket-tts" target="_blank" rel="noopener">Pocket TTS model card</a> - model packaging and deployment context.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>Exercises</h2>
+                <p>These exercises focus on Pocket TTS as a system-design case study: edge deployment, continuous latents, consistency modeling, and cached voice conditioning.</p>
+
+                <div class="exercise-list">
+                    <h3 style="margin-top: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Easy</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Main Deployment Goal</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the main deployment goal of Pocket TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> To provide practical text-to-speech with voice cloning that runs efficiently on CPU and does not require a GPU service.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Parameter Count</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>About how many parameters does Pocket TTS have according to Kyutai?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> About 100 million parameters.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Voice Cloning</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Does Pocket TTS support voice cloning?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Yes. Kyutai's official materials explicitly present Pocket TTS as supporting voice cloning.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. English Status</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What language limitation is currently stated in the docs?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Pocket TTS is English only at the moment.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Why CPU Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is CPU-first operation a big deal for TTS?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it makes TTS much easier to deploy locally, offline, cheaply, and on constrained devices without GPU infrastructure.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Continuous Or Discrete?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Is Pocket TTS best understood as a discrete-token codec LM or as a continuous-latent system?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It is best understood as a continuous-latent system, via its connection to CALM.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Voice State Export</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why would you export a voice state to a file?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> To avoid recomputing the speaker-conditioning state every time and load it quickly for later generations.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Fewer Decisions</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Compared with a deep RVQ codec model, what kind of sequential burden can a continuous-latent model reduce?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It can reduce the number of sequential per-frame decisions by removing the extra codebook-depth axis.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Consistency Modeling Goal</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the point of using a consistency-style head?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> To recover clean latents from noisy ones in very few steps, which makes inference faster.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. One Core Tradeoff</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the central tradeoff Pocket TTS is trying to optimize?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It is optimizing quality per unit of compute and latency, rather than quality at any hardware cost.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Decision Count Formula</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If a discrete audio model uses $Q$ codebooks per frame and there are $T$ frames, what is the approximate number of token decisions?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Approximately $$TQ$$ token decisions.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Continuous Decision Count</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If a continuous-latent model predicts one latent frame per step over $T$ steps, what is the approximate decision count?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Approximately $$T$$ sequential decisions.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Eight-Codebook Example</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If $Q=8$, by what factor does the discrete decision count exceed the one-latent-per-frame count?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> By a factor of 8.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Why Exporting Voice State Saves Time</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Explain in one or two sentences why exporting a voice state improves repeated-use latency.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The expensive prompt-processing step is done once, then reused. Later requests only need to load the saved conditioning state instead of recomputing it from raw audio.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Why Continuous Can Help Quality</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can continuous latents help quality compared with discrete codec tokens?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because they avoid hard quantization, which can discard fine acoustic distinctions that are useful for natural synthesis.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. What Consistency Replaces</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In CALM, what slower style of head is consistency modeling presented as replacing?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It is presented as replacing a diffusion-style head with a much faster consistency-style head.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Information-Theory Objective</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>For Pocket TTS, why is "conditional uncertainty per second under CPU budget" a better framing than "bitrate"?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because Pocket TTS is an internal-generation system, not mainly a compression bitstream. The central problem is how efficiently it can resolve the next acoustic state while staying within a latency and compute budget.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Why Pocket TTS Is Not Just A Smaller Model</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is it misleading to describe Pocket TTS only as "a small TTS model"?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because its importance is not just its size but the operating point it targets: CPU inference, low latency, easy deployment, and practical voice reuse.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Why Long Text Matters</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is support for very long text inputs useful in practice?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It makes the model more usable for reading tasks, narrators, accessibility tools, and local applications that cannot rely on short prompt limits.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Relation To CALM</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the safest way to describe the relation between Pocket TTS and CALM?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The safest description is that Pocket TTS is Kyutai's practical released TTS model connected to the CALM line, and the exact architectural mapping should be treated as an inference from Kyutai's official materials rather than a full public architecture writeup on the Pocket TTS landing page.</p></div></div></div>
+
+                    <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
+
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">1. Edge TTS Design Rule</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a one-sentence design rule for edge TTS learned from Pocket TTS.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> For edge TTS, minimize sequential decision count and per-step sampling cost first, then spend the remaining budget on preserving acoustic detail.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">2. Why Compression Thinking Can Mislead</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can thinking too much like a codec designer lead you away from a good Pocket TTS-style system?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A codec designer prioritizes bit-efficient symbolic storage, but Pocket TTS prioritizes fast generation from an internal latent representation. Optimizing too hard for compressibility can introduce quantization and sequential token costs that are unnecessary for this use case.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">3. Voice State As Amortization</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Explain why exporting a voice state is a form of amortization.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It pays the cost of extracting speaker information once and reuses the result across many requests, reducing the average latency per generated utterance.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">4. Why Fewer Sequential Choices Matter On CPU</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give the strongest reason why fewer sequential choices matter so much on CPU inference.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> CPU inference usually has less parallel throughput than GPU inference, so long chains of dependent steps dominate latency much more severely. Reducing the number of serial decisions therefore directly improves responsiveness.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">5. Why Continuous Heads Need Care</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If continuous latents reduce decision count, why not always use a very rich diffusion head?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because a very rich head may erase the latency benefit by adding many denoising or refinement steps. For edge deployment, the head must also be cheap.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">6. Fair Comparison Against A Codec LM</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How would you compare Pocket TTS fairly against a small discrete codec LM?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Hold hardware, prompt conditions, output duration, and vocoder quality fixed, then compare first-chunk latency, real-time factor, naturalness, speaker similarity, robustness, and memory usage.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">7. Strongest Pocket TTS Lesson</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the strongest conceptual lesson Pocket TTS teaches about the current TTS landscape?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It teaches that continuous-latent generation is not just a quality-oriented research direction; it can also be the right systems choice for low-latency, low-cost deployment.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. When Pocket TTS Is The Wrong Choice</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Give one scenario where Pocket TTS would likely be the wrong model family to choose.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It would likely be the wrong choice for a system that needs the strongest multilingual quality or a discrete token interface tightly integrated into a large multimodal LM pipeline.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Information-Theory Summary</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Summarize Pocket TTS in information-theory language.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Pocket TTS avoids an early quantization bottleneck and instead spends a small compute budget on reducing conditional uncertainty directly in a continuous latent space, with emphasis on fast sequential prediction and cheap speaker conditioning reuse.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Your Final Judgment</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a two-sentence judgment on why Pocket TTS is worth a tutorial in this series.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Pocket TTS is worth studying because it shows that continuous-latent TTS can be made genuinely practical on CPU, not only impressive in papers. It turns representation choice into a concrete systems question about latency, deployment, and amortized conditioning rather than a purely academic discussion about quality.</p></div></div></div>
+                </div>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#what-is-it" class="toc-link">What Is Pocket TTS?</a>
+                <a href="#why-cpu" class="toc-link">Why CPU-First TTS Changes Things</a>
+                <a href="#calm-connection" class="toc-link">Pocket TTS And CALM</a>
+                <a href="#core-architecture" class="toc-link">Architecture Sketch</a>
+                <a href="#info-theory" class="toc-link">Information-Theory View</a>
+                <a href="#workflow" class="toc-link">Practical Workflow</a>
+                <a href="#why-important" class="toc-link">Why It Matters</a>
+                <a href="#limits" class="toc-link">Limitations</a>
+                <a href="#primary-sources" class="toc-link">Primary Sources</a>
+            </nav>
+        </aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>
