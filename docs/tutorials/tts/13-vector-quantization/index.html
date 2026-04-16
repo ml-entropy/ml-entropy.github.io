@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Quantization for Neural Audio | ML Fundamentals</title>
+    <meta name="description" content="Vector quantization for neural audio codecs: codebooks, VQ-VAE training, entropy, perplexity, distortion, and the information-theory intuition behind discrete bottlenecks.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Vector Quantization for Neural Audio</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Neural Codec Series</h3>
+        <nav class="sidebar-nav">
+            <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
+            <a href="../13-vector-quantization/index.html" class="sidebar-link active">13. Vector Quantization</a>
+            <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
+            <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
+            <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
+            <a href="../17-xcodec2/index.html" class="sidebar-link">17. XCodec2</a>
+            <a href="../18-modern-codec-designs/index.html" class="sidebar-link">18. SoundStream, DAC, SNAC, BigCodec</a>
+        </nav>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression & Codecs</a>
+            <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
+            <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
+            <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
+            <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E & Speech LLMs</a>
+        </nav>
+    </div>
+</aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>13. Vector Quantization for Neural Audio</h1>
+                    <p class="lead">Vector quantization is the first bridge from continuous waveforms to LLM-friendly audio tokens. This tutorial treats VQ as an information bottleneck: a finite alphabet that spends bits only on distinctions the decoder can actually recover.</p>
+                </div>
+
+                <h2 id="discrete-bottleneck">Why A Discrete Bottleneck Helps</h2>
+<p>Raw mono speech at 24 kHz and 16 bits per sample carries 384 kbps before compression. A language model that predicts raw samples must make tens of thousands of decisions per second, and most of those decisions describe tiny local waveform fluctuations rather than durable linguistic or prosodic structure. Vector quantization changes the problem: instead of predicting samples directly, the model predicts a symbol that names a region of latent space.</p>
+<p>From an information-theory perspective, a codebook is a lossy channel with a finite alphabet. If the encoder emits tokens at frame rate $f$ and the codebook has $N$ entries, then the nominal ceiling is $R_{\text{nom}} = f \log_2 N$ bits per second. Those bits are precious. A good quantizer uses them on distinctions that matter for reconstruction and downstream modeling, while collapsing irrelevant variation inside the same cell.</p>
+<div class="definition-box">
+    <div class="box-title">Mental Model</div>
+    <p>Think of VQ as replacing an infinite cloud of latent vectors with a finite dictionary. Two latent vectors that land in the same Voronoi cell become the same token. After quantization, the decoder can no longer distinguish them, so whatever differs between them has been irreversibly discarded.</p>
+</div>
+
+<h2 id="geometry">The Geometry Of A Codebook</h2>
+<p>Let $\mathbf{z} \in \mathbb{R}^D$ be an encoder output and let $\mathcal{E} = \{\mathbf{e}_1, \ldots, \mathbf{e}_N\}$ be a codebook. Quantization picks the nearest embedding</p>
+$$q(\mathbf{z}) = \mathbf{e}_{k^*}, \qquad k^* = \arg\min_j \|\mathbf{z} - \mathbf{e}_j\|_2^2.$$
+<p>This partitions latent space into Voronoi cells. Every point in the same cell maps to the same token, so each cell is an equivalence class of decoder-indistinguishable latents. The reconstruction penalty from this replacement is the quantization distortion. If $Z$ is the random latent and $Q(Z)$ the quantized version, a basic distortion objective is</p>
+$$D = \mathbb{E}\left[\|Z - Q(Z)\|_2^2\right].$$
+<p>The entire VQ design problem is to shape the encoder and codebook so that highly probable latent regions get fine resolution and rare or perceptually irrelevant regions get coarse resolution. That is exactly the same spirit as classical rate-distortion theory, just implemented with learned features instead of hand-crafted transforms.</p>
+
+<h2 id="training">How VQ-VAE Training Makes This Work</h2>
+<p>Van den Oord, Vinyals, and Kavukcuoglu popularized learned discrete latents with VQ-VAE. The standard loss combines reconstruction, codebook, and commitment terms:</p>
+$$\mathcal{L}_{\text{VQ}} = \mathcal{L}_{\text{recon}} + \|\mathrm{sg}[\mathbf{z}] - \mathbf{e}\|_2^2 + \beta \|\mathbf{z} - \mathrm{sg}[\mathbf{e}]\|_2^2.$$
+<p>The stop-gradient operator $\mathrm{sg}[\cdot]$ freezes one side of the match so the codebook and encoder do not chase each other unstably. During backpropagation, the straight-through estimator pretends the quantizer was the identity map. This is biased, but it is practical, and it works when encoder outputs stay close to the chosen code vectors.</p>
+<div class="note-box">
+    <div class="box-title">Why Commitment Matters</div>
+    <p style="margin-bottom: 0;">Without the commitment term, the encoder can drift far away from codebook entries while the decoder still sees only the snapped vectors. That widens the gap between the true forward pass and the fake backward pass, which makes the straight-through approximation much less trustworthy.</p>
+</div>
+
+<h2 id="entropy">Entropy, Perplexity, And Effective Bitrate</h2>
+<p>The codebook size gives only an upper bound. If the token distribution is not uniform, the true uncertainty is the token entropy</p>
+$$H(C) = -\sum_{i=1}^{N} p_i \log_2 p_i \leq \log_2 N.$$
+<p>This gap is crucial. A 1024-way codebook has a 10-bit ceiling, but if the empirical entropy is 7 bits then the stream behaves like only $2^7 = 128$ equally likely symbols. The usual utilization metric is perplexity, $\mathrm{PPL} = 2^{H(C)}$. Low perplexity can be good if it reflects genuine regularity. It is bad if it reflects collapse and wasted capacity.</p>
+<table>
+    <thead>
+        <tr><th>Setting</th><th>Codebook Size</th><th>Entropy</th><th>Effective Perplexity</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Uniform usage</td><td>1024</td><td>10.0 bits</td><td>1024</td></tr>
+        <tr><td>Moderately skewed</td><td>1024</td><td>8.0 bits</td><td>256</td></tr>
+        <tr><td>Collapsed</td><td>1024</td><td>5.0 bits</td><td>32</td></tr>
+    </tbody>
+</table>
+<p>For codec LMs, the modeling burden scales with the entropy rate, not just the raw token rate. That is why two tokenizers with the same frame rate and vocabulary can differ dramatically in downstream difficulty.</p>
+
+<h2 id="audio-intuition">Audio Intuition: What A Good Token Must Preserve</h2>
+<p>In audio, a useful token should preserve structure that remains predictive over longer horizons: voicing, coarse spectral envelope, pitch regime, phonetic class, and stable speaker traits. A useless token spends capacity on microscopic waveform quirks that the language model will never exploit. This is why learned encoder features matter so much. The encoder decides which distinctions even reach the quantizer.</p>
+<p>Common failure modes are easy to hear. If neighboring frames jump between unrelated codebook entries, the decoder produces buzzy or watery artifacts. If only a few codes are used, the audio becomes over-smoothed because many different latents are forced into the same tiny subset of symbols. If the frame rate is too low, fast transitions such as stop consonants and transients get blurred.</p>
+<div class="definition-box">
+    <div class="box-title">Information-Theory View Of Collapse</div>
+    <p>Codebook collapse is not just an optimization nuisance. It means the realized entropy is far below the designed channel capacity. You paid for a large alphabet, but the system learned to speak in only a few symbols.</p>
+</div>
+
+<h2 id="limits">Where Plain VQ Starts To Break</h2>
+<p>A single codebook forces one token to carry everything the decoder needs at that frame. At modest quality targets this can work well. At lower distortion targets, one token often cannot simultaneously encode coarse content, fine timbre, transients, and noise detail. Enlarging the codebook helps, but nearest-neighbor search and softmax modeling become more expensive, and utilization often becomes worse rather than better.</p>
+<p>That tension motivates residual vector quantization: let one codebook explain the coarse structure, then let later codebooks spend additional bits on the residual error. The next tutorial builds this idea carefully, because most modern neural codecs are really RVQ systems rather than plain single-stage VQ systems.</p>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://papers.neurips.cc/paper/7210-neural-discrete-representation-learning" target="_blank" rel="noopener">Neural Discrete Representation Learning (NeurIPS 2017)</a> - Foundational VQ-VAE paper.</li>
+                    <li><a href="https://arxiv.org/abs/1711.00937" target="_blank" rel="noopener">Neural Discrete Representation Learning (arXiv)</a> - Original preprint.</li>
+                    <li><a href="https://research.google/pubs/soundstream-an-end-to-end-neural-audio-codec/" target="_blank" rel="noopener">SoundStream: An End-to-End Neural Audio Codec</a> - One of the papers that made RVQ standard in neural audio codecs.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>How To Use These Exercises</h2>
+<p>Work the easy set without notes, use scratch paper for the medium set, and treat the hard set as mini-research problems. These are intentionally unsolved so they function as real practice rather than passive reading.</p>
+
+<h2>Easy</h2>
+<ol>
+        <li>A codebook has $N = 256$ entries. How many bits does one token represent at most?</li>
+        <li>An encoder emits one token every 20 ms with a 1024-way codebook. Compute the nominal bitrate.</li>
+        <li>State in one sentence what information is lost when two latent vectors quantize to the same code.</li>
+        <li>Explain the role of the commitment loss in VQ-VAE without using equations.</li>
+        <li>What does it mean for a codebook entry to be dead?</li>
+        <li>If the empirical token entropy is 6 bits but the codebook ceiling is 10 bits, is the realized stream using full capacity?</li>
+        <li>Why is a straight-through estimator needed at all?</li>
+        <li>Give one reason a waveform-level tokenizer is harder for an LM than a codec tokenizer.</li>
+        <li>Define perplexity for a discrete code stream in plain language.</li>
+        <li>Name two audio attributes that a good early-stage token should preserve.</li>
+</ol>
+
+<h2>Medium</h2>
+<ol>
+        <li>A 1024-way codebook is used at 75 frames/s. The token probabilities give entropy $H(C)=7.5$ bits. What are the nominal bitrate and the entropy-coded bitrate?</li>
+        <li>Suppose two different codebooks have the same reconstruction loss, but one has perplexity 900 and the other 90. Which one is likely easier for a downstream LM, and why?</li>
+        <li>You observe that 12 entries account for 95% of all token assignments. What failure mode is this evidence for, and what two interventions would you try first?</li>
+        <li>Compare the effect of doubling the frame rate versus doubling the codebook size under the same decoder architecture. Which change increases temporal precision, and which increases instantaneous symbol capacity?</li>
+        <li>Show that $H(C) \le \log_2 N$ and explain what equality means operationally.</li>
+        <li>Design a simple experiment to estimate whether speaker identity leaks into VQ tokens.</li>
+        <li>Why can a larger codebook sometimes hurt utilization instead of helping it?</li>
+        <li>Describe how EMA codebook updates resemble online k-means.</li>
+        <li>A token histogram becomes much flatter after adding data augmentation, but reconstruction loss rises slightly. Give one plausible explanation.</li>
+        <li>Imagine a VQ tokenizer that sounds good but yields poor ASR or TTS content accuracy. From an information-theory perspective, what might it be encoding well and encoding poorly?</li>
+</ol>
+
+<h2>Hard</h2>
+<ol>
+        <li>Derive a design argument for choosing between a 2048-way codebook at 50 frames/s and a 1024-way codebook at 100 frames/s when the nominal bitrate must stay near 11 kbps.</li>
+        <li>Propose a training objective that explicitly rewards high code utilization without forcing the marginal token distribution to become artificially uniform.</li>
+        <li>Give an information-theoretic argument for why minimizing waveform MSE alone may produce tokens that are suboptimal for language modeling.</li>
+        <li>You are told a tokenizer has low distortion but very high token entropy. Explain why this can still be a bad tokenizer for speech LMs.</li>
+        <li>Design a causal VQ tokenizer that must operate under a 20 ms algorithmic latency budget. What constraints does that place on stride, lookahead, and frame construction?</li>
+        <li>Argue carefully for or against the claim: “If two VQ tokenizers have the same bitrate, the one with the lower entropy is always better.”</li>
+        <li>Formulate a probe-based evaluation suite that separates phonetic information, speaker information, and prosodic information in the learned tokens.</li>
+        <li>Explain when a single-stage VQ bottleneck should be replaced by RVQ, product quantization, or multi-scale quantization.</li>
+        <li>Suppose an LM trained on codec tokens has much worse cross-entropy on sentence boundaries than inside vowels. What does that suggest about the tokenizer geometry?</li>
+        <li>Design an ablation study that would let you distinguish whether poor audio quality comes from encoder features, codebook learning, or decoder weakness.</li>
+</ol>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+    <h4 class="toc-title">Contents</h4>
+    <nav class="toc-list">
+        <a href="#discrete-bottleneck" class="toc-link">Why A Discrete Bottleneck Helps</a>
+        <a href="#geometry" class="toc-link">The Geometry Of A Codebook</a>
+        <a href="#training" class="toc-link">How VQ-VAE Training Makes This Work</a>
+        <a href="#entropy" class="toc-link">Entropy, Perplexity, And Effective Bitrate</a>
+        <a href="#audio-intuition" class="toc-link">Audio Intuition: What A Good Token Must Preserve</a>
+        <a href="#limits" class="toc-link">Where Plain VQ Starts To Break</a>
+        <a href="#primary-sources" class="toc-link">Primary Sources</a>
+    </nav>
+</aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

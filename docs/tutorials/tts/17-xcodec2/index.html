@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XCodec2: Semantic-Aware Speech Tokenization | ML Fundamentals</title>
+    <meta name="description" content="A tutorial on XCodec2 and the semantic-shortcoming thesis: X-Codec, XCodec2, single vector quantization, large vocabularies, multilingual speech tokenization, and entropy-aware LM design.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>XCodec2: Semantic-Aware Speech Tokenization</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Neural Codec Series</h3>
+        <nav class="sidebar-nav">
+            <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
+            <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
+            <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
+            <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
+            <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
+            <a href="../17-xcodec2/index.html" class="sidebar-link active">17. XCodec2</a>
+            <a href="../18-modern-codec-designs/index.html" class="sidebar-link">18. SoundStream, DAC, SNAC, BigCodec</a>
+        </nav>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression & Codecs</a>
+            <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
+            <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
+            <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
+            <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E & Speech LLMs</a>
+        </nav>
+    </div>
+</aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>17. XCodec2: Semantic-Aware Speech Tokenization</h1>
+                    <p class="lead">XCodec2 starts from a sharp criticism of EnCodec-style tokenization for speech LMs: a codec optimized for acoustic compression is not automatically a good interface for language modeling. Its answer is to push semantics into the tokenizer and make the token stream look more like text.</p>
+                </div>
+
+                <h2 id="semantic-shortcoming">The Semantic Shortcoming Thesis</h2>
+<p>The X-Codec paper argues that acoustic codecs such as EnCodec can be semantically suboptimal for audio language models. In speech synthesis, this appears as word skipping, wrong words, or elevated WER even when the audio sounds plausible. The key claim is not that acoustic codecs are bad at compression. The claim is that compression-optimized tokens do not always preserve the right information for generation conditioned on text.</p>
+<p>This is a crucial information-theory distinction. A codec can preserve high mutual information with perceptual waveform quality while preserving less mutual information with transcript content. For speech LMs, both matter, but text-conditioned generation is often bottlenecked by the second term.</p>
+
+<h2 id="from-xcodec">From X-Codec To XCodec2</h2>
+<p>The original X-Codec approach introduces semantic features from a pretrained semantic encoder before quantization and adds a semantic reconstruction objective after quantization. The goal is straightforward: force the bottleneck to remain predictive of what was said, not only how it sounded.</p>
+<p>XCodec2 keeps that semantic-aware spirit but changes the tokenizer profile dramatically. According to the official repository and model card, it uses single vector quantization, a 65,536-entry codebook based on finite scalar quantization, and 50 tokens per second. That is much closer to the design language of text tokenizers than to the standard many-stream RVQ setup.</p>
+
+<h2 id="architecture">Published XCodec2 Features</h2>
+<table>
+    <thead>
+        <tr><th>Feature</th><th>Published Detail</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Quantization style</td><td>Single vector quantization</td></tr>
+        <tr><td>Vocabulary</td><td>65,536 entries with FSQ</td></tr>
+        <tr><td>Usage</td><td>~99% codebook usage reported by the official repo</td></tr>
+        <tr><td>Token rate</td><td>50 tokens per second</td></tr>
+        <tr><td>Semantic encoder</td><td>Wav2Vec2-BERT</td></tr>
+        <tr><td>Training data</td><td>150k hours of multilingual speech reported by the repo</td></tr>
+        <tr><td>Decoder</td><td>Transformer + Vocos</td></tr>
+        <tr><td>Acoustic front end</td><td>BigCodec encoder</td></tr>
+        <tr><td>Audio scope</td><td>16 kHz speech</td></tr>
+    </tbody>
+</table>
+<p>This is a very different philosophy from eight 1024-way RVQ streams. Instead of many small synchronized choices, XCodec2 prefers one large symbolic choice per step. The official repo explicitly frames the resulting utilization as being comparable in spirit to text tokenizers with large vocabularies.</p>
+
+<h2 id="entropy-model">Entropy And The Case For A Large Single Vocabulary</h2>
+<p>If a tokenizer emits one symbol from a 65,536-way vocabulary at 50 steps per second, the ceiling is $50 \cdot 16 = 800$ bits per second before entropy coding. That number is an inference from the published token rate and vocabulary size, not a value quoted directly by the authors. The more important point is structural: XCodec2 trades many low-arity synchronized streams for one high-arity stream.</p>
+<p>Why might that help? Because a single stream is easy for a standard decoder-only LM to model, and high code usage means the large vocabulary is not mostly wasted. If the semantic encoder has already shaped the latent space, the large codebook can behave more like a linguistically meaningful alphabet than a purely acoustic residual stack.</p>
+<div class="definition-box">
+    <div class="box-title">Mental Model</div>
+    <p>XCodec2 is trying to make speech tokens feel less like compressed acoustics and more like a speech-native text tokenizer: one stream, high utilization, multilingual semantics, and enough acoustic detail to reconstruct convincing speech.</p>
+</div>
+
+<h2 id="strengths-tradeoffs">Strengths, Costs, And What To Watch</h2>
+<p>XCodec2 has obvious advantages for LLaMA-style speech generation. One stream is simple. 50 tokens per second is manageable. Multilingual semantic supervision is a strong inductive bias. But the design also has costs. A 65k-way softmax is large. The codec is specialized to 16 kHz speech rather than broad audio. And unlike RVQ, it does not provide an explicit progressive refinement hierarchy you can truncate by level.</p>
+<p>In other words, XCodec2 does not dominate EnCodec or Mimi universally. It is a strong answer to a specific question: "How do I build a speech tokenizer that an LM can model directly, especially in multilingual text-to-speech?" If that is your question, it is one of the most important tokenizers to study.</p>
+
+<h2 id="for-tts">When XCodec2 Makes The Most Sense</h2>
+<p>Use XCodec2 when you care about direct speech LM training, multilingual speech generation, and semantic integrity under text conditioning. It is especially natural in pipelines where you want the output side of the model to look like a normal large-vocabulary autoregressive sequence.</p>
+<p>Use caution if you need full-band music, environmental sound, or explicit progressive bitrate control. In those cases, RVQ-based codecs still have advantages. But as a speech-native tokenizer for LLMs, XCodec2 represents one of the clearest departures from the EnCodec template.</p>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://github.com/zhenye234/X-Codec-2.0" target="_blank" rel="noopener">X-Codec-2.0 official repository</a> - Official feature list and implementation notes.</li>
+                    <li><a href="https://huggingface.co/HKUSTAudio/xcodec2" target="_blank" rel="noopener">HKUSTAudio/xcodec2 model card</a> - Official model card and usage notes.</li>
+                    <li><a href="https://arxiv.org/abs/2408.17175" target="_blank" rel="noopener">Codec Does Matter: Exploring the Semantic Shortcoming of Codec for Audio Language Model</a> - Paper motivating X-Codec.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>How To Use These Exercises</h2>
+<p>Work the easy set without notes, use scratch paper for the medium set, and treat the hard set as mini-research problems. These are intentionally unsolved so they function as real practice rather than passive reading.</p>
+
+<h2>Easy</h2>
+<ol>
+        <li>What core criticism does X-Codec make of EnCodec-style tokenization for speech LMs?</li>
+        <li>According to the official repo, how many tokens per second does XCodec2 use?</li>
+        <li>What is the published vocabulary size of XCodec2?</li>
+        <li>Which semantic encoder does the official repo say XCodec2 uses?</li>
+        <li>Why is a single token stream attractive for decoder-only LMs?</li>
+        <li>What does high codebook usage mean in this context?</li>
+        <li>What audio domain is XCodec2 specialized for according to the official materials?</li>
+        <li>Name one architectural component on the decoder side of XCodec2.</li>
+        <li>In one sentence, explain the difference between a semantic-aware tokenizer and a purely acoustic tokenizer.</li>
+        <li>Why might a tokenizer with good MOS still have poor WER in text-conditioned generation?</li>
+</ol>
+
+<h2>Medium</h2>
+<ol>
+        <li>Using the published 50 tokens/s rate and 65,536-way vocabulary, compute the maximum raw bits per second before entropy coding.</li>
+        <li>Compare one 65,536-way stream at 50 Hz with eight 1024-way streams at 75 Hz. Which has more token decisions per second, and which has the larger per-step choice set?</li>
+        <li>Why might 99% code usage be especially important for a very large vocabulary tokenizer?</li>
+        <li>Design a probe to test whether XCodec2 preserves transcript information better than EnCodec.</li>
+        <li>Explain how semantic supervision can reduce text-audio mismatch in TTS.</li>
+        <li>What tradeoff does XCodec2 make by abandoning an explicit RVQ hierarchy?</li>
+        <li>Why is multilingual semantic support especially relevant for a tokenizer used in speech synthesis?</li>
+        <li>Suppose an LM trained on XCodec2 tokens still skips words. List two hypotheses that blame the tokenizer and two that blame the LM.</li>
+        <li>Why might a large single-stream tokenizer be easier to integrate into a LLaMA-style stack than RVQ streams?</li>
+        <li>Explain why a large softmax is both a benefit and a cost in XCodec2-like systems.</li>
+</ol>
+
+<h2>Hard</h2>
+<ol>
+        <li>Give the strongest argument for the claim that speech tokenizers should be optimized for semantic integrity rather than pure acoustic rate-distortion.</li>
+        <li>Design a fair benchmark comparing EnCodec, Mimi, and XCodec2 for zero-shot multilingual TTS. Specify metrics, prompts, datasets, and failure analyses.</li>
+        <li>Argue carefully whether a single 65k vocabulary is fundamentally more “text-like” than RVQ or whether that is mostly an implementation convenience.</li>
+        <li>Propose a hybrid tokenizer that combines XCodec2-style semantic supervision with a progressive RVQ refinement path.</li>
+        <li>Suppose XCodec2 has excellent WER but worse speaker similarity than EnCodec. How could the tokenization objective cause that outcome?</li>
+        <li>Design an entropy analysis that would reveal whether XCodec2 is truly using its large vocabulary efficiently across languages.</li>
+        <li>How would you modify XCodec2 if you needed 24 kHz output while preserving the same LM-friendly single-stream property?</li>
+        <li>Explain when a single-stream tokenizer could actually be worse than RVQ for speech generation, even if the LM architecture is simpler.</li>
+        <li>Formulate a mutual-information decomposition that separates transcript content, speaker identity, and prosody in XCodec2 tokens.</li>
+        <li>If the first generation model is already decoder-only and multilingual, what evidence would convince you to switch from XCodec2 back to EnCodec or Mimi?</li>
+</ol>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+    <h4 class="toc-title">Contents</h4>
+    <nav class="toc-list">
+        <a href="#semantic-shortcoming" class="toc-link">The Semantic Shortcoming Thesis</a>
+        <a href="#from-xcodec" class="toc-link">From X-Codec To XCodec2</a>
+        <a href="#architecture" class="toc-link">Published XCodec2 Features</a>
+        <a href="#entropy-model" class="toc-link">Entropy And The Case For A Large Single Vocabulary</a>
+        <a href="#strengths-tradeoffs" class="toc-link">Strengths, Costs, And What To Watch</a>
+        <a href="#for-tts" class="toc-link">When XCodec2 Makes The Most Sense</a>
+        <a href="#primary-sources" class="toc-link">Primary Sources</a>
+    </nav>
+</aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mimi: Low-Rate Semantic-Acoustic Codec Design | ML Fundamentals</title>
+    <meta name="description" content="A tutorial on Kyutai Mimi: 24 kHz streaming codec, 12.5 Hz latent rate, semantic token distilled from WavLM, RVQ dropout, and why low token rate matters for speech language models.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>Mimi: Low-Rate Semantic-Acoustic Codec Design</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Neural Codec Series</h3>
+        <nav class="sidebar-nav">
+            <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
+            <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
+            <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
+            <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
+            <a href="../16-mimi/index.html" class="sidebar-link active">16. Mimi</a>
+            <a href="../17-xcodec2/index.html" class="sidebar-link">17. XCodec2</a>
+            <a href="../18-modern-codec-designs/index.html" class="sidebar-link">18. SoundStream, DAC, SNAC, BigCodec</a>
+        </nav>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression & Codecs</a>
+            <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
+            <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
+            <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
+            <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E & Speech LLMs</a>
+        </nav>
+    </div>
+</aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>16. Mimi: Low-Rate Semantic-Acoustic Codec Design</h1>
+                    <p class="lead">Mimi is a codec built for speech-native language models rather than only for reconstruction. Its central move is to reduce the token rate aggressively while reserving the earliest token for semantic content, making the stream much easier for an LM to reason about.</p>
+                </div>
+
+                <h2 id="why-mimi">The Real Problem Mimi Is Solving</h2>
+<p>Kyutai describes Mimi as a streaming neural audio codec that processes 24 kHz audio into a 12.5 Hz representation at 1.1 kbps with 80 ms frame-size latency. Those numbers tell you exactly what Mimi cares about: not merely acoustic compression, but drastically reducing how often a speech LM must make decisions.</p>
+<p>The LM burden is roughly the entropy rate, not just the bitrate. Lowering the frame rate from the 50-75 Hz range down to 12.5 Hz is therefore a profound modeling choice. It means far fewer autoregressive steps, longer effective context measured in seconds, and a token cadence much closer to text.</p>
+
+<h2 id="architecture">How Mimi Modifies The Classical Codec Recipe</h2>
+<p>Kyutai's README says Mimi builds on SoundStream and EnCodec, adds a Transformer in both encoder and decoder, and adjusts strides to reach a 12.5 Hz frame rate. This is a telling design decision. Convolutional front ends are strong local feature extractors, but a Transformer helps the codec reason over longer-range temporal dependencies before the quantizer and after it.</p>
+<p>Lower frame rate alone would normally threaten detail loss. Mimi compensates by using a richer latent modeling strategy rather than simply throwing away information. The codec is designed as part of a whole spoken-dialogue stack, so the right question is not "does every frame look acoustically detailed?" but "does the resulting token stream remain easy to predict and expressive enough to reconstruct convincing speech?"</p>
+
+<h2 id="semantic-token">The Semantic Token And Distillation From WavLM</h2>
+<p>Kyutai states that Mimi uses a distillation loss so that the first codebook tokens match a self-supervised representation from WavLM. The intent is clear: push semantic information as early as possible into the hierarchy. In Kyutai's public explainer, holding the semantic token fixed while regenerating the other tokens preserves what is being said while changing the voice, which is exactly the kind of separation a speech LM wants.</p>
+<p>From an information-theory perspective, the first token is trying to preserve mutual information with linguistic content while discarding as much speaker-dependent and micro-acoustic detail as possible. Later tokens then spend capacity on timbre, prosody, and residual acoustic nuance. This is not perfect disentanglement, but it is a much better inductive bias for spoken dialogue than a purely acoustic codec.</p>
+<div class="definition-box">
+    <div class="box-title">Mental Model</div>
+    <p>The first Mimi token is trying to behave more like a speech-aware word piece, while the later tokens behave like acoustic refinements. That is why the stream is easier for an LM to continue coherently.</p>
+</div>
+
+<h2 id="rvq-dropout">32 RVQ Levels And Why RVQ Dropout Matters</h2>
+<p>Kyutai's codec explainer describes Mimi as using 32 RVQ levels with RVQ dropout: during training, reconstructions are sometimes truncated to fewer levels. This gives Mimi a progressive representation. You can decode with fewer active levels and still get sensible audio because the model learned not to depend entirely on every refinement level always being present.</p>
+<p>The LM implication is subtle but important. Fewer active levels mean lower compression cost and an easier prediction problem. More active levels mean better acoustics. RVQ dropout therefore creates a controllable semantic-acoustic tradeoff rather than a single fixed operating point. This is exactly the kind of flexibility you want in a tokenizer that may serve dialogue agents, TTS, and speech understanding models with different constraints.</p>
+
+<h2 id="entropy-rate">Entropy-Rate Thinking For Mimi</h2>
+<p>Suppose two codecs have similar per-token entropy, but one emits 75 tokens per second and the other 12.5. The second codec presents the LM with six times fewer decisions per second. That alone can dominate the practical modeling difficulty. Mimi exploits this aggressively.</p>
+<p>The semantic token also changes the meaning of the entropy budget. If the earliest stream captures transcript-level regularities, the LM can spend compute on longer-range semantic planning before worrying about the acoustic residuals. In other words, Mimi is not only compressing audio. It is reorganizing uncertainty so the hardest part of the problem looks more like language and less like raw acoustics.</p>
+
+<h2 id="when-to-use">When Mimi Is The Right Tokenizer</h2>
+<p>Mimi is especially compelling for streaming dialogue, low-latency spoken interaction, and speech-native models that must reason over many seconds of context. If your core bottleneck is LM coherence over time rather than raw reconstruction fidelity, Mimi attacks the right variable.</p>
+<p>Its tradeoffs are equally instructive. A very low decision rate can make some fine acoustic distinctions harder to preserve, and the semantic-acoustic split is only approximate. But that is the point: Mimi is willing to sacrifice some classical codec purity to become a better language-model interface.</p>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://github.com/kyutai-labs/moshi" target="_blank" rel="noopener">kyutai-labs/moshi README</a> - Official repository describing Mimi architecture and latency/rate.</li>
+                    <li><a href="https://kyutai.org/codec-explainer" target="_blank" rel="noopener">Kyutai codec explainer</a> - Official explainer with RVQ dropout and semantic-token intuition.</li>
+                    <li><a href="https://arxiv.org/abs/2410.00037" target="_blank" rel="noopener">Moshi technical report</a> - Paper introducing Moshi and Mimi.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>How To Use These Exercises</h2>
+<p>Work the easy set without notes, use scratch paper for the medium set, and treat the hard set as mini-research problems. These are intentionally unsolved so they function as real practice rather than passive reading.</p>
+
+<h2>Easy</h2>
+<ol>
+        <li>What published token/frame rate does Kyutai report for Mimi?</li>
+        <li>What is Mimi trying to reduce besides bitrate?</li>
+        <li>Why is a 12.5 Hz representation attractive for autoregressive speech modeling?</li>
+        <li>What external representation is used to supervise Mimi's first codebook?</li>
+        <li>State the purpose of the semantic token in plain language.</li>
+        <li>What does RVQ dropout allow you to do at inference time?</li>
+        <li>Why does Mimi add a Transformer in the encoder and decoder according to Kyutai?</li>
+        <li>What latency figure does Kyutai associate with Mimi's frame size?</li>
+        <li>Name one task for which Mimi is more naturally suited than EnCodec.</li>
+        <li>Why is Mimi not just “EnCodec but smaller”?</li>
+</ol>
+
+<h2>Medium</h2>
+<ol>
+        <li>Compare the number of autoregressive steps in 10 seconds of audio for Mimi at 12.5 Hz versus a codec at 75 Hz.</li>
+        <li>Explain why reducing token rate can improve effective context length in a Transformer.</li>
+        <li>If you drop from 32 active RVQ levels to 8, what quality-versus-modelability tradeoff do you expect?</li>
+        <li>Design a probe to test whether Mimi's first codebook is more predictive of transcript content than its late codebooks.</li>
+        <li>Kyutai shows reconstructions that preserve content while changing voice when the semantic token is fixed. What does that imply about information partitioning?</li>
+        <li>Give one argument for why semantic distillation may help TTS even if it does not maximize reconstruction MOS.</li>
+        <li>Explain why a low bitrate alone does not guarantee easy LM modeling unless the decision rate is also low.</li>
+        <li>How would you compare Mimi and EnCodec fairly for dialogue modeling?</li>
+        <li>What does it mean to say Mimi reorganizes uncertainty rather than just compressing audio?</li>
+        <li>If the semantic token is too dominant, what kind of artifact or limitation might appear in generated speech?</li>
+</ol>
+
+<h2>Hard</h2>
+<ol>
+        <li>Give a rigorous information-theoretic argument for why lowering frame rate can matter more than lowering nominal bitrate for speech LMs.</li>
+        <li>Design a streaming spoken-dialogue model around Mimi and specify which token streams should be modeled autoregressively versus in parallel.</li>
+        <li>Suppose a Mimi-based LM is coherent semantically but sounds flat and speaker-inconsistent. Diagnose which part of the token hierarchy is likely under-modeled.</li>
+        <li>Propose an ablation that separates the value of WavLM distillation from the value of the 12.5 Hz stride design.</li>
+        <li>Argue for or against the claim: “A semantic token should be invariant to speaker identity.” Your answer should account for prosody and expressive speech.</li>
+        <li>How would you modify Mimi if you needed better singing or music support without losing the low-rate spoken-dialogue advantages?</li>
+        <li>Design a metric suite that measures semantic fidelity, speaker consistency, prosody, and latency for Mimi-based systems.</li>
+        <li>If you teacher-force the semantic token and sample the remaining levels, what kinds of diversity should you expect and why?</li>
+        <li>Explain how RVQ dropout functions as both a robustness trick and an implicit curriculum over bitrate.</li>
+        <li>Imagine replacing Mimi's semantic token with text supervision from forced alignments. What would you gain, and what would you likely lose?</li>
+</ol>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+    <h4 class="toc-title">Contents</h4>
+    <nav class="toc-list">
+        <a href="#why-mimi" class="toc-link">The Real Problem Mimi Is Solving</a>
+        <a href="#architecture" class="toc-link">How Mimi Modifies The Classical Codec Recipe</a>
+        <a href="#semantic-token" class="toc-link">The Semantic Token And Distillation From WavLM</a>
+        <a href="#rvq-dropout" class="toc-link">32 RVQ Levels And Why RVQ Dropout Matters</a>
+        <a href="#entropy-rate" class="toc-link">Entropy-Rate Thinking For Mimi</a>
+        <a href="#when-to-use" class="toc-link">When Mimi Is The Right Tokenizer</a>
+        <a href="#primary-sources" class="toc-link">Primary Sources</a>
+    </nav>
+</aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

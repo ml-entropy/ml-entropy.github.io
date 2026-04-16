@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundStream, DAC, SNAC, And BigCodec | ML Fundamentals</title>
+    <meta name="description" content="A comparative tutorial on four worthwhile neural codec designs: SoundStream, DAC, SNAC, and BigCodec, with emphasis on design axes, entropy, bitrate, token rate, and downstream LM implications.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>SoundStream, DAC, SNAC, And BigCodec</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Neural Codec Series</h3>
+        <nav class="sidebar-nav">
+            <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
+            <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
+            <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
+            <a href="../15-encodec/index.html" class="sidebar-link">15. EnCodec</a>
+            <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
+            <a href="../17-xcodec2/index.html" class="sidebar-link">17. XCodec2</a>
+            <a href="../18-modern-codec-designs/index.html" class="sidebar-link active">18. SoundStream, DAC, SNAC, BigCodec</a>
+        </nav>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression & Codecs</a>
+            <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
+            <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
+            <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
+            <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E & Speech LLMs</a>
+        </nav>
+    </div>
+</aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>18. SoundStream, DAC, SNAC, And BigCodec</h1>
+                    <p class="lead">Once you understand VQ, RVQ, EnCodec, Mimi, and XCodec2, the next step is not memorizing more brand names. It is recognizing recurring design moves. SoundStream, DAC, SNAC, and BigCodec are four excellent case studies in how neural codecs choose different tradeoffs.</p>
+                </div>
+
+                <h2 id="soundstream">SoundStream: The Template Many Others Followed</h2>
+<p>SoundStream is the paper that made the modern codec recipe feel canonical: fully convolutional encoder-decoder, residual vector quantizer, adversarial plus reconstruction training, structured dropout over quantizer layers, and streamable low-latency inference. Google reports that a single model can operate from 3 kbps to 18 kbps and run in real time on a smartphone CPU.</p>
+<p>Conceptually, SoundStream matters because it showed that a learned codec could outperform classical baselines at very low rates while remaining simple enough to deploy. If EnCodec is the most widely reused acoustic tokenizer, SoundStream is the template from which many later acoustic tokenizers inherited their shape.</p>
+
+<h2 id="dac">DAC: Push Fidelity Up Without Losing Codec Simplicity</h2>
+<p>Descript Audio Codec emphasizes high-fidelity universal audio. The official repository advertises 44.1 kHz audio compressed at 8 kbps, around 90x compression, with models that support 44.1, 24, and 16 kHz mono or stereo audio. DAC is explicitly presented as a drop-in replacement for EnCodec in audio language modeling pipelines.</p>
+<p>The important lesson from DAC is that not every codec innovation is semantic. Sometimes the point is simply to make the acoustic bottleneck better: fewer artifacts, broader domain coverage, stronger full-band reconstruction. If your downstream model already knows what to say and your bottleneck is sound quality, DAC is an attractive design reference.</p>
+
+<h2 id="snac">SNAC: Multi-Scale Quantizers At Different Temporal Rates</h2>
+<p>SNAC asks a sharp question: why should every quantizer operate at the same temporal resolution? Its answer is to extend RVQ with quantizers running at different frame rates. Coarse structure can be represented sparsely, while fast local detail can still receive a higher-rate refinement path.</p>
+<p>This is a deeply information-theoretic move. Different phenomena in audio live on different time scales. Vowels, syllables, rhythm, and texture are not equally dynamic. SNAC aligns bit allocation with that fact. For long-context generation, this can be more efficient than forcing every level to pay the same temporal price.</p>
+
+<h2 id="bigcodec">BigCodec: Spend Parameters To Win At Ultra-Low Bitrate</h2>
+<p>BigCodec pushes low-bitrate speech much harder than most prior work. The paper reports a 1.04 kbps operating point, a 159M-parameter model, integrated sequential models for better temporal dependency capture, and low-dimensional vector quantization to improve code utilization. The design message is that low bitrate is not only a rate problem. It is also a capacity problem.</p>
+<p>That is an important correction to naive thinking. If you compress speech down to about 1 kbps, the representation becomes so tight that model capacity, temporal modeling, and code utilization all become first-order concerns. BigCodec is worth studying because it shows that at extreme compression, better architecture may matter as much as better bit allocation.</p>
+
+<h2 id="design-axes">The Four Design Axes That Keep Reappearing</h2>
+<table>
+    <thead>
+        <tr><th>Axis</th><th>Question</th><th>Examples</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Temporal rate</td><td>How many decisions per second must the LM make?</td><td>Mimi lowers it aggressively; SNAC varies it by scale</td></tr>
+        <tr><td>Vocabulary structure</td><td>Many small synchronized codebooks or one large stream?</td><td>RVQ codecs vs XCodec2</td></tr>
+        <tr><td>Semantic supervision</td><td>Are tokens optimized only for acoustics or also for meaning?</td><td>EnCodec vs Mimi/XCodec</td></tr>
+        <tr><td>Model capacity</td><td>Is the bottleneck limited by bits, architecture, or both?</td><td>BigCodec makes capacity an explicit lever</td></tr>
+    </tbody>
+</table>
+<p>Once you see these axes, new codec papers become much easier to read. Most of them are making one of four moves: spend bits differently over time, change the alphabet structure, add semantic guidance, or increase model capacity so the available bits are used better.</p>
+
+<h2 id="selection">How To Choose A Codec For A TTS Or Speech-LM Project</h2>
+<p>If you need a historically grounded, streamable RVQ baseline, start with SoundStream. If you need high-quality general audio reconstruction, DAC is strong. If you care about multi-timescale efficiency, study SNAC. If you are pushing ultra-low-bitrate speech and suspect your model is underpowered, BigCodec is the right reference.</p>
+<p>More broadly, choose the codec that attacks your actual bottleneck. If the problem is LM coherence, look at token rate and semantics. If the problem is artifacts, look at acoustic fidelity and adversarial training. If the problem is poor utilization at 1 kbps, architecture scale may be the answer. Codec selection is an information-allocation decision, not a brand preference.</p>
+<div class="definition-box">
+    <div class="box-title">The Big Lesson</div>
+    <p>Every good codec paper is really a paper about where uncertainty lives in audio and how expensive it should be to represent. Once you frame it that way, the design space becomes much easier to reason about.</p>
+</div>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://research.google/pubs/soundstream-an-end-to-end-neural-audio-codec/" target="_blank" rel="noopener">SoundStream official publication page</a> - Official Google Research publication page.</li>
+                    <li><a href="https://github.com/descriptinc/descript-audio-codec" target="_blank" rel="noopener">descriptinc/descript-audio-codec</a> - Official DAC repository.</li>
+                    <li><a href="https://arxiv.org/abs/2410.14411" target="_blank" rel="noopener">SNAC: Multi-Scale Neural Audio Codec</a> - Original SNAC paper.</li>
+                    <li><a href="https://arxiv.org/abs/2409.05377" target="_blank" rel="noopener">BigCodec: Pushing the Limits of Low-Bitrate Neural Speech Codec</a> - Original BigCodec paper.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>How To Use These Exercises</h2>
+<p>Work the easy set without notes, use scratch paper for the medium set, and treat the hard set as mini-research problems. These are intentionally unsolved so they function as real practice rather than passive reading.</p>
+
+<h2>Easy</h2>
+<ol>
+        <li>Which codec is most directly associated with structured quantizer dropout in its original paper?</li>
+        <li>What sample rate and bitrate does the DAC repository highlight most prominently?</li>
+        <li>What is the central idea behind SNAC?</li>
+        <li>What problem is BigCodec trying to fix besides the bitrate limit itself?</li>
+        <li>Why is SoundStream historically important even if newer codecs outperform it?</li>
+        <li>Name one codec from this tutorial that is a strong general-audio baseline rather than a speech-semantic tokenizer.</li>
+        <li>Which design axis does SNAC modify most directly: vocabulary size, temporal scale, or semantic supervision?</li>
+        <li>What is the main domain emphasis of BigCodec according to its title and abstract?</li>
+        <li>Why might a codec with better fidelity still be a worse tokenizer for an LM?</li>
+        <li>Give one reason DAC is often discussed as a drop-in replacement for EnCodec.</li>
+</ol>
+
+<h2>Medium</h2>
+<ol>
+        <li>Compare SoundStream and DAC in terms of what they try to optimize first: flexible bitrate or very high-fidelity universal reconstruction.</li>
+        <li>Explain how SNAC can reduce waste by matching quantizers to different temporal scales.</li>
+        <li>Why does BigCodec make model capacity a central design variable at about 1 kbps?</li>
+        <li>Design a comparison chart that would let you decide among SoundStream, DAC, SNAC, and BigCodec for a new project.</li>
+        <li>If your downstream LM struggles with very long sequences, which codec design axis should you inspect first?</li>
+        <li>Suppose you care mainly about singing quality at 44.1 kHz. Which of these codecs would you investigate first and why?</li>
+        <li>How would you test whether SNAC's multi-scale structure actually helps LM modeling rather than only reconstruction?</li>
+        <li>Explain why a universal codec and a speech-specialized codec should not be judged by identical downstream criteria.</li>
+        <li>BigCodec reports improved code utilization. Why does that matter more at ultra-low bitrate than at 8 kbps?</li>
+        <li>Which of these codecs would you choose as a baseline when proposing a new semantic-aware tokenizer, and why?</li>
+</ol>
+
+<h2>Hard</h2>
+<ol>
+        <li>Propose a unified evaluation protocol that fairly compares SoundStream, DAC, SNAC, BigCodec, EnCodec, Mimi, and XCodec2 across both compression and generation use cases.</li>
+        <li>Argue for or against the claim that multi-scale temporal allocation is a more important frontier than ever-larger vocabularies for future audio LMs.</li>
+        <li>Design a new codec that combines BigCodec-style high capacity, SNAC-style multi-scale quantization, and Mimi-style semantic guidance. Which pieces are compatible, and which are likely to interfere?</li>
+        <li>Suppose a DAC-based TTS system has beautiful timbre but poor long-form coherence. Give a diagnosis that blames the tokenizer as little as possible, then one that blames it as much as possible.</li>
+        <li>How would you determine whether an observed improvement from a new codec comes from lower entropy rate, stronger semantics, or simply better decoder quality?</li>
+        <li>Give a principled argument for when a project should prioritize acoustic transparency over LM-friendly token structure.</li>
+        <li>If you were forced to use one codec for both music generation and multilingual zero-shot TTS, how would you decide among the families studied in this series?</li>
+        <li>Design an experiment where the exact same LM backbone is trained on EnCodec, DAC, SNAC, Mimi, and XCodec2 tokens. What would you measure to isolate tokenizer effects?</li>
+        <li>Under what conditions could SoundStream still be the best engineering choice even if its reconstruction quality is not state of the art?</li>
+        <li>Formulate your own codec design manifesto in five criteria, each tied to an information-theory objective such as entropy rate, distortion, mutual information with text, or latency.</li>
+</ol>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+    <h4 class="toc-title">Contents</h4>
+    <nav class="toc-list">
+        <a href="#soundstream" class="toc-link">SoundStream: The Template Many Others Followed</a>
+        <a href="#dac" class="toc-link">DAC: Push Fidelity Up Without Losing Codec Simplicity</a>
+        <a href="#snac" class="toc-link">SNAC: Multi-Scale Quantizers At Different Temporal Rates</a>
+        <a href="#bigcodec" class="toc-link">BigCodec: Spend Parameters To Win At Ultra-Low Bitrate</a>
+        <a href="#design-axes" class="toc-link">The Four Design Axes That Keep Reappearing</a>
+        <a href="#selection" class="toc-link">How To Choose A Codec For A TTS Or Speech-LM Project</a>
+        <a href="#primary-sources" class="toc-link">Primary Sources</a>
+    </nav>
+</aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnCodec: High-Fidelity Acoustic Tokenization | ML Fundamentals</title>
+    <meta name="description" content="A deep tutorial on Meta EnCodec: architecture, bandwidths, RVQ structure, MS-STFT discriminator, entropy coding with a language model, and why EnCodec became the default acoustic tokenizer.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+    <link rel="stylesheet" href="../../../css/main.css">
+    <link rel="stylesheet" href="../../../css/components.css">
+    <link rel="stylesheet" href="../../../css/sidebar.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x221E;</text></svg>">
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="../../../index.html" class="nav-logo">
+                <span class="logo-symbol">&nabla;</span>
+                <span class="logo-text">ML Fundamentals</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <div class="nav-links">
+                    <a href="../../../tutorials/ml/index.html" class="nav-link">Machine Learning</a>
+                    <a href="../../../tutorials/inference/index.html" class="nav-link">Inference</a>
+                    <a href="../../../tutorials/probability/index.html" class="nav-link">Probability</a>
+                    <a href="../../../tutorials/combinatorics/index.html" class="nav-link">Combinatorics</a>
+                    <a href="../../../tutorials/distributions/index.html" class="nav-link">Distributions</a>
+                    <a href="../../../tutorials/biology/index.html" class="nav-link">Biology</a>
+                    <a href="../../../tutorials/linear-algebra/index.html" class="nav-link">Linear Algebra</a>
+                    <a href="../../../tutorials/calculus/index.html" class="nav-link">Calculus</a>
+                    <a href="../../../tutorials/physics/index.html" class="nav-link">Physics</a>
+                    <a href="../../../tutorials/linguistics/index.html" class="nav-link">Linguistics</a>
+                    <a href="../../../tutorials/tts/index.html" class="nav-link active">TTS</a>
+                    <a href="../../../tutorials/cs/index.html" class="nav-link">CS</a>
+                    <a href="../../../index.html#philosophy" class="nav-link">Philosophy</a>
+                    <a href="../../../index.html#roadmap" class="nav-link">Roadmap</a>
+                    <a href="https://github.com/ml-entropy/ml-entropy.github.io" class="nav-link" target="_blank">GitHub</a>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="tutorial-content-header">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <a href="../index.html">Text-to-Speech</a>
+                <span class="breadcrumb-separator">&rarr;</span>
+                <span>EnCodec: High-Fidelity Acoustic Tokenization</span>
+            </nav>
+            <div class="tutorial-tabs">
+                <a href="#theory" class="tutorial-tab active">Theory</a>
+                <a href="#exercises" class="tutorial-tab">Exercises</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="tutorial-wrapper">
+        <aside class="tutorial-sidebar">
+    <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Neural Codec Series</h3>
+        <nav class="sidebar-nav">
+            <a href="../10-audio-codecs/index.html" class="sidebar-link">10. Neural Audio Codecs Overview</a>
+            <a href="../13-vector-quantization/index.html" class="sidebar-link">13. Vector Quantization</a>
+            <a href="../14-residual-vector-quantization/index.html" class="sidebar-link">14. Residual Vector Quantization</a>
+            <a href="../15-encodec/index.html" class="sidebar-link active">15. EnCodec</a>
+            <a href="../16-mimi/index.html" class="sidebar-link">16. Mimi</a>
+            <a href="../17-xcodec2/index.html" class="sidebar-link">17. XCodec2</a>
+            <a href="../18-modern-codec-designs/index.html" class="sidebar-link">18. SoundStream, DAC, SNAC, BigCodec</a>
+        </nav>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: 2rem;">
+        <h3 class="sidebar-section-title">Related Subjects</h3>
+        <nav class="sidebar-nav">
+            <a href="../../audio/09-audio-compression/index.html" class="sidebar-link">Audio Compression & Codecs</a>
+            <a href="../../ml/14-rate-distortion/index.html" class="sidebar-link">Rate-Distortion Theory</a>
+            <a href="../../ml/04-entropy/index.html" class="sidebar-link">Entropy Fundamentals</a>
+            <a href="../../ml/05-cross-entropy/index.html" class="sidebar-link">Cross-Entropy</a>
+            <a href="../../tts/12-vall-e/index.html" class="sidebar-link">VALL-E & Speech LLMs</a>
+        </nav>
+    </div>
+</aside>
+
+        <main class="tutorial-main">
+            <article class="article-content" id="theory">
+                <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h1>15. EnCodec: High-Fidelity Acoustic Tokenization</h1>
+                    <p class="lead">EnCodec is the codec that made neural audio compression feel practical and reusable. It is best understood as a strong rate-distortion optimizer that also happens to emit clean, fixed-structure discrete tokens, which made it the default tokenizer for early audio language models.</p>
+                </div>
+
+                <h2 id="why-encodec">What EnCodec Solved</h2>
+<p>Meta's EnCodec package exposes two pretrained multi-bandwidth codecs: a causal 24 kHz mono model and a non-causal 48 kHz stereo model. That combination matters. EnCodec was not only a paper result but a usable artifact: discrete codes, real audio samples, configurable bandwidths, and a direct interface for downstream modeling.</p>
+<p>Why did the field adopt it so quickly? Because it hit a sweet spot between fidelity, simplicity, and token regularity. The codec was strong enough acoustically to serve as a general compression backend, yet the token structure was simple enough for audio LMs to consume. In practice, EnCodec became the acoustic tokenizer behind a large fraction of speech and music generation research in 2022-2024.</p>
+
+<h2 id="architecture">Architecture And Published Bandwidths</h2>
+<p>The official repository describes a causal 24 kHz monophonic model trained on diverse audio and a non-causal 48 kHz stereophonic model trained on music. The 24 kHz model supports 1.5, 3, 6, 12, and 24 kbps. The 48 kHz model supports 3, 6, 12, and 24 kbps.</p>
+<table>
+    <thead>
+        <tr><th>Model</th><th>Bandwidths</th><th>Published Codebook Mapping</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>24 kHz causal mono</td><td>1.5 / 3 / 6 / 12 / 24 kbps</td><td>$n_q = 2 / 4 / 8 / 16 / 32$</td></tr>
+        <tr><td>48 kHz non-causal stereo</td><td>3 / 6 / 12 / 24 kbps</td><td>Half as many codebooks at twice the frame rate</td></tr>
+    </tbody>
+</table>
+<p>One useful inference follows from Meta's published 24 kHz mapping. If 6 kbps uses 8 codebooks of size 1024, then the frame rate is about $6000 / (8 \cdot 10) = 75$ frames per second. That number is not stated directly in the README, but it is implied by the bandwidth-to-codebook mapping.</p>
+<div class="note-box">
+    <div class="box-title">Why 75 Hz Matters</div>
+    <p style="margin-bottom: 0;">For a speech LM, 75 decisions per second is dramatically easier than raw waveform modeling, but still much denser than text. This is one reason later codecs such as Mimi push the token rate even lower.</p>
+</div>
+
+<h2 id="training-objective">MS-STFT Adversary, Balancer, And Perceptual Training</h2>
+<p>The EnCodec paper introduces a multiscale STFT discriminator and a loss balancer. The important conceptual point is that waveform fidelity alone is a poor target for high-quality compression. Two waveforms can have low sample-wise error yet sound bad. Frequency-structured adversarial and reconstruction losses better capture whether harmonics, transients, and texture sound plausible.</p>
+<p>From the rate-distortion perspective, EnCodec optimizes a learned distortion measure that is closer to what listeners care about. The codec therefore learns to spend discrete capacity on perceptually important structure. That makes its tokens useful both for compression and for generation, because the bottleneck is aligned with what humans notice.</p>
+
+<h2 id="entropy-coding">Nominal Rate Versus Entropy-Coded Rate</h2>
+<p>The official EnCodec release also includes a pretrained language model that can compress the code stream further by up to 40% without additional quality loss. This is classic entropy coding in neural clothing. The RVQ symbols are not equally likely, and they are not independent across time, so a learned prior can predict them and encode only the surprise.</p>
+<p>If the LM assigns conditional probability $p(c_t \mid c_{<t})$, then the average number of bits needed under arithmetic coding approaches the cross-entropy. This makes EnCodec a nice case study in how compression and generative modeling meet: the same probabilistic model that predicts audio tokens for generation can also remove statistical redundancy for storage.</p>
+
+<h2 id="for-tts">Why EnCodec Was Great For Audio LMs, And Why It Was Not The End State</h2>
+<p>EnCodec's strengths are obvious for TTS and audio generation. It yields a fixed-size discrete representation, strong acoustic fidelity, and a clear RVQ hierarchy. It works well as the acoustic side of systems like AudioLM, MusicGen, and early codec LMs. If your task is "make it sound right," EnCodec gives you a very strong starting point.</p>
+<p>Its limitation is equally important. EnCodec is fundamentally optimized for acoustic rate-distortion, not for transcript fidelity or semantic controllability. Later work such as X-Codec and Mimi can be read as reactions to this: preserve more linguistic content in the earliest tokens, lower the decision rate, and make the token stream more language-model-friendly.</p>
+<div class="definition-box">
+    <div class="box-title">Mental Model</div>
+    <p>EnCodec is an acoustic tokenizer first and a semantic tokenizer only indirectly. It preserves what is needed to sound convincing, not necessarily what is easiest for a text-conditioned LM to reason over.</p>
+</div>
+
+<h2 id="choose-encodec">When EnCodec Is Still The Right Choice</h2>
+<p>Choose EnCodec when you want a strong, well-understood acoustic baseline, especially for music or general audio, or when you want compatibility with a large body of prior work. It is also a good reference system for measuring whether a semantic-aware tokenizer is actually helping, because it gives you a high-quality acoustic baseline that many later papers compare against.</p>
+<p>If your primary goal is streaming spoken dialogue or direct speech LM generation with fewer autoregressive steps, you should at least compare against Mimi or XCodec2. But if the question is still "what high-fidelity neural codec should I trust first," EnCodec remains one of the cleanest answers.</p>
+
+                <h2 id="primary-sources">Primary Sources</h2>
+                <ul>
+                    <li><a href="https://github.com/facebookresearch/encodec" target="_blank" rel="noopener">facebookresearch/encodec</a> - Official repo with bandwidths, codebook counts, and LM entropy-coding notes.</li>
+                    <li><a href="https://arxiv.org/abs/2210.13438" target="_blank" rel="noopener">High Fidelity Neural Audio Compression</a> - Original paper.</li>
+                    <li><a href="https://audiocraft.metademolab.com/encodec.html" target="_blank" rel="noopener">Meta EnCodec research page</a> - Official overview and demos.</li>
+                </ul>
+            </article>
+
+            <article class="article-content" id="exercises" style="display: none;">
+                <h2>How To Use These Exercises</h2>
+<p>Work the easy set without notes, use scratch paper for the medium set, and treat the hard set as mini-research problems. These are intentionally unsolved so they function as real practice rather than passive reading.</p>
+
+<h2>Easy</h2>
+<ol>
+        <li>List the two pretrained EnCodec model families published by Meta and explain one difference between them.</li>
+        <li>For the 24 kHz model, which published bitrate uses 8 codebooks?</li>
+        <li>Using the official mapping, compute the nominal bitrate of 4 codebooks at 75 Hz with a 1024-way codebook.</li>
+        <li>What does the optional EnCodec language model do?</li>
+        <li>Why is EnCodec often described as an acoustic tokenizer?</li>
+        <li>State one reason a multiscale STFT adversary is more perceptually aligned than raw sample MSE.</li>
+        <li>What does it mean that the 24 kHz model is causal?</li>
+        <li>Why does the 48 kHz model need fewer codebooks than the 24 kHz model at the same bitrate?</li>
+        <li>Explain in one sentence why EnCodec was attractive for early audio LMs.</li>
+        <li>Name one limitation of EnCodec for direct text-conditioned speech modeling.</li>
+</ol>
+
+<h2>Medium</h2>
+<ol>
+        <li>Infer the 24 kHz EnCodec frame rate from the official 6 kbps, 8-codebook configuration.</li>
+        <li>If the language model reduces the effective bitrate by 40%, what effective bitrate do you get from a 6 kbps EnCodec stream?</li>
+        <li>Why is the distinction between nominal bitrate and entropy-coded bitrate important when comparing codecs?</li>
+        <li>Suppose a downstream LM models codebook 1 well but codebooks 5-8 poorly. What artifacts would you expect in the audio?</li>
+        <li>Design a test to measure how much transcript information is recoverable from EnCodec codebook 1 alone.</li>
+        <li>Explain why a codec optimized for MOS can still be suboptimal for TTS content accuracy.</li>
+        <li>Compare the modeling difficulty of an EnCodec stream at 75 Hz with a tokenizer at 12.5 Hz, assuming similar per-token entropy.</li>
+        <li>How would you use EnCodec as a baseline to justify a new semantic-aware tokenizer?</li>
+        <li>A researcher claims that because EnCodec has high reconstruction quality, it must be optimal for speech LMs. Give a concise rebuttal.</li>
+        <li>Describe the main tradeoff between using EnCodec directly versus learning a second-stage semantic tokenizer on top of it.</li>
+</ol>
+
+<h2>Hard</h2>
+<ol>
+        <li>Formulate a rate-distortion argument for why EnCodec can be excellent for audio fidelity while still yielding word skips in a codec LM.</li>
+        <li>Design an ablation study that isolates the contributions of RVQ depth, MS-STFT adversarial training, and entropy coding in EnCodec.</li>
+        <li>Suppose you want a 3-second voice prompt to condition zero-shot TTS through EnCodec tokens. Which information is likely preserved well, and which information may still be hard for the LM to infer?</li>
+        <li>Give a careful argument for whether EnCodec should be evaluated with objective reconstruction metrics, human MOS, LM cross-entropy, or all three when used inside TTS.</li>
+        <li>Propose a hybrid tokenizer that keeps EnCodec-level acoustic quality but explicitly improves semantic separability. Be concrete about where the auxiliary signal would enter.</li>
+        <li>If the first RVQ level of EnCodec already carries most speaker identity, what does that imply about prompt-based voice cloning?</li>
+        <li>Explain how an entropy model trained on EnCodec tokens connects compression theory and autoregressive generation mathematically.</li>
+        <li>Would lowering EnCodec frame rate necessarily improve speech LM performance? Give the strongest argument on both sides.</li>
+        <li>Design a streaming TTS architecture that uses EnCodec on the output side but minimizes latency in the text-to-token model.</li>
+        <li>How would you decide empirically whether EnCodec or Mimi is the better tokenizer for a spoken-dialogue model?</li>
+</ol>
+            </article>
+        </main>
+
+        <aside class="toc-container">
+    <h4 class="toc-title">Contents</h4>
+    <nav class="toc-list">
+        <a href="#why-encodec" class="toc-link">What EnCodec Solved</a>
+        <a href="#architecture" class="toc-link">Architecture And Published Bandwidths</a>
+        <a href="#training-objective" class="toc-link">MS-STFT Adversary, Balancer, And Perceptual Training</a>
+        <a href="#entropy-coding" class="toc-link">Nominal Rate Versus Entropy-Coded Rate</a>
+        <a href="#for-tts" class="toc-link">Why EnCodec Was Great For Audio LMs, And Why It Was Not The End State</a>
+        <a href="#choose-encodec" class="toc-link">When EnCodec Is Still The Right Choice</a>
+        <a href="#primary-sources" class="toc-link">Primary Sources</a>
+    </nav>
+</aside>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-symbol">&nabla;</span>
+                    <span>ML Fundamentals</span>
+                </div>
+                <p class="footer-tagline">Deep understanding through first principles.</p>
+            </div>
+            <div class="footer-links">
+                <a href="../../../index.html">Home</a>
+                <a href="https://github.com/ml-entropy/ml-entropy.github.io" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../../js/main.js"></script>
+</body>
+</html>
