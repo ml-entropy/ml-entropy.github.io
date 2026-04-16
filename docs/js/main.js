@@ -374,8 +374,16 @@
         // Toggle solution visibility
         const solutionToggles = document.querySelectorAll('.solution-toggle');
         solutionToggles.forEach(function(toggle) {
-            toggle.addEventListener('click', function() {
-                const solution = this.nextElementSibling;
+            toggle.setAttribute('type', 'button');
+            toggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const exerciseBody = this.closest('.exercise-body');
+                const solution = exerciseBody
+                    ? exerciseBody.querySelector('.solution-content')
+                    : this.nextElementSibling;
+
                 if (solution && solution.classList.contains('solution-content')) {
                     solution.classList.toggle('show');
                     this.textContent = solution.classList.contains('show') 
