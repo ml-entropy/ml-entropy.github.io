@@ -96,116 +96,170 @@
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>19. Continuous Latent Generation For Speech</h1>
-                    <p class="lead">Discrete audio tokens became popular because they fit language models naturally. But they are not the only way to generate speech. A growing line of work keeps the speech representation continuous and asks the model to generate continuous latents directly, avoiding hard codebook decisions and the distortion that comes with them.</p>
+                    <p class="lead">Discrete audio tokens became popular because they fit language models naturally. But they are not the only way to generate speech. A growing line of work keeps the speech representation continuous and asks the model to generate continuous latents directly, avoiding hard codebook decisions and the distortion that comes with them. This tutorial explains what continuous-latent generation means, why it matters, and how it changes the design landscape.</p>
                 </div>
 
                 <h2 id="why-now">Why Return To Continuous Latents After The Discrete Token Boom?</h2>
-                <p>Discrete codec tokens solved a real problem. They let researchers treat speech generation as next-token prediction, reuse the machinery of language modeling, and compress waveform information into a structured sequence. That is why VALL-E and codec language models were such a big shift.</p>
-                <p>But discrete tokens also impose a hard partition on the latent space. Two nearby latent states that fall into the same codebook cell become exactly identical after quantization. That is useful for compression, but it can be harmful for generation if the task benefits from preserving fine acoustic variation, continuity, or smooth geometric structure.</p>
-                <p>Continuous latent generation is the response to that tradeoff. Instead of predicting an index $c_t \in \{1,\dots,N\}$, the model predicts a vector $\mathbf{z}_t \in \mathbb{R}^d$ or a full continuous trajectory over such vectors. The representation stays dense and continuous all the way through generation.</p>
+
+                <p>Discrete codec tokens solved a real problem. They let researchers treat speech generation as next-token prediction, reuse the machinery of language modeling, and compress waveform information into a structured sequence. That is why VALL-E and codec language models were such a big shift — they showed that speech generation could ride the wave of LLM progress for free.</p>
+
+                <p>But discrete tokens also impose a hard partition on the latent space. Two nearby latent states that fall into the same codebook cell become exactly identical after quantization. Two states that fall into adjacent cells may be far apart in code index space, even though they are acoustically similar. That is useful for compression (the whole point is to reduce the representation to a finite set of symbols), but it can be harmful for generation if the task benefits from preserving fine acoustic variation, continuity, or smooth geometric structure.</p>
+
+                <p>Consider a concrete example. Imagine two utterances of the word "hello" — one with slightly rising intonation and one with slightly falling intonation. In continuous space, these are nearby points: the mel spectrograms differ by small values in the F0-related dimensions. After quantization with a codebook of 1024 entries, both might map to the same code (losing the distinction) or to very different codes (making the distinction look larger than it is). Neither outcome is ideal for a generative model that needs to understand the structure of speech.</p>
+
+                <p>Continuous latent generation is the response to that tradeoff. Instead of predicting an index $c_t \in \{1, \dots, N\}$, the model predicts a vector $\mathbf{z}_t \in \mathbb{R}^d$ or a full continuous trajectory over such vectors. The representation stays dense and continuous all the way through generation, preserving the smooth structure of the speech manifold.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Mental Model</div>
-                    <p>A discrete-token model says, "pick one symbol from a dictionary." A continuous-latent model says, "move to the right point on a manifold." The first is easier to train with cross-entropy. The second can preserve more geometric and acoustic detail.</p>
+                    <p>A discrete-token model says, "pick one symbol from a dictionary." A continuous-latent model says, "move to the right point on a manifold." The first is easier to train with cross-entropy. The second can preserve more geometric and acoustic detail. The choice between them depends on what you care about more: simplicity of training or fidelity of representation.</p>
                 </div>
 
                 <h2 id="what-is-continuous">What Exactly Counts As A Continuous Latent?</h2>
+
                 <p>In speech generation, "continuous latent" can mean several related things:</p>
                 <ul>
-                    <li>a mel spectrogram or log-mel frame sequence predicted directly from text,</li>
-                    <li>a learned continuous autoencoder latent that is not vector-quantized,</li>
-                    <li>a continuous speech representation generated autoregressively frame by frame,</li>
-                    <li>a continuous trajectory produced by diffusion or flow matching.</li>
+                    <li><strong>Mel spectrograms:</strong> A mel spectrogram frame sequence predicted directly from text. Each frame is a vector of 80-128 dimensions representing the spectral energy in frequency bands. This is the oldest continuous speech representation, used since the earliest neural TTS systems.</li>
+                    <li><strong>Learned autoencoder latents:</strong> A continuous latent space learned by a variational autoencoder (VAE) or autoencoder (AE) that is not vector-quantized. The encoder maps audio to continuous vectors; the decoder maps vectors back to audio. The latent space can be lower-dimensional than mel space.</li>
+                    <li><strong>Autoregressive continuous frames:</strong> A continuous speech representation generated one frame at a time, autoregressively, where each frame is a continuous vector predicted by the model.</li>
+                    <li><strong>Flow/diffusion trajectories:</strong> A continuous trajectory produced by flow matching or diffusion, where noise is progressively transformed into a clean speech representation.</li>
                 </ul>
-                <p>The unifying idea is simple: the model never commits to a discrete audio token inventory during generation. It predicts continuous-valued states instead.</p>
-                <p>This makes continuous-latent generation broader than one model family. Grad-TTS, Voicebox, E2-TTS, F5-TTS, MELLE, and FELLE all sit somewhere in this space, even though their training objectives differ.</p>
+
+                <p>The unifying idea is simple: the model never commits to a discrete audio token inventory during generation. It predicts continuous-valued states instead. The output at every stage is a real-valued vector, not an integer index.</p>
+
+                <p>This makes continuous-latent generation broader than one model family. Grad-TTS, Voicebox, E2-TTS, F5-TTS, MELLE, FELLE, and Pocket TTS all sit somewhere in this space, even though their training objectives, generation mechanisms, and architectural details differ significantly.</p>
 
                 <h2 id="what-changes">What Changes When You Replace Discrete Tokens?</h2>
+
                 <p>The most immediate change is the learning objective. In a discrete-token model, you usually optimize cross-entropy over a vocabulary:</p>
-                $$\mathcal{L}_{\text{disc}} = - \sum_t \log p(c_t \mid c_{<t}, x).$$
-                <p>In a continuous model, there is no vocabulary to softmax over. Instead, you must define a density, a regression target, or a vector field over continuous states. For example:</p>
-                <ul>
-                    <li>autoregressive density modeling: $p(\mathbf{z}_t \mid \mathbf{z}_{<t}, x)$,</li>
-                    <li>diffusion or score modeling over noisy continuous states,</li>
-                    <li>flow matching with a learned velocity field $\mathbf{v}_\theta(\mathbf{z}, t, x)$.</li>
-                </ul>
-                <p>So the central difficulty shifts. With discrete tokens, the challenge is codebook design and long token sequences. With continuous latents, the challenge is how to model a continuous conditional distribution without collapsing to blurry averages or unstable trajectories.</p>
+                $$\mathcal{L}_{\text{disc}} = -\sum_t \log p(c_t \mid c_{<t}, x).$$
+                <p>This has a clear, well-understood interpretation: minimize the surprise of the observed token given the context. The gradient signal is clean (it comes from the softmax/cross-entropy combination), and the training dynamics are well-studied.</p>
+
+                <p>In a continuous model, there is no vocabulary to softmax over. Instead, you must define a density, a regression target, or a vector field over continuous states. The three main options are:</p>
+
+                <h3>Autoregressive Density Modeling</h3>
+                <p>Predict a conditional density $p(\mathbf{z}_t \mid \mathbf{z}_{<t}, x)$ at each time step. This can be a Gaussian, a mixture of Gaussians, or a more complex distribution. The loss is the negative log-likelihood of the observed frame under the predicted distribution.</p>
+
+                <h3>Score/Diffusion Modeling</h3>
+                <p>Learn a score function $\nabla_{\mathbf{z}} \log p(\mathbf{z})$ or a denoising function that can iteratively refine noisy speech into clean speech. The loss compares the predicted denoising direction to the true noise that was added.</p>
+
+                <h3>Flow Matching</h3>
+                <p>Learn a velocity field $\mathbf{v}_\theta(\mathbf{z}, t, x)$ that describes how to transport noise samples toward clean speech samples along straight-line paths. The loss compares the predicted velocity to the true transport velocity.</p>
+
+                <p>So the central difficulty shifts. With discrete tokens, the challenge is codebook design and long token sequences. With continuous latents, the challenge is how to model a continuous conditional distribution without collapsing to blurry averages or producing unstable trajectories.</p>
+
                 <div class="definition-box">
                     <div class="box-title">The Mean-Collapse Problem</div>
-                    <p>When a continuous model is trained with a simple deterministic loss such as $L_2$, it tends to predict the conditional mean of all plausible outputs. For speech, this averages across valid prosodic variations, producing flat, robotic output. This is the core reason why flow matching and diffusion are preferred over plain regression — they model the full distribution, not just its center.</p>
+                    <p>When a continuous model is trained with a simple deterministic loss such as $L_2$, it tends to predict the conditional mean of all plausible outputs. For speech, this averages across valid prosodic variations, producing flat, robotic output. If there are two valid ways to say a word (rising vs. falling intonation), the $L_2$-optimal prediction is a flat intonation that sounds like neither. This is the core reason why flow matching and diffusion are preferred over plain regression — they model the full distribution, not just its center.</p>
                 </div>
 
                 <h2 id="info-perspective">The Information-Theory Perspective</h2>
-                <p>Why can continuous latents help? Because quantization is an irreversible information bottleneck. If an encoder outputs a continuous latent $\mathbf{z}$ and you quantize it to $q(\mathbf{z})$, then every distinction inside one quantization cell is discarded. For compression, that is often the point. For generation, it may be unnecessary or even harmful.</p>
-                <p>Continuous latents delay that loss. They preserve more local geometry, more small acoustic distinctions, and sometimes better alignment with the vocoder or decoder that reconstructs waveforms. From a rate-distortion viewpoint, they are closer to the high-fidelity side of the tradeoff.</p>
-                <p>But there is no free lunch. A continuous model still has to represent uncertainty. It just represents it differently. Instead of picking among discrete symbols with entropy measured in bits per token, it models a continuous distribution whose uncertainty is expressed through variance, diffusion noise, or flow trajectories.</p>
+
+                <p>Why can continuous latents help? Because quantization is an irreversible information bottleneck. If an encoder outputs a continuous latent $\mathbf{z}$ and you quantize it to $q(\mathbf{z})$, then every distinction inside one quantization cell is discarded. For compression, that is often the point — you want to reduce the data to the minimum representation needed for acceptable quality. For generation, it may be unnecessary or even harmful.</p>
+
+                <p>Let us formalize this. The data processing inequality says: for any Markov chain $X \to Z \to Q(Z)$,</p>
+                $$I(Q(Z); X) \leq I(Z; X).$$
+                <p>Quantization can only lose information, never gain it. For generation, the lost information must be hallucinated by the decoder, which introduces artifacts and noise. A continuous latent avoids this loss entirely — $I(Z; X)$ is preserved throughout.</p>
+
+                <p>Continuous latents delay information loss. They preserve more local geometry, more small acoustic distinctions, and sometimes better alignment with the vocoder or decoder that reconstructs waveforms. From a rate-distortion viewpoint, they are closer to the high-fidelity side of the tradeoff.</p>
+
+                <p>But there is no free lunch. A continuous model still has to represent uncertainty. It just represents it differently. Instead of picking among discrete symbols with entropy measured in bits per token, it models a continuous distribution whose uncertainty is expressed through variance, diffusion noise, or flow trajectories. The total information content is the same — what changes is how it is organized.</p>
+
                 <div class="note-box">
                     <div class="box-title">Important Caveat</div>
-                    <p style="margin-bottom: 0;">Continuous latents are often better for generation than for storage. If you care about compressing audio into a compact bitstream, discrete tokens still have a major advantage because they give you a natural coding alphabet.</p>
+                    <p style="margin-bottom: 0;">Continuous latents are often better for generation than for storage. If you care about compressing audio into a compact bitstream (for transmission, archival, or feeding to a discrete LM), discrete tokens still have a major advantage because they give you a natural coding alphabet. Continuous latents require additional quantization if you need to store them, which reintroduces the very information loss they were designed to avoid.</p>
                 </div>
 
                 <h2 id="main-families">The Main Families Of Continuous-Latent Speech Generation</h2>
-                <p>The field has converged on three especially important families.</p>
+
+                <p>The field has converged on three especially important families, each representing a different philosophy about how continuous generation should work:</p>
+
                 <table>
                     <thead>
-                        <tr><th>Family</th><th>Main idea</th><th>Representative systems</th></tr>
+                        <tr><th>Family</th><th>Main idea</th><th>Representative systems</th><th>Key advantage</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>Direct continuous acoustic generation</td><td>Generate mel or continuous latent frames directly</td><td>Grad-TTS, Matcha-TTS</td></tr>
-                        <tr><td>Flow matching with speech infilling</td><td>Transport noise to clean speech conditioned on text and prompt audio</td><td>Voicebox, E2-TTS, F5-TTS</td></tr>
-                        <tr><td>Autoregressive continuous-token LMs</td><td>Keep LM-style sequencing but predict continuous frames instead of discrete codes</td><td>MELLE, FELLE</td></tr>
+                        <tr><td>Direct continuous acoustic generation</td><td>Generate mel or continuous latent frames directly using diffusion or flow</td><td>Grad-TTS, Matcha-TTS</td><td>Simple, well-understood</td></tr>
+                        <tr><td>Flow matching with speech infilling</td><td>Transport noise to clean speech conditioned on text and prompt audio</td><td>Voicebox, E2-TTS, F5-TTS</td><td>Non-AR, zero-shot cloning</td></tr>
+                        <tr><td>Autoregressive continuous-token LMs</td><td>Keep LM-style sequencing but predict continuous frames instead of discrete codes</td><td>MELLE, FELLE</td><td>Sequential planning, LM-compatible</td></tr>
                     </tbody>
                 </table>
-                <p>The first family is older and closer to traditional TTS. The second family made fully non-autoregressive zero-shot TTS much more practical. The third family is the direct answer to the question, "Can we keep the language-model view of speech generation but drop vector quantization?"</p>
+
+                <p>The first family is older and closer to traditional TTS. It builds on the observation that mel spectrogram generation is essentially an image-like conditional generation problem, and applies diffusion/flow methods developed for images. The quality is good but the systems are typically limited to seen speakers and require explicit duration models.</p>
+
+                <p>The second family made fully non-autoregressive zero-shot TTS much more practical. By formulating speech generation as infilling (given text and context audio, fill in the missing speech), these systems can clone unseen voices, edit existing speech, and generate in multiple languages — all within a unified framework. The next tutorial covers this family in detail.</p>
+
+                <p>The third family is the direct answer to the question, "Can we keep the language-model view of speech generation but drop vector quantization?" By predicting continuous vectors autoregressively (one frame per step), these systems maintain the sequential planning ability of LMs while avoiding quantization distortion. The tradeoff is that each prediction step is more complex than a discrete token prediction.</p>
 
                 <h2 id="why-flow">Why Flow Matching Became So Important Here</h2>
-                <p>Once you decide to stay in a continuous space, you need a good way to model multimodal outputs. Plain $L_2$ regression is weak because it pushes the model toward conditional means, which often sound over-smoothed. Diffusion and flow matching are attractive because they model a full continuous transformation from noise to data.</p>
-                <p>Flow matching became especially popular because it gives a simple training objective, works naturally with continuous speech representations, and often needs fewer inference steps than classical diffusion. Voicebox, E2-TTS, and F5-TTS all benefit from this shift.</p>
-                <p>So one way to summarize the trend is: discrete tokens made speech generation more compatible with language models; flow matching made continuous speech generation practical again.</p>
+
+                <p>Once you decide to stay in a continuous space, you need a good way to model multimodal outputs. Plain $L_2$ regression is weak because it pushes the model toward conditional means, which often sound over-smoothed. You need a method that can represent the full distribution of plausible outputs and sample from it.</p>
+
+                <p>Three candidate methods emerged from the generative modeling literature:</p>
+                <ol>
+                    <li><strong>GANs:</strong> Adversarial training can produce sharp, high-quality outputs, but training is unstable and mode collapse is common. For speech, this means some speaking styles or phonemes may be poorly represented.</li>
+                    <li><strong>Diffusion:</strong> Score-based diffusion can model complex distributions stably, but requires many denoising steps at inference (50-1000 steps), making it slow.</li>
+                    <li><strong>Flow matching:</strong> Conditional flow matching learns straight-line transport paths from noise to data, requiring far fewer inference steps (10-32) while maintaining high quality and stable training.</li>
+                </ol>
+
+                <p>Flow matching became especially popular because it gives a simple training objective, works naturally with continuous speech representations, and often needs fewer inference steps than classical diffusion. Voicebox, E2-TTS, and F5-TTS all benefit from this shift. The flow-matching loss is just an $L_2$ distance between predicted and true velocities — as simple to implement as regression, but with the distributional richness needed for multimodal speech output.</p>
+
+                <p>So one way to summarize the trend is: discrete tokens made speech generation more compatible with language models; flow matching made continuous speech generation practical again by solving the quality-speed tradeoff that diffusion left open.</p>
+
                 <div class="note-box">
                     <div class="box-title">Flow Matching vs. Diffusion — Key Distinction</div>
                     <p style="margin-bottom: 0;">Both flow matching and diffusion transform noise into data, but they differ in how they parameterize the process. Diffusion learns a score function (gradient of log-density) and reverses a stochastic process. Flow matching learns a deterministic velocity field that transports samples along straight or near-straight paths from noise to data. In practice, flow matching often yields simpler training objectives and requires fewer inference steps, which is why it has become the dominant choice for continuous-latent TTS.</p>
                 </div>
 
                 <h2 id="continuous-ar">Why Autoregressive Continuous Tokens Are Interesting</h2>
+
                 <p>Some researchers wanted to keep the benefits of autoregressive next-step modeling while removing vector quantization. That is the motivation behind MELLE and FELLE. These models still think in sequential next-step terms, but the next "token" is continuous: typically a mel-spectrogram frame or a related continuous speech unit.</p>
-                <p>This is conceptually important. It means the "language model view" of speech does not logically require discrete vocabularies. What it requires is an ordered factorization over time. The output variable can still be continuous.</p>
+
+                <p>This is conceptually important. It means the "language model view" of speech does not logically require discrete vocabularies. What it requires is an ordered factorization over time:</p>
+                $$p(\mathbf{z}_{1:T} \mid x) = \prod_{t=1}^T p(\mathbf{z}_t \mid \mathbf{z}_{<t}, x).$$
+                <p>The output variable $\mathbf{z}_t$ can be continuous. The autoregressive structure — each prediction conditioned on all previous predictions — works regardless of whether the predictions are integers or real-valued vectors.</p>
+
+                <p>The advantage of AR continuous models over non-AR flow models is sequential planning. An autoregressive model makes decisions one at a time, and each decision constrains future decisions. This creates a natural mechanism for maintaining long-range coherence: the model at step 100 "knows" what it decided at step 1 and can maintain consistency. Non-AR models generate all frames simultaneously, which can lead to local coherence without global planning.</p>
+
                 <div class="note-box">
                     <div class="box-title">Continuous AR ≠ Regression</div>
-                    <p style="margin-bottom: 0;">A common misconception is that autoregressive continuous-token models simply regress each frame with $L_2$ loss. In practice, systems like MELLE use variational or diffusion-based per-step losses to avoid mean collapse, and FELLE applies token-wise flow matching. The autoregressive structure provides temporal ordering; the per-step loss provides distributional richness.</p>
+                    <p style="margin-bottom: 0;">A common misconception is that autoregressive continuous-token models simply regress each frame with $L_2$ loss. In practice, systems like MELLE use variational or diffusion-based per-step losses to avoid mean collapse, and FELLE applies token-wise flow matching. The autoregressive structure provides temporal ordering; the per-step loss provides distributional richness. Both are necessary — AR alone (with $L_2$) gives robotic output; distributional loss alone (without AR) gives locally good but globally incoherent output.</p>
                 </div>
 
                 <h2 id="when-better">When Continuous Latents Tend To Be Better</h2>
+
                 <p>Continuous latents tend to shine when:</p>
                 <ul>
-                    <li>fidelity matters more than storage,</li>
-                    <li>you want to avoid quantization distortion and codebook collapse,</li>
-                    <li>you want faster non-autoregressive generation in continuous space,</li>
-                    <li>you want simpler pipelines without audio tokenizers and multi-codebook decoding.</li>
+                    <li><strong>Fidelity matters more than storage:</strong> If you are generating speech for immediate playback (TTS, voice assistant) rather than archival, the extra acoustic detail that continuous latents preserve is valuable.</li>
+                    <li><strong>You want to avoid quantization artifacts:</strong> Discrete codecs introduce characteristic artifacts — buzziness, metallicness, quantization noise — that are absent in continuous representations.</li>
+                    <li><strong>You want faster non-autoregressive generation:</strong> Flow-matching models generate entire utterances in 16-32 steps, regardless of length. For long outputs, this can be much faster than token-by-token AR generation.</li>
+                    <li><strong>You want simpler pipelines:</strong> Continuous systems avoid the multi-codebook decoding, interleaving strategies, and RVQ coordination that discrete systems require.</li>
+                    <li><strong>You want high-quality voice cloning:</strong> Continuous conditioning from prompt audio preserves fine speaker detail better than quantized prompt representations.</li>
                 </ul>
                 <p>They are less attractive when:</p>
                 <ul>
-                    <li>you need a compact discrete interface for a large multimodal LM,</li>
-                    <li>you care about entropy coding and storage efficiency,</li>
-                    <li>you want the simplest possible training objective, namely cross-entropy over tokens.</li>
+                    <li><strong>You need a discrete interface for a large multimodal LM:</strong> Models like GPT-4o that process text, images, and audio in one token stream need discrete audio tokens.</li>
+                    <li><strong>You care about storage efficiency:</strong> Continuous latents are expensive to store; discrete tokens are compact by design.</li>
+                    <li><strong>You want the simplest possible training:</strong> Cross-entropy over discrete tokens is simpler and better-understood than continuous density modeling.</li>
+                    <li><strong>You need streaming with minimal latency:</strong> AR discrete models can stream one token at a time; non-AR continuous models must generate the full output before any audio is available.</li>
                 </ul>
 
-                <h2 id="series-roadmap">How This Mini-Series Is Organized</h2>
-                <p>The next four tutorials unpack the continuous-latent story in order:</p>
+                <h2 id="series-roadmap">How The Continuous-Latent Series Is Organized</h2>
+
+                <p>The next tutorials in this series unpack the continuous-latent story in order:</p>
                 <ol>
-                    <li>why the information theory is different from discrete-token modeling,</li>
-                    <li>how flow-matching systems such as Voicebox, E2-TTS, and F5-TTS work,</li>
-                    <li>how MELLE and FELLE keep autoregressive modeling while dropping vector quantization,</li>
-                    <li>how to compare continuous and discrete approaches in practice.</li>
+                    <li><strong>Tutorial 20:</strong> Why the information theory is different from discrete-token modeling — differential entropy, rate-distortion, and the generation-vs-compression distinction.</li>
+                    <li><strong>Tutorial 21:</strong> How flow-matching systems such as Voicebox, E2-TTS, and F5-TTS work — the specific architectures and design choices.</li>
+                    <li><strong>Tutorial 22:</strong> How MELLE and FELLE keep autoregressive modeling while dropping vector quantization — the continuous-AR paradigm.</li>
+                    <li><strong>Tutorial 23:</strong> How to compare continuous and discrete approaches in practice — tradeoffs, decision criteria, and hybrid strategies.</li>
                 </ol>
-                <p>If the codec series was about "how speech became discrete," this series is about "why speech generation is becoming continuous again."</p>
+                <p>If the codec series was about "how speech became discrete," this series is about "why speech generation is becoming continuous again" — and why the answer is not that one approach is universally better, but that they serve different needs.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
-                    <li><a href="https://voicebox.metademolab.com/" target="_blank" rel="noopener">Voicebox official project page</a> - Meta's non-autoregressive flow-matching speech infilling system.</li>
-                    <li><a href="https://ar5iv.labs.arxiv.org/html/2406.18009" target="_blank" rel="noopener">E2 TTS: Embarrassingly Easy Fully Non-Autoregressive Zero-Shot TTS</a> - Clear statement of the filler-token flow-matching design.</li>
-                    <li><a href="https://arxiv.org/abs/2410.06885" target="_blank" rel="noopener">F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching</a> - F5-TTS paper.</li>
-                    <li><a href="https://aclanthology.org/2025.acl-long.65.pdf" target="_blank" rel="noopener">Autoregressive Speech Synthesis without Vector Quantization</a> - MELLE paper.</li>
-                    <li><a href="https://www.microsoft.com/en-us/research/project/vall-e-x/felle/" target="_blank" rel="noopener">FELLE official page</a> - Microsoft's autoregressive continuous-token model with token-wise flow matching.</li>
+                    <li><a href="https://arxiv.org/abs/2301.13823" target="_blank" rel="noopener">VALL-E</a> - Foundational reference for discrete-token speech LMs, which continuous approaches respond to.</li>
+                    <li><a href="https://voicebox.metademolab.com/" target="_blank" rel="noopener">Voicebox</a> - Key reference for non-autoregressive continuous-latent speech generation with flow matching.</li>
+                    <li><a href="https://aclanthology.org/2025.acl-long.65.pdf" target="_blank" rel="noopener">MELLE</a> - Key reference for autoregressive continuous-token speech generation.</li>
+                    <li><a href="https://arxiv.org/abs/2105.06337" target="_blank" rel="noopener">Grad-TTS</a> - Early reference for diffusion-based continuous speech generation.</li>
                 </ul>
             </article>
 
@@ -291,13 +345,13 @@
             <nav class="toc-list">
                 <a href="#why-now" class="toc-link">Why Return To Continuous Latents?</a>
                 <a href="#what-is-continuous" class="toc-link">What Counts As A Continuous Latent?</a>
-                <a href="#what-changes" class="toc-link">What Changes When You Replace Tokens?</a>
+                <a href="#what-changes" class="toc-link">What Changes Without Discrete Tokens</a>
                 <a href="#info-perspective" class="toc-link">The Information-Theory Perspective</a>
-                <a href="#main-families" class="toc-link">The Main Families</a>
-                <a href="#why-flow" class="toc-link">Why Flow Matching Matters</a>
+                <a href="#main-families" class="toc-link">Three Families Of Continuous Generation</a>
+                <a href="#why-flow" class="toc-link">Why Flow Matching Became Important</a>
                 <a href="#continuous-ar" class="toc-link">Autoregressive Continuous Tokens</a>
-                <a href="#when-better" class="toc-link">When Continuous Latents Help</a>
-                <a href="#series-roadmap" class="toc-link">How This Series Is Organized</a>
+                <a href="#when-better" class="toc-link">When Continuous Latents Win</a>
+                <a href="#series-roadmap" class="toc-link">Series Roadmap</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
             </nav>
         </aside>

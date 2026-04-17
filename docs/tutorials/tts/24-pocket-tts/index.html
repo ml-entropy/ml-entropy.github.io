@@ -92,120 +92,239 @@
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>24. Pocket TTS: CPU-First Continuous-Latent TTS</h1>
-                    <p class="lead">Most modern high-quality TTS systems are discussed as if a GPU is normal. Pocket TTS changes the question. It asks: what if the target machine is a laptop CPU, the latency budget is tight, and you still want voice cloning and usable quality? That shifts the engineering objective from "best possible speech" to "best speech per unit of compute."</p>
+                    <p class="lead">Most modern high-quality TTS systems are discussed as if a GPU is normal. Pocket TTS changes the question. It asks: what if the target machine is a laptop CPU, the latency budget is tight, and you still want voice cloning and usable quality? That shifts the engineering objective from "best possible speech" to "best speech per unit of compute." This tutorial explains the design philosophy, architecture, and information-theoretic reasoning behind building TTS for the edge.</p>
                 </div>
 
                 <h2 id="what-is-it">What Is Pocket TTS?</h2>
+
                 <p>Kyutai describes Pocket TTS as a tiny TTS model with voice cloning that is fast enough to run on CPU. On the official Pocket TTS pages, Kyutai states that the model has <strong>100 million parameters</strong>, streams audio, reaches the first chunk in about <strong>200 ms</strong>, runs about <strong>6x faster than real time</strong> on a MacBook Air M4 CPU, and uses only <strong>2 CPU cores</strong>. The official docs also emphasize that it is <strong>English only at the moment</strong>, supports voice cloning, can handle very long text, and can even run in-browser.</p>
+
                 <p>Those facts matter because they tell you what the design target is. Pocket TTS is not trying to beat the largest server models on absolute quality. It is trying to dominate the <em>edge TTS</em> regime: low setup cost, low serving cost, low latency, and no GPU dependency.</p>
+
+                <p>To appreciate why this matters, consider the deployment landscape for TTS in 2024-2025. Most production TTS systems run on cloud GPUs — A100s or H100s that cost $1-4 per hour. For a company serving millions of requests per day, this is a massive infrastructure cost. And for applications that need to work offline (navigation, accessibility, embedded devices), cloud GPUs are simply not available. Pocket TTS targets exactly this gap: real-time, high-quality TTS that runs on hardware the user already has.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Mental Model</div>
-                    <p>Pocket TTS is not mainly "a smaller TTS." It is a TTS system optimized for a different operating point: minimal hardware, immediate startup, practical voice reuse, and continuous generation without a heavy discrete-token stack.</p>
+                    <p>Pocket TTS is not mainly "a smaller TTS." It is a TTS system optimized for a different operating point: minimal hardware, immediate startup, practical voice reuse, and continuous generation without a heavy discrete-token stack. Think of it as the difference between a sports car (GPU TTS: maximum performance, expensive) and an efficient compact car (Pocket TTS: practical performance, runs everywhere).</p>
                 </div>
 
                 <h2 id="why-cpu">Why CPU-First TTS Changes The Design Space</h2>
+
                 <p>Once CPU inference is the constraint, two things become expensive very quickly:</p>
                 <ul>
-                    <li>long autoregressive sequences,</li>
-                    <li>heavy per-step sampling heads.</li>
+                    <li><strong>Long autoregressive sequences:</strong> Each step requires a full forward pass through the model. On a GPU, these are fast (milliseconds). On a CPU, they are much slower (tens of milliseconds per step). The total latency is proportional to the number of steps.</li>
+                    <li><strong>Heavy per-step sampling heads:</strong> Large softmax layers (like XCodec2's 65k vocabulary) or multi-step diffusion heads add significant per-step cost. On a GPU, these are parallelized efficiently. On a CPU, they become bottlenecks.</li>
                 </ul>
+
                 <p>A classic discrete codec LM can be excellent, but if each audio frame requires multiple codebook-token decisions, the decision count multiplies. If a sequence has $T$ time steps and an RVQ stack depth of $Q$, then a discrete system may need on the order of</p>
                 $$N_{\text{disc}} \approx TQ$$
                 <p>token decisions, while a continuous-latent next-frame system needs roughly</p>
                 $$N_{\text{cont}} \approx T.$$
-                <p>That does not automatically make continuous modeling cheaper, because each continuous step can be harder. But it explains the basic attraction: remove the RVQ depth axis, remove quantization, and the sequence geometry becomes much friendlier.</p>
-                <div class="example-box">
+
+                <p>That does not automatically make continuous modeling cheaper, because each continuous step can be computationally harder than a discrete token prediction. But it explains the basic attraction: remove the RVQ depth axis, remove quantization, and the sequence geometry becomes much friendlier for CPU inference.</p>
+
+                <h3>Concrete CPU Arithmetic</h3>
+
+                <p>Let us work through the numbers for a concrete comparison. Suppose we want to generate 5 seconds of audio on a modern laptop CPU:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>System</th><th>Steps for 5s</th><th>Per-step time (CPU)</th><th>Total time</th><th>Real-time factor</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>EnCodec LM (75 Hz, 8-level)</td><td>375 + 375×7 = 3,000</td><td>~2-5 ms</td><td>~6-15 s</td><td>0.3-0.8×</td></tr>
+                        <tr><td>Mimi-based LM (12.5 Hz, first level)</td><td>62.5</td><td>~5-10 ms</td><td>~0.3-0.6 s</td><td>8-16×</td></tr>
+                        <tr><td>Pocket TTS (continuous, ~50 Hz)</td><td>~250</td><td>~3-4 ms</td><td>~0.75-1.0 s</td><td>5-7×</td></tr>
+                    </tbody>
+                </table>
+
+                <p>The table shows why Pocket TTS achieves ~6× real-time on CPU: it avoids the deep RVQ loop, uses a compact model (100M parameters means fast forward passes), and uses a continuous head that requires only 1-2 steps per frame instead of many diffusion steps.</p>
+
+                <div class="note-box">
                     <div class="box-title">A Toy Comparison</div>
-                    <p>If a discrete audio model used 8 codebooks, then every frame would require 8 token decisions instead of 1 continuous-frame decision. Even before discussing model quality, that is an 8x difference in sequential decision count. On a CPU, that difference matters.</p>
+                    <p style="margin-bottom: 0;">If a discrete audio model used 8 codebooks, then every frame would require 8 token decisions instead of 1 continuous-frame decision. Even before discussing model quality, that is an 8× difference in sequential decision count. On a CPU where each decision takes 2-5 ms, this is the difference between real-time and non-real-time generation.</p>
                 </div>
 
                 <h2 id="calm-connection">How Pocket TTS Fits The CALM Picture</h2>
-                <p>The strongest primary source for understanding Pocket TTS technically is Kyutai's <em>Continuous Audio Language Models</em> paper. That paper says CALM replaces lossy discrete codec tokens with a continuous audio-VAE latent and uses:</p>
+
+                <p>The strongest primary source for understanding Pocket TTS technically is Kyutai's <em>Continuous Audio Language Models</em> (CALM) paper. CALM is not just a training technique — it is a conceptual framework for how to think about speech generation without discrete tokens.</p>
+
+                <p>The CALM paper says that the model replaces lossy discrete codec tokens with a continuous audio-VAE latent and uses:</p>
                 <ul>
                     <li>a Transformer backbone that produces contextual embeddings over time,</li>
                     <li>a lightweight head that generates the next continuous latent frame,</li>
                     <li>consistency modeling instead of a slower diffusion-style head.</li>
                 </ul>
-                <p>The same paper explicitly states that Kyutai releases Pocket TTS as an open-source 100M-parameter TTS model that runs faster than real time on laptop CPU.</p>
+
+                <p>The same paper explicitly states that Kyutai releases Pocket TTS as an open-source 100M-parameter TTS model that runs faster than real time on laptop CPU. So Pocket TTS is best understood as a compact, practical instantiation of the CALM approach — the theory is CALM, the product is Pocket TTS.</p>
+
+                <h3>What CALM Changes About The Training Objective</h3>
+
+                <p>In a discrete codec LM, the training loss is cross-entropy over token indices:</p>
+                $$\mathcal{L}_{\text{disc}} = -\sum_t \log p(c_t \mid c_{<t}, x).$$
+
+                <p>CALM replaces this with a continuous objective. The model predicts a continuous latent frame $\mathbf{z}_t$, and the loss measures how well the prediction matches the target. But — and this is crucial — the loss is not simple $L_2$ regression, because that would cause mean collapse (as discussed in Tutorial 20). Instead, CALM uses a consistency-based objective that can capture the multimodality of speech output.</p>
+
+                <p>The consistency objective works roughly as follows: given the context $\mathbf{h}_t$, the model generates a continuous latent by denoising a noisy version of the target. The consistency constraint ensures that denoising from different noise levels produces the same clean output, allowing single-step or few-step generation at inference time.</p>
+
                 <div class="note-box">
                     <div class="box-title">Inference From Sources</div>
-                    <p style="margin-bottom: 0;">Kyutai's public Pocket TTS docs focus on usage and deployment, while the CALM paper explains the continuous-latent modeling design. So the most defensible reading is: Pocket TTS is a compact practical descendant of the CALM approach. That architectural connection is an inference grounded in Kyutai's own official sources, not a verbatim architecture spec published on the Pocket TTS landing page.</p>
+                    <p style="margin-bottom: 0;">Kyutai's public Pocket TTS docs focus on usage and deployment, while the CALM paper explains the continuous-latent modeling design. The most defensible reading is: Pocket TTS is a compact practical descendant of the CALM approach. That architectural connection is an inference grounded in Kyutai's own official sources, not a verbatim architecture spec published on the Pocket TTS landing page.</p>
                 </div>
 
                 <h2 id="core-architecture">A Practical Architecture Sketch</h2>
-                <p>At a high level, the system can be understood in four stages.</p>
+
+                <p>At a high level, the system can be understood in four stages:</p>
+
                 <ol>
-                    <li>Encode the voice prompt into a reusable conditioning state.</li>
-                    <li>Read the text and previous generated audio latents with a causal backbone.</li>
-                    <li>Generate the next continuous latent frame with a small consistency-style head.</li>
-                    <li>Decode the latent stream into waveform audio.</li>
+                    <li><strong>Voice encoding:</strong> Encode the voice prompt into a reusable conditioning state $v$. This captures the speaker's timbre, speaking rate, accent, and other voice characteristics in a compact vector.</li>
+                    <li><strong>Context processing:</strong> Read the text and previous generated audio latents with a causal Transformer backbone. The backbone produces a context vector $\mathbf{h}_t$ at each time step.</li>
+                    <li><strong>Latent generation:</strong> Generate the next continuous latent frame $\mathbf{z}_t$ with a small consistency-style head. This head takes $\mathbf{h}_t$ and (optionally) a noise input and produces one frame of continuous audio latent.</li>
+                    <li><strong>Waveform synthesis:</strong> Decode the latent stream into waveform audio using a lightweight decoder or vocoder.</li>
                 </ol>
-                <p>Conceptually, if $\mathbf{z}_t$ is the next audio latent and $\mathbf{h}_t$ is the Transformer context at time $t$, then the backbone does something like</p>
+
+                <p>Conceptually, if $\mathbf{z}_t$ is the next audio latent and $\mathbf{h}_t$ is the Transformer context at time $t$, then the backbone computes:</p>
                 $$\mathbf{h}_t = \mathrm{Transformer}(\mathbf{z}_{<t}, x, v),$$
                 <p>where $x$ is the text conditioning and $v$ is the voice-conditioning state. Then a smaller head turns $\mathbf{h}_t$ into the next latent:</p>
                 $$\mathbf{z}_t = g_\theta(\mathbf{h}_t, \epsilon),$$
-                <p>with $\epsilon$ representing the remaining stochasticity or noise input. This is not the exact implementation equation, but it is the right mental model.</p>
+                <p>with $\epsilon$ representing the remaining stochasticity or noise input. This is not the exact implementation equation, but it is the right mental model for understanding the data flow.</p>
 
-                <h3>Why Consistency Modeling Matters</h3>
-                <p>A diffusion head may need many refinement steps. CALM instead emphasizes a <strong>consistency model</strong>, which tries to map noisy latent states back toward the clean latent in far fewer steps. That is exactly the kind of change that matters for CPUs.</p>
-                <p>The intuition is simple. Suppose a clean latent is $\mathbf{z}$ and a noisy version is</p>
+                <h3>Why Consistency Modeling Matters For CPU</h3>
+
+                <p>A diffusion head may need 10-50 refinement steps per frame. Each step requires a forward pass through the head network. On a GPU, these steps can be parallelized or batched efficiently. On a CPU, each step is a serial computation that adds directly to latency.</p>
+
+                <p>CALM instead emphasizes a <strong>consistency model</strong>, which tries to map noisy latent states back toward the clean latent in far fewer steps — ideally just one or two. That is exactly the kind of change that matters for CPUs.</p>
+
+                <p>The intuition is simple. Suppose a clean latent is $\mathbf{z}$ and a noisy version is:</p>
                 $$\tilde{\mathbf{z}} = \alpha(\tau)\mathbf{z} + \sigma(\tau)\boldsymbol{\epsilon}.$$
-                <p>A consistency head learns a map that pushes $\tilde{\mathbf{z}}$ back toward the same clean target for different noise levels $\tau$. So instead of a long denoising chain, we get a much shorter correction process.</p>
-                <p>For edge deployment, fewer correction steps usually mean lower latency and lower power.</p>
+                <p>A consistency head learns a map $f_\theta(\tilde{\mathbf{z}}, \tau) \approx \mathbf{z}$ that pushes $\tilde{\mathbf{z}}$ back toward the same clean target for different noise levels $\tau$. The key constraint is that $f_\theta(\tilde{\mathbf{z}}, \tau)$ should produce the same output regardless of $\tau$ — this is the "consistency" property. Instead of a long denoising chain, we get a single correction step.</p>
+
+                <p><strong>Worked example: Latency impact.</strong> Suppose the consistency head adds 1 ms per frame on CPU, while a 16-step diffusion head would add 16 ms per frame. At 50 Hz, that is the difference between 50 ms/s overhead (consistency) and 800 ms/s overhead (diffusion). The consistency approach easily fits within real-time budgets; the diffusion approach does not.</p>
+
+                <h3>The 100M Parameter Budget</h3>
+
+                <p>The 100M parameter count is a deliberate design choice. Let us understand what it buys:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Component</th><th>Estimated Parameters</th><th>Role</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Text encoder</td><td>~10-15M</td><td>Convert text to conditioning embeddings</td></tr>
+                        <tr><td>Voice encoder</td><td>~10-15M</td><td>Extract speaker characteristics from prompt</td></tr>
+                        <tr><td>Transformer backbone</td><td>~50-60M</td><td>Sequential context processing</td></tr>
+                        <tr><td>Consistency head</td><td>~5-10M</td><td>Generate continuous latent per frame</td></tr>
+                        <tr><td>Decoder/vocoder</td><td>~10-20M</td><td>Convert latents to waveform</td></tr>
+                    </tbody>
+                </table>
+
+                <p>Compare this to F5-TTS (~300M-1B parameters) or VALL-E (~300M-1B parameters). Pocket TTS is 3-10× smaller. On a CPU, model size directly affects inference speed because the bottleneck is memory bandwidth — moving parameters from RAM to CPU cache. Smaller models mean faster inference, period.</p>
 
                 <h2 id="info-theory">The Information-Theory View</h2>
-                <p>Pocket TTS is a good example of why <em>generation</em> and <em>compression</em> are different problems. A discrete codec exists partly to make speech representable as a compact symbolic stream. That is useful for storage and for multimodal token interfaces. But it also introduces a quantization bottleneck.</p>
-                <p>A continuous-latent system keeps more geometric detail in the hidden representation. From an information-theory viewpoint, it delays information loss. The model still has to reduce uncertainty, but it does so in a continuous latent space rather than through codebook symbols.</p>
+
+                <p>Pocket TTS is a good example of why <em>generation</em> and <em>compression</em> are different problems. A discrete codec exists partly to make speech representable as a compact symbolic stream. That is useful for storage and for multimodal token interfaces. But it also introduces a quantization bottleneck — information is irreversibly lost when continuous latents are mapped to codebook indices.</p>
+
+                <p>A continuous-latent system keeps more geometric detail in the hidden representation. From an information-theory viewpoint, it delays information loss. The model still has to reduce uncertainty (it cannot generate perfect audio for any text), but it does so in a continuous latent space rather than through codebook symbols.</p>
+
                 <p>The design objective therefore shifts from:</p>
                 <ul>
-                    <li>"how many bits per second do I need?"</li>
+                    <li>"how many bits per second do I need?" (compression thinking)</li>
                 </ul>
                 <p>to:</p>
                 <ul>
-                    <li>"how much conditional uncertainty must I resolve per second, under a CPU budget?"</li>
+                    <li>"how much conditional uncertainty must I resolve per second, under a CPU budget?" (generation thinking)</li>
                 </ul>
-                <p>That is a different optimization problem.</p>
+                <p>That is a fundamentally different optimization problem. The first leads to codec design (VQ, RVQ, rate-distortion optimization). The second leads to generation design (consistency models, lightweight architectures, efficient conditioning).</p>
+
+                <h3>Compute-Quality Frontier</h3>
+
+                <p>Every TTS system sits on a compute-quality frontier. More compute (bigger model, more steps, better hardware) generally means better quality. Pocket TTS's contribution is demonstrating that the frontier extends much further into the low-compute region than previously thought.</p>
+
+                <p>The key insight is that speech has much less conditional uncertainty than the raw signal complexity suggests. Given text and a voice prompt, most of the acoustic realization is determined — the remaining uncertainty is in fine prosodic details, exact timing, and micro-acoustic variation. A 100M parameter model can capture this residual uncertainty well enough for practical quality, because the conditioning information (text + voice) resolves most of the generation problem.</p>
 
                 <h3>Why Voice Cloning Fits Naturally</h3>
-                <p>The official docs expose voice cloning through a prompt-audio workflow and also allow exporting a voice state to a `safetensors` file for fast reuse. This is an important clue about the system's mental model.</p>
+
+                <p>The official docs expose voice cloning through a prompt-audio workflow and also allow exporting a voice state to a <code>safetensors</code> file for fast reuse. This is an important clue about the system's design.</p>
+
                 <p>A voice prompt is not treated as a one-off waveform that must be reprocessed every time. Instead, it becomes a reusable conditioning state. Information-theoretically, that means the model caches speaker identity and style information once, then conditions many future generations on that compact state.</p>
+
                 <p>If we write the speaker prompt as $p$ and the exported voice state as $v$, then the intended workflow is:</p>
-                $$p \longrightarrow v \longrightarrow \text{many generations}. $$
-                <p>That is practical because the expensive part of extracting speaker information is amortized across many requests.</p>
+                $$p \longrightarrow v \longrightarrow \text{many generations}.$$
+                <p>That is practical because the expensive part of extracting speaker information is amortized across many requests. On a CPU, this amortization matters enormously — extracting the voice state might take 500 ms, but each subsequent generation only needs 200 ms of first-chunk latency.</p>
+
+                <p>This design also reveals an information-theoretic insight: the voice state $v$ captures the mutual information $I(v; \text{speaker identity})$ in a compact form. All subsequent generations condition on $v$ rather than re-extracting speaker information from the raw audio prompt. The savings come from the fact that $|v| \ll |p|$ — the voice state is much smaller than the prompt audio.</p>
 
                 <h2 id="workflow">How You Actually Use Pocket TTS</h2>
+
                 <p>Kyutai's official docs emphasize three usage modes:</p>
                 <ul>
-                    <li>a CLI `generate` command,</li>
-                    <li>a `serve` command for a local HTTP interface,</li>
-                    <li>a Python API for loading the model, extracting voice state, and generating audio.</li>
+                    <li>a CLI <code>generate</code> command for quick one-off generation,</li>
+                    <li>a <code>serve</code> command for a local HTTP interface that other applications can call,</li>
+                    <li>a Python API for loading the model, extracting voice state, and generating audio programmatically.</li>
                 </ul>
+
                 <p>The core Python flow looks like this:</p>
-                <pre><code class="language-python">from pocket_tts import TTSModel
+<pre><code class="language-python">from pocket_tts import TTSModel
 
 tts_model = TTSModel.load_model()
 voice_state = tts_model.get_state_for_audio_prompt("alba")
 audio = tts_model.generate_audio(voice_state, "Hello world!")</code></pre>
-                <p>And if you want to optimize repeated voice use, the docs recommend exporting the voice state once and reloading it later. That is not just convenience. It is part of the latency strategy.</p>
+
+                <p>And if you want to optimize repeated voice use, the docs recommend exporting the voice state once and reloading it later:</p>
+<pre><code class="language-python"># Export voice state for reuse
+tts_model.export_voice_state(voice_state, "alba_state.safetensors")
+
+# Later: reload without re-processing the audio prompt
+voice_state = tts_model.load_voice_state("alba_state.safetensors")
+audio = tts_model.generate_audio(voice_state, "Any text here...")</code></pre>
+
+                <p>That is not just convenience. It is part of the latency strategy — the voice encoding is the most expensive initialization step, and amortizing it across requests is essential for achieving the <200 ms first-chunk target.</p>
 
                 <h2 id="why-important">Why Pocket TTS Is Technically Important</h2>
-                <p>Three reasons make Pocket TTS worth studying.</p>
+
+                <p>Three reasons make Pocket TTS worth studying, beyond its immediate practical utility:</p>
+
                 <ol>
-                    <li>It is a concrete proof that continuous-latent TTS is not only a research idea for big GPUs.</li>
-                    <li>It shows that the "small model" story can still include voice cloning and streaming.</li>
-                    <li>It forces you to think about compute-per-audio-second, not only quality-at-any-cost.</li>
+                    <li><strong>Proof that continuous-latent TTS works at the edge.</strong> Before Pocket TTS, continuous-latent generation (flow matching, diffusion, consistency) was associated with large models and GPU hardware. Pocket TTS demonstrates that the continuous-latent paradigm can be compressed into 100M parameters and run at 6× real-time on a laptop CPU. This opens continuous-latent TTS to applications that were previously discrete-token-only territory.</li>
+                    <li><strong>The "small model" story includes voice cloning and streaming.</strong> Many compact TTS systems sacrifice features to achieve their size targets. Pocket TTS retains voice cloning (a feature typically associated with much larger models) and streaming output (essential for interactive applications). This suggests that the feature-vs-size tradeoff is less severe than previously assumed.</li>
+                    <li><strong>Forces compute-per-audio-second thinking.</strong> Most TTS research optimizes quality without reporting compute cost. Pocket TTS forces the field to think about quality per FLOP, quality per watt, and quality per dollar. These metrics matter more for real deployment than abstract quality scores.</li>
                 </ol>
+
                 <p>That is a healthy correction. A model that is slightly worse but runs everywhere may be much more important than a state-of-the-art model that only fits a server cluster.</p>
 
+                <div class="definition-box">
+                    <div class="box-title">Edge AI And The Democratization Of TTS</div>
+                    <p>Pocket TTS represents a broader trend: bringing AI capabilities that were previously cloud-only to edge devices. When TTS runs locally on a user's laptop, it eliminates network latency, works offline, preserves privacy (no audio sent to servers), and costs nothing per request. These properties are qualitatively different from cloud TTS and open new application categories — personal assistants that work on airplanes, accessibility tools that work in rural areas, creative tools that do not require subscription fees.</p>
+                </div>
+
                 <h2 id="limits">Limitations And Tradeoffs</h2>
+
                 <p>The official Kyutai docs currently list important limits:</p>
                 <ul>
-                    <li>English only,</li>
-                    <li>no official pause control from text yet,</li>
-                    <li>no int8 quantization support yet,</li>
-                    <li>voice-clone quality depends strongly on prompt quality.</li>
+                    <li><strong>English only:</strong> The current release does not support other languages. Multilingual TTS requires training data and model capacity that may push beyond the 100M parameter budget.</li>
+                    <li><strong>No explicit pause control:</strong> The model does not support precise control over silence duration or breathing patterns from text markup. This limits its use for audiobook production and dramatic narration.</li>
+                    <li><strong>No int8 quantization support yet:</strong> INT8 inference would further reduce CPU compute and memory requirements. This is likely a future optimization that could improve performance by 2-4×.</li>
+                    <li><strong>Voice-clone quality depends on prompt quality:</strong> A noisy, short, or unrepresentative prompt produces lower-quality voice cloning. The system does not currently validate prompt quality or warn the user.</li>
                 </ul>
-                <p>There is also a strategic tradeoff. Pocket TTS is great for edge deployment, but if your system needs the strongest multilingual quality or integration into a large token-centric multimodal LM, a small continuous-latent CPU model may not be the best fit.</p>
+
+                <p>There is also a strategic tradeoff. Pocket TTS is great for edge deployment, but if your system needs the strongest multilingual quality, integration into a large token-centric multimodal LM, or the absolute highest naturalness, a small continuous-latent CPU model may not be the best fit. The design space has room for both GPU-optimized quality leaders and CPU-optimized practical workhorse.</p>
+
+                <h2 id="comparison">Where Pocket TTS Fits In The TTS Landscape</h2>
+
+                <table>
+                    <thead>
+                        <tr><th>System</th><th>Parameters</th><th>Hardware</th><th>Latent Type</th><th>Voice Cloning</th><th>Streaming</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Pocket TTS</td><td>100M</td><td>CPU (2 cores)</td><td>Continuous</td><td>Yes</td><td>Yes</td></tr>
+                        <tr><td>F5-TTS</td><td>~300M-1B</td><td>GPU</td><td>Continuous</td><td>Yes</td><td>No (batch)</td></tr>
+                        <tr><td>VALL-E</td><td>~300M-1B</td><td>GPU</td><td>Discrete</td><td>Yes</td><td>Yes</td></tr>
+                        <tr><td>Moshi/Mimi</td><td>~7B</td><td>GPU</td><td>Discrete</td><td>N/A (dialogue)</td><td>Yes</td></tr>
+                        <tr><td>Edge TTS (Microsoft)</td><td>Unknown</td><td>Cloud API</td><td>Unknown</td><td>No</td><td>Yes</td></tr>
+                    </tbody>
+                </table>
+
+                <p>Pocket TTS occupies a unique position: it is the only system in this comparison that runs on CPU, supports voice cloning, and streams output. That combination of features at that compute budget is what makes it technically noteworthy.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
@@ -268,13 +387,14 @@ audio = tts_model.generate_audio(voice_state, "Hello world!")</code></pre>
             <h4 class="toc-title">Contents</h4>
             <nav class="toc-list">
                 <a href="#what-is-it" class="toc-link">What Is Pocket TTS?</a>
-                <a href="#why-cpu" class="toc-link">Why CPU-First TTS Changes Things</a>
-                <a href="#calm-connection" class="toc-link">Pocket TTS And CALM</a>
+                <a href="#why-cpu" class="toc-link">Why CPU-First Changes Design</a>
+                <a href="#calm-connection" class="toc-link">The CALM Connection</a>
                 <a href="#core-architecture" class="toc-link">Architecture Sketch</a>
-                <a href="#info-theory" class="toc-link">Information-Theory View</a>
-                <a href="#workflow" class="toc-link">Practical Workflow</a>
-                <a href="#why-important" class="toc-link">Why It Matters</a>
-                <a href="#limits" class="toc-link">Limitations</a>
+                <a href="#info-theory" class="toc-link">The Information-Theory View</a>
+                <a href="#workflow" class="toc-link">How You Actually Use Pocket TTS</a>
+                <a href="#why-important" class="toc-link">Why Pocket TTS Is Important</a>
+                <a href="#limits" class="toc-link">Limitations And Tradeoffs</a>
+                <a href="#comparison" class="toc-link">Where Pocket TTS Fits</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
             </nav>
         </aside>
