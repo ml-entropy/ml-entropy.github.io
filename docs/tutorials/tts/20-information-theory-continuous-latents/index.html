@@ -96,99 +96,242 @@
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>20. Information Theory Of Continuous Latents</h1>
-                    <p class="lead">Continuous latents require a different mental model from discrete tokens. The relevant quantities are no longer only entropy over a vocabulary and cross-entropy loss. You also need differential entropy, quantization error, continuous density modeling, and the insight that generation and compression are not the same optimization problem.</p>
+                    <p class="lead">Continuous latents require a different mental model from discrete tokens. The relevant quantities are no longer only entropy over a vocabulary and cross-entropy loss. You also need differential entropy, quantization error, continuous density modeling, and the insight that generation and compression are not the same optimization problem. This tutorial derives these concepts carefully, with worked examples, so you can reason precisely about continuous speech representations.</p>
                 </div>
 
                 <h2 id="discrete-vs-continuous">Discrete Entropy Versus Differential Entropy</h2>
+
                 <p>For a discrete random variable $C$ with probabilities $p_i$, the entropy is</p>
                 $$H(C) = -\sum_i p_i \log_2 p_i.$$
-                <p>This quantity has a direct operational meaning: it is the average number of bits needed for optimal coding, in the large-sample limit.</p>
-                <p>For a continuous random variable $Z$ with density $p(z)$, the analogous quantity is the differential entropy</p>
+                <p>This quantity has a direct operational meaning: it is the average number of bits needed for optimal coding, in the large-sample limit. If you have a codebook with 1024 entries and uniform usage, $H(C) = \log_2 1024 = 10$ bits. If usage is skewed (some codes are much more common), $H(C) < 10$ bits. In both cases, the number is concrete — it tells you exactly how many bits per symbol an optimal code would use.</p>
+
+                <p>For a continuous random variable $Z$ with density $p(z)$, the analogous quantity is the differential entropy:</p>
                 $$h(Z) = - \int p(z) \log p(z) \, dz.$$
-                <p>But here a major caveat appears. Differential entropy is not itself a storage cost in bits. It depends on units and coordinate scaling. So you should not read $h(Z)$ the way you read $H(C)$.</p>
+                <p>But here a major caveat appears. Differential entropy is not itself a storage cost in bits. It depends on units and coordinate scaling. If you measure $Z$ in meters, you get one number; if you measure in centimeters, you get a different number (shifted by $\log(100)$). So you should not read $h(Z)$ the way you read $H(C)$ — it is not a bitrate.</p>
+
+                <p>This distinction trips up many people new to information theory. Discrete entropy is always non-negative ($H(C) \geq 0$) and has a clear operational interpretation. Differential entropy can be negative (for example, a uniform distribution on $[0, 0.5]$ has $h(Z) = \log(0.5) < 0$) and does not directly tell you how many bits you need. It measures the "spread" of the distribution, but only becomes a coding rate when combined with a quantization precision.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Operational Meaning</div>
-                    <p>Discrete entropy tells you how surprising symbols are in a finite alphabet. Differential entropy tells you how spread out a continuous distribution is, but it only becomes a coding rate after you specify a quantization precision or noise level.</p>
+                    <p>Discrete entropy tells you how surprising symbols are in a finite alphabet. Differential entropy tells you how spread out a continuous distribution is, but it only becomes a coding rate after you specify a quantization precision or noise level. The bridge between them is the quantization formula: $H(Q_\Delta(Z)) \approx h(Z) - \log \Delta$.</p>
                 </div>
 
+                <h3>Common Differential Entropies</h3>
+
+                <p>To build intuition, here are the differential entropies of common distributions:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Distribution</th><th>Parameters</th><th>Differential Entropy $h(Z)$</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Gaussian</td><td>$\mathcal{N}(\mu, \sigma^2)$</td><td>$\frac{1}{2}\log(2\pi e \sigma^2)$</td></tr>
+                        <tr><td>Uniform</td><td>$U[a, b]$</td><td>$\log(b - a)$</td></tr>
+                        <tr><td>Exponential</td><td>$\text{Exp}(\lambda)$</td><td>$1 + \log(1/\lambda)$</td></tr>
+                        <tr><td>Laplace</td><td>$\text{Lap}(\mu, b)$</td><td>$1 + \log(2b)$</td></tr>
+                    </tbody>
+                </table>
+
+                <p>Notice that the Gaussian has the maximum differential entropy among all distributions with a given variance. This is a deep result in information theory — the Gaussian is the "most uncertain" distribution for a given second moment. It means that if your speech latents have variance $\sigma^2$ but a non-Gaussian shape, they actually contain less uncertainty (in the differential entropy sense) than a Gaussian with the same variance. A good generative model should exploit this structure.</p>
+
+                <h3>Multivariate Differential Entropy</h3>
+
+                <p>Speech latents are vectors, not scalars. For a $d$-dimensional continuous random vector $\mathbf{Z}$ with density $p(\mathbf{z})$:</p>
+                $$h(\mathbf{Z}) = -\int p(\mathbf{z}) \log p(\mathbf{z}) \, d\mathbf{z}.$$
+
+                <p>For a multivariate Gaussian $\mathbf{Z} \sim \mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\Sigma})$:</p>
+                $$h(\mathbf{Z}) = \frac{d}{2}\log(2\pi e) + \frac{1}{2}\log \det(\boldsymbol{\Sigma}).$$
+
+                <p><strong>Worked example.</strong> Suppose a speech encoder produces 128-dimensional latent frames with a diagonal covariance where each dimension has variance $\sigma^2 = 1$. Then $\det(\boldsymbol{\Sigma}) = 1^{128} = 1$ and:</p>
+                $$h(\mathbf{Z}) = \frac{128}{2}\log(2\pi e) + \frac{1}{2}\log(1) = 64 \log(2\pi e) \approx 64 \times 2.047 = 131 \text{ nats} \approx 189 \text{ bits}.$$
+                <p>This is the differential entropy of each latent frame. It does not directly tell us the bitrate — for that, we need to specify a quantization precision or target distortion.</p>
+
                 <h2 id="quantization-link">How Quantization Connects Them</h2>
-                <p>Suppose you quantize a continuous variable $Z$ using bins of width $\Delta$. Then the discrete coding cost of the quantized version is approximately</p>
-                $$H(Q_\Delta(Z)) \approx h(Z) - \log \Delta,$$
-                <p>up to constants and technical assumptions. This equation is extremely useful. It says that continuous uncertainty becomes discrete code length only after you decide how finely you will measure the space.</p>
-                <p><strong>Why this matters for speech.</strong> A continuous-latent model can keep $Z$ continuous during generation. But if you want to store or transmit $Z$, you eventually need a precision level, and that precision level determines the actual bitrate.</p>
+
+                <p>Suppose you quantize a continuous variable $Z$ using bins of width $\Delta$. The quantized version $Q_\Delta(Z)$ is a discrete random variable whose entropy is approximately:</p>
+                $$H(Q_\Delta(Z)) \approx h(Z) - \log_2 \Delta,$$
+                <p>up to constants and technical assumptions (the density $p(z)$ should be smooth and $\Delta$ should be small enough). This equation is extremely useful. It says that continuous uncertainty becomes discrete code length only after you decide how finely you will measure the space.</p>
+
+                <p><strong>Worked example.</strong> Consider a single dimension of a speech latent with $h(Z) = 3.04$ bits (from the Gaussian example below). If you quantize with different precisions:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Quantization Width $\Delta$</th><th>$-\log_2 \Delta$</th><th>Discrete Entropy (approx)</th><th>Interpretation</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>1.0</td><td>0</td><td>3.04 bits</td><td>Very coarse — 3 bits per dimension</td></tr>
+                        <tr><td>0.25</td><td>2</td><td>5.04 bits</td><td>Moderate precision</td></tr>
+                        <tr><td>0.1</td><td>3.32</td><td>6.36 bits</td><td>Fine precision</td></tr>
+                        <tr><td>0.01</td><td>6.64</td><td>9.68 bits</td><td>Very fine — nearly 10 bits per dimension</td></tr>
+                    </tbody>
+                </table>
+
+                <p>For a 128-dimensional latent at 50 Hz, quantized with $\Delta = 0.25$:</p>
+                $$\text{Bitrate} \approx 128 \times 5.04 \times 50 = 32{,}256 \text{ bits/s} \approx 32 \text{ kbps}.$$
+                <p>That is much higher than typical codec bitrates (1-6 kbps), which tells us that speech latents have significant redundancy that a good codec exploits through learned quantization rather than uniform binning.</p>
+
+                <p><strong>Why this matters for speech.</strong> A continuous-latent model can keep $Z$ continuous during generation. But if you want to store or transmit $Z$, you eventually need a precision level, and that precision level determines the actual bitrate. This is why continuous models are great for generation (no quantization artifacts during the creative process) but less natural for compression (where a finite discrete code is needed).</p>
 
                 <div class="note-box">
                     <div class="box-title">Quantization Is A Choice, Not A Given</div>
-                    <p style="margin-bottom: 0;">Unlike discrete tokens where the alphabet size is fixed at design time, continuous latents let you defer the precision decision. You can train a generator in full floating-point precision and only quantize when you need to store or transmit. This separation of concerns is one of the main practical advantages of continuous representations.</p>
+                    <p style="margin-bottom: 0;">Unlike discrete tokens where the alphabet size is fixed at design time, continuous latents let you defer the precision decision. You can train a generator in full floating-point precision and only quantize when you need to store or transmit. This separation of concerns is one of the main practical advantages of continuous representations — the generation model and the compression model can be designed independently.</p>
                 </div>
 
                 <h2 id="gaussian-example">A Step-By-Step Gaussian Example</h2>
-                <p>Let $Z \sim \mathcal{N}(0,\sigma^2)$. The differential entropy of a one-dimensional Gaussian is</p>
+
+                <p>Let us work through the most important example in detail, since it forms the foundation for understanding more complex speech latent distributions.</p>
+
+                <p>Let $Z \sim \mathcal{N}(0, \sigma^2)$ with $\sigma^2 = 4$. The differential entropy of a one-dimensional Gaussian is</p>
                 $$h(Z) = \frac{1}{2} \log(2\pi e \sigma^2).$$
-                <p>If $\sigma^2 = 4$, then</p>
+
+                <p>Substituting $\sigma^2 = 4$:</p>
                 $$h(Z) = \frac{1}{2} \log(2\pi e \cdot 4).$$
-                <p>Numerically, $2\pi e \cdot 4 \approx 68.3$, so in natural logarithms</p>
+                <p>Numerically, $2\pi e \cdot 4 \approx 68.3$, so in natural logarithms:</p>
                 $$h(Z) \approx \frac{1}{2}\ln 68.3 \approx 2.11 \text{ nats}.$$
-                <p>In bits, divide by $\ln 2$:</p>
+                <p>In bits (dividing by $\ln 2 \approx 0.693$):</p>
                 $$h(Z) \approx \frac{2.11}{0.693} \approx 3.04 \text{ bits}.$$
-                <p>Now suppose you quantize with $\Delta = 0.25$. Then</p>
-                $$-\log_2 \Delta = -\log_2 0.25 = 2.$$
-                <p>So the approximate discrete coding cost becomes</p>
+
+                <p>Now suppose you quantize with $\Delta = 0.25$. Then $-\log_2 \Delta = -\log_2 0.25 = 2$. So the approximate discrete coding cost becomes:</p>
                 $$H(Q_\Delta(Z)) \approx 3.04 + 2 = 5.04 \text{ bits}.$$
-                <p>The lesson is simple: continuous spread plus measurement precision yields effective bitrate.</p>
+
+                <p>The lesson is simple: continuous spread plus measurement precision yields effective bitrate. The differential entropy tells you the spread; the quantization step tells you the precision; together they determine the cost.</p>
+
+                <h3>What Happens At Different Variances</h3>
+
+                <p>The Gaussian formula $h(Z) = \frac{1}{2}\log(2\pi e \sigma^2)$ shows that differential entropy grows logarithmically with variance. Doubling the variance adds $\frac{1}{2}\log 2 \approx 0.5$ bits. This means:</p>
+                <ul>
+                    <li>A latent dimension with high variance (lots of signal variation) requires more bits to represent at a given precision.</li>
+                    <li>A latent dimension with low variance (near-constant value) requires fewer bits and could potentially be dropped entirely.</li>
+                    <li>The optimal bitrate allocation gives more bits to high-variance dimensions and fewer to low-variance dimensions — this is exactly what learned quantizers like VQ-VAE discover automatically.</li>
+                </ul>
 
                 <h2 id="rate-distortion">Rate-Distortion For Continuous Signals</h2>
-                <p>For continuous sources, a canonical rate-distortion question is: how many bits are needed to represent a signal to within mean-squared distortion $D$? For a Gaussian source with variance $\sigma^2$, the classical answer is</p>
+
+                <p>For continuous sources, the fundamental rate-distortion question is: how many bits per sample are needed to represent a signal to within mean-squared distortion $D$? For a Gaussian source with variance $\sigma^2$, the classical Shannon answer is:</p>
                 $$R(D) = \frac{1}{2}\log_2 \frac{\sigma^2}{D}, \qquad 0 < D < \sigma^2.$$
-                <p>This formula is important because it tells you how bitrate should scale as you demand lower error.</p>
-                <p><strong>Example.</strong> If $\sigma^2 = 1$ and you want distortion $D = 0.01$, then</p>
-                $$R(D) = \frac{1}{2}\log_2 \frac{1}{0.01} = \frac{1}{2}\log_2 100 \approx \frac{1}{2}\cdot 6.64 = 3.32 \text{ bits/dim}.$$
-                <p>So each latent dimension would need roughly 3.32 bits if you wanted that reconstruction precision under the Gaussian idealization.</p>
-                <p>In practice, speech latents are not simple Gaussians, and perceptual distortion matters more than raw MSE. But the formula gives the right mental model: better fidelity requires more representational precision.</p>
+                <p>This formula is one of the most important results in information theory. It tells you the minimum possible bitrate for a given reconstruction quality, and no codec — no matter how clever — can beat it.</p>
+
+                <p><strong>Example 1.</strong> If $\sigma^2 = 1$ and you want distortion $D = 0.01$:</p>
+                $$R(D) = \frac{1}{2}\log_2 \frac{1}{0.01} = \frac{1}{2}\log_2 100 \approx 3.32 \text{ bits/dim}.$$
+                <p>Each latent dimension needs roughly 3.32 bits for that precision under the Gaussian idealization.</p>
+
+                <p><strong>Example 2.</strong> For a 128-dimensional latent at 50 Hz targeting $D = 0.01$:</p>
+                $$\text{Total bitrate} = 128 \times 3.32 \times 50 = 21{,}248 \text{ bits/s} \approx 21 \text{ kbps}.$$
+                <p>This is the theoretical minimum for a Gaussian source. Real speech latents are not Gaussian, but this gives a useful lower bound on what is achievable.</p>
+
+                <h3>The Rate-Distortion Curve</h3>
+
+                <p>The rate-distortion function $R(D)$ traces out a curve in the (rate, distortion) plane. Every codec operates at some point on or above this curve. Points on the curve are theoretically optimal — they achieve the minimum bitrate for their quality level. Points above the curve are suboptimal — they use more bits than necessary.</p>
+
+                <p>Modern neural codecs like EnCodec and SoundStream operate well above the Gaussian rate-distortion bound because speech latents have complex, non-Gaussian structure that makes them harder to compress than an idealized Gaussian. But the bound still provides a useful reference point — if your codec needs 10× more bits than $R(D)$ predicts, there is significant room for improvement.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Rate-Distortion: The Fundamental Limit</div>
+                    <p>The rate-distortion function $R(D)$ gives the minimum number of bits per sample needed to represent a source with expected distortion at most $D$. For Gaussians, $R(D) = \frac{1}{2}\log_2(\sigma^2/D)$. No encoder-decoder pair can achieve a rate below $R(D)$ for a given distortion level. This is a theorem, not an engineering guideline — it holds regardless of the codec's architecture or training procedure.</p>
+                </div>
+
+                <p>In practice, speech latents are not simple Gaussians, and perceptual distortion matters more than raw MSE. But the formula gives the right mental model: better fidelity requires more representational precision, and the relationship is logarithmic — halving the distortion costs one additional bit per dimension.</p>
 
                 <h2 id="why-continuous-generation">Why Generation Is Not The Same As Compression</h2>
+
                 <p>Compression asks: how many bits do I need to preserve the signal well enough? Generation asks: how do I model the conditional distribution of a good signal given text and prompt information?</p>
-                <p>These are related but not identical questions. A discrete codec is optimized for coding efficiency and decoder compatibility. A continuous generator is optimized for accurately sampling or transporting a conditional distribution in a smooth space. That is why continuous latents can be attractive even when they are not good compressed codes.</p>
+
+                <p>These are related but not identical questions. A discrete codec is optimized for coding efficiency and decoder compatibility. A continuous generator is optimized for accurately sampling or transporting a conditional distribution in a smooth space. The objectives, metrics, and design pressures are fundamentally different.</p>
+
+                <p>Consider a concrete example. Suppose you have a speech segment where the speaker could plausibly say a word with either rising or falling intonation. A codec needs to faithfully reproduce whichever intonation the speaker actually used — it must preserve the specific signal. A generator needs to produce one valid realization — it must sample from the distribution of plausible outputs. The codec cares about fidelity to the input; the generator cares about plausibility of the output.</p>
+
+                <p>This distinction explains why continuous latents can be better for generation even when they are worse for compression. A continuous generator can represent the full uncertainty of plausible outputs (rising or falling intonation) as a continuous distribution, and sample from it smoothly. A discrete generator must commit to a specific token, losing the ability to express uncertainty about fine acoustic details.</p>
+
                 <div class="note-box">
                     <div class="box-title">Key Distinction</div>
-                    <p style="margin-bottom: 0;">A codec wants a finite alphabet and low rate. A generator wants a faithful conditional distribution. Sometimes those goals align. Often they do not align perfectly.</p>
+                    <p style="margin-bottom: 0;">A codec wants a finite alphabet and low rate. A generator wants a faithful conditional distribution. Sometimes those goals align (when the distribution is simple and concentrated). Often they do not align perfectly (when the distribution is multimodal or has complex structure). This is why the "best codec" and the "best speech representation for generation" may be different things.</p>
                 </div>
 
                 <h2 id="losses">Why The Learning Objective Must Change</h2>
-                <p>In discrete language modeling, the target is a category, so cross-entropy is natural. In continuous-latent modeling, you must choose a different objective. Three common options are:</p>
-                <ul>
-                    <li><strong>Regression:</strong> predict a point estimate such as the mean of a continuous target.</li>
-                    <li><strong>Density modeling:</strong> predict parameters of a conditional density such as a Gaussian or mixture.</li>
-                    <li><strong>Transport modeling:</strong> predict a vector field or score so you can transform noise into data.</li>
-                </ul>
-                <p>The problem with plain regression is that speech is multimodal. There are many valid acoustic realizations for the same text. If the model predicts the mean of all of them, the result can sound blurry or flat.</p>
-                <p>This is why diffusion, flow matching, and variational sampling mechanisms are so important in continuous-latent TTS. They let the model represent uncertainty without collapsing everything to one average output.</p>
+
+                <p>In discrete language modeling, the target is a category, so cross-entropy is natural:</p>
+                $$\mathcal{L}_{\text{CE}} = -\log p_\theta(c_t \mid c_{<t}, x).$$
+                <p>This has a clean information-theoretic interpretation: minimizing cross-entropy is equivalent to maximizing the log-likelihood of the data, which is equivalent to minimizing the KL divergence from the model distribution to the true distribution.</p>
+
+                <p>In continuous-latent modeling, you must choose a different objective. Three common options are:</p>
+
+                <h3>Option 1: Regression</h3>
+
+                <p>Predict a point estimate such as the mean of a continuous target:</p>
+                $$\mathcal{L}_{\text{reg}} = \|\mathbf{z}_t - \hat{\mathbf{z}}_t\|_2^2.$$
+                <p>This is simple and stable but problematic for speech. The issue is mean collapse: speech is multimodal (there are many valid ways to say the same text), and the $L_2$ loss pushes the prediction toward the average of all valid outputs. The average of multiple valid speech signals is typically a blurry, over-smoothed signal that sounds robotic.</p>
+
+                <h3>Option 2: Density Modeling</h3>
+
+                <p>Predict parameters of a conditional density such as a Gaussian mixture:</p>
+                $$p(\mathbf{z}_t \mid \mathbf{z}_{<t}, x) = \sum_k \pi_k \mathcal{N}(\mathbf{z}_t; \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k).$$
+                <p>This can capture multimodality (different mixture components for different speaking styles) but requires choosing the number of components and can be numerically unstable in high dimensions.</p>
+
+                <h3>Option 3: Transport Modeling</h3>
+
+                <p>Predict a vector field or score function so you can transform noise into data:</p>
+                $$\mathcal{L}_{\text{flow}} = \|\mathbf{v}_\theta(\mathbf{x}_t, t, \text{cond}) - (\mathbf{x}_1 - \mathbf{x}_0)\|_2^2.$$
+                <p>This is the flow-matching objective used by Voicebox, E2-TTS, and F5-TTS. It implicitly models the full continuous distribution without explicitly parameterizing it, which avoids the mode-counting problem of mixture models.</p>
+
+                <p>The problem with plain regression is that speech is multimodal. There are many valid acoustic realizations for the same text. If the model predicts the mean of all of them, the result sounds blurry or flat. This is why diffusion, flow matching, and variational sampling mechanisms are so important in continuous-latent TTS. They let the model represent uncertainty without collapsing everything to one average output.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Mean-Collapse Problem, Formally</div>
+                    <p>If $\mathbf{z}$ can take multiple valid values $\mathbf{z}_1, \mathbf{z}_2, \ldots$ for the same conditioning, then $\arg\min_{\hat{\mathbf{z}}} \mathbb{E}[\|\mathbf{z} - \hat{\mathbf{z}}\|^2] = \mathbb{E}[\mathbf{z}]$. The optimal $L_2$ prediction is the mean, which may not correspond to any valid output. For speech, this manifests as over-smoothed spectrograms with washed-out formants and flat prosody.</p>
+                </div>
 
                 <h2 id="temporal-factorization">Temporal Factorization Still Exists</h2>
-                <p>Even if the representation is continuous, the model can still factorize generation across time. An autoregressive continuous-token model writes</p>
+
+                <p>Even if the representation is continuous, the model can still factorize generation across time. An autoregressive continuous-token model writes:</p>
                 $$p(\mathbf{z}_{1:T} \mid x) = \prod_{t=1}^{T} p(\mathbf{z}_t \mid \mathbf{z}_{<t}, x).$$
-                <p>Here $x$ stands for text, prompt audio, or other conditioning. This is exactly the same sequential idea as token language modeling, but the object at each step is a vector, not a symbol.</p>
-                <p>Non-autoregressive flow-matching models take a different view. They model a full trajectory over the whole sequence rather than stepping one token at a time. That reduces sequential dependence but requires learning a good global transport process.</p>
+                <p>Here $x$ stands for text, prompt audio, or other conditioning. This is exactly the same sequential idea as token language modeling, but the object at each step is a vector, not a symbol. The chain rule of probability holds regardless of whether the variables are discrete or continuous.</p>
+
+                <p>Non-autoregressive flow-matching models take a different view. They model a full trajectory over the whole sequence rather than stepping one token at a time:</p>
+                $$\mathbf{z}_{1:T}^{(1)} = \text{ODE-solve}(\mathbf{v}_\theta, \mathbf{z}_{1:T}^{(0)}, t: 0 \to 1).$$
+                <p>That reduces sequential dependence but requires learning a good global transport process. The ODE solver transforms the entire sequence of noise vectors into speech vectors in parallel, with the number of solver steps determining the quality-speed tradeoff.</p>
 
                 <div class="note-box">
                     <div class="box-title">AR vs Non-AR: An Information-Theoretic View</div>
-                    <p style="margin-bottom: 0;">Autoregressive factorization decomposes the joint entropy $h(\mathbf{z}_{1:T} \mid x)$ into a chain of conditional entropies $\sum_t h(\mathbf{z}_t \mid \mathbf{z}_{&lt;t}, x)$. Non-autoregressive models instead learn a single transport map from a simple base distribution to the full joint. Neither approach changes the total information content, but they differ drastically in how they allocate modeling capacity and computational cost across the sequence.</p>
+                    <p style="margin-bottom: 0;">Autoregressive factorization decomposes the joint entropy $h(\mathbf{z}_{1:T} \mid x)$ into a chain of conditional entropies $\sum_t h(\mathbf{z}_t \mid \mathbf{z}_{<t}, x)$. Non-autoregressive models instead learn a single transport map from a simple base distribution to the full joint. Neither approach changes the total information content, but they differ drastically in how they allocate modeling capacity and computational cost across the sequence. AR models invest capacity in each conditional step; non-AR models invest capacity in the global transport.</p>
                 </div>
 
                 <h2 id="token-rate">Why Token Rate Still Matters In Continuous Models</h2>
+
                 <p>Suppose a model predicts a 100-dimensional continuous frame at 75 Hz. Another predicts a 100-dimensional continuous frame at 12.5 Hz. Even though both are continuous, the second is still much easier to model over long durations because it creates six times fewer steps.</p>
-                <p>So token rate is not a problem only for discrete tokens. It is a problem for any sequential interface between text and audio. Continuous models escape hard quantization, but they do not escape the cost of long sequences.</p>
+
+                <p>For the autoregressive case, the total modeling burden is roughly proportional to the number of frames times the per-frame complexity. Halving the frame rate halves the number of autoregressive steps, which can dramatically reduce both training cost (fewer sequential dependencies to learn) and inference latency (fewer forward passes).</p>
+
+                <p>For the flow-matching case, the frame rate affects the spatial dimension of the ODE. A higher frame rate means the flow model must transport noise in a larger space, which can require more ODE steps or a more powerful network to achieve the same quality.</p>
+
+                <p>So token rate is not a problem only for discrete tokens. It is a problem for any sequential interface between text and audio. Continuous models escape hard quantization, but they do not escape the cost of long sequences. This is why frame rate reduction (as in Mimi's 12.5 Hz design) benefits continuous models just as much as it benefits discrete models.</p>
+
+                <h2 id="mutual-information">Mutual Information In Continuous Space</h2>
+
+                <p>Mutual information between continuous variables is defined the same way as for discrete variables, but using differential entropy:</p>
+                $$I(Z; X) = h(Z) + h(X) - h(Z, X) = h(Z) - h(Z \mid X).$$
+
+                <p>Unlike differential entropy, mutual information is coordinate-invariant — it does not depend on how you scale or transform the variables. This makes it a more robust quantity for comparing different representations.</p>
+
+                <p>For speech systems, the relevant mutual informations are:</p>
+                <ul>
+                    <li>$I(\mathbf{Z}; X)$: How much information do the latents preserve about the waveform? (reconstruction quality)</li>
+                    <li>$I(\mathbf{Z}; T)$: How much information do the latents preserve about the transcript? (semantic content)</li>
+                    <li>$I(\mathbf{Z}; S)$: How much information do the latents preserve about the speaker? (speaker identity)</li>
+                </ul>
+
+                <p>A good speech representation for TTS should have high $I(\mathbf{Z}; T)$ (it preserves what was said) and high $I(\mathbf{Z}; S)$ (it preserves who said it), while having moderate $I(\mathbf{Z}; X)$ (it does not waste capacity on irrelevant acoustic detail like room noise).</p>
 
                 <h2 id="practical-checklist">A Practical Checklist</h2>
-                <p>When you evaluate a continuous-latent speech representation, ask:</p>
-                <ul>
-                    <li>what precision or effective distortion level does it require,</li>
-                    <li>whether the objective models full uncertainty or only means,</li>
-                    <li>how many steps per second the generator must predict,</li>
-                    <li>whether the representation is good for generation, storage, or both,</li>
-                    <li>how easily it integrates with the downstream model family you want.</li>
-                </ul>
-                <p>This checklist is the bridge from theory to architecture choice.</p>
+
+                <p>When you evaluate a continuous-latent speech representation, ask these questions systematically:</p>
+                <ol>
+                    <li><strong>What precision does it require?</strong> What effective distortion level does the representation maintain? How many bits per dimension would you need if you had to quantize?</li>
+                    <li><strong>Does the objective model full uncertainty?</strong> Is the model using regression ($L_2$), density modeling (GMM), or transport (flow matching/diffusion)? If regression, expect mean collapse on multimodal data.</li>
+                    <li><strong>What is the temporal rate?</strong> How many frames per second must the generator predict? This affects both AR step count and flow-matching spatial dimension.</li>
+                    <li><strong>Is it good for generation, storage, or both?</strong> Continuous representations excel at generation but need quantization for storage. Know which use case you are optimizing for.</li>
+                    <li><strong>Does it integrate with your downstream model?</strong> Some architectures (decoder-only LMs) naturally handle discrete tokens. Others (U-Net, DiT) naturally handle continuous representations. Match the representation to the architecture.</li>
+                </ol>
+                <p>This checklist is the bridge from theory to architecture choice. Each question maps to a concrete design decision that affects system performance.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
@@ -278,14 +421,15 @@
         <aside class="toc-container">
             <h4 class="toc-title">Contents</h4>
             <nav class="toc-list">
-                <a href="#discrete-vs-continuous" class="toc-link">Discrete Entropy Versus Differential Entropy</a>
+                <a href="#discrete-vs-continuous" class="toc-link">Discrete vs Differential Entropy</a>
                 <a href="#quantization-link" class="toc-link">How Quantization Connects Them</a>
                 <a href="#gaussian-example" class="toc-link">A Step-By-Step Gaussian Example</a>
                 <a href="#rate-distortion" class="toc-link">Rate-Distortion For Continuous Signals</a>
-                <a href="#why-continuous-generation" class="toc-link">Generation Is Not Compression</a>
+                <a href="#why-continuous-generation" class="toc-link">Generation vs Compression</a>
                 <a href="#losses" class="toc-link">Why The Learning Objective Must Change</a>
-                <a href="#temporal-factorization" class="toc-link">Temporal Factorization Still Exists</a>
-                <a href="#token-rate" class="toc-link">Why Token Rate Still Matters</a>
+                <a href="#temporal-factorization" class="toc-link">Temporal Factorization</a>
+                <a href="#token-rate" class="toc-link">Token Rate In Continuous Models</a>
+                <a href="#mutual-information" class="toc-link">Mutual Information In Continuous Space</a>
                 <a href="#practical-checklist" class="toc-link">A Practical Checklist</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
             </nav>
