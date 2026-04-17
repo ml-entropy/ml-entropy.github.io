@@ -94,93 +94,247 @@
         <main class="tutorial-main">
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                    <h1>21. Voicebox, E2-TTS, And F5-TTS</h1>
-                    <p class="lead">This family of models made continuous-latent speech generation feel practical at scale. The key move is to generate speech as a conditional transport problem in continuous space instead of sampling discrete codec tokens one by one.</p>
+                    <h1>21. Voicebox, E2-TTS, and F5-TTS</h1>
+                    <p class="lead">This family of models made continuous-latent speech generation feel practical at scale. The key move is to generate speech as a conditional transport problem in continuous space instead of sampling discrete codec tokens one by one. This tutorial works through the mathematics of flow matching, the architectural choices of each model, and the information-theoretic reasons why continuous generation can outperform discrete token generation for speech.</p>
                 </div>
 
                 <h2 id="shared-idea">The Shared Idea: Speech Infilling As Continuous Generation</h2>
-                <p>Voicebox, E2-TTS, and F5-TTS all start from the same deeper idea: speech generation can be reframed as infilling a missing continuous speech segment given text and context. Instead of predicting an audio token sequence autoregressively, they learn a model that fills in masked or target speech using a continuous transport process.</p>
-                <p>This is powerful because the model can condition on surrounding speech, preserve style from a prompt, and avoid step-by-step codec-token sampling. The output remains continuous: typically mel or mel-like features, or another continuous speech representation.</p>
+
+                <p>Voicebox, E2-TTS, and F5-TTS all start from the same deeper idea: speech generation can be reframed as infilling a missing continuous speech segment given text and context. Instead of predicting an audio token sequence autoregressively, they learn a model that fills in masked or target speech using a continuous transport process. The target speech is represented as a sequence of continuous vectors — typically mel spectrogram frames — and the model learns to transform noise into these vectors.</p>
+
+                <p>This is powerful for several reasons. First, the model can condition on surrounding speech, preserving style and speaker identity from a prompt without explicit speaker embedding. Second, it avoids the quantization distortion inherent in discrete codec tokens — the generated representation is continuous, so there is no codebook granularity to worry about. Third, it enables non-autoregressive generation: the entire target segment can be generated in parallel, with the number of generation steps determined by the ODE solver rather than the sequence length.</p>
+
+                <p>The output remains continuous: typically mel or mel-like features at 80-100 Hz. A neural vocoder (HiFi-GAN, BigVGAN, or Vocos) then converts these continuous features into the final waveform. This two-stage pipeline — generator + vocoder — is a design choice with its own tradeoffs, which we will examine later.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Mental Model</div>
-                    <p>These models do not ask, "Which discrete symbol comes next?" They ask, "How should a noisy or missing speech region move through continuous space until it becomes the correct utterance?"</p>
+                    <p>These models do not ask, "Which discrete symbol comes next?" They ask, "How should a noisy or missing speech region move through continuous space until it becomes the correct utterance?" The answer is a learned velocity field that guides noise toward speech, conditioned on text and audio context.</p>
                 </div>
+
+                <h3>Why Continuous Generation Matters For Information Theory</h3>
+
+                <p>From an information-theory perspective, continuous generation sidesteps a fundamental bottleneck of discrete tokenization. When you quantize a continuous signal into discrete tokens, you lose information — the quantization distortion. The rate-distortion theorem tells us that for a given bitrate $R$, there is a minimum achievable distortion $D(R)$. Discrete codecs operate at specific points on this curve, and switching between points requires changing the codec configuration.</p>
+
+                <p>Continuous generators avoid this tradeoff entirely. They do not commit to a bitrate — the representation stays continuous throughout the generation process. The only information loss comes from the model's imperfect learning, not from a structural bottleneck in the representation. In principle, a perfect continuous generator could produce output with zero distortion (assuming the vocoder is also perfect).</p>
+
+                <p>Of course, real continuous generators are not perfect. They have their own sources of error — model capacity limitations, training data coverage, and the approximation error of the ODE solver. But the error is smooth and distributed, rather than concentrated at codebook boundaries. This tends to produce more natural-sounding output, because human perception is more tolerant of smooth error than of the artifacts that discrete quantization creates.</p>
 
                 <h2 id="flow-matching-basics">Flow Matching, Derived Slowly</h2>
-                <p>The basic flow-matching setup starts with a clean target sample $\mathbf{x}_1$ and a simple source sample $\mathbf{x}_0$, often Gaussian noise. A time-indexed path connects them:</p>
+
+                <p>The basic flow-matching setup starts with a clean target sample $\mathbf{x}_1$ and a simple source sample $\mathbf{x}_0$, often drawn from a standard Gaussian distribution. A time-indexed path connects them:</p>
                 $$\mathbf{x}_t = (1-t)\mathbf{x}_0 + t\mathbf{x}_1, \qquad t \in [0,1].$$
-                <p>If you differentiate with respect to $t$, you get</p>
+                <p>This is just a straight line in the feature space, interpolating between noise ($t=0$) and clean speech ($t=1$). At $t=0$ you have pure noise; at $t=1$ you have the target speech; at any intermediate $t$ you have a mixture of both.</p>
+
+                <p>If you differentiate with respect to $t$, you get the velocity of this interpolation:</p>
                 $$\frac{d\mathbf{x}_t}{dt} = \mathbf{x}_1 - \mathbf{x}_0.$$
-                <p>That derivative is the velocity of the straight-line path. Flow matching trains a neural network to predict an appropriate velocity field $\mathbf{v}_\theta(\mathbf{x}_t,t,\text{cond})$ so that integrating the learned ODE carries noise toward valid speech.</p>
-                <p>A simplified training loss is</p>
-                $$\mathcal{L}_{\text{FM}} = \mathbb{E}\left[\|\mathbf{v}_\theta(\mathbf{x}_t,t,\text{cond}) - (\mathbf{x}_1 - \mathbf{x}_0)\|_2^2\right].$$
-                <p>Read this equation carefully. The model sees an intermediate noisy state $\mathbf{x}_t$, a time $t$, and conditioning information. It is asked to predict how that state should move next if it is to end up at the clean speech sample.</p>
+                <p>That derivative is the velocity of the straight-line path. It does not depend on $t$ — the path has constant velocity. This is the simplest possible flow, and it is the foundation of conditional flow matching.</p>
+
+                <p>Flow matching trains a neural network $\mathbf{v}_\theta$ to predict an appropriate velocity field $\mathbf{v}_\theta(\mathbf{x}_t, t, \text{cond})$ so that integrating the learned ODE carries noise toward valid speech. The training loss is:</p>
+                $$\mathcal{L}_{\text{FM}} = \mathbb{E}_{t \sim U[0,1], \mathbf{x}_0 \sim \mathcal{N}, \mathbf{x}_1 \sim p_{\text{data}}}\left[\|\mathbf{v}_\theta(\mathbf{x}_t, t, \text{cond}) - (\mathbf{x}_1 - \mathbf{x}_0)\|_2^2\right].$$
+
+                <p>Read this equation carefully. For each training step, we sample a time $t$, a noise vector $\mathbf{x}_0$, and a clean speech target $\mathbf{x}_1$. We compute the intermediate state $\mathbf{x}_t$ and ask the model to predict the velocity $(\mathbf{x}_1 - \mathbf{x}_0)$ that would carry $\mathbf{x}_t$ toward $\mathbf{x}_1$. The model sees the noisy intermediate state, the time, and whatever conditioning information is available (text, audio prompt), and must predict how the state should change.</p>
+
+                <h3>Why Flow Matching Instead Of Diffusion?</h3>
+
+                <p>You might wonder: how is this different from diffusion models? The key difference is in the noise schedule and the transport path. Diffusion models typically use a curved noise schedule (like the variance-preserving schedule in DDPM) that requires many denoising steps for good quality. Flow matching uses straight-line paths with constant velocity, which are mathematically simpler and empirically require fewer integration steps.</p>
+
+                <p><strong>Worked example: Number of steps.</strong> A typical diffusion model (DDPM) needs 50-1000 denoising steps for high-quality generation. Flow matching with OT-CFM (described below) typically needs 10-32 ODE steps. For a 10-second utterance with 1000 mel frames, this means:</p>
+                <ul>
+                    <li>Diffusion: $1000 \times 1000 = 10^6$ neural network evaluations.</li>
+                    <li>Flow matching: $16 \times 1000 = 16{,}000$ neural network evaluations.</li>
+                </ul>
+                <p>That is a 62.5× speedup, which can mean the difference between real-time and non-real-time generation.</p>
+
                 <div class="note-box">
                     <div class="box-title">OT-CFM: Optimal Transport Conditional Flow Matching</div>
-                    <p style="margin-bottom: 0;">Voicebox and its descendants use <em>Optimal-Transport Conditional Flow Matching</em> (OT-CFM), which pairs each noise sample with a data sample via an optimal-transport plan rather than random pairing. This produces straighter, more efficient transport paths and is a key reason the family needs fewer ODE integration steps at inference than naive flow matching or classical diffusion.</p>
+                    <p style="margin-bottom: 0;">Voicebox and its descendants use <em>Optimal-Transport Conditional Flow Matching</em> (OT-CFM), which pairs each noise sample with a data sample via an optimal-transport plan rather than random pairing. Random pairing can create unnecessarily long transport paths (a noise sample from one region might be paired with a data sample from a very different region). OT pairing minimizes the total transport distance, producing straighter, more efficient paths. This is a key reason the family needs fewer ODE integration steps at inference than naive flow matching or classical diffusion.</p>
                 </div>
+
+                <h3>Inference: Solving The ODE</h3>
+
+                <p>At inference time, we start with noise $\mathbf{x}_0 \sim \mathcal{N}(0, I)$ and integrate the learned velocity field forward from $t=0$ to $t=1$:</p>
+                $$\mathbf{x}_{t + \Delta t} = \mathbf{x}_t + \Delta t \cdot \mathbf{v}_\theta(\mathbf{x}_t, t, \text{cond}).$$
+                <p>This is the Euler method — the simplest ODE solver. More sophisticated solvers (Runge-Kutta, adaptive step size) can achieve the same quality with fewer steps. The number of steps directly controls the quality-speed tradeoff: more steps mean better approximation of the continuous flow, but slower generation.</p>
+
+                <p>The conditioning information (text, audio prompt) remains fixed throughout the integration. The model uses it at every step to guide the noise toward the correct speech output. This means the conditioning must be encoded in a form that the velocity network can access efficiently — typically through cross-attention or concatenation with the time-step features.</p>
 
                 <h2 id="voicebox">Voicebox: Large-Scale Text-Guided Speech Infilling</h2>
-                <p>Voicebox is the first model in this family that really made the design feel general-purpose. Meta describes it as a non-autoregressive flow-matching model trained to infill speech given audio context and text. That framing matters. Because the task is infilling, Voicebox can condition on both past and future context, not just the left context as in an autoregressive model.</p>
-                <p>The official project highlights several consequences:</p>
+
+                <p>Voicebox, published by Meta in 2023, is the first model in this family that really made the design feel general-purpose. Meta describes it as a non-autoregressive flow-matching model trained to infill speech given audio context and text. That framing matters: because the task is infilling, Voicebox can condition on both past and future context, not just the left context as in an autoregressive model.</p>
+
+                <h3>The Infilling Formulation</h3>
+
+                <p>Voicebox's training setup is elegant. During training, a random contiguous segment of the speech representation is masked (replaced with noise or zeros). The model is given:</p>
+                <ol>
+                    <li>The unmasked context (surrounding speech)</li>
+                    <li>The text transcript for the entire utterance</li>
+                    <li>The noise filling the masked region</li>
+                </ol>
+                <p>The model must learn to transform the noise in the masked region into speech that is consistent with the text and the surrounding context. This is a conditional generation problem: generate speech that both matches the transcript and sounds like a natural continuation of the context.</p>
+
+                <p>The official project highlights several consequences of this formulation:</p>
                 <ul>
-                    <li>zero-shot TTS,</li>
-                    <li>cross-lingual style transfer,</li>
-                    <li>speech editing,</li>
-                    <li>denoising and content replacement.</li>
+                    <li><strong>Zero-shot TTS:</strong> Given a text prompt and a speech prompt, infill the text as speech matching the prompt's style.</li>
+                    <li><strong>Cross-lingual style transfer:</strong> Given a speech prompt in language A and text in language B, generate speech in language B with the style of the language A prompt.</li>
+                    <li><strong>Speech editing:</strong> Mask a specific word or phrase and re-generate it with different text, keeping the surrounding speech unchanged.</li>
+                    <li><strong>Denoising and content replacement:</strong> Mask a noisy or unwanted segment and regenerate it.</li>
                 </ul>
                 <p>These are all variants of the same conditional missing-data problem. Once the model learns to infill continuous speech conditioned on text and context, many tasks collapse into one unified interface.</p>
-                <p>Another major benefit is speed. Voicebox reports up to 20x faster generation than strong autoregressive baselines because it is not sampling long token sequences one step at a time.</p>
 
-                <h2 id="e2">E2-TTS: The Filler-Token Breakthrough</h2>
-                <p>E2-TTS makes a very strong claim: you do not need a complicated duration model, grapheme-to-phoneme pipeline, or monotonic alignment machinery to build a strong zero-shot TTS system. Instead, you pad the text with filler tokens until it matches the target frame length and let the flow-matching model learn the alignment implicitly.</p>
-                <p>Suppose the text sequence has length $L$ and the target speech representation has frame length $T$. E2-TTS creates an extended text sequence of length $T$ by appending filler tokens. The model then conditions on that padded sequence and learns speech infilling in continuous space.</p>
-                <p>This is important because it changes where complexity lives. Traditional TTS often needs explicit duration prediction. E2-TTS pushes that burden into the generator itself. The model jointly learns content, timing, and acoustics in one continuous process.</p>
-                <div class="note-box">
-                    <div class="box-title">Why This Was Surprising</div>
-                    <p style="margin-bottom: 0;">The filler-token trick sounds almost too simple. But that simplicity is exactly why E2-TTS mattered: it showed that high-quality zero-shot TTS did not need as much explicit alignment machinery as the field had assumed.</p>
+                <h3>Scale And Speed</h3>
+
+                <p>Voicebox was trained on 60,000 hours of speech data — an enormous dataset by TTS standards. This scale is important because the infilling task requires the model to learn an extremely diverse distribution of speech patterns. The model must handle different speakers, accents, languages, recording conditions, and speaking styles, all within the same framework.</p>
+
+                <p>Another major benefit is speed. Voicebox reports up to 20× faster generation than strong autoregressive baselines because it is not sampling long token sequences one step at a time. The generation speed depends on the number of ODE steps (typically 10-32), not on the length of the output speech. A 10-second utterance takes roughly the same number of ODE steps as a 1-second utterance (though each step is slightly more expensive for longer outputs due to the larger spatial dimension).</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Infilling Versus Autoregressive Generation</div>
+                    <p>Autoregressive models generate speech left-to-right, one token at a time. Each token's generation is conditioned only on tokens to the left. Infilling models generate speech all at once within a masked region, conditioned on context from both sides. The infilling approach is inherently non-autoregressive, which enables parallel computation and bidirectional conditioning. However, it requires knowing the target length in advance (or estimating it from the text), which adds a duration-prediction component to the pipeline.</p>
                 </div>
 
-                <h2 id="f5">F5-TTS: Refining E2-TTS Into A Strong Practical System</h2>
-                <p>F5-TTS keeps the same core philosophy but addresses some of E2-TTS's practical weaknesses. The paper explicitly says E2-TTS proved the feasibility of the filler-token idea, but made the design hard to follow due to slower convergence and lower robustness.</p>
-                <p>F5-TTS adds two especially important improvements:</p>
+                <h2 id="e2">E2-TTS: The Filler-Token Breakthrough</h2>
+
+                <p>E2-TTS, published in 2024, makes a very strong claim: you do not need a complicated duration model, grapheme-to-phoneme pipeline, or monotonic alignment machinery to build a strong zero-shot TTS system. Instead, you pad the text with filler tokens until it matches the target frame length and let the flow-matching model learn the alignment implicitly.</p>
+
+                <h3>The Filler-Token Mechanism</h3>
+
+                <p>Suppose the text sequence has length $L$ and the target speech representation has frame length $T$ (typically $T \gg L$ because speech has many more frames than characters). Traditional TTS systems handle this length mismatch explicitly: they use a duration model to predict how many frames each character should occupy, then expand the text sequence to match the speech length.</p>
+
+                <p>E2-TTS takes a radically simpler approach. It creates an extended text sequence of length $T$ by appending $T - L$ filler tokens (a special symbol like [FILL]) after the text. The model then conditions on this padded sequence and learns to generate speech in continuous space, implicitly learning which filler tokens correspond to which speech frames.</p>
+
+                <p><strong>Worked example.</strong> Consider the text "Hello" (5 characters) and a target of 200 mel frames. E2-TTS creates the sequence:</p>
+<pre><code>Position:  1   2   3   4   5   6   7   8  ...  200
+Token:     H   e   l   l   o   [F] [F] [F] ... [F]</code></pre>
+                <p>The flow-matching model sees this padded sequence as conditioning and learns that the first 40 frames might correspond to "H", frames 41-70 to "e", and so on. But this mapping is learned implicitly from data — no explicit duration model is needed.</p>
+
+                <p>This is important because it changes where complexity lives. Traditional TTS often needs explicit duration prediction, which introduces a cascading error problem: if the duration model predicts wrong, the alignment is wrong, and the entire output suffers. E2-TTS pushes that burden into the generator itself, which learns content, timing, and acoustics jointly in one continuous process.</p>
+
+                <div class="note-box">
+                    <div class="box-title">Why This Was Surprising</div>
+                    <p style="margin-bottom: 0;">The filler-token trick sounds almost too simple. Duration modeling has been a central challenge in TTS for decades, with sophisticated solutions like Monotonic Alignment Search (MAS) in VITS and explicit duration predictors in FastSpeech. E2-TTS showed that high-quality zero-shot TTS did not need as much explicit alignment machinery as the field had assumed. The flow-matching generator was powerful enough to learn alignment implicitly from the data, given enough scale and training time.</p>
+                </div>
+
+                <h3>E2-TTS's Limitations</h3>
+
+                <p>E2-TTS proved the concept but had practical weaknesses:</p>
                 <ul>
-                    <li>a stronger text-side refinement stage using ConvNeXt,</li>
-                    <li>Sway Sampling, an inference-time strategy for choosing flow steps more effectively.</li>
+                    <li><strong>Slow convergence:</strong> Without explicit alignment, the model takes much longer to converge during training. The generator must discover the text-to-speech mapping from scratch, which requires more data and more iterations.</li>
+                    <li><strong>Robustness issues:</strong> Without duration guidance, the model can sometimes skip words, repeat syllables, or generate speech with unnatural timing. These failure modes are rare but problematic for production use.</li>
+                    <li><strong>Inference fragility:</strong> The quality depends on the number of ODE steps and the noise initialization. Too few steps produce blurry or unnatural output; too many steps waste computation.</li>
                 </ul>
-                <p>The first helps alignment and robustness. The second improves inference efficiency and sample quality without retraining the model. So F5-TTS is best read as the "make the simple idea work reliably at scale" paper.</p>
-                <p>Its official materials also emphasize multilingual training, zero-shot voice cloning, code switching, and real-time factors that are much friendlier than classical diffusion TTS.</p>
+                <p>These limitations directly motivated F5-TTS.</p>
+
+                <h2 id="f5">F5-TTS: Refining E2-TTS Into A Strong Practical System</h2>
+
+                <p>F5-TTS, published in late 2024, keeps the same core philosophy as E2-TTS but addresses its practical weaknesses systematically. The paper explicitly acknowledges that E2-TTS proved the feasibility of the filler-token idea, but made the design hard to follow due to slower convergence, lower robustness, and fragile inference.</p>
+
+                <p>F5-TTS adds two especially important improvements:</p>
+
+                <h3>ConvNeXt V2 For Text Refinement</h3>
+
+                <p>F5-TTS replaces the simple text encoding of E2-TTS with a ConvNeXt V2 module that processes the padded text-filler sequence before it enters the flow-matching generator. ConvNeXt is a modern convolutional architecture that applies local attention-like processing through large-kernel convolutions. For text-to-speech, this helps in several ways:</p>
+                <ul>
+                    <li><strong>Local context smoothing:</strong> ConvNeXt learns to smooth the abrupt transition between text characters and filler tokens, creating a more gradual conditioning signal that the generator can follow more easily.</li>
+                    <li><strong>Implicit duration cues:</strong> By processing the padded sequence with local convolutions, ConvNeXt can learn patterns like "after a word boundary, expect more filler tokens" that help the generator predict timing.</li>
+                    <li><strong>Feature enrichment:</strong> The raw character embeddings + filler tokens are a sparse conditioning signal. ConvNeXt enriches them into a denser representation that provides more guidance to the generator at each frame.</li>
+                </ul>
+
+                <h3>Sway Sampling</h3>
+
+                <p>The second key improvement is Sway Sampling, an inference-time strategy for choosing flow steps more effectively. Instead of distributing ODE integration steps uniformly across $t \in [0, 1]$, Sway Sampling concentrates more steps in the regions where the velocity field changes most rapidly (typically the middle of the flow, around $t = 0.3-0.7$).</p>
+
+                <p>The intuition is straightforward: at $t \approx 0$ (near pure noise), the velocity field is relatively uniform — all noise vectors should move roughly toward the data manifold. At $t \approx 1$ (near clean speech), the velocity field is again simple — small corrections to nearly-correct output. The interesting dynamics happen in the middle, where the signal is partially formed and the velocity field must make detailed decisions about content, timing, and acoustics.</p>
+
+                <p>Sway Sampling improves inference efficiency and sample quality without retraining the model. It is purely an inference-time modification — the training is identical to E2-TTS. This makes it easy to retrofit onto existing models.</p>
+
+                <p>F5-TTS's official materials also emphasize multilingual training, zero-shot voice cloning, code switching, and real-time factors that are much friendlier than classical diffusion TTS. The combination of ConvNeXt text refinement and Sway Sampling makes F5-TTS one of the most practical flow-matching TTS systems available, with open-source implementations that achieve strong quality at reasonable computational cost.</p>
 
                 <h2 id="compare">Comparing The Three Models</h2>
+
                 <table>
                     <thead>
-                        <tr><th>Model</th><th>Key idea</th><th>What it simplified or improved</th></tr>
+                        <tr><th>Property</th><th>Voicebox</th><th>E2-TTS</th><th>F5-TTS</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>Voicebox</td><td>Text-guided speech infilling at scale</td><td>Unified many tasks under one non-AR continuous generator</td></tr>
-                        <tr><td>E2-TTS</td><td>Character-plus-filler-token conditioning</td><td>Removed much explicit duration and alignment machinery</td></tr>
-                        <tr><td>F5-TTS</td><td>Stronger practical refinement of E2-TTS</td><td>Improved robustness, convergence, and sampling efficiency</td></tr>
+                        <tr><td>Key idea</td><td>Text-guided speech infilling at scale</td><td>Filler-token conditioning</td><td>ConvNeXt refinement + Sway Sampling</td></tr>
+                        <tr><td>Duration handling</td><td>External duration model</td><td>Implicit (learned)</td><td>Implicit (learned, stabilized)</td></tr>
+                        <tr><td>Text encoding</td><td>Phoneme-level</td><td>Character-level + fillers</td><td>Character + fillers + ConvNeXt</td></tr>
+                        <tr><td>Conditioning</td><td>Bidirectional context</td><td>Unidirectional or bidirectional</td><td>Bidirectional</td></tr>
+                        <tr><td>Training data</td><td>60k hours</td><td>Moderate scale</td><td>Moderate to large scale</td></tr>
+                        <tr><td>Inference steps</td><td>10-32</td><td>32-64</td><td>16-32 (Sway)</td></tr>
+                        <tr><td>Convergence speed</td><td>Fast (explicit alignment)</td><td>Slow (implicit alignment)</td><td>Moderate (ConvNeXt helps)</td></tr>
+                        <tr><td>Open source</td><td>No (Meta)</td><td>Limited</td><td>Yes (active community)</td></tr>
                     </tbody>
                 </table>
-                <p>All three avoid discrete audio token generation. All three rely on continuous transport. But they differ in how much complexity they place on data scale, prompt conditioning, text alignment, and inference engineering.</p>
+
+                <p>All three avoid discrete audio token generation. All three rely on continuous transport. But they differ in how much complexity they place on data scale, prompt conditioning, text alignment, and inference engineering. The progression from Voicebox to E2-TTS to F5-TTS represents a gradual simplification of the pipeline combined with increased engineering robustness.</p>
+
                 <div class="note-box">
                     <div class="box-title">The Vocoder Still Matters</div>
-                    <p style="margin-bottom: 0;">All three models generate continuous features (e.g., mel spectrograms), not raw waveforms. A neural vocoder such as HiFi-GAN or BigVGAN is still required to convert these features into audible speech. Vocoder quality is therefore a silent bottleneck: a weak vocoder can undo the gains of even a perfect flow-matching generator, especially for unseen speakers or noisy prompts.</p>
+                    <p style="margin-bottom: 0;">All three models generate continuous features (e.g., mel spectrograms), not raw waveforms. A neural vocoder such as HiFi-GAN or BigVGAN is still required to convert these features into audible speech. Vocoder quality is therefore a silent bottleneck: a weak vocoder can undo the gains of even a perfect flow-matching generator, especially for unseen speakers or noisy prompts. When evaluating these systems, always check which vocoder is used — it can account for a significant portion of the perceived quality difference between systems.</p>
                 </div>
 
                 <h2 id="why-better-than-discrete">Why This Family Can Beat Discrete Codec LMs</h2>
-                <p>There are at least four reasons:</p>
+
+                <p>The continuous generation approach has several structural advantages over discrete codec-based language models:</p>
+
+                <ol>
+                    <li><strong>No quantization distortion:</strong> The generated representation is continuous, so there is no codebook granularity. The output can represent any point in the feature space, not just the nearest codebook entry. This is especially important for subtle acoustic details like breathiness, vocal fry, and micro-prosody.</li>
+                    <li><strong>Non-autoregressive generation:</strong> The entire target region is generated in parallel (across ODE steps), rather than one token at a time. This eliminates the sequential bottleneck that limits autoregressive models to real-time or slower generation.</li>
+                    <li><strong>Continuous conditioning from prompt audio:</strong> The audio prompt enters as continuous features, not as quantized tokens. This preserves fine speaker detail that quantization might lose — important for voice cloning fidelity.</li>
+                    <li><strong>Faster inference for long outputs:</strong> Generation time scales with the number of ODE steps (fixed, typically 16-32), not with the output length. A 30-second utterance takes roughly the same time per step as a 3-second utterance.</li>
+                </ol>
+
+                <p>But these models do not dominate universally. They have their own weaknesses:</p>
                 <ul>
-                    <li>no quantization distortion from codec tokens,</li>
-                    <li>fully non-autoregressive generation over the target region,</li>
-                    <li>continuous conditioning from prompt audio rather than only symbolic codes,</li>
-                    <li>faster inference for long outputs when ODE steps are few.</li>
+                    <li><strong>Vocoder dependency:</strong> The generated mel features must be converted to waveforms by a separate vocoder, adding complexity and potential quality loss.</li>
+                    <li><strong>Duration estimation:</strong> The model needs to know the target length before generation. This requires either explicit duration prediction or length estimation from the text.</li>
+                    <li><strong>Training cost:</strong> Flow-matching models require large amounts of training data and compute to learn the complex conditional velocity fields. They are not cheap to train from scratch.</li>
+                    <li><strong>Lack of streaming:</strong> Non-autoregressive models generate the entire output at once. They cannot start outputting audio before the full generation is complete, which adds latency for long utterances.</li>
                 </ul>
-                <p>But these models do not dominate universally. They often need stronger continuous generative training, a vocoder or decoder suited to the continuous representation, and careful duration or length handling at inference.</p>
+
+                <h2 id="information-theory">Information-Theoretic Analysis</h2>
+
+                <p>The continuous versus discrete debate can be analyzed through information theory. Consider two systems generating the same target speech $X$:</p>
+                <ul>
+                    <li><strong>Discrete system:</strong> Encodes $X$ as tokens $C$ with mutual information $I(C; X) \leq R$ (bounded by the codec bitrate), then models $p(C \mid \text{text})$ autoregressively.</li>
+                    <li><strong>Continuous system:</strong> Models $p(X \mid \text{text})$ directly as a conditional flow, with no intermediate bottleneck.</li>
+                </ul>
+
+                <p>The discrete system introduces a lossy bottleneck — the codec. Even a perfect language model operating on codec tokens cannot recover information that the codec discarded. The continuous system has no such bottleneck; its errors come from model capacity and training, not from representation constraints.</p>
+
+                <p>However, the discrete system has an advantage in planning. An autoregressive model making sequential decisions can plan ahead: each token choice constrains future choices, enabling long-range coherence. The continuous system generates all frames simultaneously, which can lead to local coherence without global planning — a phenomenon visible as correct individual phonemes with incorrect word-level prosody.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Planning-Quality Tradeoff</div>
+                    <p>Discrete autoregressive models excel at sequential planning (each decision constrains the next), while continuous non-autoregressive models excel at parallel quality (each frame can be refined without sequential error accumulation). The ideal system would combine both: sequential planning at a coarse level with parallel refinement at a fine level. This is essentially what hierarchical systems do — plan with semantic tokens, refine with continuous generation.</p>
+                </div>
 
                 <h2 id="failure-modes">Failure Modes And Design Risks</h2>
-                <p>If the alignment logic is weak, the model can drift in duration or pronunciation. If the continuous objective is too simple, outputs can become bland or unstable. If prompt conditioning is weak, speaker identity can fade. And if the flow path is hard to learn, inference may need too many steps to stay attractive.</p>
-                <p>So the family works best when the continuous representation, conditioning structure, and sampling procedure are designed as one coherent system.</p>
+
+                <p>Understanding the failure modes helps you design better systems and diagnose problems when they occur:</p>
+
+                <ul>
+                    <li><strong>Duration drift:</strong> If the alignment logic is weak, the model can produce speech that is too fast, too slow, or has unnatural pauses. This is especially problematic for E2-TTS, where duration is learned implicitly.</li>
+                    <li><strong>Pronunciation errors:</strong> Without explicit phoneme-level conditioning, the model can mispronounce rare words, names, or technical terms. The character-level conditioning in E2-TTS and F5-TTS is more susceptible to this than Voicebox's phoneme-level conditioning.</li>
+                    <li><strong>Speaker drift:</strong> Over long utterances, the model may gradually shift away from the prompt speaker's voice, especially if the prompt is short and the generated segment is long.</li>
+                    <li><strong>Blurriness from few ODE steps:</strong> Using too few integration steps produces output that is perceptually blurry — the spectral detail is smoothed out, producing muffled or underwater-sounding speech.</li>
+                    <li><strong>Mode collapse in diverse outputs:</strong> Flow-matching models can sometimes collapse to generating the same speaking style regardless of the prompt, especially when trained on insufficiently diverse data.</li>
+                </ul>
+
+                <p>So the family works best when the continuous representation, conditioning structure, and sampling procedure are designed as one coherent system. Each component depends on the others: a good velocity network cannot compensate for poor conditioning, and good conditioning cannot compensate for too few ODE steps.</p>
+
+                <h2 id="practical-use">Practical Considerations For Deployment</h2>
+
+                <p>If you are considering using a Voicebox-family model in production, several practical factors should guide your decision:</p>
+
+                <p><strong>Latency:</strong> These models generate the entire utterance at once. For a 5-second utterance with 16 ODE steps, you need 16 forward passes through the full model before any audio is available. This adds ~500ms-2s of latency depending on model size and hardware. For streaming applications, this is a significant disadvantage compared to autoregressive models that can start outputting audio after generating just the first few tokens.</p>
+
+                <p><strong>Quality consistency:</strong> Flow-matching models produce remarkably consistent quality across different texts and speakers, because the generation process is regularized by the continuous transport objective. They rarely produce the catastrophic failures (garbled audio, complete nonsense) that autoregressive models occasionally exhibit.</p>
+
+                <p><strong>Voice cloning fidelity:</strong> The continuous conditioning from prompt audio preserves fine speaker detail very well. These models typically achieve higher speaker similarity scores than discrete-token approaches, especially for unseen speakers with unusual voice characteristics.</p>
+
+                <p><strong>Multilingual capability:</strong> Both E2-TTS and F5-TTS demonstrate strong multilingual performance, including code-switching (mixing languages within a single utterance). The character-level conditioning makes this natural — the model does not need language-specific phoneme sets.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
@@ -275,14 +429,16 @@
         <aside class="toc-container">
             <h4 class="toc-title">Contents</h4>
             <nav class="toc-list">
-                <a href="#shared-idea" class="toc-link">The Shared Idea</a>
+                <a href="#shared-idea" class="toc-link">Speech Infilling As Continuous Generation</a>
                 <a href="#flow-matching-basics" class="toc-link">Flow Matching, Derived Slowly</a>
-                <a href="#voicebox" class="toc-link">Voicebox</a>
-                <a href="#e2" class="toc-link">E2-TTS</a>
-                <a href="#f5" class="toc-link">F5-TTS</a>
+                <a href="#voicebox" class="toc-link">Voicebox: Large-Scale Speech Infilling</a>
+                <a href="#e2" class="toc-link">E2-TTS: The Filler-Token Breakthrough</a>
+                <a href="#f5" class="toc-link">F5-TTS: Practical Refinement</a>
                 <a href="#compare" class="toc-link">Comparing The Three Models</a>
-                <a href="#why-better-than-discrete" class="toc-link">Why This Family Can Beat Discrete Codec LMs</a>
-                <a href="#failure-modes" class="toc-link">Failure Modes</a>
+                <a href="#why-better-than-discrete" class="toc-link">Why Continuous Can Beat Discrete</a>
+                <a href="#information-theory" class="toc-link">Information-Theoretic Analysis</a>
+                <a href="#failure-modes" class="toc-link">Failure Modes And Design Risks</a>
+                <a href="#practical-use" class="toc-link">Practical Considerations</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
             </nav>
         </aside>
