@@ -99,100 +99,188 @@
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>15. EnCodec: High-Fidelity Acoustic Tokenization</h1>
-                    <p class="lead">EnCodec became important because it was more than a good paper. It was a strong, reusable acoustic codec with clear published bandwidths, discrete RVQ tokens, and an entropy-coding language model. That combination made it the practical baseline for a large share of audio generation research.</p>
+                    <p class="lead">EnCodec became important because it was more than a good paper. It was a strong, reusable acoustic codec with clear published bandwidths, discrete RVQ tokens, and an entropy-coding language model. That combination made it the practical baseline for a large share of audio generation research. This tutorial works through the architecture, training, and information-theoretic properties of EnCodec in depth.</p>
                 </div>
 
                 <h2 id="why-encodec">Why EnCodec Became The Default Baseline</h2>
-                <p>Before EnCodec, the field already knew that neural audio compression was possible. What EnCodec changed was usability and credibility. It offered pretrained models, multiple bandwidth settings, clear RVQ structure, and perceptually strong reconstructions. Researchers could actually plug it into downstream systems instead of treating it as a one-off result.</p>
-                <p>That mattered enormously for TTS and audio language models. If you want to model audio with a Transformer, you need a discrete representation that sounds good enough to decode back into convincing speech or music. EnCodec provided that representation at a scale the community could adopt quickly.</p>
+
+                <p>Before EnCodec, the field already knew that neural audio compression was possible. SoundStream (Google, 2021) had demonstrated the core recipe: convolutional encoder-decoder with residual vector quantization and adversarial training. What EnCodec changed was usability and credibility. It offered pretrained models, multiple bandwidth settings, clear RVQ structure, perceptually strong reconstructions, and — crucially — an open-source implementation that researchers could actually use.</p>
+
+                <p>That mattered enormously for TTS and audio language models. If you want to model audio with a Transformer, you need a discrete representation that sounds good enough to decode back into convincing speech or music. EnCodec provided that representation at a scale the community could adopt quickly. Within months of its release, EnCodec became the default audio tokenizer for systems like VALL-E, AudioLM, MusicGen, and dozens of research projects.</p>
+
+                <p>The practical impact was profound. Instead of every research group training their own audio codec (a significant engineering effort), teams could use EnCodec off the shelf and focus their innovation budget on the generative model. This standardization accelerated progress across the field, creating a common representation that made results comparable and reproducible.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Mental Model</div>
-                    <p>EnCodec is an acoustic tokenizer first. Its job is to preserve what listeners care about in the sound, then expose that information as a regular stack of discrete codes that other models can learn from.</p>
+                    <p>EnCodec is an acoustic tokenizer first. Its job is to preserve what listeners care about in the sound, then expose that information as a regular stack of discrete codes that other models can learn from. Think of it as a translator between the continuous world of audio and the discrete world of language models.</p>
                 </div>
 
                 <h2 id="bitrate-derivation">Deriving The Published Token Structure Slowly</h2>
-                <p>The official release describes a causal 24 kHz mono model and a non-causal 48 kHz stereo model. For the 24 kHz model, the published mapping is:</p>
+
+                <p>The official release describes a causal 24 kHz mono model and a non-causal 48 kHz stereo model. For the 24 kHz model, the published mapping between bandwidth and number of codebooks is:</p>
                 <table>
                     <thead>
-                        <tr><th>Bandwidth</th><th>Number of RVQ codebooks</th></tr>
+                        <tr><th>Bandwidth</th><th>Number of RVQ codebooks ($n_q$)</th><th>Bits per frame</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>1.5 kbps</td><td>2</td></tr>
-                        <tr><td>3 kbps</td><td>4</td></tr>
-                        <tr><td>6 kbps</td><td>8</td></tr>
-                        <tr><td>12 kbps</td><td>16</td></tr>
-                        <tr><td>24 kbps</td><td>32</td></tr>
+                        <tr><td>1.5 kbps</td><td>2</td><td>20</td></tr>
+                        <tr><td>3 kbps</td><td>4</td><td>40</td></tr>
+                        <tr><td>6 kbps</td><td>8</td><td>80</td></tr>
+                        <tr><td>12 kbps</td><td>16</td><td>160</td></tr>
+                        <tr><td>24 kbps</td><td>32</td><td>320</td></tr>
                     </tbody>
                 </table>
-                <p>Each codebook has 1024 entries, so each token has a nominal cost of $\log_2 1024 = 10$ bits. Let $n_q$ be the number of codebooks and let $f$ be the frame rate. Then the nominal bitrate is</p>
-                $$R = n_q f \log_2 1024 = 10 n_q f.$$
+
+                <p>Each codebook has 1024 entries, so each token has a nominal cost of $\log_2 1024 = 10$ bits. Let $n_q$ be the number of codebooks and let $f$ be the frame rate. Then the nominal bitrate is:</p>
+                $$R = n_q \cdot f \cdot \log_2 1024 = 10 \cdot n_q \cdot f.$$
+
                 <p>Now plug in the published 6 kbps setting, where $R = 6000$ bits/s and $n_q = 8$:</p>
                 $$6000 = 10 \cdot 8 \cdot f.$$
                 <p>Solve for $f$:</p>
                 $$f = \frac{6000}{80} = 75 \text{ frames/s}.$$
-                <p>This is a useful derived quantity. It tells you that EnCodec's 24 kHz model produces a 75 Hz latent token cadence. That is far slower than the waveform, but still much denser than text.</p>
+
+                <p>This is a key derived quantity. It tells you that EnCodec's 24 kHz model produces a 75 Hz latent token cadence — one frame every $1/75 \approx 13.3$ ms. That is far slower than the waveform (which has a sample every $1/24000 \approx 0.042$ ms), but still much denser than text (which typically generates at 3-10 tokens per second).</p>
+
+                <p><strong>Worked example: Token count for a 10-second clip.</strong> At 75 Hz with 8 codebooks:</p>
+                <ul>
+                    <li>Total frames: $75 \times 10 = 750$.</li>
+                    <li>Total tokens (all codebooks): $750 \times 8 = 6{,}000$.</li>
+                    <li>Total bits: $6{,}000 \times 10 = 60{,}000$ bits = 7.5 KB.</li>
+                </ul>
+                <p>Compare this to the raw audio: $24{,}000 \times 10 \times 16 = 3{,}840{,}000$ bits = 480 KB. EnCodec achieves a compression ratio of $480/7.5 = 64\times$.</p>
+
                 <div class="note-box">
-                    <div class="box-title">Why 75 Hz Matters</div>
-                    <p style="margin-bottom: 0;">A decoder-only LM that sees EnCodec tokens must make about 75 frame decisions per second per active codebook. That is one reason later tokenizers tried to reduce token rate more aggressively.</p>
+                    <div class="box-title">Why 75 Hz Matters For Language Models</div>
+                    <p style="margin-bottom: 0;">A decoder-only LM that sees EnCodec tokens must handle about 75 frame decisions per second per active codebook. For an 8-codebook setup, this can mean up to 600 token decisions per second when flattened into a single sequence. For a 10-second utterance, that is 6,000 tokens — longer than many text prompts. This sequence length burden is one reason later tokenizers like Mimi (12.5 Hz) and XCodec2 (50 Hz with single stream) tried to reduce token rate more aggressively.</p>
                 </div>
 
+                <h3>The Encoder Downsampling Pipeline</h3>
+
+                <p>How does EnCodec achieve a 75 Hz frame rate from 24 kHz audio? The encoder uses a cascade of strided convolutions that progressively reduce the temporal dimension. The total stride is the product of all individual strides:</p>
+                $$\text{Total stride} = \frac{24{,}000}{75} = 320.$$
+                <p>The encoder uses stride factors of [8, 5, 4, 2] in its four convolutional blocks: $8 \times 5 \times 4 \times 2 = 320$. Each block also includes residual connections and normalization. The final encoder output has 128 channels at 75 Hz — each frame is a 128-dimensional vector that represents 13.3 ms of audio.</p>
+
                 <h2 id="architecture">Architecture As A Rate-Distortion Machine</h2>
+
                 <p>The architecture is conceptually simple:</p>
                 <ol>
-                    <li>The encoder compresses the waveform into a lower-rate latent representation.</li>
-                    <li>Residual vector quantization turns that latent into discrete codes.</li>
-                    <li>The decoder reconstructs the waveform from the quantized latents.</li>
+                    <li><strong>Encoder:</strong> Compresses the waveform into a lower-rate latent representation (24 kHz to 75 Hz, 1 channel to 128 channels).</li>
+                    <li><strong>RVQ stack:</strong> Turns the continuous latent vectors into discrete codes (128-dim continuous to $n_q$ discrete indices from 1024-entry codebooks).</li>
+                    <li><strong>Decoder:</strong> Reconstructs the waveform from the quantized latents (75 Hz, 128 channels to 24 kHz, 1 channel).</li>
                 </ol>
-                <p>From an information-theory perspective, the encoder and quantizer define the rate, while the decoder and training losses define what kind of distortion the codec is willing to tolerate. A codec is not merely storing bits. It is deciding which uncertainty is cheap to throw away and which uncertainty must survive.</p>
+
+                <p>From an information-theory perspective, the encoder and quantizer define the rate (how many bits per second the representation uses), while the decoder and training losses define what kind of distortion the codec is willing to tolerate. A codec is not merely storing bits. It is deciding which uncertainty is cheap to throw away and which uncertainty must survive.</p>
+
                 <table>
                     <thead>
-                        <tr><th>Component</th><th>Function</th><th>Why it matters</th></tr>
+                        <tr><th>Component</th><th>Function</th><th>Information-Theoretic Role</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>Encoder</td><td>Maps waveform to compressed latent frames</td><td>Removes local redundancy before quantization</td></tr>
-                        <tr><td>RVQ stack</td><td>Discretizes the latent progressively</td><td>Controls bitrate and token structure</td></tr>
-                        <tr><td>Decoder</td><td>Maps quantized latents back to waveform</td><td>Turns token quality into audible quality</td></tr>
+                        <tr><td>Encoder</td><td>Maps waveform to compressed latent frames</td><td>Removes local redundancy; defines the latent space geometry</td></tr>
+                        <tr><td>RVQ stack</td><td>Discretizes the latent progressively</td><td>Controls bitrate through codebook count; creates progressive refinement</td></tr>
+                        <tr><td>Decoder</td><td>Maps quantized latents back to waveform</td><td>Recovers perceptually important details from quantized representation</td></tr>
+                        <tr><td>Discriminator</td><td>Judges reconstruction quality</td><td>Defines what "important details" means through adversarial pressure</td></tr>
                     </tbody>
                 </table>
 
+                <h3>The Encoder-Decoder Symmetry</h3>
+
+                <p>EnCodec's encoder and decoder are roughly symmetric: the encoder uses strided convolutions to downsample, and the decoder uses transposed convolutions to upsample. This symmetry ensures that the decoder has the same capacity to reconstruct detail as the encoder has to encode it.</p>
+
+                <p>However, the symmetry is not perfect. The decoder includes additional refinement layers that help it fill in details that were lost during quantization. Think of the decoder as a skilled artist who can infer plausible fine details from a coarse sketch — the quantized representation provides the sketch, and the decoder adds the details.</p>
+
+                <h3>Causal Versus Non-Causal Models</h3>
+
+                <p>EnCodec offers both causal and non-causal configurations. The causal model uses only past context at each frame (no future lookahead), making it suitable for streaming applications where latency matters. The non-causal model can look ahead, achieving better quality at the cost of introducing latency. For TTS applications, the non-causal model is often preferred because the entire utterance is typically available before encoding.</p>
+
                 <h2 id="losses">Why The Training Objective Is Not Just MSE</h2>
-                <p>If you trained a neural codec with only sample-wise mean squared error, you would often get reconstructions that are numerically close but perceptually dull or unnatural. EnCodec's training objective therefore uses a richer distortion measure: waveform and spectral reconstruction terms, adversarial terms, and the quantization losses that keep the RVQ system stable.</p>
-                <p>A simplified mental-model objective is</p>
-                $$\mathcal{L} = \lambda_{\text{rec}} \mathcal{L}_{\text{wave}} + \lambda_{\text{stft}} \mathcal{L}_{\text{stft}} + \lambda_{\text{adv}} \mathcal{L}_{\text{adv}} + \lambda_{\text{vq}} \mathcal{L}_{\text{vq}}.$$
-                <p>Read it term by term:</p>
-                <ul>
-                    <li>$\mathcal{L}_{\text{wave}}$ says: do not drift too far from the original waveform.</li>
-                    <li>$\mathcal{L}_{\text{stft}}$ says: preserve the time-frequency structure listeners hear.</li>
-                    <li>$\mathcal{L}_{\text{adv}}$ says: make the output sound plausible to a learned discriminator.</li>
-                    <li>$\mathcal{L}_{\text{vq}}$ says: keep the quantizer and encoder well behaved.</li>
-                </ul>
-                <p>The multiscale STFT discriminator matters because audio perception is highly frequency-structured. Harmonics, fricatives, transients, and texture are easier to judge in time-frequency space than by comparing raw samples one by one.</p>
+
+                <p>If you trained a neural codec with only sample-wise mean squared error, you would often get reconstructions that are numerically close but perceptually dull or unnatural. The human ear does not hear individual sample values — it hears spectral shapes, harmonic patterns, and temporal dynamics. An MSE-only codec might preserve energy in unimportant frequency bands while corrupting critical formant structures.</p>
+
+                <p>EnCodec's training objective therefore uses a richer distortion measure:</p>
+                $$\mathcal{L} = \lambda_{\text{rec}} \mathcal{L}_{\text{wave}} + \lambda_{\text{stft}} \mathcal{L}_{\text{stft}} + \lambda_{\text{adv}} \mathcal{L}_{\text{adv}} + \lambda_{\text{feat}} \mathcal{L}_{\text{feat}} + \lambda_{\text{vq}} \mathcal{L}_{\text{vq}}.$$
+
+                <p>Let us examine each term in detail:</p>
+
+                <h3>Waveform Reconstruction Loss</h3>
+                <p>A time-domain L1 loss between original and reconstructed waveforms: $\mathcal{L}_{\text{wave}} = \|x - \hat{x}\|_1$. This provides a basic signal for numerical accuracy. L1 is preferred over L2 because it is more robust to outliers and produces sharper reconstructions.</p>
+
+                <h3>Multi-Scale STFT Loss</h3>
+                <p>A combination of spectral convergence and magnitude losses computed at multiple STFT resolutions (different window sizes and hop lengths). This captures both coarse spectral shape (large windows) and fine temporal detail (small windows). The multi-scale approach ensures that the codec preserves structure at all time-frequency scales.</p>
+
+                <h3>Adversarial Loss</h3>
+                <p>A multi-scale discriminator judges whether the reconstructed audio is distinguishable from real audio. The discriminator processes the audio at multiple time scales, capturing both local texture and global structure. This encourages the decoder to produce output that sounds real to a learned critic.</p>
+
+                <h3>Feature Matching Loss</h3>
+                <p>The internal features of the discriminator are compared between real and reconstructed audio. This provides a more stable training signal than the adversarial loss alone, because it operates on intermediate representations rather than binary real/fake decisions.</p>
+
+                <h3>VQ Losses</h3>
+                <p>The standard commitment and codebook losses from VQ-VAE that keep the RVQ system stable. The encoder is encouraged to commit to codebook entries (commitment loss), and the codebook entries are encouraged to track the encoder outputs (codebook loss).</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Why Multi-Objective Training?</div>
+                    <p>Each loss term targets a different aspect of perceptual quality. The waveform loss ensures numerical accuracy. The STFT loss ensures spectral fidelity. The adversarial loss ensures perceptual naturalness. The feature matching loss stabilizes training. The VQ loss keeps quantization healthy. No single loss captures "sounds good" — the combination does.</p>
+                </div>
 
                 <h2 id="balancer">The Loss Balancer Intuition</h2>
-                <p>One subtle EnCodec contribution is its loss balancer. Different losses naturally live on different scales, and if you simply add them with fixed coefficients, one can dominate for accidental numerical reasons. The balancer tries to keep the training signal from becoming pathological.</p>
-                <p>The conceptual point is more important than the exact implementation: a good audio codec is optimizing a <em>learned notion of distortion</em>, not just Euclidean closeness. It is deciding how to spend a fixed bitrate budget on the errors listeners are most likely to notice.</p>
+
+                <p>One subtle but important EnCodec contribution is its loss balancer. Different losses naturally live on different numerical scales — the waveform L1 might be around 0.01 while the adversarial loss is around 1.0. If you simply add them with fixed coefficients, one can dominate for accidental numerical reasons, causing the others to be effectively ignored during training.</p>
+
+                <p>EnCodec's balancer dynamically adjusts the loss weights during training to keep all losses contributing meaningfully. The conceptual point is more important than the exact implementation: a good audio codec is optimizing a <em>learned notion of distortion</em>, not just Euclidean closeness. It is deciding how to spend a fixed bitrate budget on the errors listeners are most likely to notice.</p>
 
                 <h2 id="entropy-coding">Nominal Rate Versus Entropy-Coded Rate</h2>
-                <p>EnCodec also ships with a language model that can predict the token stream and reduce the effective bitrate further. This is a direct application of entropy coding. If some token patterns are common and others are rare, you should not pay the same number of bits for both.</p>
-                <p>If the learned prior assigns conditional probabilities $p(c_t \mid c_{<t})$, arithmetic coding can approach an average cost close to the conditional cross-entropy. In practical terms, the published system reports reductions of up to roughly 40% without changing the acoustic quality.</p>
-                <p><strong>Example.</strong> If a nominal 6 kbps stream is reduced by 40%, the new effective rate is</p>
-                $$6 \cdot (1 - 0.40) = 3.6 \text{ kbps}.$$
-                <p>That example is useful because it separates two ideas:</p>
+
+                <p>EnCodec also ships with a small Transformer language model that can predict the token stream and reduce the effective bitrate further through entropy coding. This is a direct application of Shannon's source coding theorem: if some token patterns are common and others are rare, you should not pay the same number of bits for both.</p>
+
+                <p>If the learned prior assigns conditional probabilities $p(c_t \mid c_{<t})$, arithmetic coding can approach an average cost close to the conditional cross-entropy. In practical terms, the published system reports reductions of up to roughly 25-40% without changing the acoustic quality.</p>
+
+                <p><strong>Worked example.</strong> If a nominal 6 kbps stream is reduced by 40%, the new effective rate is:</p>
+                $$6 \times (1 - 0.40) = 3.6 \text{ kbps}.$$
+
+                <p>That example separates two important ideas:</p>
                 <ul>
-                    <li><strong>Nominal bitrate</strong> comes from codebook count, frame rate, and codebook size.</li>
-                    <li><strong>Effective bitrate</strong> depends on entropy and predictability of the token stream.</li>
+                    <li><strong>Nominal bitrate</strong> comes from codebook count, frame rate, and codebook size. It is fixed by the codec design.</li>
+                    <li><strong>Effective bitrate</strong> depends on entropy and predictability of the token stream. It can be reduced by entropy coding without changing the codec itself.</li>
                 </ul>
+
+                <p>The gap between nominal and effective bitrate tells you how much redundancy exists in the token stream. A large gap means the tokens are highly predictable (many patterns repeat), suggesting the codec is "wasting" bits on predictable information. A small gap means the tokens are already close to maximum entropy, suggesting efficient bit usage.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Compression Meets Generation</div>
-                    <p>The same probabilistic model that predicts EnCodec tokens well enough to compress them is also the kind of model you would train to generate them. This is why codec research and language-model research keep meeting at the same mathematical object: token probability.</p>
+                    <p>The same probabilistic model that predicts EnCodec tokens well enough to compress them is also the kind of model you would train to generate them. This is why codec research and language-model research keep meeting at the same mathematical object: $p(c_t \mid c_{<t})$. A good compression model is a good generation model, and vice versa.</p>
                 </div>
 
                 <h2 id="for-lms">Why EnCodec Worked So Well For Early Audio LMs</h2>
-                <p>EnCodec gave researchers three things at once: strong acoustic quality, a fixed regular token layout, and public availability. That made it an ideal tokenizer for early systems such as AudioLM-style or MusicGen-style pipelines. If your goal is to sound right, EnCodec is a strong interface.</p>
-                <p>The limitation is equally important. EnCodec does not explicitly force early tokens to preserve transcript information or semantic structure. A tokenizer can be great at preserving perceptual waveform quality yet still be suboptimal for text-conditioned speech generation, where word integrity and semantic controllability matter more than raw acoustic fidelity alone.</p>
+
+                <p>EnCodec gave researchers three things at once that made it the natural choice for early audio language models:</p>
+                <ol>
+                    <li><strong>Strong acoustic quality:</strong> Reconstructions at 6 kbps are perceptually close to the original, meaning the discrete tokens carry enough information for convincing speech and music.</li>
+                    <li><strong>Fixed, regular token layout:</strong> The RVQ structure produces a predictable grid of tokens ($n_q$ codes per frame, $f$ frames per second) that fits naturally into Transformer architectures.</li>
+                    <li><strong>Public availability:</strong> Pretrained models, code, and clear documentation meant anyone could use EnCodec immediately.</li>
+                </ol>
+
+                <p>The limitation is equally important. EnCodec does not explicitly force early tokens to preserve transcript information or semantic structure. A tokenizer can be great at preserving perceptual waveform quality yet still be suboptimal for text-conditioned speech generation, where word integrity and semantic controllability matter more than raw acoustic fidelity alone. This limitation motivated systems like Mimi and XCodec2.</p>
+
+                <h2 id="encodec-vs-others">How EnCodec Compares To Its Successors</h2>
+
+                <table>
+                    <thead>
+                        <tr><th>Property</th><th>EnCodec</th><th>SoundStream</th><th>DAC</th><th>Mimi</th><th>XCodec2</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Year</td><td>2022</td><td>2021</td><td>2023</td><td>2024</td><td>2024</td></tr>
+                        <tr><td>Frame rate</td><td>75 Hz</td><td>50 Hz</td><td>86 Hz</td><td>12.5 Hz</td><td>50 Hz</td></tr>
+                        <tr><td>Codebook size</td><td>1,024</td><td>1,024</td><td>1,024</td><td>1,024</td><td>65,536</td></tr>
+                        <tr><td>Semantic loss</td><td>No</td><td>No</td><td>No</td><td>Yes (WavLM)</td><td>Yes (W2V2-BERT)</td></tr>
+                        <tr><td>Entropy coding</td><td>Yes</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+                        <tr><td>Audio scope</td><td>General</td><td>General</td><td>General</td><td>Speech</td><td>Speech</td></tr>
+                    </tbody>
+                </table>
 
                 <h2 id="choose-encodec">When EnCodec Is Still The Right Choice</h2>
+
                 <p>Choose EnCodec when you want a high-quality acoustic baseline, compatibility with a large literature, or a codec that handles general audio rather than only speech semantics. It remains one of the cleanest references for asking, "What can I get if I optimize mainly for audible quality and practical compression?"</p>
+
                 <p>If your main problem is that an LM must reason over very long speech contexts or preserve text semantics more explicitly, compare EnCodec against Mimi or XCodec2. But if you need a trusted acoustic tokenizer, EnCodec is still one of the strongest places to start.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
@@ -201,6 +289,7 @@
                     <li><a href="https://arxiv.org/abs/2210.13438" target="_blank" rel="noopener">High Fidelity Neural Audio Compression</a> - Original EnCodec paper.</li>
                     <li><a href="https://audiocraft.metademolab.com/encodec.html" target="_blank" rel="noopener">Meta EnCodec research page</a> - Official overview and demos.</li>
                 </ul>
+
             </article>
 
             <article class="article-content" id="exercises" style="display: none;">
@@ -1846,14 +1935,15 @@
         <aside class="toc-container">
             <h4 class="toc-title">Contents</h4>
             <nav class="toc-list">
-                <a href="#why-encodec" class="toc-link">Why EnCodec Became The Default Baseline</a>
-                <a href="#bitrate-derivation" class="toc-link">Deriving The Published Token Structure Slowly</a>
-                <a href="#architecture" class="toc-link">Architecture As A Rate-Distortion Machine</a>
-                <a href="#losses" class="toc-link">Why The Training Objective Is Not Just MSE</a>
-                <a href="#balancer" class="toc-link">The Loss Balancer Intuition</a>
-                <a href="#entropy-coding" class="toc-link">Nominal Rate Versus Entropy-Coded Rate</a>
-                <a href="#for-lms" class="toc-link">Why EnCodec Worked So Well For Early Audio LMs</a>
-                <a href="#choose-encodec" class="toc-link">When EnCodec Is Still The Right Choice</a>
+                <a href="#why-encodec" class="toc-link">Why EnCodec Became The Default</a>
+                <a href="#bitrate-derivation" class="toc-link">Deriving The Token Structure</a>
+                <a href="#architecture" class="toc-link">Architecture As Rate-Distortion Machine</a>
+                <a href="#losses" class="toc-link">The Multi-Objective Training Loss</a>
+                <a href="#balancer" class="toc-link">The Loss Balancer</a>
+                <a href="#entropy-coding" class="toc-link">Nominal vs Entropy-Coded Rate</a>
+                <a href="#for-lms" class="toc-link">Why EnCodec Worked For Audio LMs</a>
+                <a href="#encodec-vs-others" class="toc-link">Comparison With Successors</a>
+                <a href="#choose-encodec" class="toc-link">When To Choose EnCodec</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
             </nav>
         </aside>

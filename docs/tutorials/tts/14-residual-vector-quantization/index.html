@@ -99,132 +99,213 @@
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>14. Residual Vector Quantization for Audio Codecs</h1>
-                    <p class="lead">Residual vector quantization takes the idea from the previous tutorial and makes it practical for high-quality audio. Instead of forcing one token to explain everything, RVQ lets the codec make a coarse guess first and then spend extra tokens correcting the leftover error.</p>
+                    <p class="lead">Residual vector quantization takes the idea from the previous tutorial and makes it practical for high-quality audio. Instead of forcing one token to explain everything, RVQ lets the codec make a coarse guess first and then spend extra tokens correcting the leftover error. This tutorial derives the algorithm step by step, analyzes its rate-distortion properties, and explains why it became the backbone of modern audio codecs.</p>
                 </div>
 
                 <h2 id="why-rvq">Why Plain VQ Runs Out Of Capacity</h2>
+
                 <p>Single-stage vector quantization has one central weakness: one discrete choice must carry too much responsibility. In speech, the same token may need to describe phonetic identity, speaker color, voicing, local pitch shape, breath noise, and transient detail all at once. That is an overloaded bottleneck.</p>
-                <p>You can try to fix this by making the codebook huge. But a huge codebook brings its own problems: larger search cost, larger softmax or lookup tables, harder utilization, and less graceful control over bitrate. RVQ solves the problem in a different way. It keeps each individual choice manageable and stacks several choices in sequence.</p>
+
+                <p>Consider the numbers. A typical encoder produces a 128-dimensional latent vector per frame. With a codebook of $N = 1024$ entries, each token carries $\log_2 1024 = 10$ bits of information. But the raw audio for one frame (say 13.3 ms at 24 kHz) is $320 \times 16 = 5{,}120$ bits. That is a compression ratio of 512:1 — far too aggressive for a single quantization step to handle without significant quality loss.</p>
+
+                <p>You can try to fix this by making the codebook huge. A codebook with $N = 2^{20} \approx 10^6$ entries would give 20 bits per token. But a million-entry codebook brings its own problems: larger search cost at encoding time ($O(Nd)$ distance computations per frame), larger softmax or lookup tables in language models, harder utilization (many entries may never be used), and less graceful control over bitrate. RVQ solves the problem in a different way. It keeps each individual choice manageable and stacks several choices in sequence.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Mental Model</div>
-                    <p>Think of RVQ as layered correction. The first codebook draws the rough sketch. The second fixes the biggest mistakes. The third cleans up smaller mistakes. Later levels polish details that earlier levels could not afford to represent.</p>
+                    <p>Think of RVQ as layered correction. The first codebook draws the rough sketch. The second fixes the biggest mistakes. The third cleans up smaller mistakes. Later levels polish details that earlier levels could not afford to represent. This is analogous to progressive image compression (JPEG progressive mode) or successive refinement in information theory.</p>
                 </div>
 
+                <h3>The Capacity Problem, Quantified</h3>
+
+                <p>To see why stacking helps, consider the effective bits per vector. A single codebook with $N$ entries provides $\log_2 N$ bits. An RVQ with $K$ codebooks, each of size $N$, provides $K \log_2 N$ bits. But the total number of distinct codebook entries is only $KN$ (rather than $N^K$), making the search and storage costs linear in $K$ rather than exponential.</p>
+
+                <p><strong>Worked example:</strong> To achieve 80 bits per frame:</p>
+                <ul>
+                    <li><strong>Single VQ:</strong> Need $N = 2^{80} \approx 10^{24}$ entries. Utterly impractical.</li>
+                    <li><strong>RVQ with $K = 8$:</strong> Need $N = 2^{10} = 1024$ entries per level. Total entries: $8 \times 1024 = 8{,}192$. Completely practical.</li>
+                </ul>
+                <p>RVQ achieves the same representational capacity with a factor of $10^{20}$ fewer codebook entries. That is the fundamental appeal.</p>
+
                 <h2 id="worked-example">A Tiny Worked Example</h2>
+
                 <p>Suppose the encoder emits the 2D latent vector</p>
-                $$\mathbf{z} = (2.7,-1.4).$$
+                $$\mathbf{z} = (2.7, -1.4).$$
                 <p>Assume the first codebook contains a vector</p>
-                $$\mathbf{e}^{(1)} = (2.0,-1.0).$$
+                $$\mathbf{e}^{(1)} = (2.0, -1.0).$$
                 <p>The first-level residual is the error left after that coarse approximation:</p>
-                $$\mathbf{r}^{(1)} = \mathbf{z} - \mathbf{e}^{(1)} = (2.7,-1.4) - (2.0,-1.0) = (0.7,-0.4).$$
+                $$\mathbf{r}^{(1)} = \mathbf{z} - \mathbf{e}^{(1)} = (2.7, -1.4) - (2.0, -1.0) = (0.7, -0.4).$$
+
                 <p>Now the second codebook does not try to approximate the original vector again. It only tries to approximate the leftover residual. Suppose it chooses</p>
-                $$\mathbf{e}^{(2)} = (0.5,-0.5).$$
+                $$\mathbf{e}^{(2)} = (0.5, -0.5).$$
                 <p>Then the new residual becomes</p>
-                $$\mathbf{r}^{(2)} = \mathbf{r}^{(1)} - \mathbf{e}^{(2)} = (0.7,-0.4) - (0.5,-0.5) = (0.2,0.1).$$
+                $$\mathbf{r}^{(2)} = \mathbf{r}^{(1)} - \mathbf{e}^{(2)} = (0.7, -0.4) - (0.5, -0.5) = (0.2, 0.1).$$
+
                 <p>If a third codebook picks</p>
-                $$\mathbf{e}^{(3)} = (0.2,0.0),$$
+                $$\mathbf{e}^{(3)} = (0.2, 0.0),$$
                 <p>the remaining residual is</p>
-                $$\mathbf{r}^{(3)} = (0.2,0.1) - (0.2,0.0) = (0.0,0.1).$$
+                $$\mathbf{r}^{(3)} = (0.2, 0.1) - (0.2, 0.0) = (0.0, 0.1).$$
+
                 <p>The final approximation after three levels is just the sum of the chosen embeddings:</p>
-                $$\hat{\mathbf{z}} = \mathbf{e}^{(1)} + \mathbf{e}^{(2)} + \mathbf{e}^{(3)} = (2.7,-1.5).$$
-                <p>So we started with $(2.7,-1.4)$ and ended at $(2.7,-1.5)$. The only error left is $(0,0.1)$. That is the whole idea of RVQ in miniature.</p>
+                $$\hat{\mathbf{z}} = \mathbf{e}^{(1)} + \mathbf{e}^{(2)} + \mathbf{e}^{(3)} = (2.7, -1.5).$$
+                <p>So we started with $(2.7, -1.4)$ and ended at $(2.7, -1.5)$. The only error left is $(0, 0.1)$. That is the whole idea of RVQ in miniature.</p>
 
                 <table>
                     <thead>
-                        <tr><th>Level</th><th>Chosen vector</th><th>Residual after the level</th><th>Interpretation</th></tr>
+                        <tr><th>Level</th><th>Chosen vector</th><th>Residual after level</th><th>$\|\mathbf{r}\|^2$</th><th>Interpretation</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>1</td><td>$(2.0,-1.0)$</td><td>$(0.7,-0.4)$</td><td>Coarse structure</td></tr>
-                        <tr><td>2</td><td>$(0.5,-0.5)$</td><td>$(0.2,0.1)$</td><td>Large correction</td></tr>
-                        <tr><td>3</td><td>$(0.2,0.0)$</td><td>$(0.0,0.1)$</td><td>Fine correction</td></tr>
+                        <tr><td>0 (input)</td><td>—</td><td>$(2.7, -1.4)$</td><td>$9.25$</td><td>Original latent</td></tr>
+                        <tr><td>1</td><td>$(2.0, -1.0)$</td><td>$(0.7, -0.4)$</td><td>$0.65$</td><td>Coarse structure (93% distortion removed)</td></tr>
+                        <tr><td>2</td><td>$(0.5, -0.5)$</td><td>$(0.2, 0.1)$</td><td>$0.05$</td><td>Large correction (99.5% removed)</td></tr>
+                        <tr><td>3</td><td>$(0.2, 0.0)$</td><td>$(0.0, 0.1)$</td><td>$0.01$</td><td>Fine correction (99.9% removed)</td></tr>
                     </tbody>
                 </table>
 
                 <h2 id="equations">The RVQ Equations, Derived Slowly</h2>
-                <p>Now let us write the general case carefully. Start with the encoder output</p>
+
+                <p>Now let us write the general case carefully. Start with the encoder output:</p>
                 $$\mathbf{r}^{(0)} = \mathbf{z}.$$
                 <p>The first quantizer chooses an embedding from its codebook:</p>
-                $$\mathbf{e}^{(1)} = q_1(\mathbf{r}^{(0)}).$$
+                $$\mathbf{e}^{(1)} = q_1(\mathbf{r}^{(0)}) = \arg\min_{\mathbf{c} \in \mathcal{C}_1} \|\mathbf{r}^{(0)} - \mathbf{c}\|_2.$$
                 <p>Then we subtract that approximation from the current residual:</p>
                 $$\mathbf{r}^{(1)} = \mathbf{r}^{(0)} - \mathbf{e}^{(1)} = \mathbf{z} - \mathbf{e}^{(1)}.$$
                 <p>The second quantizer sees only the leftover error:</p>
                 $$\mathbf{e}^{(2)} = q_2(\mathbf{r}^{(1)}), \qquad \mathbf{r}^{(2)} = \mathbf{r}^{(1)} - \mathbf{e}^{(2)}.$$
                 <p>If you substitute the expression for $\mathbf{r}^{(1)}$, you get</p>
                 $$\mathbf{r}^{(2)} = \mathbf{z} - \mathbf{e}^{(1)} - \mathbf{e}^{(2)}.$$
-                <p>Keep repeating this logic and a pattern appears:</p>
+                <p>Keep repeating this logic for $K$ levels and a pattern appears:</p>
                 $$\mathbf{r}^{(K)} = \mathbf{z} - \sum_{k=1}^{K} \mathbf{e}^{(k)}.$$
                 <p>Rearrange that expression and you obtain the reconstruction formula:</p>
                 $$\hat{\mathbf{z}} = \sum_{k=1}^{K} \mathbf{e}^{(k)} = \mathbf{z} - \mathbf{r}^{(K)}.$$
-                <p>This final line is worth pausing on. It says: the reconstruction is simply "original latent minus what you failed to explain." In other words, RVQ is a bookkeeping system for shrinking unexplained error.</p>
+                <p>This final line is worth pausing on. It says: the reconstruction is simply "original latent minus what you failed to explain." In other words, RVQ is a bookkeeping system for shrinking unexplained error. Every level reduces the residual, and the reconstruction quality depends entirely on how small the final residual $\mathbf{r}^{(K)}$ becomes.</p>
+
+                <h3>Why Each Level Has Its Own Codebook</h3>
+
+                <p>An important detail: each RVQ level uses a separate codebook $\mathcal{C}_k$. The codebooks are not shared. This is because the distribution of residuals changes with depth. The first residual $\mathbf{r}^{(0)} = \mathbf{z}$ has the distribution of the encoder output — broad, covering the full range of speech variation. The second residual $\mathbf{r}^{(1)}$ has a much narrower distribution — it is the error after coarse approximation. The third residual is narrower still.</p>
+
+                <p>If all levels shared the same codebook, the entries would need to cover both large-scale structure and small-scale corrections, wasting capacity on irrelevant regions. Separate codebooks let each level specialize: early codebooks have entries spread across the full latent space, while late codebooks have entries concentrated near the origin (small corrections).</p>
 
                 <h2 id="rate-entropy">Nominal Rate, Effective Rate, And Entropy By Level</h2>
-                <p>Suppose each RVQ level emits one token per frame, the frame rate is $f$, each codebook has $N$ entries, and there are $K$ levels. If you stored every token naively, the nominal bitrate would be</p>
+
+                <p>Suppose each RVQ level emits one token per frame, the frame rate is $f$, each codebook has $N$ entries, and there are $K$ levels. If you stored every token naively (using $\log_2 N$ bits each), the nominal bitrate would be:</p>
                 $$R_{\text{nom}} = K f \log_2 N.$$
                 <p>That formula is simple. Each token costs at most $\log_2 N$ bits. There are $K$ tokens per frame and $f$ frames per second.</p>
-                <p><strong>Example.</strong> If $K=8$, $f=75$ Hz, and $N=1024$, then</p>
-                $$R_{\text{nom}} = 8 \cdot 75 \cdot 10 = 6000 \text{ bits/s} = 6 \text{ kbps}.$$
+
+                <p><strong>Example.</strong> If $K = 8$, $f = 75$ Hz, and $N = 1024$, then</p>
+                $$R_{\text{nom}} = 8 \cdot 75 \cdot 10 = 6{,}000 \text{ bits/s} = 6 \text{ kbps}.$$
+
                 <p>But that is only the ceiling. If some symbols are more common than others, arithmetic coding can get closer to the entropy of each level:</p>
                 $$R_{\text{eff}} \approx \sum_{k=1}^{K} f \, H\!\left(C^{(k)}\right).$$
-                <p>Here $C^{(k)}$ is the random token at level $k$ and $H(C^{(k)})$ is its entropy in bits. This formula matters because late residual levels often become less uncertain. Their residuals are smaller and more concentrated, so their token distributions can be narrower.</p>
-                <p><strong>Step-by-step example.</strong> Assume $f=50$ Hz and four levels have entropies $[8.5,7.2,5.6,4.0]$ bits. Then</p>
-                $$R_{\text{eff}} = 50(8.5 + 7.2 + 5.6 + 4.0) = 50(25.3) = 1265 \text{ bits/s}.$$
-                <p>So the entropy-coded stream behaves like a 1.265 kbps representation, even though the nominal rate may be much larger.</p>
+                <p>Here $C^{(k)}$ is the random token at level $k$ and $H(C^{(k)})$ is its entropy in bits. This formula matters because late residual levels often become less uncertain. Their residuals are smaller and more concentrated, so their token distributions can be narrower (fewer distinct codes are needed).</p>
+
+                <p><strong>Step-by-step example.</strong> Assume $f = 50$ Hz and four levels have entropies $[8.5, 7.2, 5.6, 4.0]$ bits. Then:</p>
+                $$R_{\text{eff}} = 50 \times (8.5 + 7.2 + 5.6 + 4.0) = 50 \times 25.3 = 1{,}265 \text{ bits/s}.$$
+                <p>So the entropy-coded stream behaves like a 1.265 kbps representation, even though the nominal rate ($50 \times 4 \times 10 = 2{,}000$ bps) is much larger.</p>
+
+                <p>The gap between nominal and effective rate — in this case $2{,}000 - 1{,}265 = 735$ bits/s — tells you how much redundancy exists in the token stream. A large gap means the codebooks are being used unevenly (many entries are rare), which is normal and expected for later RVQ levels.</p>
+
                 <div class="note-box">
                     <div class="box-title">What You Want To See</div>
-                    <p style="margin-bottom: 0;">A healthy RVQ stack often shows high entropy in early levels and lower entropy in later levels. That pattern means the hierarchy is genuinely going from coarse structure to fine detail instead of duplicating the same information at every level.</p>
+                    <p style="margin-bottom: 0;">A healthy RVQ stack often shows high entropy in early levels and lower entropy in later levels. That pattern means the hierarchy is genuinely going from coarse structure to fine detail instead of duplicating the same information at every level. If all levels have similar entropy, something may be wrong — the codebooks might not be specializing properly.</p>
                 </div>
 
                 <h2 id="distortion">Distortion Reduction And Diminishing Returns</h2>
-                <p>Because each level quantizes the leftover error, the residual norm should usually shrink as depth increases. A simple latent-space distortion measure is</p>
+
+                <p>Because each level quantizes the leftover error, the residual norm should usually shrink as depth increases. A simple latent-space distortion measure is:</p>
                 $$D_K = \|\mathbf{r}^{(K)}\|_2^2.$$
                 <p>Using the small example from above:</p>
-                $$D_0 = \|(2.7,-1.4)\|_2^2 = 2.7^2 + 1.4^2 = 9.25,$$
-                $$D_1 = \|(0.7,-0.4)\|_2^2 = 0.49 + 0.16 = 0.65,$$
-                $$D_2 = \|(0.2,0.1)\|_2^2 = 0.04 + 0.01 = 0.05,$$
-                $$D_3 = \|(0.0,0.1)\|_2^2 = 0.01.$$
+                $$D_0 = \|(2.7, -1.4)\|_2^2 = 2.7^2 + 1.4^2 = 9.25,$$
+                $$D_1 = \|(0.7, -0.4)\|_2^2 = 0.49 + 0.16 = 0.65,$$
+                $$D_2 = \|(0.2, 0.1)\|_2^2 = 0.04 + 0.01 = 0.05,$$
+                $$D_3 = \|(0.0, 0.1)\|_2^2 = 0.01.$$
                 <p>The first level reduced distortion by $9.25 - 0.65 = 8.60$. The second reduced it by $0.60$. The third reduced it by $0.04$. This is a textbook diminishing-returns pattern.</p>
+
                 <p>That pattern is exactly what you want in a progressive code. The first few levels carry the large, obvious structure. Later levels spend bits on details that matter less for perception or are harder to predict.</p>
 
+                <h3>The Marginal Value Of Each Level</h3>
+
+                <p>We can define the marginal distortion reduction of level $k$ as:</p>
+                $$\Delta D_k = D_{k-1} - D_k.$$
+                <p>In the example: $\Delta D_1 = 8.60$, $\Delta D_2 = 0.60$, $\Delta D_3 = 0.04$. Each additional level contributes less than the previous one. This diminishing returns pattern is fundamental to RVQ and has important implications:</p>
+                <ul>
+                    <li>The first few levels are essential — they carry the coarse structure that makes speech intelligible.</li>
+                    <li>The last few levels are optional — they polish details that most listeners will not notice.</li>
+                    <li>The marginal cost of each level (10 bits at 75 Hz = 750 bits/s) is fixed, but the marginal benefit decreases. At some point, the benefit is not worth the cost.</li>
+                </ul>
+
+                <p>This analysis explains why codecs like EnCodec offer multiple bandwidth settings: you can truncate the RVQ stack at different depths to trade quality for bitrate. The first 2 levels give intelligible speech. 4 levels give good quality. 8 levels give near-transparent quality. Beyond 8, the improvements are subtle.</p>
+
                 <h2 id="dropout">Quantizer Dropout And Variable Bitrate</h2>
-                <p>One of the most important practical tricks is quantizer dropout. During training, the decoder is sometimes asked to reconstruct audio using only the first few levels instead of all $K$ levels. For example, a model with 8 levels might be trained sometimes with 2 levels, sometimes with 4, sometimes with all 8.</p>
-                <p>This changes the meaning of the hierarchy. Level 1 is no longer allowed to be useless without levels 2-8. It must already produce a recognizable, partially correct reconstruction. Levels 2-4 must add meaningful quality when present. The later levels become optional refinements rather than hidden crutches.</p>
-                <p>From an information-theory viewpoint, dropout trains a progressive code. The codec learns a family of truncatable representations with different rate-distortion operating points, all sharing the same encoder and decoder.</p>
+
+                <p>One of the most important practical tricks is quantizer dropout, introduced by SoundStream. During training, the decoder is sometimes asked to reconstruct audio using only the first $K' < K$ levels instead of all $K$ levels. For example, a model with 8 levels might be trained sometimes with 2 levels, sometimes with 4, sometimes with all 8.</p>
+
+                <p>This changes the meaning of the hierarchy profoundly. Level 1 is no longer allowed to be useless without levels 2-8. It must already produce a recognizable, partially correct reconstruction. Levels 2-4 must add meaningful quality when present. The later levels become optional refinements rather than hidden crutches.</p>
+
+                <p>From an information-theory viewpoint, dropout trains a progressive code. The codec learns a family of truncatable representations with different rate-distortion operating points, all sharing the same encoder and decoder. The system can dynamically choose how many levels to use based on available bandwidth, without retraining.</p>
+
                 <table>
                     <thead>
-                        <tr><th>Active levels</th><th>Expected result</th><th>Interpretation</th></tr>
+                        <tr><th>Active levels</th><th>Approx. bitrate (75 Hz, 1024 entries)</th><th>Expected result</th><th>Interpretation</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>1-2</td><td>Rough but intelligible audio</td><td>Coarse content survives</td></tr>
-                        <tr><td>1-4</td><td>Clearly better timbre and transitions</td><td>Mid-level refinements</td></tr>
-                        <tr><td>1-8</td><td>Best fidelity and least artifacting</td><td>Full reconstruction path</td></tr>
+                        <tr><td>1-2</td><td>1.5 kbps</td><td>Rough but intelligible audio</td><td>Coarse content survives</td></tr>
+                        <tr><td>1-4</td><td>3 kbps</td><td>Clearly better timbre and transitions</td><td>Mid-level refinements</td></tr>
+                        <tr><td>1-8</td><td>6 kbps</td><td>Best fidelity and least artifacting</td><td>Full reconstruction path</td></tr>
                     </tbody>
                 </table>
 
+                <div class="note-box">
+                    <div class="box-title">Dropout Is Structurally Ordered</div>
+                    <p style="margin-bottom: 0;">Quantizer dropout always drops the deepest (finest) levels. It never drops intermediate levels while keeping deeper ones. This preserves the progressive hierarchy: the decoder always receives levels 1 through $K'$ for some $K'$, and can reconstruct accordingly. Random masking (dropping arbitrary levels) would destroy the progressive structure and make reconstruction much harder.</p>
+                </div>
+
                 <h2 id="audio-intuition">What Early And Late RVQ Levels Usually Store</h2>
-                <p>In speech codecs, the earliest levels often carry the information with the largest perceptual and predictive impact: broad spectral shape, voicing, coarse phonetic category, and part of speaker identity. Middle levels often refine harmonics, transitions, and finer timbral cues. Late levels often carry subtle texture, residual hiss, high-frequency detail, and error correction.</p>
-                <p>This is not a law of nature. It is an empirical tendency. The exact partition depends on training losses, architecture, and data. But it is a useful mental model because it explains why truncating an RVQ stack often leaves intelligibility more intact than sparkle or crispness.</p>
+
+                <p>In speech codecs, the earliest levels often carry the information with the largest perceptual and predictive impact: broad spectral shape (formant positions), voicing (voiced vs. unvoiced), coarse phonetic category, and part of speaker identity. Middle levels often refine harmonics, transitions between phonemes, and finer timbral cues. Late levels often carry subtle texture, residual hiss, high-frequency detail, and error correction that smooths out quantization artifacts.</p>
+
+                <p>This is not a law of nature. It is an empirical tendency driven by the training loss structure. But it is a useful mental model because it explains why truncating an RVQ stack often leaves intelligibility more intact than sparkle or crispness. The coarse phonetic content is in level 1; the acoustic polish is in levels 6-8.</p>
+
+                <h3>Probing What Each Level Contains</h3>
+
+                <p>A useful diagnostic is to train simple classifiers on the token sequences from individual RVQ levels. What can you predict from level 1 alone? What about level 8 alone?</p>
+                <ul>
+                    <li><strong>Level 1:</strong> Usually sufficient for phoneme classification, coarse speaker identification, and prosodic contour estimation.</li>
+                    <li><strong>Levels 2-4:</strong> Add pitch refinement, better speaker discrimination, and more accurate phoneme boundary timing.</li>
+                    <li><strong>Levels 5-8:</strong> Add spectral texture, breathiness, recording quality, and fine harmonic structure. Linguistic content is usually not improved by these levels.</li>
+                </ul>
+
+                <p>This observation is why semantic codecs like Mimi and XCodec2 focus on making the first level (or a single unified level) semantically rich. If level 1 already captures linguistic content well, the language model's job becomes much easier — it only needs to model one level for content, with remaining levels handling acoustic detail.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Entropy Perspective</div>
-                    <p>Early levels usually reduce uncertainty about the signal in big chunks. Later levels reduce uncertainty in smaller chunks. That is why their entropy and their perceptual value per extra bit often decline with depth.</p>
-
-
+                    <p>Early levels usually reduce uncertainty about the signal in big chunks — each token resolves major questions like "what phoneme is this?" and "who is speaking?" Later levels reduce uncertainty in smaller chunks — each token refines "exactly what pitch?" and "what noise texture?" That is why their entropy and their perceptual value per extra bit often decline with depth.</p>
                 </div>
 
                 <h2 id="lm-view">Why RVQ Helps Compression But Can Complicate Language Modeling</h2>
+
                 <p>RVQ is excellent for compression because it organizes capacity progressively. But downstream language modeling has to pay for the structure. If you flatten 8 levels at 75 Hz into a single sequence, the LM effectively sees 600 token decisions per second. That is a heavy temporal burden.</p>
-                <p>Even if later levels carry less information, the LM still needs to generate them unless the architecture predicts them in parallel or with delayed streams. This is why later codecs such as Mimi and XCodec2 pay so much attention to token rate and token structure, not just nominal bitrate.</p>
-                <p>So RVQ solves one problem and creates another. It is rate-distortion-efficient, but it can be modeling-unfriendly if the downstream sequence model must generate every level autoregressively.</p>
+
+                <p>Even if later levels carry less information, the LM still needs to generate them unless the architecture predicts them in parallel or with delayed streams. Several strategies have been proposed to handle this:</p>
+                <ul>
+                    <li><strong>Delay pattern (MusicGen):</strong> Offset each level by one frame, allowing the LM to predict all levels in parallel with shifted attention. Efficient but constrains the attention structure.</li>
+                    <li><strong>Two-stage (VALL-E):</strong> Generate the first level autoregressively, then fill in remaining levels with a separate non-autoregressive model. Clean separation but adds a second model.</li>
+                    <li><strong>Interleaving (SpeechGPT):</strong> Serialize all levels into one flat sequence. Simple but creates very long sequences with heterogeneous token types.</li>
+                    <li><strong>Single-level design (XCodec2):</strong> Eliminate RVQ entirely by using a single large codebook. Removes the multi-level complexity but requires a bigger vocabulary.</li>
+                </ul>
+
+                <p>This is why later codecs such as Mimi and XCodec2 pay so much attention to token rate and token structure, not just nominal bitrate. RVQ solves one problem (capacity per token) and creates another (sequence complexity for LMs).</p>
 
                 <h2 id="diagnostics">A Practical RVQ Debugging Checklist</h2>
+
                 <p>When you evaluate an RVQ codec, do not stop at MOS or reconstruction loss. Look at:</p>
-                <ul>
-                    <li>per-level entropy and whether it decreases sensibly with depth,</li>
-                    <li>per-level utilization and whether some codebooks are collapsing,</li>
-                    <li>distortion reduction from level $k-1$ to level $k$,</li>
-                    <li>quality when decoding with truncated numbers of levels,</li>
-                    <li>what linguistic, speaker, and prosodic information is already visible in the first few levels.</li>
-                </ul>
-                <p>These diagnostics tell you whether the hierarchy is actually meaningful or merely complicated.</p>
+                <ol>
+                    <li><strong>Per-level entropy:</strong> Does it decrease sensibly with depth? If not, the hierarchy may not be meaningful.</li>
+                    <li><strong>Per-level utilization:</strong> Are all codebook entries being used? Dead codes waste capacity. Utilization below 50% at any level is a red flag.</li>
+                    <li><strong>Distortion reduction per level:</strong> Does $\Delta D_k$ decrease monotonically? If a middle level contributes nothing, the codebook may be redundant.</li>
+                    <li><strong>Truncated-level quality:</strong> How does the codec sound with only 1, 2, 4 levels? Good progressive behavior means graceful degradation.</li>
+                    <li><strong>Semantic content per level:</strong> Can you predict phonemes from level 1 tokens? Speaker identity? This tells you how well the hierarchy aligns with linguistic structure.</li>
+                </ol>
+                <p>These diagnostics tell you whether the hierarchy is actually meaningful or merely complicated. A well-trained RVQ stack is a precision instrument; a poorly trained one is just a stack of noisy codebooks.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
@@ -232,6 +313,7 @@
                     <li><a href="https://arxiv.org/abs/2410.14411" target="_blank" rel="noopener">SNAC: Multi-Scale Neural Audio Codec</a> - Useful contrast showing that not all refinement needs to happen at one temporal scale.</li>
                     <li><a href="https://kyutai.org/codec-explainer" target="_blank" rel="noopener">Kyutai Codec Explainer</a> - Clear practical discussion of RVQ and audio-LM tradeoffs.</li>
                 </ul>
+
             </article>
 
             <article class="article-content" id="exercises" style="display: none;">
@@ -1165,13 +1247,13 @@
             <nav class="toc-list">
                 <a href="#why-rvq" class="toc-link">Why Plain VQ Runs Out Of Capacity</a>
                 <a href="#worked-example" class="toc-link">A Tiny Worked Example</a>
-                <a href="#equations" class="toc-link">The RVQ Equations, Derived Slowly</a>
-                <a href="#rate-entropy" class="toc-link">Nominal Rate, Effective Rate, And Entropy By Level</a>
-                <a href="#distortion" class="toc-link">Distortion Reduction And Diminishing Returns</a>
-                <a href="#dropout" class="toc-link">Quantizer Dropout And Variable Bitrate</a>
-                <a href="#audio-intuition" class="toc-link">What Early And Late RVQ Levels Usually Store</a>
-                <a href="#lm-view" class="toc-link">Why RVQ Helps Compression But Can Complicate Language Modeling</a>
-                <a href="#diagnostics" class="toc-link">A Practical RVQ Debugging Checklist</a>
+                <a href="#equations" class="toc-link">The RVQ Equations, Derived</a>
+                <a href="#rate-entropy" class="toc-link">Nominal Rate, Effective Rate, Entropy</a>
+                <a href="#distortion" class="toc-link">Distortion And Diminishing Returns</a>
+                <a href="#dropout" class="toc-link">Quantizer Dropout</a>
+                <a href="#audio-intuition" class="toc-link">What Each Level Stores</a>
+                <a href="#lm-view" class="toc-link">RVQ And Language Modeling</a>
+                <a href="#diagnostics" class="toc-link">Debugging Checklist</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
             </nav>
         </aside>
