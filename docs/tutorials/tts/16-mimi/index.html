@@ -99,71 +99,398 @@
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
                     <h1>16. Mimi: Low-Rate Semantic-Acoustic Codec Design</h1>
-                    <p class="lead">Mimi is one of the clearest examples of a codec built for language modeling, not only for waveform reconstruction. Its core move is to drastically reduce the token rate while pushing semantic information into the earliest token stream, so the model's uncertainty starts to look more like language and less like raw acoustics.</p>
+                    <p class="lead">Mimi is one of the clearest examples of a codec built for language modeling, not only for waveform reconstruction. Its core move is to drastically reduce the token rate while pushing semantic information into the earliest token stream, so the model's uncertainty starts to look more like language and less like raw acoustics. This tutorial explains every design choice slowly, with worked numbers, so you can see exactly why Mimi changes the speech-modeling problem.</p>
                 </div>
 
                 <h2 id="real-problem">The Problem Mimi Actually Solves</h2>
-                <p>It is easy to think that lower bitrate is the whole story. It is not. For an autoregressive speech model, the number of decisions per second can matter even more than the number of bits per second. A model that must emit 75 steps every second is operating under a very different burden than a model that emits 12.5 steps every second, even if both streams are compact.</p>
-                <p>Kyutai describes Mimi as a streaming 24 kHz codec with a 12.5 Hz representation, about 1.1 kbps, and 80 ms frame-size latency. Those numbers reveal the design thesis immediately: reduce the decision rate dramatically, keep streaming possible, and make the earliest token more semantically meaningful.</p>
+
+                <p>It is easy to think that lower bitrate is the whole story. It is not. For an autoregressive speech model, the number of decisions per second can matter even more than the number of bits per second. A model that must emit 75 steps every second is operating under a very different burden than a model that emits 12.5 steps every second, even if both streams are compact. The reason is straightforward: each prediction step costs attention over the full context, and the attention mechanism does not care how many bits each step represents — it cares how many steps exist.</p>
+
+                <p>Kyutai describes Mimi as a streaming 24 kHz codec with a 12.5 Hz representation, about 1.1 kbps, and 80 ms frame-size latency. Those numbers reveal the design thesis immediately: reduce the decision rate dramatically, keep streaming possible, and make the earliest token more semantically meaningful. Before Mimi, the dominant neural codecs — EnCodec, SoundStream, DAC — optimized heavily for acoustic reconstruction quality while leaving the token rate at 50–75 Hz. That was fine for compression benchmarks, but it created real problems for language models trying to generate speech token by token.</p>
+
+                <p>Consider the practical scenario that motivated Mimi's design. You want to build a spoken dialogue system — something like a voice assistant that can listen and respond in real time. The system needs to process speech as a sequence of tokens using a Transformer-based language model. If your codec emits 75 tokens per second and you have 8 RVQ layers, the model might need to handle 600 token decisions per second. For a 30-second conversation turn, that is 18,000 tokens — already a substantial fraction of many models' context windows. For a 5-minute conversation, you need 90,000 tokens. That is simply not feasible with standard Transformer architectures.</p>
+
+                <p>Mimi attacks this problem at its root. Instead of building a better model to handle dense token streams, it builds a sparser token stream that existing models can handle naturally. The key insight is that speech has a much lower information rate than the raw acoustic signal suggests. Most of the acoustic detail is redundant, predictable, or perceptually irrelevant. If you can organize the tokenization so that the most important information — the semantic content — appears in a compact stream, the language model's job becomes dramatically easier.</p>
+
                 <div class="definition-box">
                     <div class="box-title">Mental Model</div>
-                    <p>Mimi is not trying to win only at acoustic compression. It is trying to rearrange the uncertainty in speech so the first part of the problem feels language-like and the rest feels like optional acoustic refinement.</p>
+                    <p>Mimi is not trying to win only at acoustic compression. It is trying to rearrange the uncertainty in speech so the first part of the problem feels language-like and the rest feels like optional acoustic refinement. Think of it as a translator: it converts the speech signal from an acoustic language (dense, redundant, high-rate) into a semantic language (sparse, meaningful, low-rate) that Transformers already know how to handle.</p>
                 </div>
 
+                <h3>Historical Context: Why Frame Rate Became The Bottleneck</h3>
+
+                <p>The first generation of neural audio codecs — SoundStream (2021), EnCodec (2022) — were designed primarily as compression tools. Their success metrics were PESQ, ViSQOL, MUSHRA scores, and similar perceptual quality measures. A frame rate of 75 Hz was natural because it matched the temporal resolution needed for good reconstruction. Nobody was planning to feed those tokens into a Transformer one by one.</p>
+
+                <p>Then VALL-E (2023) changed the conversation. By treating EnCodec tokens as a language and training an autoregressive model to predict them, VALL-E showed that speech generation could be reformulated as language modeling. Suddenly, frame rate was not just a compression parameter — it was the sequence length that the Transformer had to process. And Transformers have quadratic attention cost in sequence length. A 6× reduction in frame rate means a 36× reduction in attention cost for the same audio duration.</p>
+
+                <p>This is the gap that Mimi fills. It is not the first low-rate codec, but it is one of the first to be designed from the ground up for the language-modeling use case, with semantic distillation baked into the training objective rather than added as an afterthought.</p>
+
                 <h2 id="counting-steps">Why 12.5 Hz Changes Everything</h2>
+
                 <p>Let us compare two codecs over 10 seconds of speech:</p>
                 <ul>
-                    <li>Codec A emits 75 steps per second.</li>
-                    <li>Codec B emits 12.5 steps per second.</li>
+                    <li>Codec A emits 75 steps per second (like EnCodec).</li>
+                    <li>Codec B emits 12.5 steps per second (like Mimi).</li>
                 </ul>
                 <p>The total number of frame decisions is</p>
                 $$10 \cdot 75 = 750 \qquad \text{versus} \qquad 10 \cdot 12.5 = 125.$$
                 <p>That is a factor of six. For a Transformer, this matters twice: training becomes cheaper and a fixed context window covers more real-world time.</p>
+
                 <p><strong>Context example.</strong> If your model has a context length of 2048 steps, then at 75 Hz it covers</p>
                 $$\frac{2048}{75} \approx 27.3 \text{ seconds},$$
                 <p>while at 12.5 Hz it covers</p>
                 $$\frac{2048}{12.5} \approx 163.8 \text{ seconds}.$$
-                <p>That is the real prize. A low token rate turns the same Transformer into a much longer-context speech model.</p>
+                <p>That is the real prize. A low token rate turns the same Transformer into a much longer-context speech model. You go from covering half a minute to covering nearly three minutes — enough for an entire conversational exchange.</p>
+
+                <h3>The Attention Cost Argument</h3>
+
+                <p>The quadratic scaling of self-attention makes the frame rate reduction even more significant than the linear token count suggests. Standard self-attention has complexity $O(n^2 d)$ where $n$ is the sequence length and $d$ is the model dimension. If we reduce the sequence length by a factor of 6, the attention cost drops by a factor of 36.</p>
+
+                <p>Let us make this concrete with a table:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Scenario</th><th>Frame Rate</th><th>10s Tokens</th><th>60s Tokens</th><th>Relative Attention Cost (10s)</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>EnCodec (single stream)</td><td>75 Hz</td><td>750</td><td>4,500</td><td>1.00×</td></tr>
+                        <tr><td>EnCodec (8 streams flat)</td><td>75 Hz × 8</td><td>6,000</td><td>36,000</td><td>64.00×</td></tr>
+                        <tr><td>Mimi (single stream)</td><td>12.5 Hz</td><td>125</td><td>750</td><td>0.028×</td></tr>
+                        <tr><td>DAC</td><td>86 Hz</td><td>860</td><td>5,160</td><td>1.31×</td></tr>
+                        <tr><td>SoundStream</td><td>50 Hz</td><td>500</td><td>3,000</td><td>0.44×</td></tr>
+                    </tbody>
+                </table>
+
+                <p>Notice the dramatic gap. Mimi's attention cost for 10 seconds of audio is less than 3% of EnCodec's, and less than 0.05% of a flattened 8-stream EnCodec representation. This is not a small optimization — it is a qualitative change in what is computationally feasible.</p>
+
+                <div class="note-box">
+                    <div class="box-title">Memory Implications</div>
+                    <p style="margin-bottom: 0;">The attention cost reduction also translates directly to memory savings. KV-cache memory scales linearly with sequence length, so a 6× shorter sequence uses 6× less KV-cache. For long-form speech generation or multi-turn dialogue, this difference can determine whether the model fits in GPU memory at all.</p>
+                </div>
+
+                <p><strong>Worked example: A 5-minute dialogue.</strong> Suppose you want to model a 5-minute conversation (300 seconds). At 75 Hz, that requires $300 \times 75 = 22{,}500$ tokens for a single stream. At 12.5 Hz, it requires $300 \times 12.5 = 3{,}750$ tokens. With a typical context limit of 8,192 tokens, the 75 Hz codec cannot fit the conversation at all, while the 12.5 Hz codec fits comfortably with room for system prompts and text conditioning.</p>
 
                 <h2 id="architecture">How Mimi Modifies The Standard Codec Recipe</h2>
-                <p>Mimi builds on the general SoundStream and EnCodec recipe, but changes the operating point. Kyutai describes added Transformer modules in both encoder and decoder and stride choices that reduce the representation to 12.5 Hz. Convolution still handles local structure, but attention helps organize longer-range dependencies before and after quantization.</p>
-                <p>A useful back-of-the-envelope calculation is the average nominal information per frame. If the stream is about 1.1 kbps at 12.5 Hz, then the average budget is approximately</p>
-                $$\frac{1100}{12.5} = 88 \text{ bits/frame}.$$
-                <p>You should not over-interpret that number, but it gives intuition. Each frame can carry a fairly rich bundle of information because the model is allowed to emit so few frames in the first place.</p>
+
+                <p>Mimi builds on the general SoundStream and EnCodec recipe — a convolutional encoder, residual vector quantization, and a convolutional decoder — but changes the operating point in three fundamental ways. First, it uses much larger strides to reach 12.5 Hz. Second, it adds Transformer modules to both encoder and decoder to compensate for the information lost by aggressive downsampling. Third, it trains with a semantic distillation loss that shapes the first codebook to align with linguistic features.</p>
+
+                <p>The standard neural codec architecture processes audio in three stages: the encoder compresses the waveform to a lower-rate latent representation, the quantizer discretizes that representation into tokens, and the decoder reconstructs the waveform from the quantized latents. Mimi keeps this basic structure but modifies every stage to support the low-rate, semantic-aware design.</p>
+
+                <h3>Encoder Architecture</h3>
+
+                <p>The encoder must take 24,000 samples per second (the 24 kHz sample rate) and compress them down to 12.5 frames per second. That is a total temporal reduction factor of $24{,}000 / 12.5 = 1{,}920$. Compare this to EnCodec's factor of $24{,}000 / 75 = 320$. Mimi needs 6× more temporal compression than EnCodec.</p>
+
+                <p>This aggressive compression is achieved through a stack of strided convolutional layers, similar to EnCodec's architecture but with larger total stride. The convolutional backbone handles local temporal patterns efficiently — things like pitch periods, formant transitions, and phoneme boundaries. Each convolutional block reduces the temporal dimension by its stride factor while increasing the channel dimension to maintain representational capacity.</p>
+
+                <p>But here is the critical insight: with such aggressive downsampling, purely convolutional processing is not enough. A convolution with a finite kernel can only see a limited temporal context at each layer. When you downsample by a factor of 1,920, each output frame needs to summarize about 77 milliseconds of audio. That is long enough to span multiple phonemes, and the relationships between those phonemes may be non-local — they depend on the sentence structure, the speaker's rhythm, and the semantic content of the utterance.</p>
+
+                <p>This is why Kyutai adds Transformer modules to the encoder. After the convolutional downsampling produces a sequence of latent vectors at 12.5 Hz, a Transformer processes those vectors with self-attention. The Transformer can capture dependencies across the entire sequence — relating the current frame to frames seconds away — which is essential when each frame must carry enough information to reconstruct a large chunk of audio.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Hybrid Conv + Attention Design</div>
+                    <p>The combination of convolution for local feature extraction and attention for global context is a recurring pattern in modern audio processing. Convolutions are efficient for capturing local acoustic structure (pitch, formants, transients) because these patterns are spatially localized. Attention is efficient for capturing long-range dependencies (prosody, rhythm, semantic coherence) because these patterns span many frames. Neither alone is sufficient for the aggressive compression Mimi requires.</p>
+                </div>
+
+                <h3>The Quantizer: 32 RVQ Levels</h3>
+
+                <p>After the encoder produces a continuous latent vector for each frame, the quantizer discretizes it into a stack of tokens using Residual Vector Quantization (RVQ). Mimi uses 32 RVQ levels, which is notably more than EnCodec's typical 8 or 16. Why so many?</p>
+
+                <p>The answer relates to the compression challenge. Each Mimi frame must encode 77 ms of audio — six times more than an EnCodec frame at 75 Hz. That means each frame contains more information, so the quantizer needs more capacity to represent it faithfully. More RVQ levels provide that capacity by letting the quantizer progressively refine its approximation of the continuous latent vector.</p>
+
+                <p>Let us compute the theoretical capacity. If each RVQ level uses a codebook of size $N$, then the total number of distinct quantized representations across $K$ levels is $N^K$. With $N = 1024$ and $K = 32$, that is $1024^{32} = 2^{320}$ possible representations per frame — an astronomically large space. Of course, the actual utilized capacity is much smaller, but it gives the quantizer room to represent the rich information contained in each 77 ms frame.</p>
+
+                <p>The nominal bitrate calculation with all 32 levels active is:</p>
+                $$R_{\text{max}} = K \cdot f \cdot \log_2 N = 32 \cdot 12.5 \cdot 10 = 4{,}000 \text{ bits/s} = 4 \text{ kbps}.$$
+                <p>But the reported bitrate is only about 1.1 kbps. That suggests that either fewer levels are typically active during inference, or entropy coding reduces the effective cost, or both. The RVQ dropout mechanism (discussed below) trains the system to work well with any subset of levels, so the effective bitrate is configurable.</p>
+
+                <h3>Decoder Architecture</h3>
+
+                <p>The decoder mirrors the encoder: it starts with a Transformer that processes the quantized latent sequence at 12.5 Hz, capturing long-range dependencies among the token representations, and then passes the result through a stack of transposed convolutional layers that upsample back to the 24 kHz waveform.</p>
+
+                <p>The Transformer in the decoder is particularly important because of the progressive RVQ structure. When fewer RVQ levels are active (due to dropout or bandwidth selection), the quantized representation is coarser. The decoder's Transformer can learn to compensate for this coarseness by using context from neighboring frames to fill in missing detail. A purely convolutional decoder would be limited to local interpolation; the Transformer can make semantically informed guesses about what the missing detail should sound like.</p>
+
+                <p><strong>Worked example: Reconstruction from depth 1.</strong> If only the first RVQ level is active, the decoder receives one token per frame. With a codebook of 1024 entries, that is only 10 bits per frame, or $10 \times 12.5 = 125$ bits/s. That is an extremely low bitrate — much lower than even the lowest-quality traditional codecs. Yet because the first level is trained to capture semantic content (via the distillation loss), the decoder can produce intelligible speech from this minimal representation, using the Transformer to predict the acoustic detail that the quantizer dropped.</p>
 
                 <h2 id="semantic-token">The Semantic Token, Explained Slowly</h2>
+
                 <p>Kyutai states that Mimi uses a distillation loss so that the first codebook token aligns with a self-supervised speech representation from WavLM. The simplest way to read this is:</p>
                 <ol>
-                    <li>The model still needs to reconstruct good audio.</li>
-                    <li>But the first token is also encouraged to match a representation known to be good at capturing speech content.</li>
+                    <li>The model still needs to reconstruct good audio — that is the codec objective.</li>
+                    <li>But the first token is also encouraged to match a representation known to be good at capturing speech content — that is the semantic objective.</li>
+                    <li>These two objectives are combined during training so the first token becomes a hybrid: useful for both reconstruction and content prediction.</li>
                 </ol>
-                <p>A simplified objective is</p>
+
+                <p>A simplified training objective is</p>
                 $$\mathcal{L} = \mathcal{L}_{\text{codec}} + \lambda_{\text{sem}} \mathcal{L}_{\text{sem}}.$$
-                <p>Here $\mathcal{L}_{\text{codec}}$ stands for the usual reconstruction and quantization losses, and $\mathcal{L}_{\text{sem}}$ says: "make the early token resemble a semantic speech embedding."</p>
-                <p>The information-theory intuition is very clean. Let $C_1$ be the first token stream, $T$ be transcript-level content, and $S$ be speaker/acoustic detail. Mimi tries to make $I(C_1;T)$ large without forcing $C_1$ to memorize every piece of $S$. Later streams can then carry more of the speaker color, prosody, and acoustic residuals.</p>
+                <p>Here $\mathcal{L}_{\text{codec}}$ stands for the usual reconstruction and quantization losses (waveform L1, multi-scale STFT, adversarial loss, commitment loss), and $\mathcal{L}_{\text{sem}}$ says: "make the early token resemble a semantic speech embedding." The coefficient $\lambda_{\text{sem}}$ controls how strongly the semantic objective pulls on the codebook geometry.</p>
+
+                <h3>The Distillation Loss In Detail</h3>
+
+                <p>The semantic distillation loss typically takes the form of a distance between the encoder's first-level representation and the WavLM features. Let $\mathbf{z}_1^{(t)}$ be the first-level quantized representation at time $t$, and let $\mathbf{w}^{(t)}$ be the corresponding WavLM feature. The distillation loss is</p>
+                $$\mathcal{L}_{\text{sem}} = \frac{1}{T}\sum_{t=1}^{T} \|\text{proj}(\mathbf{z}_1^{(t)}) - \mathbf{w}^{(t)}\|_2^2,$$
+                <p>where $\text{proj}$ is a learned linear projection that maps the codebook dimension to the WavLM feature dimension.</p>
+
+                <p><strong>Worked example.</strong> Suppose the first codebook has dimension 128 and WavLM features have dimension 1024. The projection matrix $\mathbf{P} \in \mathbb{R}^{1024 \times 128}$ maps the codebook vector into WavLM space. If $\mathbf{z}_1 = (0.5, -0.3, \ldots)$ and $\mathbf{w} = (0.48, -0.31, \ldots)$, then the squared error at this frame is $\|\mathbf{P}\mathbf{z}_1 - \mathbf{w}\|_2^2$. Averaged across all frames, this loss encourages the first codebook to organize itself so that nearby codes correspond to nearby WavLM features — which in turn correspond to similar phonetic content.</p>
+
+                <p>The information-theory intuition is very clean. Let $C_1$ be the first token stream, $T$ be transcript-level content, and $S$ be speaker/acoustic detail. Mimi tries to make the mutual information $I(C_1;T)$ large without forcing $C_1$ to memorize every piece of $S$. Later streams can then carry more of the speaker color, prosody, and acoustic residuals.</p>
+
+                <h3>Why WavLM?</h3>
+
+                <p>Not all self-supervised speech models are equally good targets for semantic distillation. The choice of WavLM is deliberate. WavLM is trained with a denoising objective on speech, which encourages its representations to capture robust, noise-invariant features. Unlike models trained purely on clean speech, WavLM's features are good at representing the linguistic content of speech even when the acoustic conditions are imperfect.</p>
+
+                <p>Other candidates include HuBERT, wav2vec 2.0, and Whisper's encoder. Each captures somewhat different aspects of speech:</p>
+                <ul>
+                    <li><strong>HuBERT</strong> uses an offline clustering target, producing features that correlate well with phoneme identity but may miss some prosodic detail.</li>
+                    <li><strong>wav2vec 2.0</strong> uses contrastive learning, producing features that are discriminative but may not capture the full distributional structure of speech.</li>
+                    <li><strong>WavLM</strong> adds denoising and multi-task objectives to the HuBERT recipe, producing features that are both phonetically rich and acoustically robust.</li>
+                </ul>
+                <p>For a codec that must work in real conditions — including noisy environments, different recording qualities, and diverse speakers — WavLM's robustness is a significant advantage.</p>
+
+                <h3>What Makes A Good Semantic Feature?</h3>
+
+                <p>Not every speech representation is equally useful as a distillation target. A good semantic feature for Mimi's purposes should satisfy several properties:</p>
+                <ol>
+                    <li><strong>High mutual information with linguistic content:</strong> The feature should predict what was said (phonemes, words) with high accuracy.</li>
+                    <li><strong>Low mutual information with speaker identity:</strong> The feature should not encode too much about who said it, leaving that for later RVQ levels.</li>
+                    <li><strong>Temporal alignment with the codec's frame rate:</strong> The feature should be available at or near 12.5 Hz so the distillation loss can be computed frame-by-frame.</li>
+                    <li><strong>Smooth geometry:</strong> Similar linguistic content should map to nearby points in feature space, so the codebook can partition the space meaningfully.</li>
+                </ol>
+
+                <p>WavLM features at intermediate layers (layers 6–9 of a 12-layer model) tend to satisfy all four properties reasonably well. Early layers are too acoustic (capturing pitch and spectral detail), while late layers are too abstract (capturing high-level language structure that may not align with the codec's temporal granularity).</p>
+
                 <div class="note-box">
                     <div class="box-title">What This Buys You</div>
-                    <p style="margin-bottom: 0;">If the earliest token already says a lot about what was spoken, the LM can plan meaning first and acoustic detail second. That is exactly the opposite of a purely acoustic tokenizer.</p>
+                    <p style="margin-bottom: 0;">If the earliest token already says a lot about what was spoken, the LM can plan meaning first and acoustic detail second. That is exactly the opposite of a purely acoustic tokenizer, where the LM must predict fine acoustic details before it can even determine what word comes next. The semantic token makes the speech LM's job more like text generation, where the model thinks about content first and formatting second.</p>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Failure Modes Of Semantic Distillation</div>
+                    <p style="margin-bottom: 0;">If the distillation weight $\lambda_{\text{sem}}$ is too high, the first codebook may become an excellent phoneme predictor but a poor contributor to acoustic reconstruction. The decoder then relies entirely on later RVQ levels for acoustic quality, which can make the system fragile to RVQ truncation. Conversely, if $\lambda_{\text{sem}}$ is too low, the first token reverts to standard acoustic behavior and the semantic advantage disappears. Finding the right balance is an empirical challenge that requires monitoring both reconstruction quality and downstream LM performance during training.</p>
                 </div>
 
                 <h2 id="rvq-dropout">RVQ Depth And Why Dropout Matters</h2>
-                <p>Kyutai's public explainer describes Mimi as using 32 RVQ levels with RVQ dropout. That sounds large until you remember the point: the model wants a rich acoustic representation available when needed, but it does not want the whole system to collapse when only a subset of levels is used.</p>
-                <p>Quantizer dropout means the decoder sometimes reconstructs speech from only the first few active levels. This trains the hierarchy to be progressive. The first token stream must already be useful. Additional streams must add refinement rather than carrying all meaning secretly in the tail.</p>
-                <p>That creates a family of rate-quality operating points from one model. It also gives you a scientific tool: by truncating depth, you can ask which aspects of speech survive in the earliest streams and which appear only after more acoustic detail is restored.</p>
+
+                <p>Kyutai's public explainer describes Mimi as using 32 RVQ levels with RVQ dropout. That sounds large until you remember the point: the model wants a rich acoustic representation available when needed, but it does not want the whole system to collapse when only a subset of levels is used. The 32 levels provide capacity; the dropout provides robustness.</p>
+
+                <p>Quantizer dropout means the decoder sometimes reconstructs speech from only the first few active levels. During training, the system randomly selects a depth $k \in \{1, 2, \ldots, K\}$ and reconstructs using only the first $k$ RVQ levels, zeroing out the contributions from levels $k+1$ through $K$. This trains the hierarchy to be progressive: the first token stream must already be useful on its own, and additional streams must add genuine refinement rather than carrying essential information secretly in the tail.</p>
+
+                <h3>Mathematical Formulation Of RVQ Dropout</h3>
+
+                <p>Let $\mathbf{z}$ be the encoder output, $\mathbf{e}_1, \ldots, \mathbf{e}_K$ be the quantized vectors from each RVQ level, and $\hat{\mathbf{z}}_k = \sum_{i=1}^{k} \mathbf{e}_i$ be the partial reconstruction using the first $k$ levels. Standard RVQ training always uses $\hat{\mathbf{z}}_K$ for reconstruction. RVQ dropout instead samples a depth:</p>
+                $$k \sim p(k), \qquad k \in \{1, 2, \ldots, K\},$$
+                <p>and trains the decoder to reconstruct from $\hat{\mathbf{z}}_k$. The distribution $p(k)$ can be uniform or biased toward smaller values to emphasize early-level quality.</p>
+
+                <p>The training objective under dropout becomes</p>
+                $$\mathcal{L}_{\text{dropout}} = \mathbb{E}_{k \sim p(k)}\left[\mathcal{L}_{\text{recon}}(x, \text{Dec}(\hat{\mathbf{z}}_k))\right],$$
+                <p>where $\text{Dec}$ is the decoder and $x$ is the original audio. This forces the decoder to produce reasonable output at every depth, not just at full depth.</p>
+
+                <h3>Progressive Reconstruction: A Worked Example</h3>
+
+                <p>To build intuition for what progressive reconstruction looks like, consider a frame encoding the syllable "ma" spoken by a female speaker. The RVQ levels progressively refine the representation:</p>
+
+<pre><code>Depth   What is captured                         Reconstruction quality
+─────   ──────────────────────────────────        ──────────────────────────
+  1     Phoneme identity (bilabial nasal + /a/)   Intelligible but robotic
+  2     Broad spectral envelope, voicing          Sounds like speech, neutral
+  4     Pitch contour, basic prosody              Natural intonation appears
+  8     Speaker timbre, formant detail            Speaker identity recognizable
+ 16     Fine spectral texture, breathiness        High-quality, natural speech
+ 32     Micro-acoustic detail, room tone          Near-transparent reconstruction</code></pre>
+
+                <p>At depth 1, the decoder receives just the semantic token. With only 10 bits of information, it must guess everything about the speaker, prosody, and acoustic detail. The Transformer in the decoder helps by using context from neighboring frames to make informed guesses, but the result is intelligible rather than natural.</p>
+
+                <p>At depth 4, the decoder has about 40 bits per frame ($4 \times 10 = 40$), or $40 \times 12.5 = 500$ bits/s. This is enough to capture the broad acoustic character — the speech sounds like a real person with recognizable intonation, but fine details are smoothed out.</p>
+
+                <p>At depth 8, the system uses $8 \times 10 \times 12.5 = 1{,}000$ bits/s, which is close to Mimi's reported 1.1 kbps. At this point, the reconstruction is high quality: the speaker is identifiable, prosody is preserved, and the speech sounds natural. The remaining 24 levels add subtle refinements that matter for professional quality but are often unnecessary for language modeling or dialogue applications.</p>
+
+                <div class="note-box">
+                    <div class="box-title">Connection To Progressive Coding</div>
+                    <p style="margin-bottom: 0;">RVQ dropout creates what information theorists call a progressive or successive refinement code. The idea is old: Shannon showed in 1959 that for memoryless Gaussian sources, successive refinement achieves the rate-distortion bound at every stage. Mimi's RVQ dropout is a practical, learned version of this principle applied to speech. Each additional level buys a known amount of quality improvement, and you can truncate at any point to trade quality for bitrate.</p>
+                </div>
+
+                <h3>Training With Dropout: The Algorithm</h3>
+
+                <p>The training procedure with RVQ dropout can be summarized as follows:</p>
+
+<pre><code>for each training batch:
+    1. Encode: z = Encoder(audio)
+    2. Full RVQ: compute all K quantized vectors e_1, ..., e_K
+    3. Sample depth: k ~ Uniform{1, ..., K}  (or weighted distribution)
+    4. Partial sum: z_hat_k = e_1 + e_2 + ... + e_k
+    5. Decode: audio_hat = Decoder(z_hat_k)
+    6. Compute loss:
+       L = L_recon(audio, audio_hat) + L_vq(z, e_1..K) + lambda_sem * L_sem(e_1, wavlm)
+    7. Backpropagate through decoder, encoder, and all K codebooks
+       (even unused levels get gradient through VQ losses)</code></pre>
+
+                <p>A subtle point: even though levels $k+1$ through $K$ are not used for reconstruction in this batch, they still receive gradient through the standard VQ commitment and codebook losses. This ensures that all codebooks continue to track the residual structure of the encoder output, staying ready to contribute when they are active in future batches.</p>
+
+                <p>That creates a family of rate-quality operating points from one model. It also gives you a scientific tool: by truncating depth, you can ask which aspects of speech survive in the earliest streams and which appear only after more acoustic detail is restored. Researchers have used this capability to study what information is "semantic" versus "acoustic" in a precise, quantitative way.</p>
 
                 <h2 id="entropy-rate">Entropy Rate, Not Just Bitrate</h2>
-                <p>Suppose two codecs emit tokens with the same average entropy per token. The one with fewer tokens per second will usually be easier for an autoregressive LM to model because its entropy rate is lower. In rough terms:</p>
-                $$\text{entropy rate} \approx (\text{tokens/s}) \times (\text{bits/token}).$$
-                <p>Mimi attacks the first term aggressively. That is why it matters so much for dialogue and long-context speech generation. Lowering token rate reduces how often the model must decide, not merely how many bits a storage system would allocate.</p>
-                <p>This is also why Mimi is best understood as a speech-LM interface, not just a codec. It reorganizes uncertainty over time.</p>
+
+                <p>We have been discussing bitrate — the number of bits per second needed to encode the token stream. But for a language model, what really matters is not the nominal bitrate but the entropy rate: how much genuine unpredictability the model must handle per unit time. These are related but distinct concepts, and understanding the difference is essential for understanding why Mimi's design is so effective.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Entropy Rate (Formal Definition)</div>
+                    <p>For a stationary stochastic process $\{X_n\}$, the entropy rate is defined as</p>
+                    <p style="text-align:center;">$$h = \lim_{n \to \infty} \frac{1}{n} H(X_1, X_2, \ldots, X_n) = \lim_{n \to \infty} H(X_n \mid X_1, \ldots, X_{n-1}).$$</p>
+                    <p style="margin-bottom: 0;">The entropy rate measures the average amount of new information (in bits) that each new token contributes, given full knowledge of all previous tokens. It is always less than or equal to the marginal entropy $H(X_n)$ because conditioning reduces entropy.</p>
+                </div>
+
+                <p>The nominal bitrate of a codec is an upper bound on the information content. If a codebook has 1024 entries, each token costs at most $\log_2(1024) = 10$ bits. But if the token distribution is not uniform — if some tokens are much more common than others, or if tokens are predictable from context — the actual entropy per token is less than 10 bits.</p>
+
+                <p>For a language model, the cost of generating a token stream is proportional to the entropy rate, not the nominal bitrate. The model must learn to predict each token given the context, and the difficulty of that prediction is measured by the conditional entropy. A token stream with low entropy rate is easy to model even if its nominal bitrate is high.</p>
+
+                <h3>Why LMs Care About Entropy Rate</h3>
+
+                <p>Let us make this concrete with a worked comparison between Mimi and EnCodec.</p>
+
+                <p><strong>Scenario:</strong> Suppose an LM has learned to predict speech tokens well. For EnCodec at 75 Hz with a single codebook stream, suppose the average conditional entropy is 6 bits/token (well below the 10-bit maximum because many token transitions are predictable). For Mimi at 12.5 Hz, suppose the average conditional entropy is 8 bits/token (higher per token because each token summarizes more audio).</p>
+
+                <p>The entropy rates are:</p>
+                $$h_{\text{EnCodec}} = 75 \times 6 = 450 \text{ bits/s},$$
+                $$h_{\text{Mimi}} = 12.5 \times 8 = 100 \text{ bits/s}.$$
+
+                <p>Even though Mimi's per-token entropy is higher (8 vs 6 bits), its entropy rate is 4.5× lower because it makes far fewer decisions per second. The LM modeling Mimi tokens has a fundamentally easier job: it encounters less total unpredictability per second of audio.</p>
+
+                <p>This is the key insight. Mimi attacks the entropy rate by reducing the first factor (tokens per second) aggressively. Even if each token becomes harder to predict individually, the total prediction burden drops dramatically. It is like the difference between taking 75 easy exams per second versus 12.5 moderately hard exams per second — the second schedule is much less exhausting overall.</p>
+
+                <p>There is also a subtler effect: at lower frame rates, each token spans more temporal context, which means the conditional distribution $p(x_t \mid x_{<t})$ can be smoother and more predictable. Speech at 12.5 Hz moves at roughly the pace of syllables, and syllable-level transitions are more predictable than sub-phoneme acoustic transitions at 75 Hz. The speech signal has more structure at the syllable level than at the acoustic-detail level.</p>
+
+                <div class="note-box">
+                    <div class="box-title">How Conditional Entropy Reduces With Context</div>
+                    <p style="margin-bottom: 0;">As the LM observes more context, the conditional entropy of the next token drops. For speech at 12.5 Hz, each new context token represents 80 ms of speech — enough to contain phoneme-level information. After seeing just 10 tokens (0.8 seconds), the LM has enough context to make strong predictions about what comes next based on the word being spoken, the prosodic pattern, and the speaker's voice. At 75 Hz, 10 tokens cover only 133 ms — barely one phoneme — so the LM needs many more tokens before it can form useful predictions. Lower frame rates mean the LM reaches its "useful context" threshold much faster.</p>
+                </div>
+
+                <p>Mimi attacks the first term aggressively. That is why it matters so much for dialogue and long-context speech generation. Lowering token rate reduces how often the model must decide, not merely how many bits a storage system would allocate. This is why Mimi is best understood as a speech-LM interface, not just a codec. It reorganizes uncertainty over time.</p>
+
+                <h2 id="streaming">Streaming And Latency Analysis</h2>
+
+                <p>For real-time dialogue, latency is not optional — it is a hard constraint. Mimi is designed as a streaming codec, meaning it can process audio incrementally without waiting for the entire utterance. The key latency parameter is the frame size: at 12.5 Hz, each frame spans $1/12.5 = 80$ ms of audio. This means the encoder must wait at least 80 ms to accumulate enough input samples for one frame.</p>
+
+                <p>But frame size is not the whole latency story. The total algorithmic latency has several components:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Component</th><th>Source</th><th>Typical Value</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Frame accumulation</td><td>Waiting for input samples to fill one frame</td><td>80 ms</td></tr>
+                        <tr><td>Encoder lookahead</td><td>Causal convolutions may need future context</td><td>0 ms (causal) to ~40 ms (non-causal)</td></tr>
+                        <tr><td>Transformer attention</td><td>Self-attention over current context</td><td>~5-10 ms (GPU dependent)</td></tr>
+                        <tr><td>RVQ quantization</td><td>Codebook lookup (32 levels)</td><td>&lt;1 ms</td></tr>
+                        <tr><td>Decoder processing</td><td>Upsampling + attention + synthesis</td><td>~10-20 ms (GPU dependent)</td></tr>
+                    </tbody>
+                </table>
+
+                <p>In the fully causal configuration, the total algorithmic latency is approximately 80 ms — dominated by the frame accumulation time. This is competitive with traditional telephony codecs (which typically have 20-40 ms frame sizes but comparable total pipeline latency) and well within the 200-300 ms threshold that conversational AI research considers acceptable for natural dialogue.</p>
+
+                <p><strong>Comparison with other codecs:</strong> EnCodec at 75 Hz has a frame size of $1/75 \approx 13.3$ ms, which gives lower frame accumulation latency. But EnCodec produces 6× more tokens per second, which increases the downstream LM latency (the LM must run 6× more inference steps). For a complete voice assistant pipeline, the bottleneck is usually the LM, not the codec, so Mimi's larger frame size is a good trade: slightly more codec latency in exchange for dramatically less LM latency.</p>
+
+                <p><strong>Worked latency budget for a voice assistant:</strong></p>
+
+<pre><code>Component                      Mimi-based system    EnCodec-based system
+──────────────────────────     ─────────────────    ────────────────────
+Codec encoding                  ~85 ms               ~20 ms
+Endpoint detection              ~150 ms              ~150 ms
+LM first token (per step)      ~30 ms × 1 step      ~30 ms × 1 step
+LM generation (1s output)      ~30 ms × 12.5 steps  ~30 ms × 75 steps
+Codec decoding                  ~85 ms               ~20 ms
+──────────────────────────     ─────────────────    ────────────────────
+First-word latency              ~350 ms              ~220 ms
+Throughput (tokens/s needed)    12.5                 75
+Real-time factor burden         Low                  High</code></pre>
+
+                <p>The Mimi-based system has slightly higher first-word latency (350 vs 220 ms) but requires 6× less LM throughput to maintain real-time generation. For large LMs where each inference step is expensive, this throughput reduction is the dominant factor. A system that cannot sustain 75 tokens/s generation will stutter or fall behind real time; the same system can easily sustain 12.5 tokens/s.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Latency vs. Throughput</div>
+                    <p>For interactive speech systems, two distinct time metrics matter. Latency is how long the user waits for the first response — it affects perceived responsiveness. Throughput is how many tokens the system can generate per second — it determines whether the system can keep up with real-time speech output. Mimi trades a small increase in latency for a large improvement in throughput, which is usually the right trade for LM-based speech generation where the LM is the bottleneck.</p>
+                </div>
+
+                <h2 id="moshi-integration">Mimi Inside Moshi</h2>
+
+                <p>Mimi was not designed in isolation. It is the codec component of Moshi, Kyutai's full-duplex spoken dialogue system. Understanding how Mimi fits into Moshi illuminates why many of its design choices exist.</p>
+
+                <p>Moshi is a multi-stream language model that can simultaneously listen and speak. It processes two audio streams — the user's speech and the system's own speech — as interleaved token sequences. The model attends over both streams and generates the system's response tokens autoregressively while continuing to encode the user's input. This full-duplex capability is what makes Moshi feel like a natural conversation partner rather than a turn-taking chatbot.</p>
+
+                <p>For this architecture to work, the codec must satisfy several constraints that go beyond standard compression:</p>
+                <ul>
+                    <li><strong>Low token rate:</strong> The LM processes two streams simultaneously, so the total token rate is doubled. At 75 Hz per stream, that would be 150 steps/s — far too many for a large Transformer. At 12.5 Hz per stream, it is 25 steps/s — manageable.</li>
+                    <li><strong>Streaming capability:</strong> Full-duplex dialogue requires the codec to encode input speech in real time, with minimal look-ahead. Mimi's causal design satisfies this.</li>
+                    <li><strong>Semantic first token:</strong> The LM needs to understand what the user is saying to generate appropriate responses. If the first token stream carries semantic content, the LM can begin processing the user's meaning immediately, without waiting for the full RVQ stack.</li>
+                    <li><strong>Progressive refinement:</strong> In duplex mode, the system may need to start responding before the user finishes speaking. Progressive RVQ allows the system to commit to semantic content (level 1) early and fill in acoustic detail (levels 2+) later.</li>
+                </ul>
+
+                <p>You can see how each of Mimi's design choices — the 12.5 Hz rate, the semantic distillation, the RVQ dropout, the streaming architecture — serves the requirements of the full-duplex dialogue use case. Mimi is a codec optimized for conversation, not for audio compression.</p>
+
+                <div class="note-box">
+                    <div class="box-title">Why Full Duplex Changes The Design Requirements</div>
+                    <p style="margin-bottom: 0;">Most speech systems are half-duplex: they listen, then think, then speak. Full-duplex systems must do all three simultaneously. This fundamentally changes what a codec must provide. A half-duplex system can tolerate high token rates because it only processes one direction at a time. A full-duplex system processes two directions simultaneously, doubling the token budget. Mimi's low token rate is not just an efficiency improvement — it is an architectural necessity for full-duplex dialogue at scale.</p>
+                </div>
 
                 <h2 id="tradeoffs">What Mimi Gains And What It Risks</h2>
-                <p>Mimi gains longer effective context, fewer autoregressive steps, and better separation between semantic and acoustic information. Those are major wins for streaming dialogue and speech-native assistants.</p>
-                <p>The tradeoff is that a very low token rate can make it harder to preserve tiny acoustic distinctions, and the semantic-acoustic split is never perfect. If the semantic token becomes too dominant, generated speech may stay semantically coherent but lose richness, expressive nuance, or speaker consistency unless the later streams are modeled well.</p>
+
+                <p>Every design choice in a codec involves tradeoffs. Mimi's aggressive design — 12.5 Hz, semantic distillation, 32-level RVQ with dropout — provides dramatic advantages for speech language modeling, but it also introduces risks that users should understand.</p>
+
+                <p><strong>What Mimi gains:</strong></p>
+                <ul>
+                    <li><strong>6× longer effective context:</strong> The same Transformer context window covers 6× more audio, enabling multi-minute conversations and long-form speech processing.</li>
+                    <li><strong>36× cheaper attention:</strong> Quadratic attention cost drops by a factor of 36, making training and inference dramatically more efficient.</li>
+                    <li><strong>Lower entropy rate:</strong> The LM faces less total unpredictability per second, making speech generation more reliable and less prone to semantic drift.</li>
+                    <li><strong>Semantic-first organization:</strong> The first token stream captures linguistic content, enabling the LM to plan at the semantic level before committing to acoustic details.</li>
+                    <li><strong>Full-duplex compatibility:</strong> The low token rate makes simultaneous listening and speaking computationally feasible.</li>
+                </ul>
+
+                <p><strong>What Mimi risks:</strong></p>
+                <ul>
+                    <li><strong>Acoustic detail loss:</strong> Compressing 80 ms of audio into a single frame inevitably loses some fine-grained acoustic information. Fast speech events — plosive releases, click consonants, rapid vibrato — may be smoothed out or misrepresented.</li>
+                    <li><strong>Speaker consistency:</strong> If the semantic token dominates the representation, the system may produce speech that sounds like the right words in the wrong voice. Speaker characteristics (breathiness, vocal fry, accent details) live in the acoustic residuals that later RVQ levels encode.</li>
+                    <li><strong>Imperfect semantic-acoustic separation:</strong> The distillation loss encourages but does not guarantee clean separation. In practice, some semantic information leaks into acoustic levels and vice versa. This can cause unexpected failure modes when RVQ levels are truncated.</li>
+                    <li><strong>Music and general audio:</strong> Mimi is optimized for speech. Music, sound effects, and environmental audio do not have the same semantic-acoustic structure, so Mimi's design assumptions may not transfer. A bird call does not have "semantic content" in the same way that speech does.</li>
+                </ul>
+
+                <table>
+                    <thead>
+                        <tr><th>Property</th><th>Mimi</th><th>EnCodec</th><th>Winner For LM</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Frame rate</td><td>12.5 Hz</td><td>75 Hz</td><td>Mimi (6× fewer steps)</td></tr>
+                        <tr><td>Context coverage (8k tokens)</td><td>~10.7 min</td><td>~1.8 min</td><td>Mimi (6× longer)</td></tr>
+                        <tr><td>Attention cost</td><td>Very low</td><td>High</td><td>Mimi (36× cheaper)</td></tr>
+                        <tr><td>Semantic organization</td><td>First token is semantic</td><td>All tokens are acoustic</td><td>Mimi</td></tr>
+                        <tr><td>Acoustic fidelity</td><td>Good (speech)</td><td>Excellent (general)</td><td>EnCodec</td></tr>
+                        <tr><td>General audio support</td><td>Speech-focused</td><td>General</td><td>EnCodec</td></tr>
+                        <tr><td>Ecosystem maturity</td><td>Newer</td><td>Established</td><td>EnCodec</td></tr>
+                        <tr><td>Full-duplex dialogue</td><td>Natural fit</td><td>Computationally expensive</td><td>Mimi</td></tr>
+                    </tbody>
+                </table>
 
                 <h2 id="when-to-use">When Mimi Is The Right Choice</h2>
+
+                <p>Choosing a codec is an engineering decision that depends on your use case. Mimi is not universally better than EnCodec or other codecs — it is better for specific applications. Here is a decision guide:</p>
+
+                <table>
+                    <thead>
+                        <tr><th>Your Priority</th><th>Recommended Codec</th><th>Why</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Interactive voice assistant</td><td>Mimi</td><td>Low token rate enables real-time LM generation</td></tr>
+                        <tr><td>Full-duplex dialogue</td><td>Mimi</td><td>Designed specifically for simultaneous listen+speak</td></tr>
+                        <tr><td>Long-form speech generation (&gt;2 min)</td><td>Mimi</td><td>Context window covers much more audio</td></tr>
+                        <tr><td>Speech-to-speech translation</td><td>Mimi</td><td>Semantic first token helps with content preservation</td></tr>
+                        <tr><td>High-fidelity audio compression</td><td>EnCodec/DAC</td><td>Optimized for acoustic quality, not LM friendliness</td></tr>
+                        <tr><td>Music generation</td><td>EnCodec/DAC</td><td>Music lacks speech-like semantic structure</td></tr>
+                        <tr><td>Sound effect generation</td><td>EnCodec/DAC</td><td>General audio, not speech-specific</td></tr>
+                        <tr><td>Bandwidth-adaptive streaming</td><td>Mimi</td><td>RVQ dropout enables graceful quality degradation</td></tr>
+                        <tr><td>Research with existing ecosystem</td><td>EnCodec</td><td>More pretrained models and baselines available</td></tr>
+                    </tbody>
+                </table>
+
                 <p>Choose Mimi when your bottleneck is long-context speech modeling, interactive dialogue, or latency-sensitive generation where sequence density is the real enemy. Mimi is especially compelling when you want the output representation to be friendlier to a speech LM than EnCodec's denser acoustic stream.</p>
-                <p>If your absolute priority is maximum general-audio fidelity or compatibility with a large existing EnCodec ecosystem, Mimi may not be the first thing to deploy. But if you care about spoken-language modeling as much as acoustic reconstruction, Mimi is one of the most important designs to understand.</p>
+
+                <p>If your absolute priority is maximum general-audio fidelity or compatibility with a large existing EnCodec ecosystem, Mimi may not be the first thing to deploy. But if you care about spoken-language modeling as much as acoustic reconstruction, Mimi is one of the most important designs to understand. It demonstrates that the right codec for compression and the right codec for language modeling are not the same thing — and that designing for the LM can yield dramatic practical improvements.</p>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
@@ -319,6 +646,8 @@
                 <a href="#semantic-token" class="toc-link">The Semantic Token, Explained Slowly</a>
                 <a href="#rvq-dropout" class="toc-link">RVQ Depth And Why Dropout Matters</a>
                 <a href="#entropy-rate" class="toc-link">Entropy Rate, Not Just Bitrate</a>
+                <a href="#streaming" class="toc-link">Streaming And Latency Analysis</a>
+                <a href="#moshi-integration" class="toc-link">Mimi Inside Moshi</a>
                 <a href="#tradeoffs" class="toc-link">What Mimi Gains And What It Risks</a>
                 <a href="#when-to-use" class="toc-link">When Mimi Is The Right Choice</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
