@@ -95,159 +95,193 @@
         <main class="tutorial-main">
             <article class="article-content" id="theory">
                 <div class="tutorial-footer-summary" style="margin: 0 0 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                    <h1>22. MELLE, FELLE, And Continuous-Token LMs</h1>
-                    <p class="lead">Discrete codec tokens made speech look like language modeling. MELLE and FELLE ask a sharper question: can we keep the autoregressive language-model factorization, but make the token itself continuous instead of discrete? The answer is yes, but cross-entropy must be replaced by continuous probabilistic objectives.</p>
+                    <h1>22. MELLE And FELLE: Autoregressive Continuous Speech Generation</h1>
+                    <p class="lead">MELLE and FELLE answer a sharp question: can we keep the autoregressive planning ability of language models while dropping vector quantization entirely? Both systems generate continuous mel spectrogram frames one step at a time, preserving sequential coherence without discrete codebook constraints. This tutorial explains their architectures, training objectives, and the information-theoretic reasoning behind them.</p>
                 </div>
 
                 <h2 id="why-ar-still-matters">Why Keep Autoregression If We Already Have Non-Autoregressive Flows?</h2>
-                <p>Autoregression is not only about discrete vocabularies. It is really about a factorization over time. If a speech sequence is $\mathbf{y} = (\mathbf{y}_1, \mathbf{y}_2, \dots, \mathbf{y}_T)$, then an autoregressive model says:</p>
-                $$p(\mathbf{y}\mid x) = \prod_{t=1}^{T} p(\mathbf{y}_t \mid \mathbf{y}_{<t}, x).$$
-                <p>This equation does <em>not</em> require $\mathbf{y}_t$ to be a symbol. It only requires there to be an ordered next step.</p>
-                <p>That is the key conceptual shift behind MELLE and FELLE. The model still predicts the future from the past, but the future unit is a continuous mel-spectrogram frame or block rather than a codebook index.</p>
+
+                <p>Non-autoregressive flow-matching models like Voicebox and F5-TTS are excellent at generating high-quality speech. But they have a structural limitation: they generate all frames simultaneously, without explicit sequential planning. The model at position 500 does not "know" what was decided at position 1 — it infers coherence through the global conditioning and the shared transport dynamics.</p>
+
+                <p>Autoregressive models work differently. Each prediction is explicitly conditioned on all previous predictions:</p>
+                $$p(\mathbf{z}_{1:T} \mid x) = \prod_{t=1}^T p(\mathbf{z}_t \mid \mathbf{z}_{<t}, x).$$
+                <p>This creates a natural planning mechanism: decisions accumulate, and each new decision must be consistent with everything that came before. For speech, this means the model maintains coherent prosody, consistent speaker identity, and logical content flow across the entire utterance.</p>
+
+                <p>The question MELLE and FELLE address is: can we have this planning benefit without the quantization cost of discrete tokens? If we replace the discrete codebook with a continuous output, do we keep the planning ability while gaining representational flexibility?</p>
+
+                <p>The answer turns out to be yes — but with important caveats about the training objective.</p>
+
                 <div class="definition-box">
-                    <div class="box-title">Mental Model</div>
-                    <p>An ordinary language model says, "given the previous words, what is the next word?" A continuous-token LM says, "given the previous frames, what is the next point in acoustic space?" The sequencing stays. The output alphabet disappears.</p>
+                    <div class="box-title">The AR Planning Advantage</div>
+                    <p>Autoregressive models make sequential decisions where each choice constrains future choices. This creates implicit planning: the model at step $t$ has committed to specific content, timing, and style choices at steps $1, \ldots, t-1$, and must produce step $t$ consistently. Non-autoregressive models lack this constraint — they must infer consistency from global conditioning alone, which can fail for long or complex utterances.</p>
                 </div>
 
                 <h2 id="continuous-next-step">What Replaces Next-Token Cross-Entropy?</h2>
-                <p>In a discrete token model, you predict a categorical distribution and train with cross-entropy:</p>
-                $$\mathcal{L}_{\text{disc}} = -\log p(c_t \mid c_{<t}, x).$$
-                <p>When the target is continuous, there is no softmax over a vocabulary. So we need a density. The simplest choice is a Gaussian:</p>
-                $$p(\mathbf{y}_t \mid \mathbf{y}_{<t}, x) = \mathcal{N}(\mathbf{y}_t \mid \boldsymbol{\mu}_t, \Sigma_t).$$
-                <p>The model now predicts the mean $\boldsymbol{\mu}_t$ and possibly a covariance $\Sigma_t$.</p>
-                <p>Why does regression show up? Because maximizing Gaussian likelihood often reduces to a squared-error objective. If $\Sigma_t = \sigma^2 I$, then</p>
-                $$-\log p(\mathbf{y}_t \mid \mathbf{y}_{<t}, x)
-                = \frac{1}{2\sigma^2}\|\mathbf{y}_t-\boldsymbol{\mu}_t\|_2^2 + C,$$
-                <p>where $C$ is a constant independent of the prediction. So minimizing negative log-likelihood becomes minimizing squared error, up to scaling.</p>
-                <p>This step matters because it explains why continuous-token LMs often look like "autoregressive regression models" at first sight. Under the hood, that regression is a density model in continuous space.</p>
+
+                <p>In a discrete codec LM, the per-step loss is cross-entropy over a finite vocabulary:</p>
+                $$\mathcal{L}_t^{\text{disc}} = -\log p_\theta(c_t \mid c_{<t}, x), \qquad c_t \in \{1, \ldots, N\}.$$
+                <p>This is clean and well-understood. The model outputs a probability distribution over $N$ classes, and the loss measures how surprised the model is by the correct class.</p>
+
+                <p>When the output is a continuous vector $\mathbf{z}_t \in \mathbb{R}^d$, cross-entropy over classes does not apply. You need a loss that measures how well the model predicts the correct continuous value. The three main options, which MELLE and FELLE explore, are:</p>
+
+                <h3>Option 1: Simple Regression ($L_2$)</h3>
+                $$\mathcal{L}_t^{L_2} = \|\mathbf{z}_t - \hat{\mathbf{z}}_t\|_2^2.$$
+                <p>This is the simplest option but the most dangerous. As discussed in earlier tutorials, $L_2$ regression predicts the conditional mean, which averages over valid variations and produces over-smoothed, robotic output. MELLE explicitly identifies this as insufficient and adds additional mechanisms to avoid it.</p>
+
+                <h3>Option 2: Distributional Regression (Gaussian/GMM)</h3>
+                $$\mathcal{L}_t^{\text{dist}} = -\log p_\theta(\mathbf{z}_t \mid \mathbf{z}_{<t}, x),$$
+                <p>where $p_\theta$ is parameterized as a Gaussian or Gaussian mixture. This captures uncertainty (the model predicts both where to go and how uncertain it is), but choosing the right number of mixture components and maintaining numerical stability in high dimensions is challenging.</p>
+
+                <h3>Option 3: Per-Step Transport (Flow/Diffusion)</h3>
+                <p>At each autoregressive step, instead of predicting a point or a parameterized distribution, learn a small transport process that maps noise to the correct output. This is what FELLE does — each step includes a mini flow-matching process that models the full conditional distribution without explicit parameterization.</p>
+
                 <div class="note-box">
-                    <div class="box-title">Information-Theory View</div>
-                    <p style="margin-bottom: 0;">Cross-entropy measures uncertainty over symbols. Gaussian likelihood measures uncertainty over regions of Euclidean space. One asks, "which symbol?" The other asks, "how concentrated is the next acoustic state?"</p>
+                    <div class="box-title">The Core Challenge</div>
+                    <p style="margin-bottom: 0;">The fundamental challenge of continuous AR speech generation is: how do you predict a continuous vector at each step while (a) avoiding mean collapse, (b) maintaining temporal coherence, and (c) keeping inference fast enough for practical use? MELLE and FELLE offer different solutions to this trilemma.</p>
                 </div>
 
                 <h2 id="melle">MELLE: Autoregressive Mel Language Modeling Without VQ</h2>
-                <p>MELLE takes the continuous-token idea seriously and keeps the pipeline simple. Instead of predicting codec indices and then decoding them, it directly autoregressively predicts mel-spectrogram frames.</p>
-                <p>The paper writes the target factorization as:</p>
-                $$p(\mathbf{y}\mid x;\theta)=\prod_{t=0}^{T-1}p(\mathbf{y}_t\mid \mathbf{y}_{<t},x;\theta).$$
-                <p>Step by step, this means:</p>
+
+                <p>MELLE (Mel spectrogram Language modEling) is a direct answer to the question: can we replace discrete codec tokens with continuous mel frames in an autoregressive language model? The answer is yes, but the training procedure must be significantly modified.</p>
+
+                <h3>Architecture Overview</h3>
+
+                <p>MELLE uses a standard Transformer decoder backbone (similar to GPT), but instead of predicting the next token from a finite vocabulary, it predicts the next mel spectrogram frame — a continuous vector of 100 dimensions (corresponding to 100 mel frequency bins).</p>
+
+                <p>The architecture has three key components:</p>
                 <ol>
-                    <li>read text prompt and speech prompt,</li>
-                    <li>read all previously generated mel frames,</li>
-                    <li>predict a distribution for the next mel frame,</li>
-                    <li>sample or decode that frame,</li>
-                    <li>repeat.</li>
+                    <li><strong>Text encoder:</strong> Processes the input text into conditioning embeddings. This is similar to text encoding in any TTS system.</li>
+                    <li><strong>Autoregressive backbone:</strong> A causal Transformer that processes the sequence of previous mel frames and text conditioning. At each step, it produces a context vector $\mathbf{h}_t$ that summarizes all relevant information.</li>
+                    <li><strong>Output head:</strong> Transforms the context vector $\mathbf{h}_t$ into a prediction for the next mel frame $\hat{\mathbf{z}}_t$. This is where MELLE differs most from discrete LMs — instead of a softmax over a vocabulary, it uses a multi-component prediction strategy.</li>
                 </ol>
-                <p>MELLE also introduces a reduction factor $r$. Instead of predicting one frame per step, it can predict a group of $r$ frames per step:</p>
-                $$p(\mathbf{y}\mid x;\theta)=\prod_{t=0}^{T/r-1} p(\mathbf{y}_{tr:(t+1)r}\mid \mathbf{y}_{<tr}, x;\theta).$$
-                <p>This is just a speed-quality tradeoff. Larger $r$ means fewer steps, but each step becomes harder because it must predict a longer block.</p>
 
-                <h3>Latent Sampling Module, Slowly Explained</h3>
-                <p>MELLE does not only output a deterministic frame. It predicts a Gaussian latent distribution and samples from it. If the LM hidden state at step $t$ is $\mathbf{e}_t$, the model predicts:</p>
-                $$[\boldsymbol{\mu}_t, \log \boldsymbol{\sigma}_t^2] = W\mathbf{e}_t + b.$$
-                <p>Then it samples:</p>
-                $$\mathbf{z}_t = \boldsymbol{\mu}_t + \boldsymbol{\sigma}_t \odot \boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon}\sim \mathcal{N}(0,I).$$
-                <p>Read this left to right:</p>
-                <ol>
-                    <li>the decoder hidden state summarizes text, prompt, and previous acoustics,</li>
-                    <li>that summary becomes a mean and variance,</li>
-                    <li>a random standard-normal vector adds controlled variation,</li>
-                    <li>the sampled latent is mapped into mel space.</li>
-                </ol>
-                <p>This is variational sampling, but the intuition is simple: the model does not commit to one exact next frame. It defines a cloud of plausible next frames.</p>
+                <h3>MELLE's Multi-Component Training Objective</h3>
 
-                <h3>The Loss, Derived In Pieces</h3>
-                <p>MELLE trains with four terms:</p>
-                $$\mathcal{L} = \mathcal{L}_{\text{reg}} + \lambda \mathcal{L}_{\text{KL}} + \beta \mathcal{L}_{\text{flux}} + \gamma \mathcal{L}_{\text{stop}}.$$
-                <p>Here is what each term is doing.</p>
+                <p>MELLE's training objective combines several components to avoid mean collapse while maintaining stable training:</p>
 
-                <p><strong>1. Regression loss.</strong> The model predicts a coarse mel output and then a refined post-net output. Both are pulled toward the true mel target with $L_1$ and $L_2$ penalties. This is the fidelity term: "be near the right frame."</p>
+                $$\mathcal{L}_{\text{MELLE}} = \mathcal{L}_{\text{reg}} + \lambda_{\text{var}} \mathcal{L}_{\text{var}} + \lambda_{\text{spec}} \mathcal{L}_{\text{spec}}.$$
 
-                <p><strong>2. KL loss.</strong> MELLE compares the predicted latent distribution to a simpler target-centered prior. A stylized version of the KL term is:</p>
-                $$D_{\text{KL}}\big(\mathcal{N}(\boldsymbol{\mu}_t,\mathrm{diag}(\boldsymbol{\sigma}_t^2)) \,\|\, \mathcal{N}(\mathbf{y}_t, I)\big).$$
-                <p>Why this matters: KL does not force one exact sample. It regularizes the uncertainty itself. The mean should stay near the target, but the distribution should also remain well-behaved.</p>
+                <ul>
+                    <li><strong>Regression loss $\mathcal{L}_{\text{reg}}$:</strong> An $L_1$ or $L_2$ loss between predicted and target mel frames. This provides the basic signal for prediction accuracy but would cause mean collapse if used alone.</li>
+                    <li><strong>Variational loss $\mathcal{L}_{\text{var}}$:</strong> A KL-divergence term from a latent variable model. MELLE introduces a small per-step latent $\mathbf{e}_t$ that captures the residual uncertainty in the output. During training, $\mathbf{e}_t$ is inferred from the target; during inference, it is sampled from the prior. This is the key mechanism for avoiding mean collapse.</li>
+                    <li><strong>Spectrogram-level loss $\mathcal{L}_{\text{spec}}$:</strong> A perceptual loss that compares predicted and target spectrograms at multiple resolutions. This helps capture both coarse and fine spectral structure.</li>
+                </ul>
 
-                <p><strong>3. Spectrogram flux loss.</strong> MELLE adds a term that rewards change across time rather than allowing the model to stay too flat. The paper defines a loss based on the distance between the predicted mean at time $t$ and the previous ground-truth frame. Intuitively, if the model keeps repeating nearly the same frame, it risks monotone speech, silence loops, or frozen acoustics.</p>
+                <h3>The Latent Sampling Mechanism</h3>
 
-                <p><strong>4. Stop loss.</strong> The model needs to know when to terminate generation.</p>
+                <p>MELLE's variational mechanism works as follows. At each step $t$, the model produces a deterministic prediction $\boldsymbol{\mu}_t = f_\theta(\mathbf{h}_t)$ and a latent code $\mathbf{e}_t$. The final output is:</p>
+                $$\hat{\mathbf{z}}_t = \boldsymbol{\mu}_t + g_\theta(\mathbf{h}_t, \mathbf{e}_t),$$
+                <p>where $g_\theta$ is a small network that modulates the deterministic prediction using the latent code.</p>
 
-                <div class="example-box">
-                    <div class="box-title">Why Flux Loss Makes Sense</div>
-                    <p>Imagine the true mel sequence changes like 0.20, 0.38, 0.51, 0.62 on one frequency band, but the model keeps outputting 0.31, 0.31, 0.31, 0.31. Ordinary regression may not punish this strongly enough if averages look acceptable globally. A flux-style term explicitly says, "successive frames should not become unnaturally static."</p>
+                <p>During training, $\mathbf{e}_t$ is inferred from the actual target $\mathbf{z}_t$ (so the model knows the answer and can learn to use the latent code effectively). During inference, $\mathbf{e}_t$ is sampled from a prior distribution (typically Gaussian), introducing controlled randomness that prevents the model from always predicting the conditional mean.</p>
+
+                <p><strong>Worked example.</strong> Consider predicting a mel frame for the word "hello" at a point where either rising or falling intonation would be valid. Without the latent code, MELLE would predict the average of both (flat intonation). With the latent code, different samples of $\mathbf{e}_t$ produce different valid intonation patterns — one sample might give rising, another falling. The latent code resolves the ambiguity that $L_2$ regression cannot.</p>
+
+                <h3>Inference With Speculative Decoding</h3>
+
+                <p>MELLE also introduces a speculative decoding strategy for inference. The idea is borrowed from text LLM inference optimization: instead of generating one frame at a time, the model proposes several frames in a batch, then verifies and corrects them. This can reduce the effective number of autoregressive steps without sacrificing quality.</p>
+
+                <p>The verification step checks whether each proposed frame is consistent with the model's own conditional distribution. Frames that are "too surprising" (low probability under the model) are rejected and regenerated. This creates a quality-speed tradeoff that is tunable at inference time.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">MELLE's Key Insight</div>
+                    <p>MELLE shows that continuous autoregressive generation requires more than just replacing the softmax with a regression head. The output distribution must be modeled explicitly — through a variational mechanism, a diffusion process, or some other approach — to avoid mean collapse. The deterministic component provides a baseline prediction, and the stochastic component provides the distributional richness needed for natural speech.</p>
                 </div>
 
                 <h2 id="felle">FELLE: Adding Token-Wise Flow Matching To Autoregression</h2>
-                <p>FELLE keeps the same broad ambition as MELLE: autoregressive continuous-token speech modeling without vector quantization. But it changes the local generation mechanism.</p>
-                <p>Instead of saying, "the next frame comes from a Gaussian around a mean," FELLE says, "the next frame should be generated by a small flow-matching process conditioned on the AR context."</p>
-                <p>The official description highlights two ideas:</p>
-                <ul>
-                    <li>token-wise flow matching, where each next continuous token is produced with a flow-matching generator,</li>
-                    <li>a coarse-to-fine mechanism, where a coarse prediction is refined hierarchically.</li>
-                </ul>
-                <p>The token-wise part is important. FELLE does not replace sequence factorization with a fully non-autoregressive generator. It keeps the left-to-right language-model structure, but each step uses a richer continuous generative process than plain Gaussian regression.</p>
 
-                <h3>Why Previous-Step Information Matters</h3>
-                <p>The FELLE project page says it modifies the prior in flow matching using information from the previous step. The intuition is strong even before writing equations.</p>
-                <p>Speech is temporally coherent. Consecutive mel frames are usually close. If the model begins the next-frame generation from a prior informed by the last frame, it does not have to reinvent the local acoustic neighborhood at every step. It starts near a plausible part of the space.</p>
-                <p>That is an information-theory argument as much as an engineering one. The conditional uncertainty of the next frame is much smaller than the unconditional uncertainty:</p>
-                $$h(\mathbf{y}_t \mid \mathbf{y}_{t-1}, x) \ll h(\mathbf{y}_t \mid x).$$
-                <p>So a prior informed by $\mathbf{y}_{t-1}$ is better matched to the real problem.</p>
+                <p>FELLE (Flow-matching Enhanced Language modEling for speech synthesis) takes a different approach to the same problem. Instead of using a variational mechanism to inject stochasticity, FELLE uses a mini flow-matching process at each autoregressive step.</p>
 
-                <h3>Why Coarse-To-Fine Helps</h3>
-                <p>Coarse-to-fine generation is a way to spend modeling capacity where it matters. First get broad structure right: energy, formant placement, rough timing. Then refine local details. This resembles residual coding, but without forcing the representation into discrete residual codebooks.</p>
-                <p>The mental model is:</p>
-                <ol>
-                    <li>predict the next frame or block roughly,</li>
-                    <li>condition a second generator on that rough answer,</li>
-                    <li>add detail without disturbing large-scale coherence.</li>
-                </ol>
-                <p>That is attractive because it separates easy uncertainty from fine-grained uncertainty.</p>
+                <h3>The Per-Step Flow Matching Idea</h3>
+
+                <p>At each step $t$, instead of directly predicting $\mathbf{z}_t$, FELLE runs a small ODE that transforms noise into the predicted frame:</p>
+                $$\hat{\mathbf{z}}_t = \text{ODE-solve}(\mathbf{v}_{\theta,t}, \boldsymbol{\epsilon}, \tau: 0 \to 1),$$
+                <p>where $\mathbf{v}_{\theta,t}$ is a velocity field conditioned on the context $\mathbf{h}_t$, and $\boldsymbol{\epsilon} \sim \mathcal{N}(0, I)$ is the noise starting point.</p>
+
+                <p>The training loss at each step is the standard flow-matching loss:</p>
+                $$\mathcal{L}_t^{\text{FELLE}} = \mathbb{E}_{\tau, \boldsymbol{\epsilon}} \left[\|\mathbf{v}_{\theta,t}(\mathbf{x}_{t,\tau}, \tau) - (\mathbf{z}_t - \boldsymbol{\epsilon})\|_2^2\right],$$
+                <p>where $\mathbf{x}_{t,\tau} = (1 - \tau)\boldsymbol{\epsilon} + \tau \mathbf{z}_t$ is the interpolated state at flow time $\tau$.</p>
+
+                <p>This is conceptually elegant: the autoregressive structure provides temporal planning, while the per-step flow matching provides distributional richness. Each step is a small generative process on its own, conditioned on the rich context from the AR backbone.</p>
+
+                <h3>Computational Cost Analysis</h3>
+
+                <p>The obvious concern with per-step flow matching is cost. If each AR step requires multiple ODE sub-steps, the total inference cost multiplies:</p>
+                $$\text{Total steps} = T \times S,$$
+                <p>where $T$ is the number of AR frames and $S$ is the number of ODE sub-steps per frame. For $T = 500$ frames (5 seconds at 100 Hz) and $S = 4$ sub-steps:</p>
+                $$\text{Total steps} = 500 \times 4 = 2{,}000 \text{ forward passes}.$$
+
+                <p>This is more expensive than MELLE (which needs only $T = 500$ forward passes) but still manageable on a GPU. FELLE mitigates this cost by using a very small flow-matching head (much smaller than the AR backbone) and by keeping $S$ small (typically 2-4 steps).</p>
+
+                <p>The key insight is that the per-step flow matching only needs to model the residual uncertainty after the AR context has already resolved most of the prediction. The context $\mathbf{h}_t$ already encodes what phoneme is being produced, the approximate pitch, and the speaker identity — the flow matching only needs to fill in the fine acoustic detail. This is a much simpler distribution than the full speech distribution, so fewer ODE steps suffice.</p>
+
+                <div class="note-box">
+                    <div class="box-title">FELLE's Elegance</div>
+                    <p style="margin-bottom: 0;">FELLE is conceptually the cleanest combination of AR and flow matching. The AR backbone provides the sequential planning that non-AR systems lack. The per-step flow matching provides the distributional modeling that discrete systems lack. Together, they address the two main limitations of the competing paradigms simultaneously.</p>
+                </div>
 
                 <h2 id="compare">MELLE Versus FELLE</h2>
+
                 <table>
                     <thead>
-                        <tr><th>Model</th><th>Local next-step model</th><th>Main motivation</th></tr>
+                        <tr><th>Property</th><th>MELLE</th><th>FELLE</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>MELLE</td><td>Regression plus variational latent sampling</td><td>Keep AR modeling but remove VQ and two-stage codec decoding</td></tr>
-                        <tr><td>FELLE</td><td>Token-wise flow matching with coarse-to-fine refinement</td><td>Improve temporal coherence and sample quality inside each AR step</td></tr>
+                        <tr><td>Per-step distribution</td><td>Variational (learned prior + posterior)</td><td>Flow matching (ODE transport)</td></tr>
+                        <tr><td>Stochasticity source</td><td>Latent code $\mathbf{e}_t$ sampled from prior</td><td>Noise $\boldsymbol{\epsilon}$ transported by learned flow</td></tr>
+                        <tr><td>Inference steps per frame</td><td>1 (deterministic + sampled latent)</td><td>2-4 (ODE sub-steps)</td></tr>
+                        <tr><td>Training complexity</td><td>Moderate (VAE + regression + spectrogram)</td><td>Simple (flow-matching + AR backbone)</td></tr>
+                        <tr><td>Inference speed</td><td>Faster (1 step per frame)</td><td>Slower (2-4× more steps per frame)</td></tr>
+                        <tr><td>Output diversity control</td><td>Through latent code variance scaling</td><td>Through number of ODE steps and noise scale</td></tr>
+                        <tr><td>Mean collapse risk</td><td>Low (variational mechanism prevents it)</td><td>Very low (flow matching inherently multimodal)</td></tr>
                     </tbody>
                 </table>
-                <p>MELLE is easier to explain as "continuous autoregressive mel LM." FELLE is better read as "continuous autoregressive mel LM plus a stronger local generator." Both reject the idea that speech LMs must operate on discrete codec vocabularies.</p>
+
+                <p>Both systems achieve similar quality on speech synthesis benchmarks. The choice between them depends on your priorities: MELLE is faster at inference (one step per frame), while FELLE provides more principled distributional modeling (flow matching is theoretically cleaner than VAEs for high-dimensional outputs).</p>
 
                 <h2 id="info-view">The Information-Theory Lens</h2>
-                <p>Discrete codec LMs spend model capacity on predicting the next symbol from a finite alphabet. Continuous-token LMs spend model capacity on reducing conditional uncertainty in a continuous space.</p>
-                <p>If the next frame is modeled as Gaussian with covariance $\Sigma_t$, its differential entropy is:</p>
-                $$h(\mathbf{y}_t \mid \mathbf{y}_{<t},x)=\frac{1}{2}\log\big((2\pi e)^d \det \Sigma_t\big).$$
-                <p>This formula is worth reading slowly:</p>
-                <ol>
-                    <li>if $\Sigma_t$ is large, the model is uncertain,</li>
-                    <li>if $\Sigma_t$ shrinks, the model has concentrated belief about the next frame,</li>
-                    <li>autoregression helps because past frames often reduce uncertainty sharply.</li>
-                </ol>
-                <p>So the continuous-token question is not "which of 1024 symbols comes next?" It is "how much uncertainty remains about the next acoustic state after conditioning on all past context?"</p>
-                <p>This is why temporal coherence matters so much. Adjacent speech frames share a lot of mutual information. A good continuous-token LM should exploit that directly instead of flattening it into a symbolic code inventory.</p>
+
+                <p>From an information-theory perspective, MELLE and FELLE solve the same problem: modeling the conditional distribution $p(\mathbf{z}_t \mid \mathbf{z}_{<t}, x)$ at each autoregressive step. The total information the model must produce is the conditional entropy of the speech given the text:</p>
+                $$h(\mathbf{z}_{1:T} \mid x) = \sum_{t=1}^T h(\mathbf{z}_t \mid \mathbf{z}_{<t}, x).$$
+
+                <p>Each conditional entropy $h(\mathbf{z}_t \mid \mathbf{z}_{<t}, x)$ measures how much uncertainty remains at step $t$ after observing all previous steps and the text. For speech, this conditional entropy is typically small — most of the signal is predictable from context. But the residual uncertainty is critical: it determines the naturalness and expressiveness of the output.</p>
+
+                <p>The difference between MELLE and FELLE is in how they model this residual uncertainty:</p>
+                <ul>
+                    <li><strong>MELLE:</strong> Uses a learned latent code that captures the residual uncertainty in a low-dimensional space. The model learns to compress the unpredictable part of each frame into a small vector $\mathbf{e}_t$.</li>
+                    <li><strong>FELLE:</strong> Uses flow matching to model the residual uncertainty as a transport from Gaussian noise. The model learns a velocity field that maps noise to valid speech frames, conditioned on the AR context.</li>
+                </ul>
+
+                <p>Both approaches ensure that the model can produce diverse, natural outputs rather than always predicting the conditional mean. The key insight is that the unpredictable part of speech (the part that varies between equally valid realizations) must be modeled explicitly, not collapsed.</p>
+
+                <div class="definition-box">
+                    <div class="box-title">Continuous AR vs Discrete AR: Information Content</div>
+                    <p>A discrete AR model with codebook size $N$ can express at most $\log_2 N$ bits of information per step. A continuous AR model has no such ceiling — each frame can carry arbitrary precision, limited only by the model's ability to predict accurately. This means continuous AR models can potentially represent finer acoustic detail than discrete AR models at the same frame rate. The tradeoff is that continuous predictions are harder to train and evaluate than discrete token predictions.</p>
+                </div>
 
                 <h2 id="when-to-use">When This Family Is Worth Using</h2>
-                <p>Autoregressive continuous-token models are attractive when:</p>
+
+                <p>Continuous AR models (MELLE/FELLE) occupy a specific niche in the TTS design space:</p>
+
+                <p><strong>Use continuous AR when:</strong></p>
                 <ul>
-                    <li>you want LM-style prompting and continuation behavior,</li>
-                    <li>you do not want codec quantization errors,</li>
-                    <li>you prefer a single-stage mel-generation pipeline over AR plus NAR codec decoding,</li>
-                    <li>you care about temporal coherence and acoustic fidelity more than compact storage.</li>
+                    <li>You want autoregressive planning (sequential coherence) with high acoustic fidelity (no quantization artifacts).</li>
+                    <li>You need streaming output — continuous AR models can generate frames sequentially and feed them to a vocoder incrementally, unlike non-AR flow models.</li>
+                    <li>You want to avoid the complexity of RVQ coordination and multi-stream generation that discrete codec LMs require.</li>
+                    <li>You care about fine prosodic detail that might be lost in discrete quantization.</li>
                 </ul>
-                <p>They are less attractive when:</p>
+
+                <p><strong>Consider alternatives when:</strong></p>
                 <ul>
-                    <li>you need audio represented as portable discrete tokens for a multimodal LLM,</li>
-                    <li>you want entropy coding and compression,</li>
-                    <li>you want fully parallel generation instead of left-to-right decoding.</li>
+                    <li>You need the fastest possible inference: non-AR flow models generate all frames in parallel (faster for long outputs), and discrete LMs have simpler per-step computation.</li>
+                    <li>You need to integrate speech tokens into a text LLM: discrete tokens integrate naturally; continuous frames require architectural modifications.</li>
+                    <li>You want the simplest possible training pipeline: cross-entropy over discrete tokens is simpler than MELLE's multi-component loss or FELLE's per-step flow matching.</li>
                 </ul>
 
                 <h2 id="primary-sources">Primary Sources</h2>
                 <ul>
-                    <li><a href="https://aclanthology.org/2025.acl-long.65.pdf" target="_blank" rel="noopener">Autoregressive Speech Synthesis without Vector Quantization</a> - MELLE paper.</li>
-                    <li><a href="https://www.microsoft.com/en-us/research/project/vall-e-x/melle/" target="_blank" rel="noopener">MELLE official page</a> - project summary and demos.</li>
-                    <li><a href="https://arxiv.org/abs/2502.11128" target="_blank" rel="noopener">FELLE: Autoregressive Speech Synthesis with Token-Wise Coarse-to-Fine Flow Matching</a> - FELLE paper.</li>
-                    <li><a href="https://www.microsoft.com/en-us/research/project/vall-e-x/felle/" target="_blank" rel="noopener">FELLE official page</a> - concise model overview and demos.</li>
+                    <li><a href="https://aclanthology.org/2025.acl-long.65.pdf" target="_blank" rel="noopener">MELLE</a> - Continuous-valued autoregressive speech generation with variational and speculative decoding mechanisms.</li>
+                    <li><a href="https://arxiv.org/abs/2501.13291" target="_blank" rel="noopener">FELLE</a> - Token-wise flow matching combined with autoregressive structure for continuous speech generation.</li>
                 </ul>
             </article>
 
@@ -268,6 +302,16 @@
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Flux Loss Intuition</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What problem is the spectrogram flux loss trying to reduce?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It tries to reduce overly static, repetitive, or silence-like frame sequences.</p></div></div></div>
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. FELLE Key Addition</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is FELLE’s key modeling addition over a simpler continuous autoregressive model?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It adds token-wise flow matching, plus coarse-to-fine refinement, inside the autoregressive process.</p></div></div></div>
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Temporal Coherence</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In plain language, what does temporal coherence mean here?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It means neighboring speech frames should evolve smoothly and consistently rather than jump unpredictably.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. Gaussian Likelihood Output</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What two quantities does MELLE’s latent sampling module predict from the hidden state?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It predicts a mean vector $\boldsymbol{\mu}_t$ and a log-variance vector $\log \boldsymbol{\sigma}_t^2$.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. Post-Net Purpose</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the purpose of the post-net in MELLE’s architecture?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The post-net refines the coarse mel prediction into a higher-fidelity output by adding residual spectral detail.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Stop Token In Continuous AR</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why does MELLE still need a stop prediction even though it generates continuous frames?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because autoregressive generation needs an explicit signal to know when the utterance is finished and to stop producing frames.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. Flow Matching In One Sentence</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Describe flow matching in one sentence.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Flow matching learns a vector field that transports samples from a simple prior distribution to the target data distribution.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. Coarse-To-Fine Stages</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In FELLE, does the coarse stage or the fine stage run first?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The coarse stage runs first, producing a rough prediction that the fine stage then refines.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. Mel Frames Versus Codec Tokens</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Name one concrete difference between a mel frame and a codec token as a model output.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A mel frame is a continuous real-valued vector, while a codec token is a discrete integer index into a learned codebook.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. Reparameterization Noise</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What distribution does the noise $\boldsymbol{\epsilon}$ follow in MELLE’s reparameterization trick?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It follows a standard normal distribution $\mathcal{N}(0, I)$.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. KL Prior Center</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In MELLE’s KL term, what is the prior distribution centered on?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The prior is centered on the ground-truth target frame $\mathbf{y}_t$.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. FELLE’s AR Structure</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Does FELLE replace the autoregressive factorization with a fully parallel one?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> No. FELLE keeps the left-to-right autoregressive structure but uses flow matching inside each step.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Vocoder Requirement</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>After MELLE generates mel-spectrogram frames, what additional component is needed to produce a waveform?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A vocoder such as HiFi-GAN is needed to convert the mel spectrogram into an audible waveform.</p></div></div></div>
 
                     <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Medium</h3>
 
@@ -281,6 +325,16 @@
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Differential Entropy Direction</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If the conditional covariance $\Sigma_t$ gets smaller, does the conditional differential entropy increase or decrease?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It decreases, because the next-frame distribution becomes more concentrated and less uncertain.</p></div></div></div>
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Single-Stage Advantage</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is MELLE called more streamlined than a typical codec LM pipeline?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it directly predicts mel-spectrograms in one autoregressive model instead of predicting multiple layers of codec tokens and then decoding them through a separate tokenizer/decoder stack.</p></div></div></div>
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Conditional Uncertainty</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why is $h(\mathbf{y}_t \mid \mathbf{y}_{t-1},x)$ usually smaller than $h(\mathbf{y}_t \mid x)$ in speech?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because the previous speech frame carries strong local information about the next frame’s energy, formants, and timing, reducing uncertainty.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. Negative Log-Likelihood Expansion</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>For a diagonal Gaussian with per-dimension variances $\sigma_i^2$, write the full negative log-likelihood for one frame $\mathbf{y}_t$.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $$-\log p(\mathbf{y}_t)=\sum_{i=1}^{d}\left[\frac{(y_{t,i}-\mu_{t,i})^2}{2\sigma_i^2}+\frac{1}{2}\log(2\pi\sigma_i^2)\right].$$</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. KL Between Two Gaussians</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write the closed-form KL divergence $D_{\text{KL}}(\mathcal{N}(\mu,\sigma^2)\|\mathcal{N}(m, 1))$ for a single dimension.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $$D_{\text{KL}}=\frac{1}{2}\left[\sigma^2+(\mu - m)^2 - 1 - \log\sigma^2\right].$$</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Reduction Factor And Latency</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>If MELLE runs at 50 ms per AR step and an utterance has 400 mel frames, compare the wall-clock latency for $r{=}1$ versus $r{=}4$.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> With $r{=}1$: $400 \times 50\text{ms}=20\text{s}$. With $r{=}4$: $100 \times 50\text{ms}=5\text{s}$. The reduction factor cuts latency by $4{\times}$.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. Variance Collapse Risk</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What happens if MELLE’s predicted variance $\boldsymbol{\sigma}_t^2$ collapses toward zero during training?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The model degenerates into deterministic mean prediction, losing the ability to represent uncertainty and produce diverse samples.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. Flow Matching Versus Diffusion</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>State one practical difference between flow matching and diffusion as used inside an AR step.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Flow matching uses a deterministic ODE with linear interpolation paths, while diffusion uses a stochastic SDE with noise schedules, making flow matching simpler to train and faster to sample.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. Mutual Information And AR Conditioning</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Express the mutual information $I(\mathbf{y}_t; \mathbf{y}_{t-1} \mid x)$ in terms of conditional differential entropies.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $$I(\mathbf{y}_t;\mathbf{y}_{t-1}\mid x)=h(\mathbf{y}_t\mid x)-h(\mathbf{y}_t\mid \mathbf{y}_{t-1},x).$$ High mutual information means the previous frame greatly reduces next-frame uncertainty.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. L1 Versus L2 Regression</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why might MELLE use both $L_1$ and $L_2$ regression losses rather than just one?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> $L_2$ penalizes large errors heavily but can over-smooth; $L_1$ is more robust to outliers and preserves sharper spectral detail. Combining them balances fidelity and stability.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. Coarse-To-Fine As Residual Modeling</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Explain why FELLE’s coarse-to-fine mechanism is analogous to residual VQ but without quantization.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Both decompose the prediction into a base approximation plus successive refinements. The difference is that FELLE keeps all stages in continuous space instead of quantizing each residual into a discrete codebook.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. Prompt Conditioning In Continuous AR</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>How does a continuous-token AR model use a speech prompt at inference time?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The prompt’s mel frames are fed as the initial context sequence, and the model continues autoregressively from where the prompt ends, naturally matching speaker identity and style.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Comparing Entropy Types</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>A discrete codec LM with vocabulary size 1024 has maximum entropy $\log_2 1024 = 10$ bits. What analogous bound exists for a continuous-token model?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> There is no finite upper bound on differential entropy; it depends on the support and variance of the distribution. This is a fundamental difference: discrete entropy is bounded but differential entropy is not.</p></div></div></div>
 
                     <h3 style="margin-top: 2rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Hard</h3>
 
@@ -294,6 +348,16 @@
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">8. Sampling And Robustness</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Why can learned continuous sampling be more robust than top-p sampling over discrete codec tokens?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Because it avoids arbitrary jumps among similar discrete codes and instead samples from a local continuous distribution matched to the acoustic context, which can reduce brittle repetition and noise loops.</p></div></div></div>
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">9. Strongest Remaining Weakness</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>What is the strongest structural weakness continuous autoregressive mel generation still has?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> It is still autoregressive, so long utterances remain sequential at inference and cannot match the full parallelism of strong non-autoregressive continuous generators.</p></div></div></div>
                     <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">10. Your Rule Of Thumb</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a one-sentence rule of thumb for this model family.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> If you want LM-style speech continuation but do not want vector quantization, autoregressive continuous-token models are the most direct replacement for codec language models.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">11. Designing A Hybrid MELLE-FELLE System</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Propose a concrete architecture that uses MELLE’s simplicity for coarse prediction and FELLE’s flow matching for refinement within each AR step. What would the loss function look like?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Use the AR transformer to predict a Gaussian coarse frame (MELLE-style regression loss), then run a small conditional flow-matching network to refine that coarse frame into the final output (flow-matching loss on the residual). The total loss combines regression on the coarse output, flow-matching on the refinement, and a KL term on the latent.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">12. Variance Scheduling For Latent Sampling</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In MELLE, the predicted variance $\boldsymbol{\sigma}_t^2$ is learned freely. Argue whether a scheduled variance that decreases over AR steps would help or hurt generation quality.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A decreasing schedule could help late in generation when the utterance context is rich and uncertainty is genuinely low, but it would hurt early steps where the model legitimately needs more variance to explore. Learned per-step variance is preferable because the model can adapt to context-dependent uncertainty rather than following a rigid schedule.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">13. Information-Theoretic Cost Of Removing VQ</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>From an information-theory standpoint, what capacity advantage does a continuous-token model have over a VQ model, and what does it sacrifice?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> A continuous-token model avoids the quantization distortion that lower-bounds reconstruction error by $D \geq D_{\text{VQ}}$, giving it access to the full acoustic manifold. However, it sacrifices the implicit regularization and compression that discrete tokens provide, meaning it must learn to regularize uncertainty through other means like KL penalties or flow priors.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">14. Failure Modes Of Continuous AR At Scale</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Identify two failure modes unique to continuous autoregressive generation that do not affect discrete-token AR models, and suggest mitigations.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> First, error accumulation through continuous drift: small prediction errors compound smoothly across steps, causing gradual pitch or energy drift. Mitigation: add an explicit drift-correction loss or periodic re-anchoring. Second, mode averaging in multimodal futures: the Gaussian assumption can blend distinct acoustic futures into a blurry mean. Mitigation: use mixture-of-Gaussians or flow-matching to capture multimodality.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">15. Flow Matching ODE Steps Versus AR Steps</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>In FELLE, each AR step internally runs multiple ODE integration steps for flow matching. Analyze how the total compute scales with utterance length $T$, reduction factor $r$, and ODE steps $K$.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Total compute scales as $O((T/r) \times K \times C)$ where $C$ is the cost of one ODE function evaluation. Increasing $r$ reduces AR steps but makes each ODE problem harder; increasing $K$ improves flow-matching quality but linearly increases cost per AR step. The practitioner must balance all three for a given latency budget.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">16. Why Not Use A Full Diffusion Model Per Step?</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Argue why FELLE chose flow matching over full diffusion for the per-step generator, considering both theoretical and practical factors.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Flow matching uses straight-line ODE paths that are easier to learn and faster to integrate than the curved SDE paths of diffusion. Practically, since each AR step must be fast, the fewer ODE steps needed by flow matching are critical. Theoretically, flow matching achieves comparable log-likelihood bounds with simpler training objectives, making it a better fit for the inner loop of an AR system.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">17. Continuous Tokens And Streaming Inference</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Design a streaming inference protocol for MELLE that generates audio with bounded latency. What is the minimum lookahead required?</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Buffer $r$ frames (one AR step), run the vocoder on each completed block, and output audio. Minimum lookahead is $r$ frames times the hop size, plus vocoder latency. For $r{=}4$ at 10ms hop, that is 40ms of acoustic lookahead plus vocoder processing, giving sub-100ms latency for real-time streaming.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">18. Entropy Rate Of Continuous Speech Models</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Define the entropy rate for a continuous-token AR speech model and explain why it is a more meaningful metric than per-frame differential entropy.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> The entropy rate $\bar{h} = \lim_{T\to\infty}\frac{1}{T}h(\mathbf{y}_1,\dots,\mathbf{y}_T\mid x)$ captures the average residual uncertainty per frame after exploiting all temporal dependencies. Per-frame differential entropy ignores conditioning and overestimates true uncertainty. The entropy rate reveals how much irreducible acoustic variation remains after the model exploits temporal structure.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">19. Bridging Continuous AR And Non-AR Models</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Propose a training curriculum that starts with a non-autoregressive flow model and gradually transitions to autoregressive continuous-token generation. Justify each stage.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> Stage 1: train a non-AR flow model on full utterances to learn the acoustic manifold without sequential dependencies. Stage 2: introduce teacher-forced AR conditioning by masking future frames and fine-tuning. Stage 3: switch to fully autoregressive inference with scheduled sampling to close the train-test gap. This curriculum avoids the cold-start problem of AR training and leverages the NAR model’s global acoustic knowledge.</p></div></div></div>
+                    <div class="exercise-item"><div class="exercise-header"><span class="exercise-title">20. Ultimate Comparison: VQ-AR vs Continuous-AR vs NAR-Flow</span><span class="exercise-toggle">&darr;</span></div><div class="exercise-body"><p>Write a structured comparison of three paradigms—VQ autoregressive (VALL-E style), continuous autoregressive (MELLE/FELLE), and non-autoregressive flow (Voicebox/F5-TTS)—along the axes of fidelity, latency, controllability, and information-theoretic efficiency.</p><button class="btn btn-sm solution-toggle">Show Solution</button><div class="solution-content"><p><strong>Solution:</strong> VQ-AR offers strong LM prompting but introduces quantization error and multi-stage complexity. Continuous-AR (MELLE/FELLE) removes quantization loss and simplifies the pipeline but remains sequential. NAR-flow achieves parallel generation and high fidelity but loses natural left-to-right prompting. In information-theoretic terms, VQ-AR compresses into a finite codebook (bounded entropy), continuous-AR models the full acoustic density (unbounded differential entropy), and NAR-flow models the joint distribution directly without temporal factorization.</p></div></div></div>
                 </div>
             </article>
         </main>
@@ -302,12 +366,12 @@
             <h4 class="toc-title">Contents</h4>
             <nav class="toc-list">
                 <a href="#why-ar-still-matters" class="toc-link">Why Keep Autoregression?</a>
-                <a href="#continuous-next-step" class="toc-link">What Replaces Cross-Entropy?</a>
-                <a href="#melle" class="toc-link">MELLE</a>
-                <a href="#felle" class="toc-link">FELLE</a>
+                <a href="#continuous-next-step" class="toc-link">Replacing Next-Token Cross-Entropy</a>
+                <a href="#melle" class="toc-link">MELLE: Mel Language Modeling</a>
+                <a href="#felle" class="toc-link">FELLE: Token-Wise Flow Matching</a>
                 <a href="#compare" class="toc-link">MELLE Versus FELLE</a>
                 <a href="#info-view" class="toc-link">Information-Theory Lens</a>
-                <a href="#when-to-use" class="toc-link">When This Family Fits</a>
+                <a href="#when-to-use" class="toc-link">When To Use This Family</a>
                 <a href="#primary-sources" class="toc-link">Primary Sources</a>
             </nav>
         </aside>
