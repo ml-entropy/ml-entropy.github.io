@@ -96,40 +96,8 @@
     </header>
 
     <!-- Main Content -->
-    
-    <!-- Main Content -->
     <div class="tutorial-wrapper">
         
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
         <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
@@ -153,207 +121,757 @@
                     <a href="../../physics/index.html" class="sidebar-link">Physics</a>
                 </nav>
             </div>
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">On This Page</h3>
+                <nav class="sidebar-nav">
+                    <a href="#why-matrix-calculus" class="sidebar-link">Why Matrix Calculus?</a>
+                    <a href="#notation" class="sidebar-link">Layout Conventions</a>
+                    <a href="#vector-derivatives" class="sidebar-link">The Jacobian Matrix</a>
+                    <a href="#common-results" class="sidebar-link">Common Results</a>
+                    <a href="#derivations" class="sidebar-link">Proving the Identities</a>
+                    <a href="#chain-rule" class="sidebar-link">Chain Rule for Vectors</a>
+                    <a href="#hessian" class="sidebar-link">The Hessian Matrix</a>
+                    <a href="#linear-layer" class="sidebar-link">Example: Linear Layer</a>
+                    <a href="#softmax" class="sidebar-link">Example: Softmax</a>
+                    <a href="#autodiff" class="sidebar-link">Automatic Differentiation</a>
+                    <a href="#info-theory" class="sidebar-link">Information-Theoretic Connections</a>
+                    <a href="#misconceptions" class="sidebar-link">Common Misconceptions</a>
+                </nav>
+            </div>
         </aside>
 
         <!-- Main Article -->
         <main class="tutorial-main">
-            
+
             <article class="article-content" id="theory">
-                
-                <!-- Section 1 -->
-                <h2 id="notation">Layout Conventions</h2>
-                
-                <p>
-                    There are two conventions for matrix calculus. We use <strong>denominator layout</strong> 
-                    (also called "Hessian layout"), which is common in ML:
+
+                <h1>04. Matrix Calculus for ML</h1>
+                <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">
+                    Neural networks are compositions of matrix operations. To train them, we need
+                    derivatives with respect to vectors and matrices&mdash;the language of backpropagation.
+                    This tutorial builds that language from scratch.
                 </p>
-                
-                <div class="definition-box">
-                    <div class="box-title">Denominator Layout</div>
+
+                <!-- ======== Why Matrix Calculus? ======== -->
+                <h2 id="why-matrix-calculus">Why Matrix Calculus?</h2>
+
+                <p>
+                    A modern neural network can have millions&mdash;or billions&mdash;of parameters. Those parameters are
+                    organized into weight matrices and bias vectors. Training the network means computing how the loss
+                    changes when <em>any single entry</em> of <em>any</em> weight matrix changes, and then nudging every
+                    entry in the direction that reduces the loss. Doing this one parameter at a time would be hopelessly slow.
+                    Matrix calculus gives us a way to write these derivatives compactly and compute them efficiently.
+                </p>
+
+                <p>
+                    In Tutorial 01 we learned derivatives of scalar functions. In Tutorial 02 we extended to functions of
+                    several variables, giving us the gradient. Now we go further: the input can be a <em>vector</em> or a
+                    <em>matrix</em>, and the output can also be a vector or matrix. The derivative object becomes a matrix
+                    (the <strong>Jacobian</strong>) or even a higher-order tensor. Understanding how these objects compose
+                    under the chain rule is what makes backpropagation possible.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">The Payoff</div>
                     <p style="margin-bottom: 0;">
-                        The gradient of a scalar $f$ with respect to a column vector $\mathbf{x}$ is a 
+                        Once you know matrix calculus, you can derive the gradient of <em>any</em> neural network
+                        architecture on paper. You will never again treat backpropagation as a black box.
+                    </p>
+                </div>
+
+                <!-- ======== Layout Conventions ======== -->
+                <h2 id="notation">Layout Conventions</h2>
+
+                <p>
+                    Before we write a single derivative, we must address a persistent source of confusion: there are
+                    <em>two</em> competing conventions for how to arrange partial derivatives into a matrix, and different
+                    textbooks use different ones without always saying which. The two conventions are called
+                    <strong>numerator layout</strong> and <strong>denominator layout</strong>.
+                </p>
+
+                <p>
+                    The difference boils down to this: when you differentiate a column vector $\mathbf{y} \in \mathbb{R}^m$
+                    with respect to a column vector $\mathbf{x} \in \mathbb{R}^n$, do you get an $m \times n$ matrix
+                    (numerator layout) or an $n \times m$ matrix (denominator layout)? We use <strong>denominator
+                    layout</strong>, which is the convention most common in machine learning and optimization. Under this
+                    convention, the gradient of a scalar is a column vector that "lives in the same space" as $\mathbf{x}$.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Denominator Layout Convention</div>
+                    <p>
+                        The gradient of a scalar $f$ with respect to a column vector $\mathbf{x} \in \mathbb{R}^n$ is a
                         <strong>column vector</strong>:
                         $$\nabla_{\mathbf{x}} f = \frac{\partial f}{\partial \mathbf{x}} = \begin{pmatrix} \frac{\partial f}{\partial x_1} \\ \vdots \\ \frac{\partial f}{\partial x_n} \end{pmatrix}$$
                     </p>
+                    <p style="margin-bottom: 0;">
+                        The Jacobian of $\mathbf{y} \in \mathbb{R}^m$ with respect to $\mathbf{x} \in \mathbb{R}^n$ is the
+                        $m \times n$ matrix whose $(i,j)$ entry is $\partial y_i / \partial x_j$.
+                    </p>
                 </div>
-                
-                <!-- Section 2 -->
-                <h2 id="vector-derivatives">Vector-by-Vector Derivatives</h2>
-                
+
                 <p>
-                    When $\mathbf{y} = f(\mathbf{x})$ is a vector function, the derivative is the 
-                    <strong>Jacobian matrix</strong>:
+                    Why does the convention matter? Because the chain rule involves multiplying Jacobians, and whether you
+                    write $J_1 J_2$ or $J_2^T J_1^T$ depends on which layout you chose. If you ever get confused by a
+                    transpose that "shouldn't be there," check whether the source uses a different layout convention.
                 </p>
-                
-                <div class="math-block">
-                    $$\frac{\partial \mathbf{y}}{\partial \mathbf{x}} = \begin{pmatrix} 
-                    \frac{\partial y_1}{\partial x_1} & \cdots & \frac{\partial y_1}{\partial x_n} \\
-                    \vdots & \ddots & \vdots \\
-                    \frac{\partial y_m}{\partial x_1} & \cdots & \frac{\partial y_m}{\partial x_n}
-                    \end{pmatrix}$$
+
+                <div class="warning-box">
+                    <div class="box-title">Convention Alert</div>
+                    <p style="margin-bottom: 0;">
+                        Wikipedia's matrix calculus article uses <em>numerator layout</em> by default. Many ML papers and
+                        textbooks (Bishop, Goodfellow) use denominator layout. Always check which convention a source uses
+                        before copying formulas.
+                    </p>
                 </div>
-                
-                <p>The Jacobian is $m \times n$ for $\mathbf{y} \in \mathbb{R}^m$ and $\mathbf{x} \in \mathbb{R}^n$.</p>
-                
-                <!-- Section 3 -->
-                <h2 id="common-results">Common Results</h2>
-                
+
+                <!-- ======== The Jacobian Matrix ======== -->
+                <h2 id="vector-derivatives">The Jacobian Matrix</h2>
+
+                <p>
+                    When we have a vector-valued function $\mathbf{y} = f(\mathbf{x})$ mapping $\mathbb{R}^n \to \mathbb{R}^m$,
+                    the derivative is no longer a single number or even a single vector. It is an entire <em>matrix</em> of
+                    partial derivatives called the <strong>Jacobian</strong>.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Jacobian Matrix</div>
+                    <p style="margin-bottom: 0;">
+                        For $\mathbf{y} = f(\mathbf{x})$ with $\mathbf{y} \in \mathbb{R}^m$, $\mathbf{x} \in \mathbb{R}^n$:
+                        $$J = \frac{\partial \mathbf{y}}{\partial \mathbf{x}} = \begin{pmatrix}
+                        \frac{\partial y_1}{\partial x_1} & \cdots & \frac{\partial y_1}{\partial x_n} \\
+                        \vdots & \ddots & \vdots \\
+                        \frac{\partial y_m}{\partial x_1} & \cdots & \frac{\partial y_m}{\partial x_n}
+                        \end{pmatrix} \in \mathbb{R}^{m \times n}$$
+                    </p>
+                </div>
+
+                <p>
+                    <strong>Geometric interpretation:</strong> The Jacobian is the best linear approximation to $f$ near a point.
+                    Just as the scalar derivative gives us $f(x + h) \approx f(x) + f'(x)h$, the Jacobian gives us:
+                </p>
+
+                <div class="math-block">
+                    $$f(\mathbf{x} + \mathbf{h}) \approx f(\mathbf{x}) + J \mathbf{h}$$
+                </div>
+
+                <p>
+                    Each row of $J$ tells you how one output component changes as you perturb the inputs. Each column tells you
+                    how all outputs respond to perturbing one particular input. In a neural network, the Jacobian of a layer
+                    captures how that layer's outputs respond to small changes in its inputs.
+                </p>
+
+                <h3>Worked Example: A 2D &rarr; 3D Function</h3>
+
+                <p>
+                    Let $f(x_1, x_2) = \begin{pmatrix} x_1^2 + x_2 \\ x_1 x_2 \\ e^{x_1} \end{pmatrix}$.
+                    The Jacobian is $3 \times 2$:
+                </p>
+
                 <div class="math-derivation">
-                    <div class="math-derivation-title">Essential Matrix Calculus Identities</div>
-                    
+                    <div class="math-derivation-title">Computing the Jacobian</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Row 1: $\frac{\partial}{\partial x_1}(x_1^2 + x_2) = 2x_1$, $\frac{\partial}{\partial x_2}(x_1^2 + x_2) = 1$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Row 2: $\frac{\partial}{\partial x_1}(x_1 x_2) = x_2$, $\frac{\partial}{\partial x_2}(x_1 x_2) = x_1$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Row 3: $\frac{\partial}{\partial x_1}(e^{x_1}) = e^{x_1}$, $\frac{\partial}{\partial x_2}(e^{x_1}) = 0$
+                        </div>
+                    </div>
+                </div>
+
+                <div class="math-block">
+                    $$J = \begin{pmatrix} 2x_1 & 1 \\ x_2 & x_1 \\ e^{x_1} & 0 \end{pmatrix}$$
+                </div>
+
+                <p>
+                    At the point $(x_1, x_2) = (1, 3)$: $J = \begin{pmatrix} 2 & 1 \\ 3 & 1 \\ e & 0 \end{pmatrix}$.
+                    This tells us, for instance, that a small perturbation $\delta x_1$ changes $y_1$ by about $2\delta x_1$,
+                    $y_2$ by about $3\delta x_1$, and $y_3$ by about $e \cdot \delta x_1$.
+                </p>
+
+                <!-- ======== Common Results ======== -->
+                <h2 id="common-results">Essential Matrix Calculus Identities</h2>
+
+                <p>
+                    The following identities appear over and over in machine learning. Rather than re-derive them each time,
+                    it is worth memorizing them. But you should also understand <em>why</em> each one is true&mdash;we prove
+                    the most important ones in the next section.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Scalar-by-Vector Identities</div>
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
                             $\frac{\partial}{\partial \mathbf{x}}(\mathbf{a}^T \mathbf{x}) = \mathbf{a}$
+                            &mdash; the gradient of a linear function is the coefficient vector
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
                             $\frac{\partial}{\partial \mathbf{x}}(\mathbf{x}^T \mathbf{x}) = 2\mathbf{x}$
+                            &mdash; the gradient of squared norm, analogous to $(x^2)' = 2x$
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            $\frac{\partial}{\partial \mathbf{x}}(\mathbf{x}^T A \mathbf{x}) = (A + A^T)\mathbf{x}$ (or $2A\mathbf{x}$ if $A$ symmetric)
+                            $\frac{\partial}{\partial \mathbf{x}}(\mathbf{x}^T A \mathbf{x}) = (A + A^T)\mathbf{x}$
+                            &mdash; reduces to $2A\mathbf{x}$ when $A$ is symmetric
                         </div>
                     </div>
-                    
+                </div>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Vector-by-Vector Identities</div>
                     <div class="math-step">
                         <div class="math-step-number">4</div>
                         <div class="math-step-content">
-                            $\frac{\partial}{\partial \mathbf{x}}(A\mathbf{x}) = A$ (Jacobian)
+                            $\frac{\partial}{\partial \mathbf{x}}(A\mathbf{x}) = A$
+                            &mdash; the Jacobian of a linear map is the matrix itself
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">5</div>
+                        <div class="math-step-content">
+                            $\frac{\partial}{\partial \mathbf{x}}(A\mathbf{x} + \mathbf{b}) = A$
+                            &mdash; constant shifts disappear, just like $(x + c)' = 1$
+                        </div>
+                    </div>
+                </div>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Matrix-by-Matrix Identities (Trace Derivatives)</div>
+                    <div class="math-step">
+                        <div class="math-step-number">6</div>
                         <div class="math-step-content">
                             $\frac{\partial}{\partial X}\text{tr}(AX) = A^T$
                         </div>
                     </div>
+                    <div class="math-step">
+                        <div class="math-step-number">7</div>
+                        <div class="math-step-content">
+                            $\frac{\partial}{\partial X}\text{tr}(X^T A) = A$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">8</div>
+                        <div class="math-step-content">
+                            $\frac{\partial}{\partial X}\text{tr}(X^T A X) = (A + A^T)X$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">9</div>
+                        <div class="math-step-content">
+                            $\frac{\partial}{\partial X}\log \det(X) = X^{-T}$
+                            &mdash; appears in Gaussian log-likelihoods
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Section 4 -->
-                <h2 id="chain-rule">The Chain Rule for Vectors</h2>
-                
-                <p>If $\mathbf{y} = g(\mathbf{x})$ and $z = f(\mathbf{y})$, then:</p>
-                
-                <div class="math-block">
-                    $$\frac{\partial z}{\partial \mathbf{x}} = \left(\frac{\partial \mathbf{y}}{\partial \mathbf{x}}\right)^T \frac{\partial z}{\partial \mathbf{y}}$$
-                </div>
-                
-                <p>Or equivalently:</p>
-                
-                <div class="math-block">
-                    $$\nabla_{\mathbf{x}} z = J^T \nabla_{\mathbf{y}} z$$
-                </div>
-                
-                <div class="warning-box">
-                    <div class="box-title">This is Backpropagation!</div>
-                    <p style="margin-bottom: 0;">
-                        In a neural network, we compute $\nabla_{\mathbf{y}} L$ (gradient of loss w.r.t. layer output), 
-                        then multiply by $J^T$ (transpose of layer's Jacobian) to get $\nabla_{\mathbf{x}} L$ 
-                        (gradient w.r.t. layer input). Repeat backwards through layers.
-                    </p>
-                </div>
-                
-                <!-- Section 5 -->
-                <h2 id="linear-layer">Example: Linear Layer</h2>
-                
+
+                <!-- ======== Proving the Identities ======== -->
+                <h2 id="derivations">Proving the Key Identities</h2>
+
                 <p>
-                    A linear layer computes $\mathbf{y} = W\mathbf{x} + \mathbf{b}$. Given $\frac{\partial L}{\partial \mathbf{y}}$ 
-                    from the next layer, we need:
+                    Let us prove the three most important identities from first principles. Understanding these proofs
+                    will let you derive any identity you need on the fly.
                 </p>
-                
+
+                <h3>Proof: $\frac{\partial}{\partial \mathbf{x}}(\mathbf{a}^T \mathbf{x}) = \mathbf{a}$</h3>
+
                 <div class="math-derivation">
-                    <div class="math-derivation-title">Gradients for Linear Layer</div>
-                    
+                    <div class="math-derivation-title">Step-by-step</div>
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
-                            <strong>Gradient w.r.t. input:</strong> $\frac{\partial L}{\partial \mathbf{x}} = W^T \frac{\partial L}{\partial \mathbf{y}}$
+                            Write out the dot product: $\mathbf{a}^T \mathbf{x} = \sum_{i=1}^n a_i x_i$
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            <strong>Gradient w.r.t. weights:</strong> $\frac{\partial L}{\partial W} = \frac{\partial L}{\partial \mathbf{y}} \mathbf{x}^T$
+                            Take the partial derivative with respect to $x_k$: $\frac{\partial}{\partial x_k} \sum_{i=1}^n a_i x_i = a_k$
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            <strong>Gradient w.r.t. bias:</strong> $\frac{\partial L}{\partial \mathbf{b}} = \frac{\partial L}{\partial \mathbf{y}}$
+                            Stack all partials into a vector: $\nabla_{\mathbf{x}}(\mathbf{a}^T \mathbf{x}) = \begin{pmatrix} a_1 \\ \vdots \\ a_n \end{pmatrix} = \mathbf{a}$ &#10003;
                         </div>
                     </div>
                 </div>
-                
-                <!-- Section 6 -->
-                <h2 id="softmax">Example: Softmax</h2>
-                
-                <p>The softmax function $\sigma(\mathbf{z})_i = \frac{e^{z_i}}{\sum_j e^{z_j}}$ has Jacobian:</p>
-                
-                <div class="math-block">
-                    $$\frac{\partial \sigma_i}{\partial z_j} = \sigma_i(\delta_{ij} - \sigma_j)$$
+
+                <h3>Proof: $\frac{\partial}{\partial \mathbf{x}}(\mathbf{x}^T A \mathbf{x}) = (A + A^T)\mathbf{x}$</h3>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">The Quadratic Form</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Expand: $\mathbf{x}^T A \mathbf{x} = \sum_{i} \sum_{j} A_{ij} x_i x_j$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Differentiate w.r.t. $x_k$: $\frac{\partial}{\partial x_k} = \sum_j A_{kj} x_j + \sum_i A_{ik} x_i$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            The first sum is the $k$-th element of $A\mathbf{x}$; the second is the $k$-th element of $A^T \mathbf{x}$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            Therefore: $\nabla_{\mathbf{x}}(\mathbf{x}^T A \mathbf{x}) = A\mathbf{x} + A^T \mathbf{x} = (A + A^T)\mathbf{x}$ &#10003;
+                        </div>
+                    </div>
                 </div>
-                
+
                 <p>
-                    where $\delta_{ij}$ is 1 if $i = j$, 0 otherwise. In matrix form:
+                    <strong>Why this matters for ML:</strong> The least-squares loss $\|\mathbf{y} - X\boldsymbol{\beta}\|^2$
+                    can be rewritten as $\boldsymbol{\beta}^T X^T X \boldsymbol{\beta} - 2\mathbf{y}^T X \boldsymbol{\beta} + \mathbf{y}^T\mathbf{y}$.
+                    Setting the gradient to zero using our identities gives the normal equations:
+                    $\boldsymbol{\beta} = (X^T X)^{-1} X^T \mathbf{y}$.
                 </p>
-                
-                <div class="math-block">
-                    $$J = \text{diag}(\boldsymbol{\sigma}) - \boldsymbol{\sigma}\boldsymbol{\sigma}^T$$
-                </div>
-                
-                <div class="note-box">
-                    <div class="box-title">Practical Tip</div>
+
+                <!-- ======== Chain Rule for Vectors ======== -->
+                <h2 id="chain-rule">The Chain Rule for Vectors</h2>
+
+                <p>
+                    The chain rule is the single most important result in matrix calculus for machine learning. In the
+                    scalar case, if $y = f(u)$ and $u = g(x)$, then $\frac{dy}{dx} = \frac{dy}{du} \cdot \frac{du}{dx}$.
+                    The vector generalization replaces multiplication with matrix multiplication of Jacobians.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Vector Chain Rule</div>
                     <p style="margin-bottom: 0;">
-                        When combined with cross-entropy loss, the gradient simplifies beautifully to 
-                        $\boldsymbol{\sigma} - \mathbf{y}$ (predicted minus true labels). This is why 
-                        softmax + cross-entropy is so popular—the gradient is simple and numerically stable.
+                        If $\mathbf{y} = g(\mathbf{x})$ and $z = f(\mathbf{y})$ (scalar output), then:
+                        $$\nabla_{\mathbf{x}} z = J_g^T \nabla_{\mathbf{y}} z$$
+                        where $J_g = \frac{\partial \mathbf{y}}{\partial \mathbf{x}}$ is the Jacobian of $g$.
+                        More generally, if both functions are vector-valued: $J_{f \circ g} = J_f \cdot J_g$.
                     </p>
                 </div>
-                
-                <!-- Navigation -->
-                
-            <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                <h1>04. Matrix Calculus for ML</h1>
-                <p class="lead">
-                Neural networks are compositions of matrix operations. To train them, we need 
-                derivatives with respect to vectors and matrices—the language of backpropagation.
-            </p>
-            </div>
-                <div class="tutorial-nav">
+
+                <p>
+                    Why $J^T$ and not $J$? Because we are using denominator layout. The gradient $\nabla_{\mathbf{x}} z$ is a
+                    column vector, and we need the transpose of the Jacobian to make the dimensions work out: if $J_g$ is
+                    $m \times n$ and $\nabla_{\mathbf{y}} z$ is $m \times 1$, then $J_g^T$ is $n \times m$, and
+                    $J_g^T \nabla_{\mathbf{y}} z$ is $n \times 1$&mdash;exactly the right shape for $\nabla_{\mathbf{x}} z$.
+                </p>
+
+                <div class="warning-box">
+                    <div class="box-title">This IS Backpropagation</div>
+                    <p style="margin-bottom: 0;">
+                        In a neural network with layers $\mathbf{h}_1 \to \mathbf{h}_2 \to \cdots \to L$, backpropagation
+                        computes $\nabla_{\mathbf{h}_k} L = J_k^T \nabla_{\mathbf{h}_{k+1}} L$ at each layer, moving
+                        backwards from the loss to the inputs. The "backward pass" is literally a sequence of
+                        Jacobian-transpose-vector products.
+                    </p>
+                </div>
+
+                <h3>Worked Example: Two-Layer Composition</h3>
+
+                <p>Let $\mathbf{h} = \sigma(W\mathbf{x} + \mathbf{b})$ and $L = \frac{1}{2}\|\mathbf{h} - \mathbf{t}\|^2$ where $\sigma$ is applied element-wise.</p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Backpropagation Through Two Layers</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            $\nabla_{\mathbf{h}} L = \mathbf{h} - \mathbf{t}$ (gradient of squared error)
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Let $\mathbf{z} = W\mathbf{x} + \mathbf{b}$. The Jacobian of $\sigma$ is diagonal: $J_\sigma = \text{diag}(\sigma'(\mathbf{z}))$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            $\nabla_{\mathbf{z}} L = J_\sigma^T (\mathbf{h} - \mathbf{t}) = \sigma'(\mathbf{z}) \odot (\mathbf{h} - \mathbf{t})$ (element-wise, since $J_\sigma$ is diagonal and symmetric)
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            $\nabla_{\mathbf{x}} L = W^T \nabla_{\mathbf{z}} L$, and $\frac{\partial L}{\partial W} = \nabla_{\mathbf{z}} L \cdot \mathbf{x}^T$
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======== The Hessian Matrix ======== -->
+                <h2 id="hessian">The Hessian Matrix</h2>
+
+                <p>
+                    The gradient tells us the direction of steepest descent. But how <em>curved</em> is the landscape?
+                    Is the loss shaped like a gentle bowl or a narrow ravine? The <strong>Hessian matrix</strong>&mdash;the
+                    matrix of second derivatives&mdash;answers these questions.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">The Hessian</div>
+                    <p style="margin-bottom: 0;">
+                        For a scalar function $f: \mathbb{R}^n \to \mathbb{R}$, the Hessian is the $n \times n$ matrix:
+                        $$H_{ij} = \frac{\partial^2 f}{\partial x_i \partial x_j}$$
+                        The Hessian is symmetric (by Schwarz's theorem) when second partials are continuous.
+                    </p>
+                </div>
+
+                <p>
+                    The Hessian connects to optimization in a fundamental way. The second-order Taylor expansion is:
+                </p>
+
+                <div class="math-block">
+                    $$f(\mathbf{x} + \mathbf{h}) \approx f(\mathbf{x}) + \nabla f^T \mathbf{h} + \frac{1}{2} \mathbf{h}^T H \mathbf{h}$$
+                </div>
+
+                <p>
+                    The eigenvalues of $H$ determine the curvature along each eigenvector direction. If all eigenvalues
+                    are positive, the point is a local minimum. If some are positive and some negative, it is a
+                    <strong>saddle point</strong>&mdash;which are extremely common in high-dimensional neural network
+                    loss landscapes.
+                </p>
+
+                <p>
+                    <strong>Newton's method</strong> uses the Hessian to take optimal steps: $\mathbf{x}_{\text{new}} = \mathbf{x} - H^{-1} \nabla f$.
+                    This converges much faster than gradient descent near a minimum, but computing and inverting the Hessian
+                    is prohibitively expensive for large networks (an $n \times n$ matrix where $n$ can be millions).
+                    This is why we use first-order methods like Adam in practice.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Condition Number and Training Difficulty</div>
+                    <p style="margin-bottom: 0;">
+                        The ratio $\lambda_{\max} / \lambda_{\min}$ of the Hessian&rsquo;s largest to smallest eigenvalue is
+                        called the <strong>condition number</strong>. A high condition number means the loss surface is
+                        elongated&mdash;steep in some directions, flat in others. This makes gradient descent zigzag and
+                        converge slowly. Techniques like batch normalization and learning rate warmup help by improving
+                        the conditioning of the loss landscape.
+                    </p>
+                </div>
+
+                <!-- ======== Example: Linear Layer ======== -->
+                <h2 id="linear-layer">Example: Linear Layer Gradients</h2>
+
+                <p>
+                    The linear (fully connected) layer is the most fundamental building block. It computes
+                    $\mathbf{y} = W\mathbf{x} + \mathbf{b}$ where $W \in \mathbb{R}^{m \times n}$,
+                    $\mathbf{x} \in \mathbb{R}^n$, and $\mathbf{b} \in \mathbb{R}^m$. During the backward pass,
+                    we receive $\nabla_{\mathbf{y}} L$ from the next layer and must compute three gradients.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Gradients for $\mathbf{y} = W\mathbf{x} + \mathbf{b}$</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Gradient w.r.t. input:</strong> The Jacobian of $W\mathbf{x}$ w.r.t. $\mathbf{x}$ is $W$
+                            (identity 4). By the chain rule: $\nabla_{\mathbf{x}} L = W^T \nabla_{\mathbf{y}} L$.
+                            This is what we pass to the previous layer.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Gradient w.r.t. weights:</strong> Since $y_i = \sum_j W_{ij} x_j + b_i$, we have
+                            $\frac{\partial L}{\partial W_{ij}} = \frac{\partial L}{\partial y_i} x_j$.
+                            In matrix form: $\frac{\partial L}{\partial W} = \nabla_{\mathbf{y}} L \cdot \mathbf{x}^T$
+                            (an outer product).
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            <strong>Gradient w.r.t. bias:</strong> Since $\frac{\partial y_i}{\partial b_i} = 1$, we get
+                            $\nabla_{\mathbf{b}} L = \nabla_{\mathbf{y}} L$. The bias gradient is just the incoming gradient.
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Numerical Example</h3>
+
+                <p>
+                    Let $W = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}$, $\mathbf{x} = \begin{pmatrix} 1 \\ -1 \end{pmatrix}$,
+                    $\mathbf{b} = \begin{pmatrix} 0 \\ 0 \end{pmatrix}$, and suppose $\nabla_{\mathbf{y}} L = \begin{pmatrix} 1 \\ 1 \end{pmatrix}$.
+                </p>
+                <ul>
+                    <li>$\nabla_{\mathbf{x}} L = W^T \begin{pmatrix} 1 \\ 1 \end{pmatrix} = \begin{pmatrix} 1 & 3 \\ 2 & 4 \end{pmatrix}\begin{pmatrix} 1 \\ 1 \end{pmatrix} = \begin{pmatrix} 4 \\ 6 \end{pmatrix}$</li>
+                    <li>$\frac{\partial L}{\partial W} = \begin{pmatrix} 1 \\ 1 \end{pmatrix}\begin{pmatrix} 1 & -1 \end{pmatrix} = \begin{pmatrix} 1 & -1 \\ 1 & -1 \end{pmatrix}$</li>
+                    <li>$\nabla_{\mathbf{b}} L = \begin{pmatrix} 1 \\ 1 \end{pmatrix}$</li>
+                </ul>
+
+                <!-- ======== Example: Softmax ======== -->
+                <h2 id="softmax">Example: Softmax Jacobian</h2>
+
+                <p>
+                    The softmax function converts a vector of real numbers (logits) into a probability distribution.
+                    It is used at the output of nearly every classification network. Its Jacobian is surprisingly elegant.
+                </p>
+
+                <p>
+                    The softmax function is $\sigma(\mathbf{z})_i = \frac{e^{z_i}}{\sum_j e^{z_j}}$. To find the Jacobian,
+                    we need $\frac{\partial \sigma_i}{\partial z_j}$ for all $i, j$. There are two cases.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Deriving the Softmax Jacobian</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>When $i = j$:</strong> Apply the quotient rule:
+                            $\frac{\partial \sigma_i}{\partial z_i} = \frac{e^{z_i} \sum_k e^{z_k} - e^{z_i} e^{z_i}}{(\sum_k e^{z_k})^2} = \sigma_i(1 - \sigma_i)$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>When $i \neq j$:</strong> The numerator $e^{z_i}$ does not depend on $z_j$:
+                            $\frac{\partial \sigma_i}{\partial z_j} = \frac{-e^{z_i} e^{z_j}}{(\sum_k e^{z_k})^2} = -\sigma_i \sigma_j$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Combine using the Kronecker delta: $\frac{\partial \sigma_i}{\partial z_j} = \sigma_i(\delta_{ij} - \sigma_j)$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            In matrix form: $J = \text{diag}(\boldsymbol{\sigma}) - \boldsymbol{\sigma}\boldsymbol{\sigma}^T$
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">Softmax + Cross-Entropy Simplification</div>
+                    <p style="margin-bottom: 0;">
+                        When combined with cross-entropy loss $L = -\sum_i y_i \log \sigma_i$, the gradient w.r.t. logits
+                        simplifies beautifully to $\nabla_{\mathbf{z}} L = \boldsymbol{\sigma} - \mathbf{y}$ (predicted minus
+                        true labels). This cancellation is not a coincidence&mdash;it follows from the fact that cross-entropy
+                        is the natural loss function for the softmax family (an exponential family result).
+                    </p>
+                </div>
+
+                <!-- ======== Automatic Differentiation ======== -->
+                <h2 id="autodiff">Automatic Differentiation</h2>
+
+                <p>
+                    In practice, nobody computes Jacobians by hand for large networks. Instead, frameworks like PyTorch
+                    and TensorFlow use <strong>automatic differentiation</strong> (autodiff). It is important to understand
+                    that autodiff is <em>not</em> symbolic differentiation (which produces formula expressions) and
+                    <em>not</em> numerical differentiation (which uses finite differences). Autodiff computes exact
+                    derivatives by decomposing computations into elementary operations and applying the chain rule
+                    systematically.
+                </p>
+
+                <p>
+                    There are two modes of autodiff:
+                </p>
+
+                <ul>
+                    <li>
+                        <strong>Forward mode:</strong> Propagates derivatives <em>forward</em> through the computation
+                        graph. Efficient when the number of inputs is small. Computes one column of the Jacobian per pass.
+                    </li>
+                    <li>
+                        <strong>Reverse mode:</strong> Propagates derivatives <em>backward</em> from the output.
+                        Efficient when the number of outputs is small (e.g., a scalar loss). Computes one row of the
+                        Jacobian per pass. This is exactly <strong>backpropagation</strong>.
+                    </li>
+                </ul>
+
+                <div class="warning-box">
+                    <div class="box-title">Why Reverse Mode Wins for ML</div>
+                    <p style="margin-bottom: 0;">
+                        Neural networks have one scalar output (the loss) but millions of inputs (the parameters).
+                        Reverse mode computes the entire gradient $\nabla_\theta L$ in a single backward pass,
+                        regardless of how many parameters there are. Forward mode would require one pass per parameter.
+                        This is why backpropagation (= reverse-mode autodiff) is the algorithm of choice.
+                    </p>
+                </div>
+
+                <!-- ======== Information-Theoretic Connections ======== -->
+                <h2 id="info-theory">Information-Theoretic Connections</h2>
+
+                <p>
+                    Matrix calculus connects to information theory through the <strong>Fisher information matrix</strong>,
+                    which measures how much information the data carries about the parameters.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Fisher Information Matrix</div>
+                    <p style="margin-bottom: 0;">
+                        For a parametric model $p(\mathbf{x}; \boldsymbol{\theta})$, the Fisher information matrix is:
+                        $$\mathcal{I}(\boldsymbol{\theta}) = E\left[\nabla_{\boldsymbol{\theta}} \log p(\mathbf{x}; \boldsymbol{\theta}) \cdot \nabla_{\boldsymbol{\theta}} \log p(\mathbf{x}; \boldsymbol{\theta})^T\right]$$
+                        Under regularity conditions, this equals the negative expected Hessian of the log-likelihood:
+                        $\mathcal{I}(\boldsymbol{\theta}) = -E\left[\nabla^2_{\boldsymbol{\theta}} \log p(\mathbf{x}; \boldsymbol{\theta})\right]$.
+                    </p>
+                </div>
+
+                <p>
+                    The Fisher information matrix is the Hessian of the KL divergence between $p(\mathbf{x}; \boldsymbol{\theta})$
+                    and $p(\mathbf{x}; \boldsymbol{\theta} + \delta\boldsymbol{\theta})$ at $\delta\boldsymbol{\theta} = 0$.
+                    This makes it a <strong>Riemannian metric</strong> on the space of distributions: it tells you the
+                    "statistical distance" between nearby parameter values.
+                </p>
+
+                <p>
+                    The <strong>natural gradient</strong> $\tilde{\nabla} L = \mathcal{I}^{-1} \nabla L$ corrects for this
+                    geometry. While ordinary gradient descent treats all parameter directions equally, natural gradient
+                    descent takes larger steps in directions where the distribution changes slowly (flat Fisher metric)
+                    and smaller steps where it changes rapidly (steep Fisher metric). Methods like Adam approximate
+                    aspects of natural gradient descent, which partly explains their empirical success.
+                </p>
+
+                <!-- ======== Common Misconceptions ======== -->
+                <h2 id="misconceptions">Common Misconceptions</h2>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 1: "The gradient is a row vector"</div>
+                    <p style="margin-bottom: 0;">
+                        Under numerator layout, the gradient is indeed a row vector. Under denominator layout (our convention),
+                        it is a column vector. This is a convention choice, not a mathematical fact. Always check which
+                        convention a source uses.
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 2: "I can just use shapes to figure out transposes"</div>
+                    <p style="margin-bottom: 0;">
+                        Shape-matching is a useful sanity check, but it can mislead when you mix conventions. A more reliable
+                        approach: go back to index notation ($\frac{\partial y_i}{\partial x_j}$), work out the formula,
+                        then reassemble into matrix form.
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 3: "The Hessian is too expensive to ever use"</div>
+                    <p style="margin-bottom: 0;">
+                        While the full $n \times n$ Hessian is impractical for large networks, Hessian-vector products
+                        can be computed efficiently (in the same time as a gradient). Methods like conjugate gradient and
+                        L-BFGS exploit this to approximate second-order optimization without ever forming the full Hessian.
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 4: "Backprop is specific to neural networks"</div>
+                    <p style="margin-bottom: 0;">
+                        Backpropagation is just reverse-mode automatic differentiation applied to any computational graph.
+                        It works for any differentiable program&mdash;physics simulations, graphics renderers, probabilistic
+                        programs. Neural networks are one application, not the algorithm itself.
+                    </p>
+                </div>
+
+                <div class="tutorial-nav" style="margin-top: 3rem;">
                     <a href="../03-directional/index.html" class="tutorial-nav-link prev">
                         <span class="nav-label">Previous</span>
-                        <span class="nav-title">← Directional Derivatives</span>
+                        <span class="nav-title">&larr; Directional Derivatives</span>
                     </a>
                     <a href="../index.html" class="tutorial-nav-link next">
                         <span class="nav-label">Next</span>
-                        <span class="nav-title">Calculus Home →</span>
+                        <span class="nav-title">Calculus Home &rarr;</span>
                     </a>
                 </div>
-                
+
             </article>
-        
+
+            <!-- ============================================================
+                 EXERCISES
+                 ============================================================ -->
+            <article class="article-content" id="exercises" style="margin-top: 3rem;">
+                <h1>Exercises</h1>
+                <div class="note-box" style="margin-bottom: 1.5rem;">
+                    <div class="box-title">Problem Set Structure</div>
+                    <p>30 problems in three bands: 10 easy (vocabulary and setup), 10 medium (derivations and applications),
+                    and 10 hard (proofs and multi-step problems).</p>
+                </div>
+
+                <h2 id="easy-problems">Easy Problems</h2>
+                <ol>
+                    <li>What is the shape of the Jacobian of $f: \mathbb{R}^5 \to \mathbb{R}^3$?</li>
+                    <li>Compute $\nabla_{\mathbf{x}}(\mathbf{a}^T \mathbf{x})$ where $\mathbf{a} = (2, -1, 3)^T$.</li>
+                    <li>What is $\frac{\partial}{\partial \mathbf{x}}(\mathbf{x}^T \mathbf{x})$ when $\mathbf{x} \in \mathbb{R}^4$?</li>
+                    <li>State the chain rule for the composition $z = f(g(\mathbf{x}))$ where $z$ is scalar.</li>
+                    <li>What is the Jacobian of the identity function $f(\mathbf{x}) = \mathbf{x}$?</li>
+                    <li>If $W$ is $3 \times 5$, what is the shape of $\nabla_{\mathbf{x}} L$ in a linear layer?</li>
+                    <li>What does it mean for the Hessian to be positive definite at a point?</li>
+                    <li>Name the two layout conventions in matrix calculus.</li>
+                    <li>Why is reverse-mode autodiff preferred over forward-mode for training neural networks?</li>
+                    <li>What is the softmax Jacobian entry $\frac{\partial \sigma_i}{\partial z_j}$ when $i = j$?</li>
+                </ol>
+
+                <h2 id="middle-problems">Middle Problems</h2>
+                <ol>
+                    <li>Prove that $\frac{\partial}{\partial \mathbf{x}}(\mathbf{x}^T \mathbf{x}) = 2\mathbf{x}$ from the definition.</li>
+                    <li>Compute the Jacobian of $f(x_1, x_2) = (x_1 + x_2, x_1 x_2, x_1^2 - x_2^2)^T$.</li>
+                    <li>Derive the gradient of least-squares loss $L = \|\mathbf{y} - X\boldsymbol{\beta}\|^2$ w.r.t. $\boldsymbol{\beta}$.</li>
+                    <li>For $f(\mathbf{x}) = \sigma(W_2 \sigma(W_1 \mathbf{x}))$ (two-layer network), write out the chain of Jacobians needed for backprop.</li>
+                    <li>Show that the Hessian of $f(\mathbf{x}) = \mathbf{x}^T A \mathbf{x}$ is $A + A^T$.</li>
+                    <li>Compute $\frac{\partial}{\partial X} \text{tr}(X^T X)$ using the trace derivative rules.</li>
+                    <li>Derive the gradient of the softmax cross-entropy loss $L = -\sum_i y_i \log \sigma_i(\mathbf{z})$ w.r.t. $\mathbf{z}$.</li>
+                    <li>Explain why element-wise activation functions have diagonal Jacobians.</li>
+                    <li>For a linear layer, verify that $\frac{\partial L}{\partial W}$ has the same shape as $W$.</li>
+                    <li>Explain the difference between the Fisher information matrix and the Hessian of the loss.</li>
+                </ol>
+
+                <h2 id="hard-problems">Hard Problems</h2>
+                <ol>
+                    <li>Derive $\frac{\partial}{\partial X} \log \det(X)$ for symmetric positive definite $X$.</li>
+                    <li>Prove the softmax Jacobian formula $J = \text{diag}(\boldsymbol{\sigma}) - \boldsymbol{\sigma}\boldsymbol{\sigma}^T$ from scratch.</li>
+                    <li>Show that the Fisher information matrix equals the negative expected Hessian of the log-likelihood under regularity conditions.</li>
+                    <li>Derive the natural gradient update for a Gaussian model $p(x; \mu, \sigma^2) = \mathcal{N}(\mu, \sigma^2)$.</li>
+                    <li>For the function $f(X) = \text{tr}(X^T A X B)$, compute $\frac{\partial f}{\partial X}$.</li>
+                    <li>Explain why the condition number of the Hessian affects gradient descent convergence. Relate to the learning rate bound.</li>
+                    <li>Design a computational graph for $L = \log(\sum_i e^{z_i})$ (log-sum-exp) and trace the forward and backward passes, showing how numerical stability is maintained.</li>
+                    <li>Prove that forward-mode and reverse-mode autodiff compute the same Jacobian but with different computational costs. When is forward mode more efficient?</li>
+                    <li>Derive the Gauss-Newton approximation to the Hessian for a nonlinear least-squares problem $L = \frac{1}{2}\|f(\mathbf{x}) - \mathbf{y}\|^2$ and explain why it is always positive semidefinite.</li>
+                    <li>Write a detailed comparison of SGD, Newton's method, and natural gradient descent. For each, state what curvature information it uses and what computational cost it incurs per step.</li>
+                </ol>
+            </article>
+
+            <div class="note-box series-note">
+                <div class="box-title">Continue Through the Series</div>
+                <p><strong>Previous:</strong> <a href="../03-directional/index.html">Directional Derivatives</a></p>
+                <p style="margin-bottom:0;"><strong>Next:</strong> <a href="../index.html">Calculus Home</a></p>
+            </div>
         </main>
 
         <!-- TOC (Right Side) -->
         <aside class="toc-container">
         <h4 class="toc-title">Contents</h4>
         <nav class="toc-list">
+            <a href="#why-matrix-calculus" class="toc-link">Why Matrix Calculus?</a>
             <a href="#notation" class="toc-link">Layout Conventions</a>
-            <a href="#vector-derivatives" class="toc-link">Vector-by-Vector</a>
-            <a href="#common-results" class="toc-link">Common Results</a>
+            <a href="#vector-derivatives" class="toc-link">The Jacobian</a>
+            <a href="#common-results" class="toc-link">Essential Identities</a>
+            <a href="#derivations" class="toc-link">Proofs</a>
             <a href="#chain-rule" class="toc-link">Chain Rule</a>
+            <a href="#hessian" class="toc-link">The Hessian</a>
             <a href="#linear-layer" class="toc-link">Linear Layer</a>
             <a href="#softmax" class="toc-link">Softmax</a>
+            <a href="#autodiff" class="toc-link">Autodiff</a>
+            <a href="#info-theory" class="toc-link">Info Theory</a>
+            <a href="#misconceptions" class="toc-link">Misconceptions</a>
         </nav>
     </aside>
     </div>
