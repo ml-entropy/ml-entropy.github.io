@@ -125,6 +125,7 @@
                     <a href="#identifiability-vs-computability" class="sidebar-link">Identifiability vs Computability</a>
                     <a href="#visual-summary" class="sidebar-link">Visual Summary</a>
                     <a href="#why-inference-gets-hard" class="sidebar-link">Why Inference Gets Hard</a>
+                    <a href="#info-theory" class="sidebar-link">Information-Theoretic Perspective</a>
                     <a href="#a-mental-checklist" class="sidebar-link">A Mental Checklist</a>
                     <a href="#where-the-next-tutorials-fit" class="sidebar-link">Where the Next Tutorials Fit</a>
                 </nav>
@@ -145,122 +146,555 @@
                 <p class="lead" style="color: var(--color-text-secondary); font-size: 1.125rem; margin-bottom: 2rem;">What inference is, what it targets, and the shared structure behind statistical reasoning.</p>
                 <div class="definition-box" style="margin-bottom: 2rem;">
     <div class="box-title">In This Chapter</div>
-    <p>What inference is, what it targets, and the shared structure behind statistical reasoning.</p>
-    <ul><li>The Big Picture</li><li>Intuition</li><li>A Minimal Formal Template</li><li>Two Grand Styles of Inference</li></ul>
+    <p>We build a complete mental model of statistical inference: the act of reasoning backward from observed data to hidden truths. By the end you will understand the shared backbone behind parameter estimation, Bayesian posteriors, causal effects, and latent-variable models &mdash; and see why every one of these problems is, at its core, a problem of <em>reducing uncertainty</em>.</p>
+    <ul>
+        <li>The Big Picture &mdash; what inference is and why it matters</li>
+        <li>Intuition &mdash; the detective analogy and three universal ingredients</li>
+        <li>A Minimal Formal Template &mdash; the math that unifies all inference</li>
+        <li>Two Grand Styles &mdash; Frequentist vs Bayesian worldviews</li>
+        <li>Inference vs Prediction vs Decision &mdash; three tasks, often confused</li>
+        <li>The Core Workflow &mdash; a four-step recipe for any inference problem</li>
+        <li>Information-Theoretic Perspective &mdash; inference as entropy reduction</li>
+    </ul>
 </div>
-                <h2 id="the-big-picture">The Big Picture</h2>
-<p>Inference is the act of moving from <strong>observations</strong> to <strong>unknown quantities</strong>.</p>
-<p>You observe data: $$x_1, x_2, \dots, x_n$$</p>
-<p>You care about something hidden:</p>
+
+<!-- ============================================================ -->
+<!--  THE BIG PICTURE                                              -->
+<!-- ============================================================ -->
+<h2 id="the-big-picture">The Big Picture</h2>
+
+<p>Inference is the act of moving from <strong>observations</strong> to <strong>unknown quantities</strong>.
+Every time a scientist estimates the mass of a particle, a doctor diagnoses a disease from
+symptoms, or a recommendation engine guesses what movie you will enjoy, something is performing
+inference.  The observed evidence &mdash; measurements, lab results, click histories &mdash; is
+concrete and available.  The thing we actually care about is hidden: it could be a physical
+constant, a disease state, or a latent preference vector.  Inference is the disciplined art
+of bridging that gap.</p>
+
+<p>More precisely, you observe data:</p>
+<div class="math-block">$$x_1, x_2, \dots, x_n$$</div>
+
+<p>And you care about something hidden.  That hidden quantity might be any of the following:</p>
 <ul>
-<li>a parameter $\theta$</li>
-<li>a latent variable $z$</li>
-<li>a prediction $y$</li>
-<li>a causal effect $\tau$</li>
+    <li>A <strong>parameter</strong> $\theta$ &mdash; a fixed but unknown constant such as the bias of a coin or the mean of a population.</li>
+    <li>A <strong>latent variable</strong> $z$ &mdash; a per-observation hidden state, like the topic of a document or the cluster assignment of a data point.</li>
+    <li>A <strong>future observable</strong> $y$ &mdash; the next measurement, the tomorrow&rsquo;s stock price, the patient&rsquo;s outcome.</li>
+    <li>A <strong>causal effect</strong> $\tau$ &mdash; what <em>would have</em> happened under a different intervention, a fundamentally counterfactual quantity.</li>
 </ul>
-<p>Inference asks:</p>
-<ul>
-<li>What values are plausible?</li>
-<li>How uncertain are we?</li>
-<li>What should we predict next?</li>
-<li>What assumptions make the answer trustworthy?</li>
-</ul>
+
+<p>Inference asks four intertwined questions about these unknowns: <em>What values are plausible
+given the evidence? How uncertain are we? What should we predict next? And what assumptions
+make the answer trustworthy?</em>  Notice that the last question is just as important as the
+first three &mdash; an inferential answer is only as good as the story that connects data to
+unknowns, and different stories can lead to wildly different conclusions from the same data.</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Statistical Inference</div>
+    <p><strong>Statistical inference</strong> is the process of using observed data, together with
+    a set of assumptions about how the data were generated, to draw conclusions about unknown
+    quantities.  These conclusions typically take the form of point estimates, intervals, or
+    entire probability distributions over the unknowns.</p>
+</div>
+
+<p>From an information-theoretic viewpoint, you can think of the unknown quantity as a random
+variable whose entropy is high before you see data.  Every observation chips away at that
+entropy &mdash; it eliminates some possibilities, makes others more plausible, and concentrates
+your belief.  Inference is <em>uncertainty reduction</em>, and the amount of uncertainty that
+remains after seeing data is precisely what a confidence interval or posterior distribution
+quantifies.  This perspective will recur throughout the tutorial series and becomes especially
+vivid in Bayesian inference, where the posterior entropy literally measures how much the data
+taught you about the parameter.</p>
+
+<blockquote>
+<strong>Core insight:</strong> Inference is not a single technique &mdash; it is a <em>family</em>
+of reasoning strategies unified by the same logical structure: assume a data-generating process,
+observe data, and reason backward to the hidden quantities that best explain what you saw.
+</blockquote>
+
+
+<!-- ============================================================ -->
+<!--  INTUITION                                                     -->
+<!-- ============================================================ -->
 <h2 id="intuition">Intuition</h2>
-<p>Learning gives you a model. Inference is what you do <strong>with</strong> the model and the data you have.</p>
-<p>There are three recurring ingredients:</p>
-<p>You assume how data could have been produced.</p>
-<p>Parameters, hidden states, future outcomes, treatment effects.</p>
-<p>Some method for turning observed evidence into a judgment about those unknowns.</p>
+
+<p>Before we touch any formulas, let&rsquo;s build intuition with a concrete analogy.  Imagine you
+are a detective arriving at a crime scene.  You see footprints in the mud, a broken window, and
+a half-eaten sandwich.  None of these things <em>are</em> the culprit &mdash; they are <strong>evidence</strong>.
+Your job is to reason backward: what kind of person, with what motives, could have produced
+this particular pattern of clues?  You might entertain several hypotheses (a burglar, a
+disgruntled ex-employee, a raccoon that really likes sandwiches), evaluate how well each
+hypothesis explains the evidence, and settle on the most plausible explanation &mdash; or, if
+you are a good Bayesian detective, you maintain a probability distribution over all suspects
+and update it as new evidence arrives.</p>
+
+<p>Statistical inference works in exactly the same way.  The &ldquo;crime scene&rdquo; is your dataset.
+The &ldquo;suspects&rdquo; are the possible values of your unknown quantity.  And the &ldquo;detective
+work&rdquo; is the mathematical machinery &mdash; likelihood functions, Bayes&rsquo; rule, optimization
+algorithms &mdash; that turns evidence into judgments about unknowns.  Three ingredients always
+appear, no matter how sophisticated the method:</p>
+
 <ol>
-<li><strong>A data-generating story</strong></li>
-<li><strong>Unknowns</strong></li>
-<li><strong>An update rule</strong></li>
+    <li><strong>A data-generating story (the generative model).</strong>  You assume some
+    mechanism that explains how the data <em>could</em> have been produced.  For the detective,
+    this is &ldquo;if the burglar entered through the window, we would expect to see glass fragments
+    on the inside.&rdquo; For a statistician, this might be &ldquo;heights are drawn from a Gaussian
+    distribution with unknown mean $\mu$ and known variance $\sigma^2$.&rdquo;  The story need not
+    be literally true &mdash; all models are wrong &mdash; but it must be specific enough to make
+    predictions that can be compared against the data.</li>
+    <li><strong>Unknowns (the targets of inference).</strong>  These are the quantities you want
+    to learn: parameters, latent states, causal effects, future observations.  The detective
+    wants the identity of the culprit; the statistician wants the value of $\theta$.  Crucially,
+    different choices of &ldquo;what is unknown&rdquo; lead to different inference problems even on the
+    same data.</li>
+    <li><strong>An update rule (the inferential engine).</strong>  Some principled method for
+    turning observed evidence into a judgment about the unknowns.  For the detective, this might
+    be deductive reasoning combined with Occam&rsquo;s razor.  For the statistician, it is a
+    well-defined procedure &mdash; maximum likelihood, Bayes&rsquo; rule, method of moments &mdash;
+    that takes data in and produces an estimate or distribution out.</li>
 </ol>
-<p>In that sense, inference is the bridge between probability theory and decision making.</p>
+
+<p>Let&rsquo;s see this play out with a tiny worked example.  Suppose you flip a coin 10 times and
+observe 7 heads.  Your data-generating story says each flip is an independent Bernoulli trial
+with unknown probability $\theta$ of heads.  Your unknown is $\theta$.  One update rule
+(maximum likelihood) says: find the value of $\theta$ that makes the observed data most
+probable.  The likelihood is:</p>
+
+<div class="math-block">$$L(\theta) = \binom{10}{7}\,\theta^7\,(1 - \theta)^3$$</div>
+
+<p>Taking the derivative and setting it to zero gives $\hat{\theta}_{\text{MLE}} = 7/10 = 0.7$.
+A different update rule (Bayesian with a uniform prior) would give a posterior distribution
+$p(\theta \mid \text{data}) \propto \theta^7(1-\theta)^3$, which is a $\text{Beta}(8, 4)$
+distribution centered near $0.67$.  Same data, same generative story, but a different update
+rule leads to a different kind of answer &mdash; a point versus a distribution.  This is
+a preview of the Frequentist/Bayesian divide we will explore shortly.</p>
+
+<blockquote>
+In that sense, inference is the bridge between probability theory and decision making.
+Probability theory tells us how likely different data patterns are <em>given</em> a model;
+inference reverses the arrow, telling us what the model likely is <em>given</em> the data.
+</blockquote>
+
+<p>You might wonder why we need a &ldquo;story&rdquo; at all &mdash; why not just let the data speak for
+itself?  The reason is subtle but important: data alone cannot tell you what it means.  Seeing
+7 heads in 10 flips is consistent with a fair coin that got lucky, a biased coin, or a magician.
+The generative story is what makes certain interpretations more plausible than others.  Without
+it, inference is impossible &mdash; you would be a detective at a crime scene who refuses to
+consider any theories about what happened.  The story can be simple or complex, parametric or
+nonparametric, but it must exist.</p>
+
+
+<!-- ============================================================ -->
+<!--  A MINIMAL FORMAL TEMPLATE                                    -->
+<!-- ============================================================ -->
 <h2 id="a-minimal-formal-template">A Minimal Formal Template</h2>
-<p>Most inference problems can be written as: $$\text{unknowns} \to \text{produce data} \to \text{observe data} \to \text{reason backward}$$</p>
-<p>For example: $$\theta \to x \sim p(x \mid \theta) \to \text{observe } x \to \text{infer } \theta$$</p>
-<p>This is the common backbone behind:</p>
+
+<p>Despite the enormous variety of inference problems &mdash; from estimating the speed of light
+to segmenting images to measuring the effect of a drug &mdash; nearly all of them share a
+common formal skeleton.  Understanding this skeleton is one of the most leveraged things you
+can do early in your statistical education, because it lets you see the deep similarity beneath
+surface-level differences.</p>
+
+<p>The skeleton has two directions.  The <strong>forward</strong> (generative) direction describes
+how unknowns produce data:</p>
+
+<div class="math-block">$$\theta \;\longrightarrow\; x \sim p(x \mid \theta) \;\longrightarrow\; \text{observe } x$$</div>
+
+<p>The <strong>backward</strong> (inferential) direction reasons from observed data back to the
+unknowns:</p>
+
+<div class="math-block">$$\text{observe } x \;\longrightarrow\; \text{infer } \theta$$</div>
+
+<p>The forward direction is easy: if you know $\theta$, you can simulate data by sampling from
+$p(x \mid \theta)$.  The backward direction is hard: given $x$, which $\theta$ could have
+produced it?  Usually many values of $\theta$ are compatible with the data, so the answer is
+not a single number but a <em>set</em> of plausible values (frequentist confidence set) or a
+<em>distribution</em> over values (Bayesian posterior).</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Likelihood Function</div>
+    <p>Given observed data $x$, the <strong>likelihood function</strong> $L(\theta) = p(x \mid \theta)$
+    is the probability (or density) of the observed data, viewed as a function of the unknown
+    parameter $\theta$.  It is <em>not</em> a probability distribution over $\theta$ &mdash; it
+    does not integrate to 1 over $\theta$ in general.  Instead, it measures how &ldquo;compatible&rdquo;
+    each value of $\theta$ is with the data you actually saw.</p>
+</div>
+
+<p>Let&rsquo;s make this concrete with a worked example.  Suppose we model the heights of adult
+women in a city as $x_i \sim \mathcal{N}(\mu, \sigma^2)$ with $\sigma = 6$ cm known, and we
+observe $n = 4$ heights: 162, 170, 158, 174 cm.  The sample mean is $\bar{x} = 166$ cm.
+The likelihood for $\mu$ is:</p>
+
+<div class="math-block">$$L(\mu) = \prod_{i=1}^{4} \frac{1}{\sqrt{2\pi \cdot 36}} \exp\!\left(-\frac{(x_i - \mu)^2}{72}\right) \;\propto\; \exp\!\left(-\frac{\sum_i (x_i - \mu)^2}{72}\right)$$</div>
+
+<p>This function is maximized at $\hat\mu = \bar{x} = 166$.  The width of the likelihood peak
+tells us about precision: the standard error is $\sigma / \sqrt{n} = 6/2 = 3$ cm, so values
+of $\mu$ within about 6 cm of 166 are reasonably compatible with the data, while $\mu = 180$
+is very implausible.  This single example illustrates the entire forward-backward template:
+the generative model is &ldquo;heights are Gaussian with unknown mean,&rdquo; the forward direction
+produces data by sampling from this Gaussian, and the backward direction uses the likelihood
+to identify which means are consistent with what we saw.</p>
+
+<p>This same backbone underlies every inference method you will encounter in this series:</p>
 <ul>
-<li>parameter estimation</li>
-<li>confidence intervals</li>
-<li>posterior distributions</li>
-<li>latent-variable inference</li>
-<li>causal effect estimation</li>
+    <li><strong>Parameter estimation:</strong> infer $\theta$ from $p(x \mid \theta)$</li>
+    <li><strong>Confidence intervals:</strong> find a set $C(x)$ such that $\theta \in C(x)$ with high repeated-sampling probability</li>
+    <li><strong>Posterior distributions:</strong> compute $p(\theta \mid x) \propto p(x \mid \theta)\,p(\theta)$</li>
+    <li><strong>Latent-variable inference:</strong> infer $z$ from $p(x \mid z)\,p(z)$, often via EM or variational methods</li>
+    <li><strong>Causal effect estimation:</strong> infer $\tau = E[Y(1) - Y(0)]$ under assumptions about the assignment mechanism</li>
 </ul>
+
+<p>The differences between these problems lie in <em>what</em> is unknown, <em>what</em>
+assumptions connect unknowns to data, and <em>which</em> update rule is used.  The logical
+structure is always the same: forward model, observed data, backward reasoning.</p>
+
+
+<!-- ============================================================ -->
+<!--  TWO GRAND STYLES OF INFERENCE                                -->
+<!-- ============================================================ -->
 <h2 id="two-grand-styles-of-inference">Two Grand Styles of Inference</h2>
+
+<p>The history of statistics has produced two major philosophical camps, each with its own
+interpretation of probability, its own notion of &ldquo;optimal,&rdquo; and its own toolkit.  These
+are not just technical preferences &mdash; they reflect genuinely different answers to the
+question: <em>What does probability mean?</em>  Understanding both perspectives deeply is
+essential for any serious practitioner, because each has strengths the other lacks.</p>
+
 <h3 id="frequentist">Frequentist</h3>
-<p>Treat $\theta$ as fixed but unknown.</p>
+
+<p>The frequentist treats the parameter $\theta$ as a <strong>fixed but unknown constant</strong>.
+There is a single true value of $\theta$ out there in the world; we just don&rsquo;t know what it is.
+Probability, in the frequentist view, refers to <em>long-run frequencies</em>: a statement
+like &ldquo;this interval covers $\theta$ with 95% probability&rdquo; means that if you repeated the
+entire experiment many times and constructed an interval each time, about 95% of those
+intervals would contain the true $\theta$.  The probability is about the <em>procedure</em>,
+not about $\theta$ itself &mdash; because $\theta$ is not random.</p>
+
+<p>The central object in frequentist inference is the <strong>estimator</strong>: a function
+$\hat\theta(x_1, \ldots, x_n)$ that maps data to an estimate.  Because the data are random
+(they are a sample from $p(x \mid \theta)$), the estimator is also random &mdash; it varies from
+sample to sample.  Frequentists evaluate estimators by their <em>sampling distribution</em>:
+how they behave across all possible datasets that $\theta$ could have generated.  Key criteria
+include:</p>
+
 <ul>
-<li>Data is random</li>
-<li>Estimators are random because they depend on data</li>
-<li>Uncertainty is about repeated sampling</li>
+    <li><strong>Bias:</strong> $\text{Bias}(\hat\theta) = E[\hat\theta] - \theta$.  An unbiased estimator is correct on average.</li>
+    <li><strong>Variance:</strong> $\text{Var}(\hat\theta)$.  Lower is better &mdash; the estimator is more precise.</li>
+    <li><strong>Mean squared error:</strong> $\text{MSE} = \text{Bias}^2 + \text{Var}$.  The fundamental bias-variance tradeoff.</li>
+    <li><strong>Consistency:</strong> $\hat\theta \xrightarrow{p} \theta$ as $n \to \infty$.  The estimator converges to the truth.</li>
 </ul>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Confidence Interval</div>
+    <p>A <strong>95% confidence interval</strong> is a random interval $C(X) = [\hat\theta_L(X), \hat\theta_U(X)]$
+    constructed from data such that $P_\theta(\theta \in C(X)) \geq 0.95$ for all $\theta$.
+    The probability is over repeated samples of $X$, not over $\theta$.  In any single experiment,
+    $\theta$ is either in the interval or not &mdash; the &ldquo;95%&rdquo; refers to the long-run
+    hit rate of the procedure.</p>
+</div>
+
+<p>Returning to our coin example: we observed 7 heads in 10 flips and computed
+$\hat\theta_{\text{MLE}} = 0.7$.  A frequentist 95% confidence interval (using the Wald
+method) would be approximately $0.7 \pm 1.96 \sqrt{0.7 \times 0.3 / 10} \approx [0.42, 0.98]$.
+This is quite wide because $n = 10$ is small.  The frequentist interpretation: if we repeated
+this experiment (10 flips of the <em>same</em> coin) many times, about 95% of the resulting
+intervals would contain the true $\theta$.</p>
+
 <h3 id="bayesian">Bayesian</h3>
-<p>Treat $\theta$ as uncertain and represent that uncertainty with a distribution.</p>
-<ul>
-<li>Prior: $p(\theta)$</li>
-<li>Likelihood: $p(x \mid \theta)$</li>
-<li>Posterior: $p(\theta \mid x)$</li>
-</ul>
+
+<p>The Bayesian treats $\theta$ as a <strong>random variable</strong> whose uncertainty is
+described by a probability distribution.  Before seeing data, you express your uncertainty
+via a <strong>prior distribution</strong> $p(\theta)$.  After seeing data, you update via
+<strong>Bayes&rsquo; rule</strong> to obtain a <strong>posterior distribution</strong>:</p>
+
+<div class="math-block">$$p(\theta \mid x) = \frac{p(x \mid \theta)\,p(\theta)}{p(x)} = \frac{p(x \mid \theta)\,p(\theta)}{\int p(x \mid \theta')\,p(\theta')\,d\theta'}$$</div>
+
+<p>The posterior $p(\theta \mid x)$ is the complete Bayesian answer: it tells you how plausible
+each value of $\theta$ is, <em>given the data you actually observed</em> and your prior beliefs.
+Unlike a confidence interval, a Bayesian <strong>credible interval</strong> &mdash; say, the
+central 95% of the posterior &mdash; has a direct probabilistic interpretation: &ldquo;given the
+data and my prior, there is a 95% probability that $\theta$ lies in this interval.&rdquo;  The
+probability is about $\theta$ itself, not about a hypothetical long run of experiments.</p>
+
+<p>For our coin example with a $\text{Beta}(1,1)$ (uniform) prior and 7 heads out of 10 flips,
+the posterior is $\text{Beta}(1 + 7, 1 + 3) = \text{Beta}(8, 4)$.  The posterior mean is
+$8/12 \approx 0.667$, slightly pulled toward 0.5 compared to the MLE of 0.7 &mdash; the
+prior acts as a gentle regularizer.  The 95% credible interval is approximately $[0.40, 0.89]$.
+As we collect more data, the prior&rsquo;s influence fades and the posterior concentrates around
+the true value, a phenomenon called <strong>posterior consistency</strong>.</p>
+
+<p>The Bayesian approach has several attractive properties: it naturally handles uncertainty
+(the posterior <em>is</em> the uncertainty), it can incorporate prior knowledge, and it provides
+a coherent framework for sequential updating (today&rsquo;s posterior becomes tomorrow&rsquo;s prior).
+The main challenge is computational: the integral in the denominator of Bayes&rsquo; rule is
+often intractable, which is why much of modern Bayesian inference focuses on approximation
+methods like MCMC (Tutorial 05) and variational inference (Tutorial 07).</p>
+
+<blockquote>
+<strong>Frequentist vs Bayesian in one sentence:</strong> The frequentist asks &ldquo;how would my
+procedure perform across all possible datasets?&rdquo;  The Bayesian asks &ldquo;given <em>this</em>
+dataset, what should I believe?&rdquo;
+</blockquote>
+
+<table>
+    <thead>
+        <tr><th>Aspect</th><th>Frequentist</th><th>Bayesian</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Nature of $\theta$</td><td>Fixed constant</td><td>Random variable</td></tr>
+        <tr><td>Meaning of probability</td><td>Long-run frequency</td><td>Degree of belief</td></tr>
+        <tr><td>Central object</td><td>Sampling distribution of $\hat\theta$</td><td>Posterior $p(\theta \mid x)$</td></tr>
+        <tr><td>Uncertainty statement</td><td>Confidence interval (procedure guarantee)</td><td>Credible interval (belief statement)</td></tr>
+        <tr><td>Prior required?</td><td>No</td><td>Yes</td></tr>
+        <tr><td>Main challenge</td><td>Constructing good estimators</td><td>Computing the posterior</td></tr>
+    </tbody>
+</table>
+
+
+<!-- ============================================================ -->
+<!--  INFERENCE VS PREDICTION VS DECISION                          -->
+<!-- ============================================================ -->
 <h2 id="inference-vs-prediction-vs-decision">Inference vs Prediction vs Decision</h2>
-<p>These are related but distinct.</p>
-<ul>
-<li><strong>Inference</strong> asks what is true or plausible.</li>
-<li><strong>Prediction</strong> asks what will happen next.</li>
-<li><strong>Decision</strong> asks what action minimizes loss.</li>
-</ul>
-<p>You can predict well without understanding causes. You can estimate a parameter without having a good decision rule. Good statistical practice keeps these tasks separate.</p>
+
+<p>Students often confuse three closely related but fundamentally distinct tasks.  Keeping them
+separate in your mind is essential for clear thinking about statistical problems.</p>
+
+<p><strong>Inference</strong> asks: <em>what is true or plausible about hidden quantities?</em>
+It is backward-looking in the sense that it reasons from observed data to latent structure.
+When a physicist estimates the gravitational constant $G$ from pendulum experiments, that is
+inference.  When a biologist estimates the proportion of cells that express a gene, that is
+inference.  The output is a statement about the unknown itself &mdash; a point estimate, an
+interval, or a full posterior distribution.</p>
+
+<p><strong>Prediction</strong> asks: <em>what will happen next?</em>  It is forward-looking.
+Given everything you have observed so far, what is your best guess for the next observation
+$x_{n+1}$?  Crucially, you can often predict well without understanding <em>why</em> the data
+look the way they do.  A neural network can predict house prices with high accuracy without
+&ldquo;knowing&rdquo; anything about the housing market.  Prediction cares about the accuracy of
+forecasts, not about the interpretability of internal parameters.  The canonical loss function
+is the expected prediction error: $E[(x_{n+1} - \hat x_{n+1})^2]$.</p>
+
+<p><strong>Decision</strong> asks: <em>what action should I take to minimize expected loss?</em>
+It combines inference (or prediction) with a <strong>loss function</strong> that encodes the
+consequences of different actions.  A doctor who has inferred a 60% probability of disease
+must still decide whether to prescribe treatment &mdash; and that decision depends on the
+relative costs of false positives versus false negatives.  Decision theory is the framework
+that bridges &ldquo;what do I believe?&rdquo; and &ldquo;what should I do?&rdquo;</p>
+
+<div class="definition-box">
+    <div class="box-title">Example &mdash; Three Tasks, One Scenario</div>
+    <p>A hospital monitors ICU patients.  <strong>Inference:</strong> estimate the probability
+    $\theta$ that a patient has sepsis given blood markers.  <strong>Prediction:</strong> forecast
+    the patient&rsquo;s white blood cell count tomorrow.  <strong>Decision:</strong> given the
+    inferred sepsis probability and the costs of delayed treatment versus unnecessary antibiotics,
+    decide whether to start antibiotics now.  Notice that you could make good predictions
+    (accurate WBC forecasts) without doing good inference (correct sepsis probability), and
+    vice versa.</p>
+</div>
+
+<table>
+    <thead>
+        <tr><th>Task</th><th>Question</th><th>Output</th><th>Evaluation</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Inference</td><td>What is $\theta$?</td><td>Estimate / posterior</td><td>Bias, coverage, posterior calibration</td></tr>
+        <tr><td>Prediction</td><td>What is $x_{n+1}$?</td><td>Forecast</td><td>Prediction error, log-loss</td></tr>
+        <tr><td>Decision</td><td>What action $a$?</td><td>Optimal action</td><td>Expected loss / regret</td></tr>
+    </tbody>
+</table>
+
+<p>Good statistical practice keeps these tasks separate.  You can predict well without
+understanding causes (a black-box model).  You can estimate a parameter perfectly without
+having a good decision rule (you still need a loss function).  And you can make excellent
+decisions using a crude but well-calibrated predictive model.  Conflating the three leads to
+common mistakes: &ldquo;my model predicts well, so the coefficients must be causally meaningful&rdquo;
+(confusing prediction with inference) or &ldquo;I estimated $\theta = 0.6$, so I should act as
+if $\theta$ is exactly $0.6$&rdquo; (ignoring uncertainty in the decision).</p>
+
+
+<!-- ============================================================ -->
+<!--  THE CORE WORKFLOW                                            -->
+<!-- ============================================================ -->
 <h2 id="the-core-workflow">The Core Workflow</h2>
+
+<p>Regardless of whether you are frequentist, Bayesian, or something in between, every
+inference problem follows a four-step workflow.  Internalizing this workflow is one of the
+most practically useful things you can take from this tutorial: it gives you a checklist for
+attacking any new problem, and it helps you diagnose where an analysis went wrong when the
+results look suspicious.</p>
+
 <h3 id="1-specify-assumptions">1. Specify assumptions</h3>
-<p>Examples:</p>
+
+<p>Every inference rests on assumptions &mdash; there is no &ldquo;assumption-free&rdquo; inference.
+The assumptions define the generative model: how you believe data were produced.  Common
+categories include:</p>
+
 <ul>
-<li>observations are independent</li>
-<li>noise is Gaussian</li>
-<li>treatment assignment is ignorable</li>
-<li>latent variables are low-dimensional</li>
+    <li><strong>Distributional assumptions:</strong> noise is Gaussian, counts follow a Poisson process, lifetimes are exponentially distributed.</li>
+    <li><strong>Independence assumptions:</strong> observations are i.i.d. (independent and identically distributed), or they have a specific dependence structure (time series, spatial, hierarchical).</li>
+    <li><strong>Structural assumptions:</strong> the relationship between variables is linear, additive, or follows a known functional form.</li>
+    <li><strong>Causal assumptions:</strong> treatment assignment is ignorable (no unmeasured confounders), the stable unit treatment value assumption (SUTVA) holds.</li>
 </ul>
+
+<p>The key insight is that assumptions are not optional decorations &mdash; they are <em>load-bearing
+structural elements</em>.  Change an assumption and you change the answer.  A common source of
+inferential failure is an assumption that was made for mathematical convenience but is badly
+wrong for the data at hand.  For example, assuming Gaussian noise when the data have heavy tails
+can make confidence intervals far too narrow, giving a false sense of precision.  The antidote
+is to be explicit about every assumption, understand which conclusions depend on which
+assumptions, and perform sensitivity analyses to see how the answer changes when assumptions
+are relaxed.</p>
+
+<p>A useful exercise is to write down your generative model as a &ldquo;sampling story&rdquo; &mdash; a
+recipe that a computer could follow to simulate fake data.  If you can simulate data that
+looks roughly like your real data, your model is at least plausible.  If the simulated data
+looks nothing like reality, you have a model misspecification problem before you even begin
+inference.</p>
+
 <h3 id="2-write-the-target-quantity">2. Write the target quantity</h3>
-<p>Examples:</p>
+
+<p>What exactly are you trying to learn?  This sounds obvious, but many analyses go astray
+because the target is never precisely defined.  The technical term for the target is the
+<strong>estimand</strong> &mdash; a mathematical expression that specifies exactly what you
+want, as a function of the data-generating process, <em>before</em> you choose how to estimate
+it.</p>
+
+<p>Examples of well-defined estimands:</p>
 <ul>
-<li>$E[X]$</li>
-<li>$\theta$</li>
-<li>$p(z \mid x)$</li>
-<li>$E[Y(1) - Y(0)]$</li>
+    <li>The population mean: $\mu = E[X]$</li>
+    <li>A regression coefficient: $\beta_1$ in $E[Y \mid X] = \beta_0 + \beta_1 X$</li>
+    <li>The posterior distribution: $p(\theta \mid x)$</li>
+    <li>The average treatment effect: $\tau = E[Y(1) - Y(0)]$</li>
+    <li>A latent variable posterior: $p(z \mid x)$ for each observation</li>
 </ul>
+
+<p>Writing down the estimand forces you to be precise.  &ldquo;I want to know if the drug works&rdquo;
+is vague. &ldquo;I want to estimate the average causal effect of the drug on blood pressure,
+$E[Y(1) - Y(0)]$, in the population of adults with hypertension&rdquo; is an estimand.  The
+estimand is a property of the <em>population</em> and the <em>model</em>, not of any particular
+sample or algorithm.  Different estimands can be estimated from the same data &mdash; and
+the right estimand depends on the scientific question, not on what is easiest to compute.</p>
+
 <h3 id="3-choose-an-inferential-method">3. Choose an inferential method</h3>
-<p>Examples:</p>
+
+<p>Given a model and an estimand, you need a <strong>method</strong> &mdash; a concrete algorithm
+or procedure &mdash; to go from data to an answer.  The method is the &ldquo;how&rdquo;: it turns the
+abstract reasoning of inference into something you can actually compute.  Common methods include:</p>
+
 <ul>
-<li>maximum likelihood</li>
-<li>confidence intervals</li>
-<li>Bayes rule</li>
-<li>MCMC</li>
-<li>variational inference</li>
-<li>inverse propensity weighting</li>
+    <li><strong>Maximum likelihood estimation (MLE):</strong> find $\hat\theta = \arg\max_\theta p(x \mid \theta)$.  Simple, general, asymptotically optimal under regularity conditions.</li>
+    <li><strong>Method of moments:</strong> set sample moments equal to theoretical moments and solve.  Often gives a quick, closed-form estimator.</li>
+    <li><strong>Bayes&rsquo; rule:</strong> compute the full posterior $p(\theta \mid x) \propto p(x \mid \theta)\,p(\theta)$.  Gives the richest answer but may be hard to compute.</li>
+    <li><strong>MCMC (Markov Chain Monte Carlo):</strong> draw approximate samples from the posterior when the integral is intractable.</li>
+    <li><strong>Variational inference:</strong> approximate the posterior with a simpler distribution by minimizing KL divergence.  Faster than MCMC but introduces approximation error.</li>
+    <li><strong>Inverse propensity weighting:</strong> reweight observations to correct for selection bias in causal inference.</li>
 </ul>
+
+<p>The choice of method involves tradeoffs: statistical efficiency (how much data do you need?),
+computational cost (can you run it on your dataset in reasonable time?), and approximation
+quality (how close is the answer to the true target?).  A beautiful theoretical estimand is
+useless if no method can compute it; a fast method is dangerous if it introduces uncontrolled
+approximation error.  Part of the art of statistics is navigating these tradeoffs wisely.</p>
+
 <h3 id="4-diagnose-failure-modes">4. Diagnose failure modes</h3>
-<p>Examples:</p>
+
+<p>No analysis is complete without asking: <em>what could go wrong?</em>  Every link in the
+inferential chain can fail, and the resulting errors can be subtle &mdash; your algorithm
+may converge, your estimates may look reasonable, and you may never realize the answer is
+wrong.  Common failure modes include:</p>
+
 <ul>
-<li>model misspecification</li>
-<li>weak identifiability</li>
-<li>biased sampling</li>
-<li>poor mixing</li>
-<li>unmeasured confounding</li>
+    <li><strong>Model misspecification:</strong> the true data-generating process is not in your model family.  This can bias every conclusion, even with infinite data.</li>
+    <li><strong>Weak identifiability:</strong> the data are consistent with a wide range of parameter values, so inference is imprecise.  The posterior or likelihood is flat, and estimates are unstable.</li>
+    <li><strong>Biased sampling:</strong> the data are not representative of the population you care about.  This is a problem of the <em>data</em>, not the <em>method</em>, and no amount of statistical sophistication can fix it.</li>
+    <li><strong>Poor mixing (MCMC):</strong> the Markov chain gets stuck in one region of parameter space and fails to explore the full posterior.  Diagnostics like $\hat{R}$ and effective sample size help detect this.</li>
+    <li><strong>Unmeasured confounding (causal inference):</strong> there is a common cause of treatment and outcome that is not in your data, making the causal effect unidentifiable.</li>
 </ul>
+
+<p>Diagnostics are the immune system of inference.  Posterior predictive checks, residual plots,
+sensitivity analyses, cross-validation, and simulation studies are all tools for detecting when
+something has gone wrong.  A healthy inferential practice involves as much time on diagnostics
+as on the analysis itself.  If you skip this step, you are essentially trusting that all of
+your assumptions are exactly right &mdash; and they almost never are.</p>
+
+<blockquote>
+<strong>Rule of thumb:</strong> If you cannot articulate at least two ways your analysis could
+give a misleading answer, you have not thought about it carefully enough.
+</blockquote>
+
+
+<!-- ============================================================ -->
+<!--  IMPORTANT DISTINCTIONS                                       -->
+<!-- ============================================================ -->
 <h2 id="important-distinctions">Important Distinctions</h2>
+
 <h3 id="estimand-vs-estimator">Estimand vs Estimator</h3>
-<ul>
-<li><strong>Estimand</strong>: the true quantity you want, such as population mean $\mu$</li>
-<li><strong>Estimator</strong>: the procedure you compute from data, such as sample mean $\bar{x}$</li>
-</ul>
+
+<p>This distinction is so important that it deserves special emphasis.  The <strong>estimand</strong>
+is the true quantity you want &mdash; it is a property of the population or the data-generating
+process.  The <strong>estimator</strong> is the procedure you apply to data to approximate the
+estimand.  The <strong>estimate</strong> is the number you get when you plug in your actual data.</p>
+
+<div class="definition-box">
+    <div class="box-title">Example &mdash; Estimand vs Estimator vs Estimate</div>
+    <p><strong>Estimand:</strong> the true population mean height $\mu = E[X]$ of adult women
+    in the city.  <strong>Estimator:</strong> the sample mean $\bar{X} = \frac{1}{n}\sum_{i=1}^n X_i$.
+    <strong>Estimate:</strong> $\bar{x} = 166$ cm (from our four observations).  The estimand is
+    fixed and unknown.  The estimator is a random variable (it depends on the sample).  The
+    estimate is a single number computed from the data at hand.</p>
+</div>
+
+<p>Why does this matter?  Because you can evaluate an estimator&rsquo;s properties (bias, variance,
+consistency) only by thinking about the estimand it targets.  An estimator that is unbiased
+for $\mu$ might be horribly biased for $\mu^2$.  Two different estimators can target the same
+estimand but have different bias-variance tradeoffs.  Clarity about what you are estimating is
+the prerequisite for choosing how to estimate it.</p>
+
+<p>A common mistake in applied work is to compute a number from data without ever specifying
+the estimand.  &ldquo;We ran a regression and got $\beta = 0.42$&rdquo; &mdash; but $0.42$ is an estimate
+of <em>what</em>, exactly?  The average causal effect?  The best linear predictor coefficient?
+The partial correlation?  These are different estimands that happen to be targeted by the same
+computational procedure (OLS regression) under different assumptions.  Without specifying the
+estimand, the number is uninterpretable.</p>
+
 <h3 id="identifiability-vs-computability">Identifiability vs Computability</h3>
-<p>A quantity may be well-defined but impossible to recover from observed data alone.</p>
-<ul>
-<li><strong>Identifiable</strong> means the data distribution determines the target</li>
-<li><strong>Computable</strong> means you can actually approximate or calculate it efficiently</li>
-</ul>
-<p>Variational inference often helps with computability. Causal assumptions often help with identifiability.</p>
+
+<p>A quantity may be perfectly well-defined but impossible to recover from observed data alone.
+<strong>Identifiability</strong> asks: in principle, if you had infinite data, could you determine
+the target quantity?  <strong>Computability</strong> asks: given that the target is identifiable,
+can you actually calculate or approximate it in practice?</p>
+
+<p>Consider the average causal effect of a drug.  To compute $E[Y(1) - Y(0)]$, you would need
+to observe both the treated and untreated outcome for each person &mdash; but you can only
+observe one.  This is the <strong>fundamental problem of causal inference</strong>.  The causal
+effect is not identifiable from observational data alone.  However, if you add the assumption
+of no unmeasured confounders (ignorability), it <em>becomes</em> identifiable &mdash; you can
+express it in terms of observable quantities.  Assumptions create identifiability.</p>
+
+<p>Conversely, the posterior distribution $p(\theta \mid x)$ in a complex Bayesian model is
+always identifiable in principle &mdash; Bayes&rsquo; rule gives an exact formula &mdash; but the
+integral in the denominator may be impossible to compute analytically.  Here the problem is
+computability, not identifiability.  Variational inference and MCMC are tools for computability:
+they help you approximate answers that are well-defined but numerically intractable.</p>
+
+<div class="math-block">$$\underbrace{p(\theta \mid x)}_{\text{identifiable (Bayes' rule)}} = \frac{p(x \mid \theta)\,p(\theta)}{\underbrace{\int p(x \mid \theta')\,p(\theta')\,d\theta'}_{\text{often not computable}}}$$</div>
+
+<p>The practical lesson: always check identifiability <em>before</em> worrying about computation.
+If your target is not identifiable, no algorithm can help &mdash; you need more assumptions or
+different data.  If it is identifiable but hard to compute, that is an engineering problem with
+many good solutions.</p>
+
+
+<!-- ============================================================ -->
+<!--  VISUAL SUMMARY                                               -->
+<!-- ============================================================ -->
 <h2 id="visual-summary">Visual Summary</h2>
+
+<p>The diagram below captures the entire logical flow of inference.  Solid arrows show the
+<strong>forward (generative) direction</strong>: unknowns produce data through a probabilistic
+model.  The dashed arrow shows the <strong>backward (inferential) direction</strong>: we
+observe data and reason back to the unknowns.  Every inference method you will encounter in
+this series is a different strategy for traversing that dashed arrow.</p>
+
 <div align="center">
 <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg" width="760" height="240" role="img" aria-label="Inference overview diagram">
   <rect x="20" y="70" width="150" height="90" rx="14" fill="#e8f1ff" stroke="#3b82f6" stroke-width="2"/>
@@ -293,38 +727,195 @@
   </defs>
 </svg>
 </div>
+
+
+<!-- ============================================================ -->
+<!--  WHY INFERENCE GETS HARD                                      -->
+<!-- ============================================================ -->
 <h2 id="why-inference-gets-hard">Why Inference Gets Hard</h2>
-<p>Inference becomes difficult when:</p>
+
+<p>If the forward direction is just &ldquo;plug in $\theta$ and sample,&rdquo; why is the backward
+direction so difficult?  The short answer is that the backward map is almost always a
+<strong>one-to-many</strong> relationship: many different values of $\theta$ could have produced
+the data you observed.  Inference is hard precisely because the inverse problem is
+ill-posed &mdash; the data do not uniquely pin down the unknowns.</p>
+
+<p>More specifically, inference becomes difficult when one or more of the following
+conditions hold:</p>
+
 <ul>
-<li>the posterior is high-dimensional</li>
-<li>the likelihood is intractable</li>
-<li>data is biased or missing</li>
-<li>multiple explanations fit equally well</li>
-<li>causal counterfactuals are unobserved by definition</li>
+    <li><strong>High dimensionality:</strong> the unknown is a vector in $\mathbb{R}^d$ with $d$ large (millions of neural-network weights, thousands of gene expression levels).  The posterior lives in a high-dimensional space where most of the volume is in the tails, and algorithms struggle to explore efficiently.</li>
+    <li><strong>Intractable likelihoods:</strong> computing $p(x \mid \theta)$ requires marginalizing over latent variables, $p(x \mid \theta) = \int p(x, z \mid \theta)\,dz$, and this integral has no closed form.  This is the fundamental bottleneck in latent-variable models like mixture models, topic models, and deep generative models.</li>
+    <li><strong>Multimodality:</strong> the posterior or likelihood has multiple well-separated peaks.  Several explanations fit the data equally well, and algorithms may get stuck in one mode without discovering the others.</li>
+    <li><strong>Biased or missing data:</strong> the observed data are not a representative sample of the population you care about.  Selection bias, censoring, and missingness can make even simple estimands unidentifiable or badly biased.</li>
+    <li><strong>Causal counterfactuals:</strong> in causal inference, the target quantities (potential outcomes) are <em>by definition</em> unobserved for at least one treatment condition.  You can never directly check whether your causal estimate is correct.</li>
+    <li><strong>Model uncertainty:</strong> you are uncertain not just about parameter values but about which model is correct.  Model misspecification is the silent killer of inference &mdash; the algorithm converges confidently to a wrong answer because the true data-generating process is not in the model family.</li>
 </ul>
-<p>That is why modern inference includes both statistical ideas and computational ideas.</p>
+
+<p>This is why modern inference is not just a branch of statistics &mdash; it is also a branch
+of <strong>computer science</strong>.  Many of the deepest ideas in the field (MCMC, variational
+inference, amortized inference, normalizing flows) are fundamentally <em>computational</em>
+innovations designed to make intractable inverse problems approximately tractable.  The
+interplay between statistical theory (what should we compute?) and computational methods
+(how can we compute it?) is one of the most exciting frontiers in the field.</p>
+
+<p>From an information-theoretic perspective, inference is hard when the data carry little
+information about the unknowns &mdash; when the mutual information $I(X; \theta)$ is low
+relative to the prior entropy $H(\theta)$.  In such cases, even after seeing data, your
+uncertainty about $\theta$ remains high.  We will formalize this perspective in the next
+section.</p>
+
+
+<!-- ============================================================ -->
+<!--  INFORMATION-THEORETIC PERSPECTIVE (NEW)                      -->
+<!-- ============================================================ -->
+<h2 id="info-theory">Information-Theoretic Perspective</h2>
+
+<p>Throughout this tutorial we have used informal language like &ldquo;the data teach you about
+$\theta$&rdquo; and &ldquo;inference reduces uncertainty.&rdquo;  Information theory makes this intuition
+precise.  Before you see any data, your uncertainty about $\theta$ (in the Bayesian setting) is
+quantified by the <strong>prior entropy</strong>:</p>
+
+<div class="math-block">$$H(\theta) = -\int p(\theta)\,\log p(\theta)\,d\theta$$</div>
+
+<p>After observing data $x$, your uncertainty is reduced to the <strong>posterior entropy</strong>
+$H(\theta \mid x)$.  The difference &mdash; the amount of uncertainty that the data eliminated
+&mdash; is the <strong>mutual information</strong> between the data and the parameter:</p>
+
+<div class="math-block">$$I(\theta; X) = H(\theta) - H(\theta \mid X) = H(X) - H(X \mid \theta)$$</div>
+
+<p>This quantity has a beautiful interpretation: it is the expected number of bits (or nats) of
+information that the data provide about $\theta$.  If $I(\theta; X)$ is large, the experiment
+is highly informative &mdash; seeing the data dramatically narrows down which values of $\theta$
+are plausible.  If $I(\theta; X)$ is small, the data are only weakly informative, and the
+posterior is close to the prior.  Experimental design can be framed as maximizing mutual
+information: choose the experiment that will teach you the most about $\theta$, regardless of
+what outcome you observe.</p>
+
+<p>There is also a <em>local</em> measure of information that does not require a prior: the
+<strong>Fisher information</strong>.  For a parametric model $p(x \mid \theta)$, the Fisher
+information is:</p>
+
+<div class="math-block">$$\mathcal{I}(\theta) = E\!\left[\left(\frac{\partial}{\partial \theta}\log p(X \mid \theta)\right)^{\!2}\right] = -E\!\left[\frac{\partial^2}{\partial \theta^2}\log p(X \mid \theta)\right]$$</div>
+
+<p>The Fisher information measures the curvature of the log-likelihood at $\theta$.  High
+curvature means the likelihood is sharply peaked: the data are very sensitive to changes in
+$\theta$, so even a small amount of data pins $\theta$ down precisely.  Low curvature means
+the likelihood is flat: many values of $\theta$ produce similar data, and inference is
+imprecise.  The celebrated <strong>Cram&eacute;r-Rao bound</strong> says that no unbiased estimator
+can have variance smaller than the inverse Fisher information:</p>
+
+<div class="math-block">$$\text{Var}(\hat\theta) \geq \frac{1}{n\,\mathcal{I}(\theta)}$$</div>
+
+<p>This bound is remarkable: it sets a fundamental limit on how precisely you can estimate
+$\theta$ from $n$ observations, regardless of how clever your estimation method is.  It is
+the statistical analogue of the Heisenberg uncertainty principle in physics &mdash; certain
+combinations of precision are simply impossible.  For our Gaussian height example with known
+$\sigma = 6$, the Fisher information is $\mathcal{I}(\mu) = 1/\sigma^2 = 1/36$, so the
+Cram&eacute;r-Rao bound gives $\text{Var}(\hat\mu) \geq 36/n$.  With $n = 4$ observations, the
+minimum variance is $9$, or a standard error of $3$ cm &mdash; exactly the standard error
+we computed earlier.  The sample mean achieves this bound, making it an <strong>efficient</strong>
+estimator.</p>
+
+<blockquote>
+<strong>The information-theoretic view in one line:</strong> Inference is the process of
+converting Shannon information in the data into reduced entropy over the unknowns.  The
+efficiency of this conversion is bounded by Fisher information.
+</blockquote>
+
+
+<!-- ============================================================ -->
+<!--  A MENTAL CHECKLIST                                           -->
+<!-- ============================================================ -->
 <h2 id="a-mental-checklist">A Mental Checklist</h2>
-<p>Whenever you read an inferential claim, ask:</p>
+
+<p>Whenever you encounter an inferential claim &mdash; in a paper, a textbook, a news article,
+or your own analysis &mdash; run through the following five questions.  They will help you
+quickly assess the strength and limitations of the argument, and they will catch many of the
+most common mistakes in applied statistics.</p>
+
 <ol>
-<li>What is the target quantity?</li>
-<li>What assumptions connect data to target?</li>
-<li>Is the quantity identifiable?</li>
-<li>How is uncertainty quantified?</li>
-<li>What breaks if the assumptions are wrong?</li>
+    <li><strong>What is the target quantity (estimand)?</strong>  Is it precisely defined?  Is it a
+    population mean, a causal effect, a posterior distribution?  If the author cannot state the
+    estimand in mathematical notation, the analysis is underspecified.</li>
+    <li><strong>What assumptions connect data to target?</strong>  Every inference rests on a
+    model &mdash; explicit or implicit.  What distributional assumptions were made?  What
+    independence assumptions?  Are these plausible for the data at hand?</li>
+    <li><strong>Is the quantity identifiable?</strong>  Given the assumptions, is there a unique
+    value of the estimand that is consistent with the data-generating process?  If not, no
+    amount of data or computation can save you.</li>
+    <li><strong>How is uncertainty quantified?</strong>  Is there a confidence interval, a
+    credible interval, a posterior distribution, a p-value?  Be suspicious of point estimates
+    without uncertainty quantification &mdash; they hide how much the answer could change with
+    a different sample.</li>
+    <li><strong>What breaks if the assumptions are wrong?</strong>  Every analysis has fragile
+    points.  A sensitivity analysis explores how the answer changes when key assumptions are
+    relaxed.  If the conclusion is robust to reasonable alternatives, you can be more confident;
+    if it flips under minor perturbations, treat it with caution.</li>
 </ol>
+
+<p>This checklist is not just for evaluating other people&rsquo;s work &mdash; it is a design
+tool for your own analyses.  Before you run any code, answer these five questions.  If you
+cannot, you are not ready to start the analysis.</p>
+
+
+<!-- ============================================================ -->
+<!--  WHERE THE NEXT TUTORIALS FIT                                 -->
+<!-- ============================================================ -->
 <h2 id="where-the-next-tutorials-fit">Where the Next Tutorials Fit</h2>
+
+<p>This tutorial has laid the conceptual foundation.  The rest of the inference series fills in
+the details, one major paradigm at a time.  Here is how each subsequent tutorial connects to
+the framework we have built:</p>
+
 <ul>
-<li>Frequentist inference: repeated-sampling guarantees</li>
-<li>Bayesian inference: belief updating with priors</li>
-<li>ELBO and variational inference: optimization-based approximate inference</li>
-<li>MCMC: simulation-based approximate inference</li>
-<li>Amortized inference: learning an inference procedure once and reusing it</li>
-<li>Causal inference: inference about interventions, not just associations</li>
+    <li><strong><a href="../02-frequentist-inference/index.html">Frequentist Inference</a>:</strong>
+    Deep dive into the repeated-sampling paradigm.  Maximum likelihood, confidence intervals,
+    hypothesis tests, and the sampling distribution as the central object of analysis.</li>
+    <li><strong><a href="../03-bayesian-inference/index.html">Bayesian Inference</a>:</strong>
+    The belief-updating paradigm.  Priors, posteriors, conjugacy, and the philosophical
+    implications of treating parameters as random variables.</li>
+    <li><strong><a href="../04-elbo/index.html">ELBO</a>:</strong>
+    The Evidence Lower Bound &mdash; the key quantity that makes variational inference possible.
+    Connects optimization to probabilistic reasoning via the KL divergence.</li>
+    <li><strong><a href="../05-mcmc/index.html">MCMC</a>:</strong>
+    Markov Chain Monte Carlo &mdash; simulation-based approximate inference.  When you cannot
+    compute the posterior analytically, you can sample from it.  Metropolis-Hastings, Gibbs
+    sampling, Hamiltonian Monte Carlo.</li>
+    <li><strong><a href="../06-amortized-inference/index.html">Amortized Inference</a>:</strong>
+    Learning an inference procedure (a neural network) that can be reused across many datasets,
+    rather than running a new optimization for each observation.</li>
+    <li><strong><a href="../07-variational-inference/index.html">Variational Inference</a>:</strong>
+    Approximate the posterior with a simpler distribution by minimizing KL divergence.  Turns
+    inference into optimization &mdash; fast, scalable, but introduces approximation error.</li>
+    <li><strong><a href="../08-amortized-variational-inference/index.html">Amortized Variational Inference</a>:</strong>
+    Combines the ideas of amortized and variational inference.  The backbone of variational
+    autoencoders (VAEs) and modern deep generative models.</li>
+    <li><strong><a href="../09-causal-inference/index.html">Causal Inference</a>:</strong>
+    Inference about interventions, not just associations.  Potential outcomes, do-calculus,
+    instrumental variables &mdash; what you need when the question is &ldquo;what would happen if?&rdquo;</li>
 </ul>
+
+<p>Each tutorial builds on the vocabulary and framework established here.  The four-step
+workflow (assumptions &rarr; estimand &rarr; method &rarr; diagnostics) recurs in every chapter.
+The information-theoretic perspective &mdash; inference as uncertainty reduction &mdash; provides
+a unifying thread that connects frequentist efficiency bounds, Bayesian posterior concentration,
+variational lower bounds, and causal identifiability into a single coherent narrative.</p>
+
                 <div class="note-box series-note">
         <div class="box-title">Key Takeaways</div>
-        <ul><li>The Big Picture</li><li>Intuition</li><li>A Minimal Formal Template</li><li>Two Grand Styles of Inference</li><li>Frequentist</li></ul>
+        <ul>
+            <li><strong>Inference is backward reasoning:</strong> from observed data to hidden quantities, via a model of how data were generated.</li>
+            <li><strong>Three universal ingredients:</strong> a generative story, unknowns, and an update rule &mdash; present in every inference problem.</li>
+            <li><strong>Frequentist vs Bayesian:</strong> two philosophies with different meanings of probability, different central objects, and complementary strengths.</li>
+            <li><strong>Estimand before estimator:</strong> always define <em>what</em> you want to learn before choosing <em>how</em> to learn it.</li>
+            <li><strong>Identifiability before computability:</strong> check that your target is recoverable in principle before worrying about algorithms.</li>
+            <li><strong>Inference &ne; prediction &ne; decision:</strong> three distinct tasks that require different tools and evaluation criteria.</li>
+            <li><strong>Information-theoretic view:</strong> inference is uncertainty reduction; the efficiency of this process is bounded by Fisher information.</li>
+            <li><strong>Diagnostics are essential:</strong> every analysis can fail &mdash; model misspecification, weak identifiability, biased sampling &mdash; and diagnostics are your defense.</li>
+        </ul>
     </div>
+
             </article>
 
             <article class="article-content" id="exercises" style="margin-top: 3rem;">
