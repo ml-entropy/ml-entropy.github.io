@@ -96,46 +96,14 @@
     </header>
 
     <!-- Main Content -->
-    
-    <!-- Main Content -->
     <div class="tutorial-wrapper">
         
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
-        <!-- Sidebar Navigation -->
         <!-- Sidebar Navigation -->
         <aside class="tutorial-sidebar">
             <div class="sidebar-section">
                 <h3 class="sidebar-section-title">Linear Algebra</h3>
                 <nav class="sidebar-nav">
-                        <a href="../01-vectors/index.html" class="sidebar-link">01. Vectors and Spaces</a>
+                    <a href="../01-vectors/index.html" class="sidebar-link">01. Vectors and Spaces</a>
                     <a href="../02-matrices/index.html" class="sidebar-link">02. Matrices</a>
                     <a href="../03-systems/index.html" class="sidebar-link active">03. Systems of Equations</a>
                     <a href="../04-determinants/index.html" class="sidebar-link">04. Determinants</a>
@@ -145,11 +113,25 @@
                     <a href="../08-positive-definite/index.html" class="sidebar-link">08. Positive Definite</a>
                 </nav>
             </div>
+
+            <div class="sidebar-section" style="margin-top: 2rem;">
+                <h3 class="sidebar-section-title">On This Page</h3>
+                <nav class="sidebar-nav">
+                    <a href="#problem-formulation" class="sidebar-link">The Problem</a>
+                    <a href="#gaussian-elimination" class="sidebar-link">Gaussian Elimination</a>
+                    <a href="#lu-decomposition" class="sidebar-link">LU Decomposition</a>
+                    <a href="#over-under" class="sidebar-link">Over/Underdetermined</a>
+                    <a href="#iterative" class="sidebar-link">Iterative Methods</a>
+                    <a href="#info-theory" class="sidebar-link">Info-Theoretic Connections</a>
+                    <a href="#misconceptions" class="sidebar-link">Common Misconceptions</a>
+                    <a href="#exercises" class="sidebar-link">Exercises</a>
+                </nav>
+            </div>
             
             <div class="sidebar-section" style="margin-top: 2rem;">
                 <h3 class="sidebar-section-title">Related Subjects</h3>
                 <nav class="sidebar-nav">
-                        <a href="../../tts/index.html" class="sidebar-link">Text-to-Speech</a>
+                    <a href="../../tts/index.html" class="sidebar-link">Text-to-Speech</a>
                     <a href="../../cs/index.html" class="sidebar-link">Computer Science</a>
                     <a href="../../ml/index.html" class="sidebar-link">Machine Learning</a>
                     <a href="../../diffusion/index.html" class="sidebar-link">Diffusion Models</a>
@@ -163,154 +145,712 @@
         <main class="tutorial-main">
             
             <article class="article-content" id="theory">
-                
-                <!-- Section 1 -->
+
+                <!-- ============================================================ -->
+                <!-- Section 1: The Problem                                       -->
+                <!-- ============================================================ -->
                 <h2 id="problem-formulation">The Problem</h2>
-                
+
                 <p>
-                    Given a matrix $A$ and a vector $\mathbf{b}$, find all vectors $\mathbf{x}$ satisfying:
+                    Imagine you are training a linear regression model. You have a matrix $X$ of features, a vector
+                    $\mathbf{y}$ of targets, and you want to find weights $\mathbf{w}$ such that $X\mathbf{w} = \mathbf{y}$.
+                    Congratulations — you have just written down a system of linear equations. Nearly every
+                    optimization algorithm in machine learning, from ordinary least squares to the normal equations
+                    of ridge regression, ultimately reduces to solving a system of this form. Understanding what
+                    solutions look like, when they exist, and how to compute them efficiently is therefore not a
+                    side topic — it is the beating heart of computational linear algebra.
                 </p>
-                
+
+                <p>
+                    More formally, given a matrix $A \in \mathbb{R}^{m \times n}$ and a vector
+                    $\mathbf{b} \in \mathbb{R}^m$, we seek all vectors $\mathbf{x} \in \mathbb{R}^n$ satisfying:
+                </p>
+
                 <div class="math-block">
                     $$A\mathbf{x} = \mathbf{b}$$
                 </div>
-                
+
+                <p>
+                    This single matrix equation actually encodes $m$ simultaneous scalar equations in $n$ unknowns.
+                    When $m = n$ and $A$ is invertible, we get the familiar unique solution $\mathbf{x} = A^{-1}\mathbf{b}$.
+                    But real-world problems are rarely so tidy. You might have more equations than unknowns (an
+                    overdetermined system, typical of regression), fewer equations than unknowns (an underdetermined
+                    system, typical of compressed sensing), or a square system whose coefficient matrix is singular.
+                    The beauty of linear algebra is that it gives us a unified geometric language to describe all
+                    these cases.
+                </p>
+
+                <p>
+                    The key insight is to read $A\mathbf{x} = \mathbf{b}$ column-wise. If we write
+                    $A = [\mathbf{a}_1 \mid \mathbf{a}_2 \mid \cdots \mid \mathbf{a}_n]$, then the equation becomes
+                    $x_1 \mathbf{a}_1 + x_2 \mathbf{a}_2 + \cdots + x_n \mathbf{a}_n = \mathbf{b}$.
+                    In other words, we are asking: "Can $\mathbf{b}$ be expressed as a linear combination of the
+                    columns of $A$?" The set of all such expressible vectors is the <em>column space</em>
+                    $\text{Col}(A)$, so the system has a solution if and only if $\mathbf{b} \in \text{Col}(A)$.
+                </p>
+
                 <div class="definition-box">
                     <div class="box-title">Three Possible Outcomes</div>
+                    <p>
+                        Every system $A\mathbf{x} = \mathbf{b}$ falls into exactly one of three categories:
+                    </p>
+                    <p>
+                        <strong>1. No solution (inconsistent):</strong> The vector $\mathbf{b}$ does not lie in
+                        the column space of $A$. No linear combination of the columns can produce $\mathbf{b}$.
+                        Geometrically, the hyperplanes defined by the equations have no common intersection.
+                    </p>
+                    <p>
+                        <strong>2. Unique solution:</strong> The vector $\mathbf{b}$ lies in $\text{Col}(A)$
+                        and the columns of $A$ are linearly independent (i.e., $\text{rank}(A) = n$).
+                        There is exactly one set of coefficients that produces $\mathbf{b}$.
+                    </p>
                     <p style="margin-bottom: 0;">
-                        <strong>1. No solution:</strong> $\mathbf{b}$ is not in the column space of $A$<br>
-                        <strong>2. Unique solution:</strong> Columns of $A$ are linearly independent<br>
-                        <strong>3. Infinitely many:</strong> Free variables exist in the system
+                        <strong>3. Infinitely many solutions:</strong> The vector $\mathbf{b}$ lies in
+                        $\text{Col}(A)$ but the null space of $A$ is nontrivial. Any particular solution
+                        $\mathbf{x}_p$ can be shifted by any element of $\text{Null}(A)$ and the result is still
+                        a solution: $\mathbf{x} = \mathbf{x}_p + \mathbf{x}_h$ where $A\mathbf{x}_h = \mathbf{0}$.
                     </p>
                 </div>
-                
-                <!-- Section 2 -->
-                <h2 id="gaussian-elimination">Gaussian Elimination</h2>
-                
+
                 <p>
-                    The fundamental algorithm for solving linear systems. We use elementary row operations 
-                    to reduce $A$ to <strong>row echelon form</strong>.
+                    This trichotomy is governed by two numbers: the rank of $A$ and the rank of the augmented
+                    matrix $[A \mid \mathbf{b}]$. If $\text{rank}(A) < \text{rank}([A \mid \mathbf{b}])$, there is
+                    no solution. If $\text{rank}(A) = \text{rank}([A \mid \mathbf{b}]) = n$, the solution is unique.
+                    If $\text{rank}(A) = \text{rank}([A \mid \mathbf{b}]) < n$, there are infinitely many solutions,
+                    parameterized by $n - \text{rank}(A)$ free variables. This is the Rouché–Capelli theorem, and it
+                    tells us that understanding rank is the key to understanding solvability.
                 </p>
-                
+
+                <div class="note-box">
+                    <div class="box-title">ML Connection: The Normal Equations</div>
+                    <p style="margin-bottom: 0;">
+                        In linear regression, we minimize $\|X\mathbf{w} - \mathbf{y}\|^2$. Setting the gradient to
+                        zero yields the normal equations $X^T X \mathbf{w} = X^T \mathbf{y}$. This is a system of
+                        linear equations where $A = X^T X$ (a symmetric positive semi-definite matrix) and
+                        $\mathbf{b} = X^T \mathbf{y}$. If $X$ has full column rank, $X^T X$ is invertible and the
+                        solution is unique: $\mathbf{w} = (X^T X)^{-1} X^T \mathbf{y}$. When $X$ is rank-deficient,
+                        there are infinitely many minimizers — which is why regularization (ridge regression) adds
+                        $\lambda I$ to make the system well-conditioned.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- Section 2: Gaussian Elimination                              -->
+                <!-- ============================================================ -->
+                <h2 id="gaussian-elimination">Gaussian Elimination</h2>
+
+                <p>
+                    Gaussian elimination is the workhorse algorithm for solving linear systems. The idea is
+                    elegant: use a sequence of simple row operations to transform the augmented matrix
+                    $[A \mid \mathbf{b}]$ into an equivalent system that is easy to solve. "Equivalent" here
+                    means the transformed system has exactly the same solution set as the original. Think of it
+                    as systematically subtracting equations from each other to eliminate variables one by one,
+                    much like you learned in high school algebra — but organized into a systematic procedure
+                    that works for any number of variables.
+                </p>
+
+                <p>
+                    The algorithm proceeds in two phases. The first phase, <strong>forward elimination</strong>,
+                    produces an upper-triangular (row echelon) form. The second phase, <strong>back
+                    substitution</strong>, reads off the solution from bottom to top. For an $n \times n$ system,
+                    forward elimination costs approximately $\frac{2}{3}n^3$ floating-point operations, while
+                    back substitution costs only $n^2$. This cubic cost is unavoidable for direct methods, but
+                    as we will see later, clever factorizations let us amortize it over many right-hand sides.
+                </p>
+
                 <div class="math-derivation">
                     <div class="math-derivation-title">Elementary Row Operations</div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
-                            <strong>Swap:</strong> Exchange two rows
+                            <strong>Swap:</strong> Exchange rows $R_i \leftrightarrow R_j$. This corresponds to
+                            reordering the equations, which clearly does not change the solution set. Swaps
+                            are essential for <em>partial pivoting</em>, a strategy for numerical stability.
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            <strong>Scale:</strong> Multiply a row by a nonzero constant
+                            <strong>Scale:</strong> Replace $R_i$ with $cR_i$ for $c \neq 0$. Multiplying both
+                            sides of an equation by a nonzero constant does not change its solutions. We use
+                            this to create leading 1s (pivots) when desired.
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            <strong>Add:</strong> Add a multiple of one row to another
+                            <strong>Replacement:</strong> Replace $R_i$ with $R_i + cR_j$. Adding a multiple of
+                            one equation to another preserves the solution set. This is the main operation used
+                            to introduce zeros below each pivot.
                         </div>
                     </div>
                 </div>
-                
+
+                <p>
+                    Each elementary row operation can be expressed as left-multiplication by an
+                    <strong>elementary matrix</strong>. For example, the operation "$R_2 \leftarrow R_2 - 3R_1$"
+                    on a $3 \times 3$ system corresponds to multiplying by the matrix
+                    $E = \begin{pmatrix} 1 & 0 & 0 \\ -3 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix}$.
+                    This perspective is important because it reveals that Gaussian elimination is really a
+                    matrix factorization in disguise — a theme we will develop fully in the LU decomposition
+                    section below.
+                </p>
+
                 <h3>Row Echelon Form</h3>
-                
-                <p>A matrix is in row echelon form if:</p>
-                <ul>
-                    <li>All zero rows are at the bottom</li>
-                    <li>Each leading entry (pivot) is to the right of the pivot above it</li>
-                </ul>
-                
+
+                <p>
+                    A matrix is in <strong>row echelon form (REF)</strong> if it satisfies three conditions:
+                    all zero rows are at the bottom, each leading entry (pivot) is strictly to the right of the
+                    pivot in the row above, and all entries below each pivot are zero. The pivots staircase
+                    down and to the right. The number of pivots equals the rank of the matrix. Columns
+                    containing pivots correspond to <em>basic variables</em>; columns without pivots correspond
+                    to <em>free variables</em> that can take any value.
+                </p>
+
                 <div class="math-block">
                     $$\begin{pmatrix} \boxed{2} & 3 & 1 & 4 \\ 0 & \boxed{1} & 2 & 3 \\ 0 & 0 & \boxed{5} & 1 \\ 0 & 0 & 0 & 0 \end{pmatrix}$$
                 </div>
-                
-                <!-- Section 3 -->
-                <h2 id="example">Worked Example</h2>
-                
-                <p>Solve the system:</p>
-                
+
+                <p>
+                    In the matrix above, there are three pivots (boxed), so the rank is 3. The fourth column has
+                    no pivot, meaning that if this were the coefficient matrix of a system $A\mathbf{x} = \mathbf{b}$
+                    with four unknowns, the variable $x_4$ would be free. The solution set would be a line
+                    (one-parameter family) in $\mathbb{R}^4$. If we continue the elimination process to also
+                    eliminate entries <em>above</em> each pivot, we obtain <strong>reduced row echelon form
+                    (RREF)</strong>, where every pivot is 1 and is the only nonzero entry in its column.
+                    RREF is unique for every matrix, making it useful for theoretical analysis, though in
+                    practice we usually stop at REF to save computation.
+                </p>
+
+                <h3>Worked 3×3 Example</h3>
+
+                <p>Let us solve the system:</p>
+
                 <div class="math-block">
                     $$\begin{cases} x + 2y + z = 9 \\ 2x + 4y + 3z = 21 \\ 3x + 6y + 5z = 33 \end{cases}$$
                 </div>
-                
+
+                <p>
+                    Before diving into mechanics, let's think about what might happen. Notice that the
+                    coefficients of $y$ in rows 2 and 3 are exactly 2 and 3 times the coefficient in row 1.
+                    This suggests the columns might not be independent — we should expect a free variable.
+                </p>
+
                 <div class="math-derivation">
                     <div class="math-derivation-title">Reduction to Row Echelon Form</div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">1</div>
                         <div class="math-step-content">
-                            Augmented matrix: $\left(\begin{array}{ccc|c} 1 & 2 & 1 & 9 \\ 2 & 4 & 3 & 21 \\ 3 & 6 & 5 & 33 \end{array}\right)$
+                            Write the augmented matrix:
+                            $\left(\begin{array}{ccc|c} 1 & 2 & 1 & 9 \\ 2 & 4 & 3 & 21 \\ 3 & 6 & 5 & 33 \end{array}\right)$
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">2</div>
                         <div class="math-step-content">
-                            $R_2 \leftarrow R_2 - 2R_1$, $R_3 \leftarrow R_3 - 3R_1$: $\left(\begin{array}{ccc|c} 1 & 2 & 1 & 9 \\ 0 & 0 & 1 & 3 \\ 0 & 0 & 2 & 6 \end{array}\right)$
+                            Eliminate below pivot in column 1. Apply $R_2 \leftarrow R_2 - 2R_1$ and
+                            $R_3 \leftarrow R_3 - 3R_1$:
+                            $\left(\begin{array}{ccc|c} 1 & 2 & 1 & 9 \\ 0 & 0 & 1 & 3 \\ 0 & 0 & 2 & 6 \end{array}\right)$
                         </div>
                     </div>
-                    
                     <div class="math-step">
                         <div class="math-step-number">3</div>
                         <div class="math-step-content">
-                            $R_3 \leftarrow R_3 - 2R_2$: $\left(\begin{array}{ccc|c} 1 & 2 & 1 & 9 \\ 0 & 0 & 1 & 3 \\ 0 & 0 & 0 & 0 \end{array}\right)$
+                            The second column has no pivot candidate (both entries are 0). Move to column 3.
+                            Apply $R_3 \leftarrow R_3 - 2R_2$:
+                            $\left(\begin{array}{ccc|c} 1 & 2 & 1 & 9 \\ 0 & 0 & 1 & 3 \\ 0 & 0 & 0 & 0 \end{array}\right)$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            The last row is all zeros — consistent (since $0 = 0$), confirming the system has
+                            solutions. We have two pivots (columns 1 and 3) and one free variable ($y$, column 2).
                         </div>
                     </div>
                 </div>
-                
-                <p>Back substitution gives: $z = 3$, and $x + 2y = 6$. Here $y$ is a <strong>free variable</strong>.</p>
-                
+
+                <p>
+                    Now we apply <strong>back substitution</strong>. From row 2: $z = 3$. Substituting into
+                    row 1: $x + 2y + 3 = 9$, giving $x = 6 - 2y$. Since $y$ is free, we set $y = t$ for
+                    any $t \in \mathbb{R}$ and write the complete solution:
+                </p>
+
                 <div class="math-block">
-                    $$\mathbf{x} = \begin{pmatrix} 6 - 2t \\ t \\ 3 \end{pmatrix} = \begin{pmatrix} 6 \\ 0 \\ 3 \end{pmatrix} + t\begin{pmatrix} -2 \\ 1 \\ 0 \end{pmatrix}$$
+                    $$\mathbf{x} = \begin{pmatrix} 6 - 2t \\ t \\ 3 \end{pmatrix}
+                    = \underbrace{\begin{pmatrix} 6 \\ 0 \\ 3 \end{pmatrix}}_{\text{particular solution}}
+                    + t \underbrace{\begin{pmatrix} -2 \\ 1 \\ 0 \end{pmatrix}}_{\text{null space vector}}$$
                 </div>
-                
+
+                <p>
+                    This decomposition is fundamental: the general solution is always a <em>particular
+                    solution</em> $\mathbf{x}_p$ (any single vector satisfying $A\mathbf{x}_p = \mathbf{b}$)
+                    plus the entire null space of $A$. Geometrically, the solution set is a line in
+                    $\mathbb{R}^3$ — a one-dimensional affine subspace. If there were two free variables,
+                    the solution set would be a plane; if $k$ free variables, a $k$-dimensional flat.
+                </p>
+
                 <div class="note-box">
                     <div class="box-title">Geometric Interpretation</div>
                     <p style="margin-bottom: 0;">
-                        The solution is a line in $\mathbb{R}^3$: a particular solution plus any multiple 
-                        of the null space vector $(-2, 1, 0)^T$.
+                        Each equation $a_{i1}x + a_{i2}y + a_{i3}z = b_i$ defines a plane in $\mathbb{R}^3$.
+                        Solving the system means finding the intersection of all three planes. Three planes can
+                        intersect in a point (unique solution), a line (one free variable), or not at all
+                        (inconsistent). In our example, the three planes share a common line, reflecting the
+                        rank deficiency of $A$. You can verify: the second column of $A$ is twice the first,
+                        so the columns are dependent.
                     </p>
                 </div>
-                
-                <!-- Section 4 -->
-                <h2 id="lu-factorization">LU Factorization</h2>
-                
-                <p>
-                    Instead of solving from scratch, we can factor $A = LU$ where $L$ is lower triangular 
-                    and $U$ is upper triangular. Then solve in two steps:
-                </p>
-                
-                <div class="math-block">
-                    $$A\mathbf{x} = \mathbf{b} \implies L(U\mathbf{x}) = \mathbf{b}$$
-                </div>
-                
-                <ol>
-                    <li>Solve $L\mathbf{y} = \mathbf{b}$ for $\mathbf{y}$ (forward substitution)</li>
-                    <li>Solve $U\mathbf{x} = \mathbf{y}$ for $\mathbf{x}$ (back substitution)</li>
-                </ol>
-                
+
                 <div class="warning-box">
-                    <div class="box-title">Why LU Factorization?</div>
+                    <div class="box-title">Numerical Pitfall: Small Pivots</div>
                     <p style="margin-bottom: 0;">
-                        If you need to solve $A\mathbf{x} = \mathbf{b}$ for many different $\mathbf{b}$ vectors, 
-                        factor once, solve cheaply each time. This is crucial for iterative methods in ML.
+                        In floating-point arithmetic, a very small pivot amplifies rounding errors. If the
+                        pivot in position $(k,k)$ is $10^{-15}$, dividing by it magnifies errors by a factor
+                        of $10^{15}$. This is why practical implementations use <strong>partial pivoting</strong>:
+                        before eliminating in column $k$, swap the current row with the row below it that has
+                        the largest absolute value in column $k$. This simple strategy makes Gaussian
+                        elimination stable for almost all matrices encountered in practice.
                     </p>
                 </div>
-                
-                <!-- Navigation -->
-                
-            <div class="tutorial-footer-summary" style="margin: 3rem 0; padding: 2rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                <h1>03. Systems of Linear Equations</h1>
-                <p class="lead">
-                Every system $A\mathbf{x} = \mathbf{b}$ asks: can we express $\mathbf{b}$ as a 
-                linear combination of the columns of $A$? The answer reveals fundamental structure.
-            </p>
-            </div>
+
+                <!-- ============================================================ -->
+                <!-- Section 3: LU Decomposition                                  -->
+                <!-- ============================================================ -->
+                <h2 id="lu-decomposition">LU Decomposition</h2>
+
+                <p>
+                    Gaussian elimination is a one-shot algorithm: you form the augmented matrix, reduce it,
+                    and read off the answer. But what if you need to solve $A\mathbf{x} = \mathbf{b}$ for
+                    many different right-hand sides $\mathbf{b}$? Re-running Gaussian elimination each time
+                    would cost $O(n^3)$ per solve. LU decomposition offers a better approach: factor
+                    $A$ once (cost $O(n^3)$), then solve each new right-hand side in only $O(n^2)$.
+                </p>
+
+                <p>
+                    The idea is to capture the work of Gaussian elimination as a matrix factorization. Recall
+                    that each elimination step is left-multiplication by an elementary matrix $E_k$. If it
+                    takes $p$ elimination steps to reduce $A$ to upper-triangular form $U$, then
+                    $E_p \cdots E_2 E_1 A = U$. Rearranging: $A = (E_p \cdots E_2 E_1)^{-1} U = LU$,
+                    where $L = E_1^{-1} E_2^{-1} \cdots E_p^{-1}$ is lower triangular. The matrix $L$ records
+                    all the multipliers used during elimination — its entries below the diagonal are exactly the
+                    negatives of the multipliers we subtracted.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">LU Decomposition</div>
+                    <p>
+                        For a square matrix $A \in \mathbb{R}^{n \times n}$, an <strong>LU decomposition</strong>
+                        is a factorization $A = LU$ where $L$ is lower triangular with ones on the diagonal and
+                        $U$ is upper triangular. The diagonal entries of $U$ are the pivots of $A$.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Not every matrix has an LU decomposition (you might need to swap rows), but every matrix
+                        has a <strong>PLU decomposition</strong> $PA = LU$ where $P$ is a permutation matrix
+                        encoding the necessary row swaps.
+                    </p>
+                </div>
+
+                <p>
+                    Once we have $A = LU$, solving $A\mathbf{x} = \mathbf{b}$ becomes two triangular solves:
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Two-Step Solution via LU</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            <strong>Forward substitution:</strong> Solve $L\mathbf{y} = \mathbf{b}$ for $\mathbf{y}$.
+                            Since $L$ is lower triangular, we compute $y_1 = b_1$, then
+                            $y_2 = b_2 - l_{21}y_1$, and so on downward. Cost: $O(n^2)$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            <strong>Back substitution:</strong> Solve $U\mathbf{x} = \mathbf{y}$ for $\mathbf{x}$.
+                            Since $U$ is upper triangular, we compute $x_n = y_n / u_{nn}$, then work upward.
+                            Cost: $O(n^2)$.
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Worked Example: LU Factorization</h3>
+
+                <p>Factor $A = \begin{pmatrix} 2 & 1 & 1 \\ 4 & 3 & 3 \\ 8 & 7 & 9 \end{pmatrix}$.</p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Computing $L$ and $U$</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Eliminate below pivot $a_{11} = 2$. Multipliers: $l_{21} = 4/2 = 2$,
+                            $l_{31} = 8/2 = 4$. Apply $R_2 - 2R_1$ and $R_3 - 4R_1$:
+                            $\begin{pmatrix} 2 & 1 & 1 \\ 0 & 1 & 1 \\ 0 & 3 & 5 \end{pmatrix}$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Eliminate below pivot $a_{22}' = 1$. Multiplier: $l_{32} = 3/1 = 3$.
+                            Apply $R_3 - 3R_2$:
+                            $U = \begin{pmatrix} 2 & 1 & 1 \\ 0 & 1 & 1 \\ 0 & 0 & 2 \end{pmatrix}$
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Assemble $L$ from the multipliers:
+                            $L = \begin{pmatrix} 1 & 0 & 0 \\ 2 & 1 & 0 \\ 4 & 3 & 1 \end{pmatrix}$
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    You can verify: $LU = \begin{pmatrix} 1 & 0 & 0 \\ 2 & 1 & 0 \\ 4 & 3 & 1 \end{pmatrix}
+                    \begin{pmatrix} 2 & 1 & 1 \\ 0 & 1 & 1 \\ 0 & 0 & 2 \end{pmatrix}
+                    = \begin{pmatrix} 2 & 1 & 1 \\ 4 & 3 & 3 \\ 8 & 7 & 9 \end{pmatrix} = A$. Notice how
+                    neatly the multipliers slot into $L$ — this is not a coincidence but a structural
+                    property of the elimination process.
+                </p>
+
+                <div class="warning-box">
+                    <div class="box-title">Pivoting and Stability</div>
+                    <p>
+                        If $a_{11} = 0$ (or very small), LU decomposition without pivoting fails (or is
+                        numerically unstable). The fix is <strong>partial pivoting</strong>: before each
+                        elimination step, swap the current row with the row that has the largest absolute
+                        value in the pivot column. This gives the <strong>PLU decomposition</strong>
+                        $PA = LU$, where $P$ is a permutation matrix.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        In libraries like NumPy and LAPACK, <code>scipy.linalg.lu(A)</code> always returns
+                        the PLU form. The permutation matrix $P$ is often stored as a vector of pivot indices
+                        rather than a full matrix, saving memory.
+                    </p>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">ML Connection: Solving the Normal Equations Efficiently</div>
+                    <p style="margin-bottom: 0;">
+                        In ridge regression, we solve $(X^TX + \lambda I)\mathbf{w} = X^T\mathbf{y}$. The
+                        matrix $X^TX + \lambda I$ is symmetric positive definite, which guarantees a special
+                        form of LU called the <strong>Cholesky decomposition</strong> $A = LL^T$. This is
+                        roughly twice as fast as general LU and is the standard solver for the normal equations
+                        in scikit-learn's <code>LinearRegression</code>.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- Section 4: Overdetermined and Underdetermined Systems        -->
+                <!-- ============================================================ -->
+                <h2 id="over-under">Overdetermined and Underdetermined Systems</h2>
+
+                <p>
+                    The neatest case — $m = n$ with $A$ invertible — is actually the exception in machine
+                    learning. In practice, we almost always encounter systems where $m \neq n$. If
+                    $m > n$ (more equations than unknowns), the system is <strong>overdetermined</strong>
+                    and generically has no exact solution. If $m < n$ (fewer equations than unknowns), the
+                    system is <strong>underdetermined</strong> and generically has infinitely many solutions.
+                    Both cases arise constantly in ML, and each has its own canonical approximate solution.
+                </p>
+
+                <h3>Overdetermined Systems and Least Squares</h3>
+
+                <p>
+                    Suppose you have 1000 data points but only 3 features. Your system $X\mathbf{w} = \mathbf{y}$
+                    has $m = 1000$ equations and $n = 3$ unknowns — wildly overdetermined. Barring a miracle,
+                    there is no $\mathbf{w}$ that satisfies all 1000 equations exactly. The sensible thing to
+                    do is find the $\mathbf{w}$ that comes closest, in the sense of minimizing the sum of
+                    squared residuals:
+                </p>
+
+                <div class="math-block">
+                    $$\hat{\mathbf{w}} = \arg\min_{\mathbf{w}} \|X\mathbf{w} - \mathbf{y}\|^2$$
+                </div>
+
+                <p>
+                    Setting the gradient to zero gives the <strong>normal equations</strong>:
+                    $X^T X \hat{\mathbf{w}} = X^T \mathbf{y}$. Geometrically, the residual vector
+                    $\mathbf{y} - X\hat{\mathbf{w}}$ is orthogonal to the column space of $X$ — we are
+                    projecting $\mathbf{y}$ onto $\text{Col}(X)$ and $X\hat{\mathbf{w}}$ is the closest
+                    point in that subspace. This is the geometric heart of linear regression.
+                </p>
+
+                <div class="math-derivation">
+                    <div class="math-derivation-title">Deriving the Normal Equations</div>
+                    <div class="math-step">
+                        <div class="math-step-number">1</div>
+                        <div class="math-step-content">
+                            Define $f(\mathbf{w}) = \|X\mathbf{w} - \mathbf{y}\|^2 = (X\mathbf{w} - \mathbf{y})^T(X\mathbf{w} - \mathbf{y})$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">2</div>
+                        <div class="math-step-content">
+                            Expand: $f(\mathbf{w}) = \mathbf{w}^T X^T X \mathbf{w} - 2\mathbf{y}^T X \mathbf{w} + \mathbf{y}^T\mathbf{y}$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">3</div>
+                        <div class="math-step-content">
+                            Take the gradient: $\nabla_{\mathbf{w}} f = 2X^T X \mathbf{w} - 2X^T \mathbf{y}$.
+                        </div>
+                    </div>
+                    <div class="math-step">
+                        <div class="math-step-number">4</div>
+                        <div class="math-step-content">
+                            Set to zero: $X^T X \hat{\mathbf{w}} = X^T \mathbf{y}$. If $X$ has full column rank, the unique solution is $\hat{\mathbf{w}} = (X^T X)^{-1} X^T \mathbf{y}$.
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Underdetermined Systems and Minimum Norm</h3>
+
+                <p>
+                    Now consider the opposite extreme. In compressed sensing or neural network weight analysis,
+                    you might have 100 equations but 10,000 unknowns. There are infinitely many solutions, so
+                    which one should you pick? The standard choice is the <strong>minimum-norm solution</strong>:
+                    among all $\mathbf{x}$ satisfying $A\mathbf{x} = \mathbf{b}$, choose the one with smallest
+                    $\|\mathbf{x}\|$. This is given by:
+                </p>
+
+                <div class="math-block">
+                    $$\hat{\mathbf{x}} = A^T(AA^T)^{-1}\mathbf{b}$$
+                </div>
+
+                <p>
+                    Both the overdetermined and underdetermined cases are unified by the
+                    <strong>Moore–Penrose pseudoinverse</strong> $A^+$. For overdetermined systems,
+                    $A^+ = (A^TA)^{-1}A^T$; for underdetermined systems, $A^+ = A^T(AA^T)^{-1}$.
+                    In general, $A^+$ is computed via the SVD: if $A = U\Sigma V^T$, then
+                    $A^+ = V\Sigma^+ U^T$ where $\Sigma^+$ inverts the nonzero singular values
+                    and transposes the matrix. NumPy's <code>np.linalg.pinv(A)</code> computes this.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">ML Connection: Regularization as Choosing Among Solutions</div>
+                    <p style="margin-bottom: 0;">
+                        An overparameterized neural network (more parameters than training examples) defines
+                        an underdetermined system — many weight vectors fit the data exactly. Gradient descent
+                        with appropriate initialization implicitly selects the minimum-norm solution (in a
+                        suitable function space), which partly explains why overparameterized networks
+                        generalize well. This "implicit regularization" is a major topic in modern ML theory.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- Section 5: Iterative Methods                                 -->
+                <!-- ============================================================ -->
+                <h2 id="iterative">Iterative Methods</h2>
+
+                <p>
+                    Direct methods like Gaussian elimination and LU decomposition are exact (up to floating-point
+                    errors) but require $O(n^3)$ operations. For a $1000 \times 1000$ system, that is a billion
+                    operations — expensive but feasible. But in modern ML, we routinely encounter systems with
+                    millions or billions of unknowns. Storing a dense $n \times n$ matrix alone requires $n^2$
+                    entries, which for $n = 10^6$ would be $10^{12}$ entries — far too much for any computer's
+                    memory. Fortunately, large-scale systems are almost always <strong>sparse</strong> (most
+                    entries are zero), and iterative methods can exploit this sparsity brilliantly.
+                </p>
+
+                <p>
+                    The basic idea of iterative methods is simple: start with a guess $\mathbf{x}^{(0)}$ and
+                    refine it repeatedly until it converges to the solution. Each iteration is cheap
+                    ($O(n)$ or $O(\text{nnz})$ where $\text{nnz}$ is the number of nonzero entries), and
+                    we only need to store the sparse matrix and a few vectors.
+                </p>
+
+                <h3>Jacobi Method</h3>
+
+                <p>
+                    The simplest iterative method splits $A = D + R$ where $D$ is the diagonal of $A$ and
+                    $R$ is the remainder. The equation $A\mathbf{x} = \mathbf{b}$ becomes
+                    $D\mathbf{x} = \mathbf{b} - R\mathbf{x}$, giving the iteration:
+                </p>
+
+                <div class="math-block">
+                    $$x_i^{(k+1)} = \frac{1}{a_{ii}}\left(b_i - \sum_{j \neq i} a_{ij} x_j^{(k)}\right)$$
+                </div>
+
+                <p>
+                    Each component of $\mathbf{x}$ is updated independently using the old values of all
+                    other components. This makes Jacobi embarrassingly parallel — perfect for GPUs. The
+                    method converges when the spectral radius of $D^{-1}R$ is less than 1, which is
+                    guaranteed when $A$ is <strong>strictly diagonally dominant</strong> (each diagonal
+                    entry is larger in absolute value than the sum of all other entries in its row).
+                </p>
+
+                <h3>Gauss–Seidel Method</h3>
+
+                <p>
+                    Gauss–Seidel is a simple improvement over Jacobi: when computing $x_i^{(k+1)}$,
+                    use the already-updated values $x_1^{(k+1)}, \ldots, x_{i-1}^{(k+1)}$ instead of
+                    the old values $x_1^{(k)}, \ldots, x_{i-1}^{(k)}$. This typically converges about
+                    twice as fast as Jacobi, at the cost of losing parallelism (updates are sequential).
+                </p>
+
+                <div class="math-block">
+                    $$x_i^{(k+1)} = \frac{1}{a_{ii}}\left(b_i - \sum_{j < i} a_{ij} x_j^{(k+1)} - \sum_{j > i} a_{ij} x_j^{(k)}\right)$$
+                </div>
+
+                <p>
+                    For symmetric positive definite matrices (like the Gram matrix $X^TX$ in linear
+                    regression), Gauss–Seidel is guaranteed to converge regardless of the starting point.
+                    This makes it a reliable choice for the normal equations in ML applications.
+                </p>
+
+                <div class="definition-box">
+                    <div class="box-title">Convergence Criterion</div>
+                    <p style="margin-bottom: 0;">
+                        Both Jacobi and Gauss–Seidel converge when the <strong>spectral radius</strong>
+                        $\rho(M)$ of the iteration matrix $M$ satisfies $\rho(M) < 1$. The spectral radius
+                        is the largest absolute eigenvalue: $\rho(M) = \max_i |\lambda_i(M)|$. The smaller
+                        $\rho(M)$ is, the faster convergence proceeds. A sufficient condition is strict diagonal
+                        dominance: $|a_{ii}| > \sum_{j \neq i} |a_{ij}|$ for all $i$.
+                    </p>
+                </div>
+
+                <div class="note-box">
+                    <div class="box-title">ML Connection: Gradient Descent as an Iterative Solver</div>
+                    <p style="margin-bottom: 0;">
+                        Gradient descent on $f(\mathbf{x}) = \frac{1}{2}\mathbf{x}^T A \mathbf{x} - \mathbf{b}^T \mathbf{x}$
+                        (where $A$ is SPD) is equivalent to solving $A\mathbf{x} = \mathbf{b}$ iteratively with
+                        $\mathbf{x}^{(k+1)} = \mathbf{x}^{(k)} - \alpha(A\mathbf{x}^{(k)} - \mathbf{b})$. The
+                        convergence rate depends on the <strong>condition number</strong>
+                        $\kappa(A) = \lambda_{\max}/\lambda_{\min}$: the larger $\kappa$, the slower convergence.
+                        Conjugate gradient (CG) is a more sophisticated iterative method that converges in at most
+                        $n$ steps and is the method of choice for large sparse SPD systems. The preconditioned
+                        CG method further accelerates convergence by transforming $A$ to reduce its
+                        condition number.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- Section 6: Information-Theoretic Connections                  -->
+                <!-- ============================================================ -->
+                <h2 id="info-theory">Information-Theoretic Connections</h2>
+
+                <p>
+                    At first glance, systems of linear equations seem far removed from information theory.
+                    But the connection runs deep — linear algebra is the backbone of coding theory, which
+                    is itself the engineering realization of Shannon's information-theoretic limits. Every
+                    time you stream a video, download a file, or read data from a hard drive, linear systems
+                    over finite fields are working behind the scenes to detect and correct errors.
+                </p>
+
+                <h3>Linear Codes and Parity Check Matrices</h3>
+
+                <p>
+                    A <strong>linear code</strong> is a subspace $\mathcal{C}$ of $\mathbb{F}_2^n$ (the set of
+                    binary $n$-tuples). It can be described in two ways: as the image of a
+                    <strong>generator matrix</strong> $G$ (encoding), or as the null space of a
+                    <strong>parity check matrix</strong> $H$ (error detection). A codeword $\mathbf{c}$ satisfies
+                    $H\mathbf{c} = \mathbf{0}$. When a codeword $\mathbf{c}$ is transmitted and received as
+                    $\mathbf{r} = \mathbf{c} + \mathbf{e}$ (where $\mathbf{e}$ is the error pattern), the
+                    receiver computes the <strong>syndrome</strong>:
+                </p>
+
+                <div class="math-block">
+                    $$\mathbf{s} = H\mathbf{r} = H(\mathbf{c} + \mathbf{e}) = H\mathbf{e}$$
+                </div>
+
+                <p>
+                    The syndrome depends only on the error, not on which codeword was sent. Decoding reduces
+                    to solving $H\mathbf{e} = \mathbf{s}$ for the most likely error pattern $\mathbf{e}$ — a
+                    system of linear equations over $\mathbb{F}_2$! The information-theoretic optimality of this
+                    approach comes from the fact that good linear codes can approach the Shannon capacity of
+                    the channel.
+                </p>
+
+                <h3>Entropy and System Solvability</h3>
+
+                <p>
+                    There is a beautiful connection between the rank of a matrix and the information content
+                    of the system it defines. Consider a random system $A\mathbf{x} = \mathbf{b}$ where the
+                    entries of $A$ are drawn from some distribution. The probability that the system is
+                    consistent (has at least one solution) depends on the rank of $[A \mid \mathbf{b}]$.
+                    If $A$ is $m \times n$ with $m > n$ and has full column rank, the system is consistent
+                    only for the "right" $\mathbf{b}$ — and the fraction of $\mathbf{b}$ vectors that work
+                    has measure zero in $\mathbb{R}^m$. You need exactly $n$ independent equations to pin down
+                    the solution — adding more equations (increasing $m$) is like receiving redundant
+                    information that can be used for error checking rather than for determining $\mathbf{x}$.
+                </p>
+
+                <div class="note-box">
+                    <div class="box-title">Connection to Compression</div>
+                    <p style="margin-bottom: 0;">
+                        The null space dimension $n - \text{rank}(A)$ measures the "degrees of freedom" in the
+                        solution — the number of bits of $\mathbf{x}$ that the equations leave unspecified.
+                        In coding theory, this number equals $\log_2|\mathcal{C}|$ divided by $n$ — the
+                        <em>rate</em> of the code. A high-rate code transmits more information per symbol
+                        but has less redundancy for error correction. This rate-reliability tradeoff is
+                        precisely the tradeoff between null space dimension and the number of constraints
+                        (parity checks) in the system $H\mathbf{c} = \mathbf{0}$.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- Section 7: Common Misconceptions                             -->
+                <!-- ============================================================ -->
+                <h2 id="misconceptions">Common Misconceptions</h2>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 1: "I'll just invert the matrix"</div>
+                    <p style="margin-bottom: 0;">
+                        Students often write $\mathbf{x} = A^{-1}\mathbf{b}$ and think the problem is solved.
+                        But computing $A^{-1}$ explicitly is almost never a good idea. It costs $O(n^3)$ operations
+                        and $O(n^2)$ storage — the same as LU decomposition — but is less numerically stable and
+                        less efficient if you only need the solution vector (not the full inverse). In MATLAB or
+                        NumPy, use <code>numpy.linalg.solve(A, b)</code> instead of
+                        <code>numpy.linalg.inv(A) @ b</code>. The former uses LU internally and is both faster
+                        and more accurate.
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 2: "A square system always has a unique solution"</div>
+                    <p style="margin-bottom: 0;">
+                        A square $n \times n$ system has a unique solution only if $A$ is invertible
+                        ($\det(A) \neq 0$, equivalently $\text{rank}(A) = n$). A singular square matrix gives
+                        either no solution or infinitely many, depending on whether $\mathbf{b}$ is in the column
+                        space. Example: $\begin{pmatrix} 1 & 2 \\ 2 & 4 \end{pmatrix}\mathbf{x} = \begin{pmatrix} 3 \\ 6 \end{pmatrix}$
+                        has infinitely many solutions (the two equations are proportional), while
+                        $\begin{pmatrix} 1 & 2 \\ 2 & 4 \end{pmatrix}\mathbf{x} = \begin{pmatrix} 3 \\ 7 \end{pmatrix}$
+                        has none.
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 3: "Numerical solutions are exact"</div>
+                    <p style="margin-bottom: 0;">
+                        Floating-point arithmetic introduces rounding errors at every step. For well-conditioned
+                        systems ($\kappa(A) \approx 1$), these errors are negligible. But for ill-conditioned
+                        systems ($\kappa(A) \gg 1$), small perturbations in $A$ or $\mathbf{b}$ can cause
+                        large changes in the solution. Always check the condition number before trusting a
+                        numerical solution. If $\kappa(A) \approx 10^k$, expect to lose about $k$ digits of
+                        accuracy. For 64-bit floating point (about 16 significant digits), a condition number
+                        of $10^{12}$ leaves only 4 reliable digits — a situation that arises in polynomial
+                        fitting, radial basis function interpolation, and some kernel methods in ML.
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <div class="box-title">Misconception 4: "Exact solutions are always better than approximate ones"</div>
+                    <p style="margin-bottom: 0;">
+                        In machine learning, finding the exact solution to $X\mathbf{w} = \mathbf{y}$ (interpolating
+                        the training data perfectly) is usually a sign of <strong>overfitting</strong>, not success.
+                        Regularization (ridge, lasso) deliberately introduces a bias toward simpler solutions,
+                        trading a small increase in training error for a large decrease in test error. The
+                        "approximate" regularized solution generalizes better than the "exact" unregularized one.
+                        This is a deep lesson: in the presence of noise, the exact solution to the wrong problem
+                        is worse than an approximate solution to the right problem.
+                    </p>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- Navigation                                                   -->
+                <!-- ============================================================ -->
                 <div class="tutorial-nav">
                     <a href="../02-matrices/index.html" class="tutorial-nav-link prev">
                         <span class="nav-label">Previous</span>
@@ -323,23 +863,115 @@
                 </div>
                 
             </article>
+
+            <!-- ============================================================ -->
+            <!-- Exercises                                                    -->
+            <!-- ============================================================ -->
+            <article class="article-content" id="exercises" style="margin-top: 3rem;">
+                <h1>Exercises</h1>
+
+                <h2 id="easy-problems">Easy Problems 🟢</h2>
+                <ol>
+                    <li>
+                        Solve the system $\begin{cases} 2x + y = 5 \\ x - y = 1 \end{cases}$ using Gaussian elimination on the augmented matrix. Verify your answer by substituting back into both equations.
+                    </li>
+                    <li>
+                        Write the system $\begin{cases} 3x_1 + 2x_2 - x_3 = 1 \\ x_1 - x_2 + 4x_3 = -2 \end{cases}$ in the matrix form $A\mathbf{x} = \mathbf{b}$. Identify $A$, $\mathbf{x}$, and $\mathbf{b}$.
+                    </li>
+                    <li>
+                        Reduce the matrix $\begin{pmatrix} 1 & 3 & 1 \\ 2 & 6 & 4 \\ 0 & 0 & 2 \end{pmatrix}$ to row echelon form. What is the rank? Identify pivot columns and free variables.
+                    </li>
+                    <li>
+                        Given $L = \begin{pmatrix} 1 & 0 \\ 3 & 1 \end{pmatrix}$ and $\mathbf{b} = \begin{pmatrix} 4 \\ 14 \end{pmatrix}$, solve $L\mathbf{y} = \mathbf{b}$ by forward substitution.
+                    </li>
+                    <li>
+                        Given $U = \begin{pmatrix} 2 & 1 \\ 0 & 3 \end{pmatrix}$ and $\mathbf{y} = \begin{pmatrix} 7 \\ 6 \end{pmatrix}$, solve $U\mathbf{x} = \mathbf{y}$ by back substitution.
+                    </li>
+                    <li>
+                        Determine whether the system $\begin{cases} x + y = 3 \\ 2x + 2y = 7 \end{cases}$ is consistent or inconsistent. Explain geometrically what is happening.
+                    </li>
+                    <li>
+                        For the system $A\mathbf{x} = \mathbf{b}$ with $A = \begin{pmatrix} 1 & 2 \\ 3 & 6 \end{pmatrix}$ and $\mathbf{b} = \begin{pmatrix} 4 \\ 12 \end{pmatrix}$, find all solutions. Express your answer in the form $\mathbf{x}_p + t\mathbf{x}_h$.
+                    </li>
+                    <li>
+                        Classify each system as overdetermined, underdetermined, or square: (a) 5 equations in 3 unknowns, (b) 2 equations in 7 unknowns, (c) 4 equations in 4 unknowns.
+                    </li>
+                </ol>
+
+                <h2 id="medium-problems">Medium Problems 🟡</h2>
+                <ol>
+                    <li>
+                        Solve the $3 \times 3$ system $\begin{cases} x + y + z = 6 \\ 2x + 3y + z = 14 \\ x + 2y + 3z = 14 \end{cases}$ using Gaussian elimination with partial pivoting. Show every row operation and verify your solution.
+                    </li>
+                    <li>
+                        Compute the LU decomposition of $A = \begin{pmatrix} 1 & 2 & 4 \\ 3 & 8 & 14 \\ 2 & 6 & 13 \end{pmatrix}$. Then use it to solve $A\mathbf{x} = \begin{pmatrix} 3 \\ 13 \\ 4 \end{pmatrix}$.
+                    </li>
+                    <li>
+                        The system $\begin{cases} x + y + z = 1 \\ x + 2y + 3z = 2 \\ 2x + 3y + 4z = 3 \end{cases}$ has infinitely many solutions. Find the general solution and describe the solution set geometrically. What is the dimension of the null space?
+                    </li>
+                    <li>
+                        Given the overdetermined system $X\mathbf{w} = \mathbf{y}$ with $X = \begin{pmatrix} 1 & 1 \\ 1 & 2 \\ 1 & 3 \end{pmatrix}$ and $\mathbf{y} = \begin{pmatrix} 1 \\ 2 \\ 4 \end{pmatrix}$, compute the least-squares solution $\hat{\mathbf{w}} = (X^TX)^{-1}X^T\mathbf{y}$. What is the residual vector?
+                    </li>
+                    <li>
+                        Perform three iterations of the Jacobi method on $\begin{pmatrix} 4 & 1 \\ 1 & 3 \end{pmatrix}\mathbf{x} = \begin{pmatrix} 1 \\ 2 \end{pmatrix}$ starting from $\mathbf{x}^{(0)} = (0, 0)^T$. Compare with the exact solution.
+                    </li>
+                    <li>
+                        Let $A = \begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix}$. Verify that $A = LU$ with $L = \begin{pmatrix} 1 & 0 \\ 1/2 & 1 \end{pmatrix}$ and $U = \begin{pmatrix} 2 & 1 \\ 0 & 3/2 \end{pmatrix}$. Use this to solve $A\mathbf{x} = \begin{pmatrix} 5 \\ 5 \end{pmatrix}$ via forward and back substitution.
+                    </li>
+                    <li>
+                        Consider the parity check matrix $H = \begin{pmatrix} 1 & 1 & 1 & 0 \\ 1 & 0 & 0 & 1 \end{pmatrix}$ over $\mathbb{F}_2$. Find all codewords (solutions of $H\mathbf{c} = \mathbf{0}$). What is the rate of this code?
+                    </li>
+                    <li>
+                        Compute the condition number $\kappa(A) = \|A\| \cdot \|A^{-1}\|$ (using the 2-norm) for $A = \begin{pmatrix} 1 & 1 \\ 1 & 1.001 \end{pmatrix}$. Then perturb $\mathbf{b} = \begin{pmatrix} 2 \\ 2.001 \end{pmatrix}$ to $\tilde{\mathbf{b}} = \begin{pmatrix} 2 \\ 2.002 \end{pmatrix}$ and solve both systems. How much does the solution change relative to the perturbation?
+                    </li>
+                </ol>
+
+                <h2 id="hard-problems">Hard Problems 🔴</h2>
+                <ol>
+                    <li>
+                        Prove that the LU decomposition (without pivoting) exists and is unique for any matrix $A$ whose leading principal minors are all nonzero. (Hint: use induction on the matrix size and express $A = \begin{pmatrix} a_{11} & \mathbf{w}^T \\ \mathbf{v} & A' \end{pmatrix}$.)
+                    </li>
+                    <li>
+                        Show that the Jacobi method converges for any strictly diagonally dominant matrix. That is, prove that if $|a_{ii}| > \sum_{j \neq i} |a_{ij}|$ for all $i$, then the spectral radius $\rho(D^{-1}(L + U))$ is strictly less than 1.
+                    </li>
+                    <li>
+                        Prove that the least-squares solution $\hat{\mathbf{x}} = (A^TA)^{-1}A^T\mathbf{b}$ minimizes $\|A\mathbf{x} - \mathbf{b}\|^2$ by showing that the residual $\mathbf{b} - A\hat{\mathbf{x}}$ is orthogonal to $\text{Col}(A)$. Then use the Pythagorean theorem to conclude that any other $\mathbf{x}$ gives a larger residual norm.
+                    </li>
+                    <li>
+                        Let $A$ be an $n \times n$ SPD matrix with eigenvalues $0 < \lambda_1 \leq \cdots \leq \lambda_n$. Show that gradient descent $\mathbf{x}^{(k+1)} = \mathbf{x}^{(k)} - \alpha(A\mathbf{x}^{(k)} - \mathbf{b})$ converges for $0 < \alpha < 2/\lambda_n$, and that the optimal step size is $\alpha^* = 2/(\lambda_1 + \lambda_n)$, giving convergence rate $(\kappa - 1)/(\kappa + 1)$ where $\kappa = \lambda_n/\lambda_1$.
+                    </li>
+                    <li>
+                        Consider the Hamming $(7, 4)$ code with parity check matrix $H \in \mathbb{F}_2^{3 \times 7}$ whose columns are the binary representations of $1$ through $7$. (a) Write out $H$ explicitly. (b) Show that any single-bit error $\mathbf{e}$ with Hamming weight 1 produces a unique syndrome $H\mathbf{e}$, enabling single-error correction. (c) What is the minimum distance of this code? Relate this to the maximum number of correctable errors.
+                    </li>
+                    <li>
+                        Derive the Cholesky decomposition $A = LL^T$ for a symmetric positive definite matrix $A$ by equating entries. Show that the algorithm requires approximately $n^3/3$ operations — half the cost of general LU. Why does SPD guarantee that all diagonal entries of $L$ are real and positive (no square roots of negative numbers)?
+                    </li>
+                    <li>
+                        Prove the Sherman–Morrison formula: for an invertible $A$ and vectors $\mathbf{u}, \mathbf{v}$, $(A + \mathbf{u}\mathbf{v}^T)^{-1} = A^{-1} - \frac{A^{-1}\mathbf{u}\mathbf{v}^T A^{-1}}{1 + \mathbf{v}^T A^{-1}\mathbf{u}}$, provided $1 + \mathbf{v}^T A^{-1}\mathbf{u} \neq 0$. Explain why this reduces a full $O(n^3)$ inversion to an $O(n^2)$ update, and describe its application to online least-squares regression where new data arrives one sample at a time.
+                    </li>
+                    <li>
+                        Let $A \in \mathbb{R}^{m \times n}$ with $m < n$ (underdetermined). Show that the minimum-norm solution $\hat{\mathbf{x}} = A^T(AA^T)^{-1}\mathbf{b}$ lies in the row space of $A$. Then prove that among all solutions of $A\mathbf{x} = \mathbf{b}$, the one in the row space has the smallest Euclidean norm. (Hint: decompose any solution as $\mathbf{x} = \mathbf{x}_r + \mathbf{x}_n$ where $\mathbf{x}_r \in \text{Row}(A)$ and $\mathbf{x}_n \in \text{Null}(A)$, and use orthogonality.)
+                    </li>
+                </ol>
+            </article>
         
         </main>
 
         <!-- TOC (Right Side) -->
         <aside class="toc-container">
-        <h4 class="toc-title">Contents</h4>
-        <nav class="toc-list">
-            <a href="#problem-formulation" class="toc-link">The Problem</a>
-            <a href="#gaussian-elimination" class="toc-link">Gaussian Elimination</a>
-            <a href="#example" class="toc-link">Worked Example</a>
-            <a href="#lu-factorization" class="toc-link">LU Factorization</a>
-        </nav>
-    </aside>
+            <h4 class="toc-title">Contents</h4>
+            <nav class="toc-list">
+                <a href="#problem-formulation" class="toc-link">The Problem</a>
+                <a href="#gaussian-elimination" class="toc-link">Gaussian Elimination</a>
+                <a href="#lu-decomposition" class="toc-link">LU Decomposition</a>
+                <a href="#over-under" class="toc-link">Over/Underdetermined</a>
+                <a href="#iterative" class="toc-link">Iterative Methods</a>
+                <a href="#info-theory" class="toc-link">Info-Theoretic Connections</a>
+                <a href="#misconceptions" class="toc-link">Misconceptions</a>
+                <a href="#exercises" class="toc-link">Exercises</a>
+            </nav>
+        </aside>
     </div>
-    
-
-    <!-- Table of Contents -->
     
 
     <!-- Footer -->

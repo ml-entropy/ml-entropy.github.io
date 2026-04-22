@@ -115,18 +115,14 @@
                     <a href="#likelihood" class="sidebar-link">Likelihood</a>
                     <a href="#posterior" class="sidebar-link">Posterior</a>
                     <a href="#conjugate-example-beta-binomial" class="sidebar-link">Conjugate Example: Beta-Binomial</a>
-                    <a href="#why-this-matters" class="sidebar-link">Why this matters</a>
+                    <a href="#gaussian-gaussian-conjugacy" class="sidebar-link">Gaussian-Gaussian Conjugacy</a>
                     <a href="#posterior-predictive-distribution" class="sidebar-link">Posterior Predictive Distribution</a>
                     <a href="#map-vs-full-bayes" class="sidebar-link">MAP vs Full Bayes</a>
-                    <a href="#map" class="sidebar-link">MAP</a>
-                    <a href="#important-difference" class="sidebar-link">Important difference</a>
                     <a href="#credible-intervals" class="sidebar-link">Credible Intervals</a>
                     <a href="#visual-summary" class="sidebar-link">Visual Summary</a>
+                    <a href="#info-theory" class="sidebar-link">Information-Theoretic Perspective</a>
                     <a href="#strengths" class="sidebar-link">Strengths</a>
                     <a href="#common-objections-and-replies" class="sidebar-link">Common Objections and Replies</a>
-                    <a href="#priors-are-subjective" class="sidebar-link">&quot;Priors are subjective&quot;</a>
-                    <a href="#bayesian-methods-are-computationally-hard" class="sidebar-link">&quot;Bayesian methods are computationally hard&quot;</a>
-                    <a href="#with-enough-data-priors-do-not-matter" class="sidebar-link">&quot;With enough data priors do not matter&quot;</a>
                     <a href="#failure-modes" class="sidebar-link">Failure Modes</a>
                     <a href="#a-good-bayesian-habit" class="sidebar-link">A Good Bayesian Habit</a>
                 </nav>
@@ -148,66 +144,280 @@
                 <div class="definition-box" style="margin-bottom: 2rem;">
     <div class="box-title">In This Chapter</div>
     <p>Priors, likelihoods, posteriors, conjugacy, MAP, and posterior prediction.</p>
-    <ul><li>The Big Picture</li><li>Intuition</li><li>The Three Core Ingredients</li><li>Prior</li></ul>
+    <ul>
+        <li>The Big Picture &mdash; Bayes' rule as the engine of learning from data</li>
+        <li>Intuition &mdash; Belief revision as probability reweighting</li>
+        <li>The Three Core Ingredients &mdash; Prior, Likelihood, Posterior with formal definitions</li>
+        <li>Conjugate Examples &mdash; Beta-Binomial and Gaussian-Gaussian worked through with numbers</li>
+        <li>Posterior Predictive Distribution &mdash; Integrating out parameter uncertainty for prediction</li>
+        <li>MAP vs Full Bayes &mdash; When a point estimate suffices and when it doesn't</li>
+        <li>Information-Theoretic Perspective &mdash; KL divergence as information gained from data</li>
+    </ul>
 </div>
-                <h2 id="the-big-picture">The Big Picture</h2>
-<p>Bayesian inference updates uncertainty about unknowns using Bayes&#x27; rule: $$p(\theta \mid x) = \frac{p(x \mid \theta) p(\theta)}{p(x)}$$</p>
-<p>The posterior combines:</p>
-<ul>
-<li><strong>prior</strong> knowledge or assumptions</li>
-<li><strong>likelihood</strong> from the data model</li>
-<li><strong>evidence</strong> as the normalizing constant</li>
-</ul>
-<p>The result is a full distribution over plausible parameter values.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="the-big-picture">The Big Picture</h2>
+
+<p>Bayesian inference is a principled framework for updating beliefs in the face of new evidence. At its heart lies a single equation&mdash;Bayes' rule&mdash;that tells us exactly how to combine what we already believe with what the data are telling us. Unlike frequentist methods, which treat parameters as fixed but unknown constants, Bayesian inference treats parameters as random variables endowed with probability distributions. This shift in perspective is not merely philosophical; it has deep practical consequences for how we quantify uncertainty, make predictions, and communicate results.</p>
+
+<p>The central equation of Bayesian inference is:</p>
+
+<div class="math-block">$$p(\theta \mid x) = \frac{p(x \mid \theta)\, p(\theta)}{p(x)}$$</div>
+
+<p>Every term in this equation has a name and a role. The left-hand side, $p(\theta \mid x)$, is the <strong>posterior</strong>&mdash;our updated belief about the parameter $\theta$ after observing data $x$. On the right-hand side, $p(x \mid \theta)$ is the <strong>likelihood</strong>, which measures how well each candidate parameter value explains the observed data. The term $p(\theta)$ is the <strong>prior</strong>, encoding our beliefs or assumptions before seeing the current data. Finally, $p(x) = \int p(x \mid \theta)\,p(\theta)\,d\theta$ is the <strong>evidence</strong> (also called the marginal likelihood), which acts as a normalizing constant ensuring the posterior integrates to one.</p>
+
+<p>Why should we care about having a full distribution rather than a single best guess? Because a distribution captures the full landscape of plausible parameter values. It tells us not just what is most likely, but how confident we should be, where the boundaries of our knowledge lie, and how our uncertainty propagates into downstream predictions. In a medical setting, knowing that a drug's effectiveness parameter is "probably between 0.3 and 0.7" is far more useful than knowing it is "estimated at 0.52." The posterior gives us the former; a point estimate gives us only the latter.</p>
+
+<p>Bayesian inference also provides a natural mechanism for <em>sequential updating</em>. When new data arrive, today's posterior becomes tomorrow's prior. This means we never need to re-process old data&mdash;we simply feed the new observations through Bayes' rule using our current posterior as the new prior. This property makes Bayesian methods particularly elegant for online learning, streaming data, and settings where data arrive in batches over time.</p>
+
+<div class="note-box">
+    <div class="box-title">Key Insight</div>
+    <p>Bayes' rule is not an approximation or a heuristic. It is the <em>unique</em> coherent way to update probabilities given new evidence, as shown by Cox's theorem (1946). Any other updating rule can be shown to lead to logical inconsistencies&mdash;such as the order in which you process data changing your final answer. With Bayes' rule, the order of data processing is irrelevant: the final posterior depends only on the <em>totality</em> of data observed, not on the sequence.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="intuition">Intuition</h2>
-<p>Bayesian inference is disciplined belief revision.</p>
-<p>You begin with a range of plausible values. Data reweights those values:</p>
-<ul>
-<li>values that explain the data well gain mass</li>
-<li>values that explain the data poorly lose mass</li>
-</ul>
-<p>The posterior is not a point estimate. It is a map of uncertainty.</p>
+
+<p>Before diving into the mathematics, let's build an intuition for what Bayesian inference <em>feels</em> like. Imagine you have a bag of coins, each with a different bias. You pick one coin at random and want to figure out its bias by flipping it. Before any flips, you might believe all biases between 0 and 1 are roughly equally plausible&mdash;this is your prior. Now you flip the coin 10 times and get 7 heads. Suddenly, biases near 0.7 look much more plausible than biases near 0.1 or 0.9. The posterior concentrates around values that are consistent with both your prior expectations and the observed evidence.</p>
+
+<p>Bayesian inference is <strong>disciplined belief revision</strong>. You start with a landscape of plausible parameter values&mdash;some peaks, some valleys, maybe a broad plateau of "I don't really know." Then data arrive, and they act like a spotlight: regions of parameter space that explain the data well are illuminated (gain probability mass), while regions that predict the data poorly are dimmed (lose probability mass). The posterior is the product of the prior landscape and the likelihood spotlight, renormalized so that it integrates to one.</p>
+
+<p>Notice what this means: the posterior is always a <em>compromise</em> between prior and data. If you have very strong prior beliefs and only a little data, the posterior will look a lot like the prior. If you have weak prior beliefs and abundant data, the posterior will be dominated by the likelihood. This compromise is not a bug&mdash;it is a feature. It means that Bayesian inference automatically adapts its behavior to the information content of both sources, giving more weight to whichever source is more precise.</p>
+
+<p>You might wonder: "But what if my prior is wrong?" This is a fair concern, and we'll address it in the objections section below. The short answer is that <em>all</em> modeling involves assumptions, and Bayesian inference has the virtue of making its assumptions explicit and testable. A prior is not a claim about truth&mdash;it is a starting point for learning. And as data accumulate, even a poor prior is eventually overwhelmed by the evidence (in well-identified models with enough data).</p>
+
+<p>One more piece of intuition: the posterior is <strong>not</strong> a point estimate. It is a full probability distribution&mdash;a map of uncertainty. This is perhaps the single most important conceptual shift when moving from frequentist to Bayesian thinking. Instead of asking "What is the best single value of $\theta$?", we ask "What does the entire landscape of plausible $\theta$ values look like, given what we've observed?" This richer answer enables more nuanced decision-making and more honest communication of what we do and do not know.</p>
+
+<div class="warning-box">
+    <div class="box-title">Common Mistake: Posterior ≠ Likelihood</div>
+    <p>A frequent beginner error is to treat the posterior as if it were the likelihood. The likelihood $p(x \mid \theta)$ tells you how probable the <em>data</em> are for each fixed $\theta$. The posterior $p(\theta \mid x)$ tells you how probable each <em>parameter value</em> is given the data. These are fundamentally different quantities. The posterior also incorporates prior information, so even when the likelihood strongly favors a particular $\theta$, the posterior may disagree if the prior assigns very low probability to that region.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="the-three-core-ingredients">The Three Core Ingredients</h2>
+
+<p>Bayesian inference rests on three ingredients&mdash;prior, likelihood, and posterior&mdash;glued together by Bayes' rule. Understanding each one deeply is essential before we can work through examples. Let us examine them one by one, with formal definitions, interpretations, and the subtleties that textbooks often gloss over.</p>
+
+<!-- ── Prior ──────────────────────────────────────────────────────── -->
 <h3 id="prior">Prior</h3>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Prior Distribution</div>
+    <p>The <strong>prior distribution</strong> $p(\theta)$ is a probability distribution over the parameter space $\Theta$ that encodes our beliefs, knowledge, or assumptions about $\theta$ <em>before</em> observing the current dataset $x$. It represents the state of knowledge prior to the experiment.</p>
+</div>
+
 <div class="math-block">$$p(\theta)$$</div>
-<p>This encodes what values looked plausible before seeing current data.</p>
-<p>Priors can be:</p>
-<ul>
-<li>informative</li>
-<li>weakly informative</li>
-<li>noninformative or reference-style</li>
-<li>hierarchical</li>
-</ul>
+
+<p>The prior is often the most controversial part of Bayesian inference, because it requires the analyst to make an explicit choice. But this explicitness is a strength, not a weakness. In frequentist statistics, assumptions about the parameter space are also present&mdash;they are just hidden inside the choice of estimator, test statistic, or model. Bayesian inference forces these assumptions into the open where they can be examined, criticized, and tested via sensitivity analysis.</p>
+
+<p>Priors come in several flavors, and choosing the right one depends on context. <strong>Informative priors</strong> encode genuine domain knowledge&mdash;for instance, a physicist studying a new particle might use prior results from previous experiments to constrain the mass parameter. <strong>Weakly informative priors</strong> gently regularize the problem without expressing strong opinions; Andrew Gelman often recommends these as a practical default, arguing that even vague knowledge (e.g., "the effect size is unlikely to exceed 100") is worth encoding. <strong>Noninformative or reference priors</strong> (such as Jeffreys' prior) attempt to "let the data speak" by being as uninformative as possible, though truly noninformative priors can be tricky to construct and may be improper (not integrating to one). Finally, <strong>hierarchical priors</strong> place priors on the prior's own parameters (hyperparameters), allowing the data to inform the prior structure itself&mdash;a powerful technique for multi-group studies.</p>
+
+<p>A crucial property of the prior is that it does not disappear as you collect data&mdash;it merely becomes less influential. With $n = 10$ data points, the prior might substantially shape the posterior. With $n = 10{,}000$, the likelihood typically dominates and the posterior looks nearly the same regardless of the prior (for well-identified models). This is the <em>Bernstein–von Mises theorem</em> in action: under regularity conditions, the posterior concentrates around the true parameter value and becomes approximately Gaussian as $n \to \infty$, regardless of the prior.</p>
+
+<div class="warning-box">
+    <div class="box-title">Common Mistake: The Prior Doesn't Disappear</div>
+    <p>Students sometimes believe that in Bayesian inference, the prior is "just a formality" that disappears once you have data. This is wrong in two important ways. First, with small samples, the prior <em>materially</em> affects the posterior&mdash;ignoring this can lead to overconfident conclusions. Second, even with large samples, the prior matters for <strong>tail probabilities</strong>, <strong>model comparison</strong> (Bayes factors), and <strong>hierarchical models</strong> where some group-level parameters may have limited data.</p>
+</div>
+
+<!-- ── Likelihood ─────────────────────────────────────────────────── -->
 <h3 id="likelihood">Likelihood</h3>
-<div class="math-block">$$p(x \mid \theta)$$</div>
-<p>This describes how parameters produce observations.</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Likelihood Function</div>
+    <p>The <strong>likelihood function</strong> $p(x \mid \theta)$ (or $\mathcal{L}(\theta; x)$) describes the probability (or probability density) of the observed data $x$ given a specific parameter value $\theta$. It is the data-generating model evaluated at the observed data, viewed as a function of $\theta$.</p>
+</div>
+
+<div class="math-block">$$\mathcal{L}(\theta) = p(x \mid \theta) = \prod_{i=1}^{n} p(x_i \mid \theta)$$</div>
+
+<p>The likelihood is the bridge between the abstract parameter space and the concrete observed data. For a fixed $\theta$, $p(x \mid \theta)$ tells you the probability of seeing the data you actually saw. As you sweep $\theta$ across its range, you get a function&mdash;the likelihood function&mdash;that peaks at parameter values most compatible with the observations and is low at values that would make the data surprising.</p>
+
+<p>It is essential to understand that the likelihood is <em>not</em> a probability distribution over $\theta$. It does not integrate to one over $\theta$, and it has no probabilistic interpretation as a distribution over parameters. The likelihood tells you about data probability, not parameter probability. The distinction matters: $p(x \mid \theta)$ answers "How probable is this data if $\theta$ were true?" while $p(\theta \mid x)$ answers "How probable is this $\theta$ given what we saw?" Confusing the two is one of the most common errors in statistical reasoning.</p>
+
+<p>For independent and identically distributed (i.i.d.) observations $x_1, x_2, \ldots, x_n$, the likelihood factorizes into a product of individual terms. In practice, we almost always work with the <strong>log-likelihood</strong> $\ell(\theta) = \sum_{i=1}^{n} \log p(x_i \mid \theta)$, which converts products into sums and is numerically more stable. The log-likelihood is also the quantity that appears naturally when we connect Bayesian inference to information theory and coding, as we'll see in the information-theoretic section below.</p>
+
+<!-- ── Posterior ──────────────────────────────────────────────────── -->
 <h3 id="posterior">Posterior</h3>
-<div class="math-block">$$p(\theta \mid x) \propto p(x \mid \theta) p(\theta)$$</div>
-<p>The posterior is what we actually want for inference.</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Posterior Distribution</div>
+    <p>The <strong>posterior distribution</strong> $p(\theta \mid x)$ is the conditional distribution of $\theta$ given the observed data $x$. It combines the prior and the likelihood via Bayes' rule and represents our updated state of knowledge after observing the data.</p>
+</div>
+
+<div class="math-block">$$p(\theta \mid x) = \frac{p(x \mid \theta)\, p(\theta)}{p(x)} \propto p(x \mid \theta)\, p(\theta)$$</div>
+
+<p>The posterior is the ultimate goal of Bayesian inference. It contains everything we know about $\theta$ after combining our prior beliefs with the observed evidence. From the posterior, we can extract point estimates (mean, median, mode), interval estimates (credible intervals), make predictions (via the posterior predictive distribution), and compare models (via the evidence $p(x)$).</p>
+
+<p>The proportionality symbol $\propto$ in the expression above is one of the most powerful notations in Bayesian statistics. It tells us that we can often ignore the normalizing constant $p(x) = \int p(x \mid \theta)\,p(\theta)\,d\theta$ and work only with the unnormalized posterior $p(x \mid \theta)\,p(\theta)$. This is useful because the evidence integral is often intractable in high dimensions. Many computational methods&mdash;MCMC, variational inference&mdash;are designed specifically to work with the unnormalized posterior.</p>
+
+<p>The posterior also has a beautiful interpretation as a <strong>precision-weighted average</strong> of prior and data information. In the Gaussian case (which we'll work through below), the posterior mean is literally a weighted average of the prior mean and the data mean, with weights proportional to their respective precisions (inverse variances). The more precise source of information gets more weight&mdash;a deeply satisfying and intuitive result.</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Evidence (Marginal Likelihood)</div>
+    <p>The <strong>evidence</strong> $p(x)$ is the marginal probability of the data under the model, obtained by integrating out the parameters: $p(x) = \int p(x \mid \theta)\,p(\theta)\,d\theta$. It serves as the normalizing constant for the posterior and plays a central role in Bayesian model comparison.</p>
+</div>
+
+<div class="note-box">
+    <div class="box-title">Key Insight: Sequential Updating</div>
+    <p>If you observe data in two batches $x_1$ and $x_2$, you can update sequentially: first compute $p(\theta \mid x_1)$, then use it as the prior to compute $p(\theta \mid x_1, x_2)$. The result is identical to using the original prior and processing all data at once: $p(\theta \mid x_1, x_2) \propto p(x_2 \mid \theta)\,p(x_1 \mid \theta)\,p(\theta)$. This is because multiplication is associative&mdash;the order doesn't matter.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="conjugate-example-beta-binomial">Conjugate Example: Beta-Binomial</h2>
-<p>Suppose: $$x \mid p \sim \text{Binomial}(n, p)$$ and prior: $$p \sim \text{Beta}(\alpha, \beta)$$</p>
-<p>Then the posterior is: $$p \mid x \sim \text{Beta}(\alpha + x, \beta + n - x)$$</p>
-<h3 id="why-this-matters">Why this matters</h3>
-<ul>
-<li>easy algebra</li>
-<li>easy interpretation as pseudo-counts</li>
-<li>clear sequential updating</li>
-</ul>
+
+<p>To see Bayesian inference in action, let's work through the most canonical example in all of Bayesian statistics: the Beta-Binomial model. This example is special because it admits a <em>closed-form</em> posterior&mdash;no numerical integration required. When the prior and likelihood belong to the same distributional family, we say they are <strong>conjugate</strong>, and the resulting posterior has the same functional form as the prior, just with updated parameters.</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Conjugate Prior</div>
+    <p>A prior distribution $p(\theta)$ is <strong>conjugate</strong> to a likelihood $p(x \mid \theta)$ if the resulting posterior $p(\theta \mid x)$ belongs to the same parametric family as the prior. Conjugacy yields closed-form posteriors and makes Bayesian updating a matter of simple parameter arithmetic.</p>
+</div>
+
+<p><strong>Setup.</strong> Suppose we are estimating the bias $p$ of a coin. We model the number of heads $x$ in $n$ flips as binomial:</p>
+
+<div class="math-block">$$x \mid p \sim \text{Binomial}(n, p)$$</div>
+
+<p>and place a Beta prior on the bias:</p>
+
+<div class="math-block">$$p \sim \text{Beta}(\alpha, \beta)$$</div>
+
+<p><strong>Derivation.</strong> The Beta density is $p(\theta) \propto \theta^{\alpha-1}(1-\theta)^{\beta-1}$ and the binomial likelihood is $p(x \mid \theta) \propto \theta^x (1-\theta)^{n-x}$. Multiplying them:</p>
+
+<div class="math-block">$$p(\theta \mid x) \propto \theta^x (1-\theta)^{n-x} \cdot \theta^{\alpha-1}(1-\theta)^{\beta-1} = \theta^{(\alpha+x)-1}(1-\theta)^{(\beta+n-x)-1}$$</div>
+
+<p>This is the kernel of a $\text{Beta}(\alpha + x,\; \beta + n - x)$ distribution. Therefore:</p>
+
+<div class="math-block">$$p \mid x \sim \text{Beta}(\alpha + x,\; \beta + n - x)$$</div>
+
+<p><strong>Worked Example.</strong> Let's use concrete numbers. Suppose our prior is $\text{Beta}(2, 2)$&mdash;a symmetric, mildly informative prior that says we believe the coin is probably fair-ish but we're not very sure. The prior mean is $\alpha/(\alpha+\beta) = 2/4 = 0.5$. Now we flip the coin $n = 10$ times and observe $x = 7$ heads.</p>
+
+<p>Applying the conjugate update rule:</p>
+
+<div class="math-block">$$p \mid x \sim \text{Beta}(2 + 7,\; 2 + 10 - 7) = \text{Beta}(9, 5)$$</div>
+
+<p>The posterior mean is $9/(9+5) = 9/14 \approx 0.643$. Compare this with the maximum likelihood estimate (MLE), which is simply $x/n = 7/10 = 0.7$. The posterior mean is pulled toward the prior mean of 0.5&mdash;this is the prior exerting its regularizing influence. With only 10 data points, the prior's 4 pseudo-observations (2 pseudo-heads + 2 pseudo-tails) still carry meaningful weight.</p>
+
+<p>The posterior mode (the MAP estimate) is $(\alpha + x - 1)/(\alpha + \beta + n - 2) = (9 - 1)/(14 - 2) = 8/12 \approx 0.667$, which lies between the MLE and the posterior mean. The posterior variance is $\alpha'\beta' / [(\alpha'+\beta')^2(\alpha'+\beta'+1)] = 9 \cdot 5 / (14^2 \cdot 15) = 45/2940 \approx 0.0153$, giving a posterior standard deviation of about 0.124. A 95% credible interval would be approximately $(0.39, 0.86)$.</p>
+
+<div class="note-box">
+    <div class="box-title">Pseudo-Count Interpretation</div>
+    <p>The Beta prior parameters $\alpha$ and $\beta$ act as <strong>pseudo-counts</strong>: $\alpha$ represents "imaginary heads" and $\beta$ represents "imaginary tails" from a hypothetical prior experiment. Our $\text{Beta}(2,2)$ prior is equivalent to having previously observed 2 heads and 2 tails. After seeing 7 real heads and 3 real tails, we have $2+7=9$ total heads and $2+3=5$ total tails, giving $\text{Beta}(9,5)$. This interpretation makes prior elicitation concrete: "How many fictitious observations is my prior worth?"</p>
+</div>
+
+<p><strong>Why conjugacy matters.</strong> Conjugate models like Beta-Binomial are valuable for three reasons. First, they give closed-form posteriors, which means no MCMC or variational inference is needed&mdash;just arithmetic. Second, they have transparent interpretations: updating Beta parameters is just adding counts. Third, they support trivial sequential updating: if we later observe another 5 flips with 3 heads, we simply update $\text{Beta}(9,5) \to \text{Beta}(12, 7)$. No reprocessing needed.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="gaussian-gaussian-conjugacy">Gaussian-Gaussian Conjugacy</h2>
+
+<p>The Beta-Binomial model handles discrete count data. For continuous data, the most important conjugate pair is the <strong>Gaussian-Gaussian</strong> model: a Gaussian likelihood with a Gaussian prior on the mean, assuming known variance. This example reveals the beautiful "precision-weighted average" structure that underlies much of Bayesian reasoning.</p>
+
+<p><strong>Setup.</strong> Suppose we observe $n$ i.i.d. data points $x_1, \ldots, x_n$ from a Gaussian with unknown mean $\mu$ and known variance $\sigma^2$:</p>
+
+<div class="math-block">$$x_i \mid \mu \sim \mathcal{N}(\mu, \sigma^2), \quad i = 1, \ldots, n$$</div>
+
+<p>We place a Gaussian prior on $\mu$:</p>
+
+<div class="math-block">$$\mu \sim \mathcal{N}(\mu_0, \sigma_0^2)$$</div>
+
+<p><strong>Derivation.</strong> The log-posterior is (dropping constants that don't depend on $\mu$):</p>
+
+<div class="math-block">$$\log p(\mu \mid x) = -\frac{1}{2\sigma^2}\sum_{i=1}^n(x_i - \mu)^2 - \frac{1}{2\sigma_0^2}(\mu - \mu_0)^2 + \text{const}$$</div>
+
+<p>Expanding and collecting terms in $\mu$, this is a quadratic in $\mu$, so the posterior is Gaussian. Defining the prior precision $\tau_0 = 1/\sigma_0^2$ and the data precision $\tau_{\text{data}} = n/\sigma^2$, the posterior is:</p>
+
+<div class="math-block">$$\mu \mid x \sim \mathcal{N}\!\left(\frac{\tau_0 \mu_0 + \tau_{\text{data}} \bar{x}}{\tau_0 + \tau_{\text{data}}},\; \frac{1}{\tau_0 + \tau_{\text{data}}}\right)$$</div>
+
+<p>where $\bar{x} = \frac{1}{n}\sum x_i$ is the sample mean.</p>
+
+<p><strong>Worked Example.</strong> Suppose we believe the average height of adult males in a population is about 175 cm, but we're uncertain: $\mu_0 = 175$, $\sigma_0 = 10$ (so $\tau_0 = 0.01$). We measure $n = 25$ men and find $\bar{x} = 178$ cm, with known $\sigma = 8$ cm (so $\tau_{\text{data}} = 25/64 \approx 0.3906$).</p>
+
+<div class="math-block">$$\mu_{\text{post}} = \frac{0.01 \times 175 + 0.3906 \times 178}{0.01 + 0.3906} = \frac{1.75 + 69.53}{0.4006} = \frac{71.28}{0.4006} \approx 177.9 \text{ cm}$$</div>
+
+<div class="math-block">$$\sigma_{\text{post}} = \frac{1}{\sqrt{0.4006}} \approx 1.58 \text{ cm}$$</div>
+
+<p>Notice several things. First, the posterior mean (177.9) is very close to the data mean (178) and far from the prior mean (175). This is because the data precision ($\approx 0.39$) vastly exceeds the prior precision ($0.01$)&mdash;the data are much more informative than our prior, so they dominate. Second, the posterior standard deviation (1.58 cm) is much smaller than either the prior SD (10 cm) or the data SD (8 cm)&mdash;combining information sources always <em>reduces</em> uncertainty. Third, the posterior precision is simply the <em>sum</em> of prior and data precisions: information is additive in the precision scale.</p>
+
+<div class="note-box">
+    <div class="box-title">Precision-Weighted Average</div>
+    <p>The Gaussian posterior mean is always a <strong>precision-weighted average</strong> of the prior mean and the data mean. Whichever source has higher precision (lower variance) gets more weight. In the limit of infinite data ($n \to \infty$), the data precision dominates and the posterior converges to the data mean. In the limit of a very informative prior ($\sigma_0 \to 0$), the posterior stays near the prior mean regardless of the data.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="posterior-predictive-distribution">Posterior Predictive Distribution</h2>
-<p>Bayesian inference naturally supports prediction: $$p(x_{new} \mid x) = \int p(x_{new} \mid \theta) p(\theta \mid x) \, d\theta$$</p>
-<p>This integrates over parameter uncertainty instead of pretending one estimate is exact.</p>
+
+<p>Once we have a posterior, the next natural question is: "What should I expect to see if I collect <em>new</em> data?" The answer is the <strong>posterior predictive distribution</strong>, which integrates over all plausible parameter values weighted by the posterior, rather than conditioning on a single point estimate.</p>
+
+<div class="definition-box">
+    <div class="box-title">Definition &mdash; Posterior Predictive Distribution</div>
+    <p>The <strong>posterior predictive distribution</strong> for a new observation $x_{\text{new}}$ given observed data $x$ is: $p(x_{\text{new}} \mid x) = \int p(x_{\text{new}} \mid \theta)\,p(\theta \mid x)\,d\theta$. It marginalizes over the parameter posterior, accounting for parameter uncertainty in predictions.</p>
+</div>
+
+<div class="math-block">$$p(x_{\text{new}} \mid x) = \int p(x_{\text{new}} \mid \theta)\, p(\theta \mid x)\, d\theta$$</div>
+
+<p>Why is this better than plugging in a point estimate $\hat{\theta}$ and computing $p(x_{\text{new}} \mid \hat{\theta})$? Because the plug-in approach <em>underestimates uncertainty</em>. It pretends we know $\theta$ exactly, when in reality we don't. The posterior predictive distribution honestly accounts for the fact that many different $\theta$ values are plausible, and averages over all of them. The result is a predictive distribution that is typically <strong>wider</strong> (more uncertain) than the plug-in prediction&mdash;and more honest.</p>
+
+<p><strong>Derivation for the Beta-Binomial.</strong> Continuing our coin example, suppose we've observed $x = 7$ heads in $n = 10$ flips with a $\text{Beta}(2,2)$ prior, giving posterior $p \mid x \sim \text{Beta}(9,5)$. What is the probability that the <em>next</em> flip is heads?</p>
+
+<div class="math-block">$$P(x_{\text{new}} = 1 \mid x) = \int_0^1 p \cdot p(p \mid x)\,dp = \mathbb{E}[p \mid x] = \frac{\alpha'}{\alpha' + \beta'} = \frac{9}{14} \approx 0.643$$</div>
+
+<p>Compare this with the MLE prediction: $\hat{p} = 7/10 = 0.7$. The Bayesian prediction is more conservative, pulled toward 0.5 by the prior. For the predictive distribution of the number of heads $y$ in $m$ future flips, we get the <strong>Beta-Binomial</strong> distribution:</p>
+
+<div class="math-block">$$P(y = k \mid x) = \binom{m}{k} \frac{B(\alpha' + k,\; \beta' + m - k)}{B(\alpha', \beta')}$$</div>
+
+<p>where $B(\cdot, \cdot)$ is the Beta function. This distribution has <em>heavier tails</em> than a Binomial with fixed $p$, precisely because it accounts for uncertainty in $p$. This is the concrete payoff of integrating over the posterior: more realistic, more calibrated predictions.</p>
+
+<p><strong>Derivation for the Gaussian model.</strong> For the Gaussian-Gaussian model with posterior $\mu \mid x \sim \mathcal{N}(\mu_{\text{post}}, \sigma_{\text{post}}^2)$, the posterior predictive for a new observation $x_{\text{new}}$ is:</p>
+
+<div class="math-block">$$x_{\text{new}} \mid x \sim \mathcal{N}\!\left(\mu_{\text{post}},\; \sigma^2 + \sigma_{\text{post}}^2\right)$$</div>
+
+<p>The predictive variance is $\sigma^2 + \sigma_{\text{post}}^2$&mdash;the sum of the intrinsic noise variance and the parameter uncertainty. As the sample size grows and $\sigma_{\text{post}}^2 \to 0$, the predictive variance approaches $\sigma^2$, the irreducible noise. But with finite data, the extra term $\sigma_{\text{post}}^2$ honestly reflects our remaining uncertainty about $\mu$.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="map-vs-full-bayes">MAP vs Full Bayes</h2>
-<h3 id="map">MAP</h3>
-<p>Maximum a posteriori estimation chooses: $$\theta_{MAP} = \arg\max_\theta p(\theta \mid x)$$</p>
-<p>Equivalent to: $$\arg\max_\theta \log p(x \mid \theta) + \log p(\theta)$$</p>
-<p>MAP gives one point. Full Bayes keeps the full posterior.</p>
-<h3 id="important-difference">Important difference</h3>
-<p>MAP is not the same as Bayesian inference in its fullest sense. It is a summary, not the whole answer.</p>
+
+<p>In practice, computing and working with the full posterior can be expensive. A common shortcut is <strong>Maximum A Posteriori (MAP)</strong> estimation, which finds the single most probable parameter value under the posterior. Let's understand what MAP buys us, what it costs, and when the tradeoff is worthwhile.</p>
+
+<h3 id="map">MAP Estimation</h3>
+
+<p>The MAP estimate is the mode of the posterior distribution:</p>
+
+<div class="math-block">$$\theta_{\text{MAP}} = \arg\max_\theta\, p(\theta \mid x) = \arg\max_\theta\, \big[\log p(x \mid \theta) + \log p(\theta)\big]$$</div>
+
+<p>This is equivalent to maximizing the log-likelihood plus a log-prior penalty term. Notice the structural similarity to <strong>regularized maximum likelihood</strong>: if the prior is $\mathcal{N}(0, \sigma_0^2)$, then $\log p(\theta) = -\|\theta\|^2 / (2\sigma_0^2) + \text{const}$, which is precisely an L2 (ridge) penalty. If the prior is Laplace, the log-prior becomes an L1 (lasso) penalty. This connection means that many regularization techniques used in machine learning are secretly doing MAP estimation with specific prior choices.</p>
+
+<p><strong>Worked Example.</strong> Returning to our Beta-Binomial coin flip: the MAP estimate under the $\text{Beta}(9, 5)$ posterior is the mode of the Beta distribution:</p>
+
+<div class="math-block">$$\theta_{\text{MAP}} = \frac{\alpha' - 1}{\alpha' + \beta' - 2} = \frac{9 - 1}{9 + 5 - 2} = \frac{8}{12} \approx 0.667$$</div>
+
+<p>Compare the three point estimates: MLE = 0.700, MAP = 0.667, posterior mean = 0.643. The MAP is between the MLE and the posterior mean, as the mode of the Beta distribution is always between the mean and the boundary. For symmetric posteriors (like Gaussians), MAP and posterior mean coincide.</p>
+
+<h3 id="important-difference">Full Bayes vs MAP: When It Matters</h3>
+
+<p>MAP estimation gives you a single point. Full Bayesian inference gives you the entire posterior distribution. Why does this matter? Consider making a prediction: with MAP, you'd compute $p(x_{\text{new}} \mid \theta_{\text{MAP}})$, treating the MAP estimate as if it were the true parameter. With full Bayes, you'd compute $p(x_{\text{new}} \mid x) = \int p(x_{\text{new}} \mid \theta)\,p(\theta \mid x)\,d\theta$, averaging over all plausible parameters. The full Bayesian approach yields wider, more honest prediction intervals, and it can give qualitatively different answers when the posterior is multimodal or skewed.</p>
+
+<p>Here's a concrete scenario where MAP fails: suppose the posterior is bimodal, with two peaks at $\theta = 0.3$ and $\theta = 0.7$, both equally probable. The MAP estimate would pick one of these peaks (say 0.7), completely ignoring the other. Predictions based on $\theta = 0.7$ would be overconfident and systematically wrong half the time. Full Bayes would average over both modes, producing predictions that reflect the genuine bimodal uncertainty.</p>
+
+<div class="warning-box">
+    <div class="box-title">Common Mistake: MAP Is Not Full Bayesian Inference</div>
+    <p>MAP estimation is sometimes called "Bayesian" because it uses a prior. But it is fundamentally a <em>point estimation</em> method, not a distributional one. Calling MAP "Bayesian inference" obscures the key advantage of the Bayesian approach: maintaining and propagating the full posterior. True Bayesian inference never collapses to a single number&mdash;it preserves the entire distribution of uncertainty.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="credible-intervals">Credible Intervals</h2>
-<p>A 95% credible interval means:</p>
+
+<p>One of the most practically useful outputs of Bayesian inference is the <strong>credible interval</strong> (also called a "Bayesian confidence interval," though this term can cause confusion with frequentist confidence intervals). A 95% credible interval $[a, b]$ is a region such that:</p>
+
+<div class="math-block">$$P(\theta \in [a, b] \mid x) = 0.95$$</div>
+
 <blockquote><p>Under the model and prior, the posterior assigns 95% probability to the parameter lying in that interval.</p></blockquote>
-<p>This is a probability statement about the parameter itself, conditional on the model.</p>
+
+<p>This is a genuinely probabilistic statement about $\theta$ itself, conditional on the model and data. Contrast this with a frequentist confidence interval, which says: "If we repeated this experiment many times, 95% of the resulting intervals would contain the true $\theta$." The frequentist statement is about the <em>procedure</em>, not about any particular interval. The Bayesian statement is about <em>this specific interval</em>. For decision-making, the Bayesian interpretation is usually more natural and more useful.</p>
+
+<p>There are two main types of credible intervals. The <strong>equal-tailed interval</strong> places 2.5% of the posterior mass in each tail. The <strong>highest posterior density (HPD) interval</strong> is the shortest interval containing 95% of the mass&mdash;it always contains the posterior mode. For symmetric, unimodal posteriors (like Gaussians), these coincide. For skewed posteriors (like many Beta distributions), the HPD interval can be substantially shorter than the equal-tailed interval.</p>
+
+<p>For our $\text{Beta}(9, 5)$ posterior, a 95% equal-tailed credible interval is approximately $(0.39, 0.86)$, meaning we can say: "Given our prior and the data, there is a 95% posterior probability that the true coin bias lies between 0.39 and 0.86." This is a direct, interpretable statement about the parameter.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="visual-summary">Visual Summary</h2>
+
 <div align="center">
 <svg viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg" width="780" height="280" role="img" aria-label="Bayesian inference diagram">
   <text x="140" y="34" text-anchor="middle" font-size="22" font-weight="600">Prior</text>
@@ -238,45 +448,99 @@
   </defs>
 </svg>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="info-theory">Information-Theoretic Perspective</h2>
+
+<p>Bayesian inference has a deep and beautiful connection to information theory. When we update from prior to posterior, we are, in a precise sense, <em>gaining information</em> about the parameter $\theta$. The natural measure of this information gain is the <strong>Kullback-Leibler (KL) divergence</strong> from the prior to the posterior:</p>
+
+<div class="math-block">$$D_{\text{KL}}\!\big(p(\theta \mid x) \,\|\, p(\theta)\big) = \int p(\theta \mid x) \log \frac{p(\theta \mid x)}{p(\theta)}\, d\theta$$</div>
+
+<p>This quantity is always non-negative (by Gibbs' inequality) and equals zero only when the posterior equals the prior&mdash;i.e., when the data taught us nothing. The larger the KL divergence, the more the data have shifted our beliefs. You can think of it as the number of "nats" (or "bits," if you use $\log_2$) of information extracted from the data about $\theta$. In our Beta-Binomial example, moving from $\text{Beta}(2,2)$ to $\text{Beta}(9,5)$ represents a substantial information gain: the posterior is much more concentrated than the prior, reflecting what 10 coin flips taught us about the bias.</p>
+
+<p>There is an equivalent and illuminating way to view Bayesian updating through the lens of <strong>surprisal</strong> (self-information). The log-posterior can be written as:</p>
+
+<div class="math-block">$$\log p(\theta \mid x) = \log p(x \mid \theta) + \log p(\theta) - \log p(x)$$</div>
+
+<p>The term $-\log p(x \mid \theta)$ is the surprisal of the data under parameter $\theta$. Parameters that make the data <em>unsurprising</em> (high likelihood, low surprisal) receive more posterior mass. Bayesian updating can thus be viewed as a process that redistributes probability mass to minimize the expected surprisal of the observed data, subject to the regularization provided by the prior. This connects to the <strong>minimum description length (MDL)</strong> principle: the best model is the one that compresses the data most efficiently, and Bayesian inference naturally favors models that achieve this compression.</p>
+
+<p>The evidence $p(x) = \int p(x \mid \theta)\,p(\theta)\,d\theta$ also has an information-theoretic interpretation: $-\log p(x)$ is the <strong>stochastic complexity</strong> of the data under the model. In Bayesian model comparison, we prefer the model with higher evidence&mdash;equivalently, the model that assigns shorter code length to the observed data. This automatically implements Occam's razor: complex models spread their probability mass across many possible datasets, so any single dataset gets lower probability. Simple models concentrate their mass on fewer datasets, achieving higher evidence when the data happen to lie in that concentrated region.</p>
+
+<div class="note-box">
+    <div class="box-title">Connection to Mutual Information</div>
+    <p>The expected KL divergence from prior to posterior (averaged over possible datasets $x$) is the <strong>mutual information</strong> $I(\theta; X)$ between parameter and data. This quantity measures how much information the experiment is expected to provide about $\theta$ before we even run it&mdash;making it the foundation of <strong>Bayesian experimental design</strong>, where we choose experiments to maximize expected information gain.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="strengths">Strengths</h2>
+
+<p>Bayesian inference offers several distinctive advantages over alternative approaches to statistical reasoning:</p>
+
 <ul>
-<li>direct uncertainty quantification</li>
-<li>natural incorporation of prior knowledge</li>
-<li>coherent sequential updating</li>
-<li>natural predictive distributions</li>
-<li>good fit for hierarchical modeling</li>
+<li><strong>Direct uncertainty quantification.</strong> The posterior is a full probability distribution, giving not just point estimates but complete uncertainty profiles. Credible intervals have a direct probabilistic interpretation.</li>
+<li><strong>Natural incorporation of prior knowledge.</strong> Domain expertise, historical data, and physical constraints can all be encoded in the prior, making the analysis more sample-efficient and better calibrated in small-sample settings.</li>
+<li><strong>Coherent sequential updating.</strong> Today's posterior becomes tomorrow's prior. No need to re-process old data when new observations arrive&mdash;the update is automatic and order-independent.</li>
+<li><strong>Natural predictive distributions.</strong> The posterior predictive distribution provides honest forecasts that account for parameter uncertainty, avoiding the overconfidence of plug-in predictions.</li>
+<li><strong>Principled model comparison.</strong> The evidence (marginal likelihood) provides a natural criterion for comparing models that automatically penalizes complexity, implementing a quantitative Occam's razor.</li>
+<li><strong>Hierarchical modeling.</strong> Bayesian methods excel at multi-level models where parameters at one level serve as priors for parameters at another, enabling partial pooling across groups and borrowing strength from related subsets of data.</li>
 </ul>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="common-objections-and-replies">Common Objections and Replies</h2>
+
 <h3 id="priors-are-subjective">&quot;Priors are subjective&quot;</h3>
-<p>Yes, but modeling choices are always assumptions. Bayesian methods make some assumptions explicit instead of hiding them.</p>
+<p>This is the oldest and most persistent criticism of Bayesian inference. And it is partly true: two analysts with different priors will generally reach different posteriors, at least initially. But the objection overstates the problem. First, <em>all</em> statistical modeling involves subjective choices&mdash;the choice of model, the choice of test statistic, the choice of significance level&mdash;and Bayesian priors are no more (or less) subjective than these. Second, Bayesian methods have the advantage of making their subjective choices <em>explicit</em> and <em>transparent</em>, so they can be examined, criticized, and varied in sensitivity analyses. Third, under regularity conditions, different priors lead to the same posterior as data accumulate&mdash;the posterior is eventually dominated by the likelihood, and prior disagreements wash out.</p>
+
 <h3 id="bayesian-methods-are-computationally-hard">&quot;Bayesian methods are computationally hard&quot;</h3>
-<p>Often true. That is why MCMC, variational inference, and amortized inference matter.</p>
+<p>This objection is often valid. Computing the posterior typically requires evaluating or sampling from an intractable integral, especially in high-dimensional parameter spaces. Conjugate models sidestep this issue, but real-world models rarely have conjugate structure. However, dramatic advances in computational methods&mdash;Markov Chain Monte Carlo (MCMC), Hamiltonian Monte Carlo (HMC), variational inference (VI), and amortized inference via neural networks&mdash;have made Bayesian inference practical for increasingly complex models. Modern probabilistic programming languages like Stan, PyMC, and NumPyro put these methods within reach of applied practitioners.</p>
+
 <h3 id="with-enough-data-priors-do-not-matter">&quot;With enough data priors do not matter&quot;</h3>
-<p>Sometimes approximately true, but not always:</p>
+<p>This is sometimes approximately true for well-identified models with simple structure. The Bernstein–von Mises theorem guarantees posterior concentration around the truth under regularity conditions. However, there are important exceptions where priors <em>continue to matter</em> even with large datasets:</p>
 <ul>
-<li>weak-data settings</li>
-<li>hierarchical models</li>
-<li>non-identifiable models</li>
-<li>tail probabilities</li>
+<li><strong>Weak-data settings:</strong> Some parameters may be poorly identified even with large overall sample sizes (e.g., variance components in hierarchical models).</li>
+<li><strong>Hierarchical models:</strong> Hyperpriors on group-level parameters can influence the degree of shrinkage, which affects all group-level estimates.</li>
+<li><strong>Non-identifiable models:</strong> When the likelihood surface is flat in some directions, the prior is the <em>only</em> source of information for those directions.</li>
+<li><strong>Tail probabilities:</strong> Rare-event probabilities are sensitive to prior assumptions even with substantial data, because the data provide little information about the tails.</li>
+<li><strong>Model comparison:</strong> Bayes factors depend on the prior, and this dependence does not disappear with more data. An improper prior makes Bayes factors undefined.</li>
 </ul>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="failure-modes">Failure Modes</h2>
+
+<p>Bayesian inference is powerful, but it is not infallible. Here are the most common ways it can go wrong:</p>
+
 <ul>
-<li>badly chosen priors</li>
-<li>overconfident likelihood assumptions</li>
-<li>posterior sensitivity hidden from the reader</li>
-<li>computational approximation mistaken for exact inference</li>
+<li><strong>Badly chosen priors.</strong> A prior that assigns near-zero probability to the true parameter region can prevent the posterior from recovering the truth, especially with limited data. Always perform prior predictive checks: sample parameters from the prior, generate synthetic data, and verify that the implied data distribution is reasonable.</li>
+<li><strong>Overconfident likelihood assumptions.</strong> If the likelihood model is misspecified (e.g., assuming Gaussian noise when the data have heavy tails), the posterior can be confidently wrong. The posterior concentrates around the wrong value and gives narrow credible intervals that miss the truth.</li>
+<li><strong>Posterior sensitivity hidden from the reader.</strong> If the posterior changes dramatically with small changes to the prior or likelihood, this should be reported. Failing to do so gives a false impression of robustness.</li>
+<li><strong>Computational approximation mistaken for exact inference.</strong> MCMC chains that haven't converged, variational approximations that are too restrictive, or importance sampling with high variance can all produce misleading posteriors. Always check convergence diagnostics ($\hat{R}$, ESS, trace plots) and validate against known solutions when possible.</li>
 </ul>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <h2 id="a-good-bayesian-habit">A Good Bayesian Habit</h2>
-<p>Always ask:</p>
+
+<p>Whether you are producing or consuming Bayesian analyses, develop the habit of asking these four diagnostic questions every time:</p>
+
 <ol>
-<li>What prior was used?</li>
-<li>How sensitive are the results to that prior?</li>
-<li>How was the posterior approximated?</li>
-<li>Were posterior predictive checks performed?</li>
+<li><strong>What prior was used?</strong> Is it informative or vague? Is it justified by domain knowledge, by convention, or by convenience? Could a different reasonable prior change the conclusions?</li>
+<li><strong>How sensitive are the results to that prior?</strong> Has the analyst performed a sensitivity analysis, varying the prior and checking whether the conclusions are robust? If the posterior changes dramatically with the prior, the data may not be informative enough to draw strong conclusions.</li>
+<li><strong>How was the posterior approximated?</strong> Was it computed analytically (conjugate models), via MCMC, via variational inference, or via some other method? What convergence diagnostics were checked? Were there any signs of pathological behavior (divergent transitions, low ESS, multimodality)?</li>
+<li><strong>Were posterior predictive checks performed?</strong> The posterior predictive distribution should generate synthetic data that looks similar to the real data. If it doesn't, the model is misspecified and the posterior may be unreliable. This is the Bayesian analog of residual analysis.</li>
 </ol>
+
+<p>By asking these questions, you develop what Andrew Gelman calls a "Bayesian workflow"&mdash;a principled approach to model building, checking, and revision that goes far beyond simply plugging numbers into Bayes' rule. Good Bayesian practice is iterative: build a model, check it against data, identify weaknesses, revise, and repeat.</p>
+
                 <div class="note-box series-note">
         <div class="box-title">Key Takeaways</div>
-        <ul><li>The Big Picture</li><li>Intuition</li><li>The Three Core Ingredients</li><li>Prior</li><li>Likelihood</li></ul>
+        <ul>
+            <li><strong>Bayes' rule</strong> provides the unique coherent framework for updating beliefs: posterior ∝ likelihood × prior.</li>
+            <li>The <strong>posterior distribution</strong> captures full uncertainty about parameters, not just a single best guess.</li>
+            <li><strong>Conjugate models</strong> (Beta-Binomial, Gaussian-Gaussian) yield closed-form posteriors with intuitive update rules based on pseudo-counts or precision weighting.</li>
+            <li>The <strong>posterior predictive distribution</strong> integrates over parameter uncertainty, producing wider and more honest predictions than plug-in estimates.</li>
+            <li><strong>MAP estimation</strong> is a point estimate, not full Bayesian inference&mdash;it can fail badly with multimodal or skewed posteriors.</li>
+            <li>The <strong>KL divergence</strong> from prior to posterior measures the information gained from data, connecting Bayesian updating to information theory.</li>
+            <li><strong>Priors matter</strong>&mdash;especially with small samples, hierarchical models, tail probabilities, and model comparison.</li>
+        </ul>
     </div>
             </article>
 
